@@ -1,0 +1,55 @@
+pub mod to;
+
+use to::To;
+
+pub struct SipHeaders {
+    hdrs: Vec<Header>
+}
+
+pub enum Header {
+    Accept,
+    AcceptEncodingUnimp,
+    AcceptLanguageUnimp,
+    AlertInfoUnimp,
+    Allow,
+    AuthenticationInfoUnimp,
+    Authorization,
+    CallId,
+    CallInfoUnimp,
+    Contact,
+    ContentDispositionUnimp,
+    ContentEncodingUnimp,
+    ContentLanguageUnimp,
+    ContentLength,
+    ContentType,
+    Cseq,
+    DateUnimp,
+    ErrorInfoUnimp,
+    Expires,
+    From,
+    InReplyToUnimp,
+    MaxForwards,
+    MimeVersionUnimp,
+    MinExpires,
+    OrganizationUnimp,
+    PriorityUnimp,
+    ProxyAuthenticate,
+    ProxyAuthorization,
+    ProxyRequireUnimp,
+    RecordRoute,
+    ReplyToUnimp,
+    Require,
+    RetryAfter,
+    Route,
+    ServerUnimp,
+    SubjectUnimp,
+    Supported,
+    TimestampUnimp,
+    To(To),
+    Unsupported,
+    UserAgentUnimp,
+    Via,
+    WarningUnimp,
+    WwwAuthenticate,
+    Other,
+}
