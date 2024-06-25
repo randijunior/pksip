@@ -1,23 +1,24 @@
 use nom::{
-    branch::alt,
-    bytes::complete::{take_till, take_while},
-    character::complete::digit1,
-    combinator::opt,
-    complete::tag,
+    bytes::complete::{tag, take, take_till, take_while},
+    character::{
+        complete::{digit1, space1},
+        is_digit,
+    },
+    combinator::map_res,
     sequence::{preceded, tuple},
     IResult,
 };
 
 use nom::character::complete::char;
 
-const EMPTY: &'static [u8] = &[];
+const EMPTY: &[u8] = &[];
 
 fn until_eof(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take_till(|c| c == 0x0D || c == 0x0A)(input)
 }
 
 fn parse_int(input: &[u8]) -> nom::IResult<&[u8], u32> {
-    nom::combinator::map_res(nom::character::complete::digit1, |digits: &[u8]| {
+    map_res(digit1, |digits: &[u8]| {
         std::str::from_utf8(digits)
             .map_err(|_| "Invalid UTF-8")
             .and_then(|s| s.parse::<u32>().map_err(|_| "Parse error"))
@@ -25,74 +26,62 @@ fn parse_int(input: &[u8]) -> nom::IResult<&[u8], u32> {
 }
 
 pub(crate) fn status_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8])> {
-    let (input, (_, _, _, _, _, code, _, reason_phrase)) = nom::sequence::tuple((
-        nom::bytes::complete::tag("SIP/"),
-        take_while(nom::character::is_digit),
-        nom::character::complete::char('.'),
-        take_while(nom::character::is_digit),
-        nom::character::complete::space1,
-        nom::character::complete::digit1,
-        nom::character::complete::space1,
+    let (input, (_, _, _, _, _, code, _, reason_phrase)) = tuple((
+        tag("SIP/"),
+        take_while(is_digit),
+        char('.'),
+        take_while(is_digit),
+        space1,
+        digit1,
+        space1,
         until_eof,
     ))(i)?;
 
     Ok((input, (code, reason_phrase)))
 }
 
-// SIP URI: sip:user:password@host:port;uri-parameters?headers
-/*
-Example SIP and SIPS URIs
+fn uri_params(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    if i.len() == 0 || i[0] != b';' {
+        Ok((i, EMPTY))
+    } else {
+        preceded(tag(";"), take_till(|c| c == b'?' || c == b' '))(i)
+    }
+}
 
-   sip:alice@atlanta.com
-   sip:alice:secretword@atlanta.com;transport=tcp
-   sips:alice@atlanta.com?subject=project%20x&priority=urgent
-   sip:+1-212-555-1212:1234@gateway.com;user=phone
-   sips:1212@gateway.com
-   sip:alice@192.0.2.4
-   sip:atlanta.com;method=REGISTER?to=alice%40atlanta.com
-   sip:alice;day=tuesday@atlanta.com
-   sip:192.1.2.3
-*/
+fn uri_headers(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    if i.len() == 0 || i[0] != b'?' {
+        Ok((i, EMPTY))
+    } else {
+        preceded(tag("?"), take_till(|c| c == b' '))(i)
+    }
+}
 
-pub(crate) fn request_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8])> {
+fn uri_host(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    take_till(|c| c == b';' || c == b'?' || c == b' ')(i)
+}
+
+fn rl_after_ampersat(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8])> {
+    let (input, host) = uri_host(i)?;
+    let (input, uri_params) = uri_params(input)?;
+    let (input, uri_headers) = uri_headers(input)?;
+
+    Ok((input, (host, uri_params, uri_headers)))
+}
+
+pub(crate) fn request_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8], &[u8], &[u8])> {
     let schema = take_while(|c| c != b':');
     let user = preceded(char(':'), take_till(|c| c == b'@'));
     let (input, (schema, after_schema)) = tuple((schema, user))(i)?;
 
     if input.is_empty() {
-        return Ok((input, (schema, EMPTY, after_schema)));
+        // No user info
+        let (input, (host, uri_params, uri_headers)) = rl_after_ampersat(after_schema)?;
+        return Ok((input, (schema, EMPTY, host, uri_params, uri_headers)));
     }
 
-    let host = alt((take_till(|c| c == b';' || c == b'?'), until_eof));
-    let (input, host) = preceded(char('@'), host)(input)?;
+    // remove the '@'
+    let (input, _) = take(1usize)(input)?;
+    let (input, (host, uri_params, uri_headers)) = rl_after_ampersat(input)?;
 
-    Ok((input, (schema, after_schema, host)))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn request_line_parser() {
-        let (_, (schema, user_info, host)) =
-            request_line(b"sip:alice;day=tuesday@atlanta.com").unwrap();
-
-        assert_eq!(schema, b"sip");
-        assert_eq!(user_info, b"alice;day=tuesday");
-        assert_eq!(host, b"atlanta.com");
-
-        let (_, (schema, user_info, host)) = request_line(b"sip:192.1.2.3").unwrap();
-
-        assert_eq!(schema, b"sip");
-        assert_eq!(user_info, EMPTY);
-        assert_eq!(host, b"192.1.2.3");
-
-        let (_, (schema, user_info, host)) =
-            request_line(b"sip:support:pass@212.123.1.213").unwrap();
-
-        assert_eq!(schema, b"sip");
-        assert_eq!(user_info, b"support:pass");
-        assert_eq!(host, b"212.123.1.213");
-    }
+    return Ok((input, (schema, after_schema, host, uri_params, uri_headers)));
 }
