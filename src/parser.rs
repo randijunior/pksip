@@ -1,6 +1,16 @@
 use nom::{
-    bytes::complete::{take_till, take_while}, character::complete::one_of, sequence::preceded, IResult
+    branch::alt,
+    bytes::complete::{take_till, take_while},
+    character::complete::digit1,
+    combinator::opt,
+    complete::tag,
+    sequence::{preceded, tuple},
+    IResult,
 };
+
+use nom::character::complete::char;
+
+const EMPTY: &'static [u8] = &[];
 
 fn until_eof(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take_till(|c| c == 0x0D || c == 0x0A)(input)
@@ -41,23 +51,22 @@ Example SIP and SIPS URIs
    sip:alice@192.0.2.4
    sip:atlanta.com;method=REGISTER?to=alice%40atlanta.com
    sip:alice;day=tuesday@atlanta.com
+   sip:192.1.2.3
 */
 
-
-
-
-pub(crate) fn request_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8])> {
+pub(crate) fn request_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8])> {
     let schema = take_while(|c| c != b':');
-    let user = preceded(nom::character::complete::char(':'), take_till(|c| c == b'@'));
-    let (input, (schema, user_info, _)) = nom::sequence::tuple((
-        schema,
-        user,
-        nom::character::complete::char('@')
-    ))(i)?;
+    let user = preceded(char(':'), take_till(|c| c == b'@'));
+    let (input, (schema, after_schema)) = tuple((schema, user))(i)?;
 
-    
+    if input.is_empty() {
+        return Ok((input, (schema, EMPTY, after_schema)));
+    }
 
-    Ok((input, (schema, user_info)))
+    let host = alt((take_till(|c| c == b';' || c == b'?'), until_eof));
+    let (input, host) = preceded(char('@'), host)(input)?;
+
+    Ok((input, (schema, after_schema, host)))
 }
 
 #[cfg(test)]
@@ -66,14 +75,24 @@ mod tests {
 
     #[test]
     fn request_line_parser() {
-        let (input, (schema, user_info)) = request_line("sip:alice;day=tuesday@atlanta.com".as_bytes()).unwrap();
+        let (_, (schema, user_info, host)) =
+            request_line(b"sip:alice;day=tuesday@atlanta.com").unwrap();
 
-        println!("INPUT {:#?}", std::str::from_utf8(input).unwrap());
+        assert_eq!(schema, b"sip");
+        assert_eq!(user_info, b"alice;day=tuesday");
+        assert_eq!(host, b"atlanta.com");
 
-        println!("SCHEMA {:#?}", std::str::from_utf8(schema).unwrap());
-        println!("USER INFO {:#?}", std::str::from_utf8(user_info).unwrap());
+        let (_, (schema, user_info, host)) = request_line(b"sip:192.1.2.3").unwrap();
 
-        // assert_eq!(schema, "sip".as_bytes());
-        // assert_eq!(user_info, "alice".as_bytes());
+        assert_eq!(schema, b"sip");
+        assert_eq!(user_info, EMPTY);
+        assert_eq!(host, b"192.1.2.3");
+
+        let (_, (schema, user_info, host)) =
+            request_line(b"sip:support:pass@212.123.1.213").unwrap();
+
+        assert_eq!(schema, b"sip");
+        assert_eq!(user_info, b"support:pass");
+        assert_eq!(host, b"212.123.1.213");
     }
 }
