@@ -11,9 +11,15 @@ use nom::{
 
 use nom::character::complete::char;
 
+use crate::util::ParseSipError;
+
 const EMPTY: &[u8] = &[];
 
-fn until_eof(input: &[u8]) -> IResult<&[u8], &[u8]> {
+pub trait Parser<'a> {
+    fn parse(input: &'a [u8]) -> Result<Self, nom::Err<ParseSipError>> where Self: Sized;
+}
+
+fn until_eof(input: &[u8]) -> IResult<&[u8], &[u8], ParseSipError> {
     take_till(|c| c == 0x0D || c == 0x0A)(input)
 }
 
@@ -25,7 +31,7 @@ fn parse_int(input: &[u8]) -> nom::IResult<&[u8], u32> {
     })(input)
 }
 
-pub(crate) fn status_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8])> {
+pub(crate) fn status_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8]), ParseSipError> {
     let (input, (_, _, _, _, _, code, _, reason_phrase)) = tuple((
         tag("SIP/"),
         take_while(is_digit),
@@ -40,7 +46,7 @@ pub(crate) fn status_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8])> {
     Ok((input, (code, reason_phrase)))
 }
 
-fn uri_params(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn uri_params(i: &[u8]) -> IResult<&[u8], &[u8], ParseSipError> {
     if i.len() == 0 || i[0] != b';' {
         Ok((i, EMPTY))
     } else {
@@ -48,7 +54,7 @@ fn uri_params(i: &[u8]) -> IResult<&[u8], &[u8]> {
     }
 }
 
-fn uri_headers(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn uri_headers(i: &[u8]) -> IResult<&[u8], &[u8], ParseSipError> {
     if i.len() == 0 || i[0] != b'?' {
         Ok((i, EMPTY))
     } else {
@@ -56,11 +62,11 @@ fn uri_headers(i: &[u8]) -> IResult<&[u8], &[u8]> {
     }
 }
 
-fn uri_host(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn uri_host(i: &[u8]) -> IResult<&[u8], &[u8], ParseSipError> {
     take_till(|c| c == b';' || c == b'?' || c == b' ')(i)
 }
 
-fn rl_after_ampersat(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8])> {
+fn rl_after_ampersat(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8]), ParseSipError> {
     let (input, host) = uri_host(i)?;
     let (input, uri_params) = uri_params(input)?;
     let (input, uri_headers) = uri_headers(input)?;
@@ -68,10 +74,10 @@ fn rl_after_ampersat(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8])> {
     Ok((input, (host, uri_params, uri_headers)))
 }
 
-pub(crate) fn request_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8], &[u8], &[u8])> {
-    let schema = take_while(|c| c != b':');
+pub(crate) fn request_line(i: &[u8]) -> nom::IResult<&[u8], (&[u8], &[u8], &[u8], &[u8], &[u8]), ParseSipError> {
+    let scheme = take_while(|c| c != b':');
     let user = preceded(char(':'), take_till(|c| c == b'@'));
-    let (input, (schema, after_schema)) = tuple((schema, user))(i)?;
+    let (input, (schema, after_schema)) = tuple((scheme, user))(i)?;
 
     if input.is_empty() {
         // No user info
