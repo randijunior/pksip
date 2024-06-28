@@ -1,4 +1,4 @@
-use crate::{headers::SipHeaders, parser::{self, Parser}, uri::Uri, util::ParseSipError};
+use crate::{headers::SipHeaders, uri::Uri};
 
 
 use std::str;
@@ -26,18 +26,6 @@ pub struct StatusLine<'sl> {
     reason_phrase: &'sl str,
 }
 
-impl<'sl> Parser<'sl> for StatusLine<'sl> {
-    fn parse(input: &'sl [u8]) -> Result<StatusLine<'sl>, nom::Err<ParseSipError<'sl>>> {
-        let (_, (sc, rp)) = parser::status_line(input)?;
-        let reason_phrase = str::from_utf8(rp).expect("Invalid UTF-8");
-        let status_code = SipStatusCode::from(sc);
-
-        Ok(StatusLine {
-            status_code,
-            reason_phrase,
-        })
-    }
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
@@ -258,28 +246,3 @@ impl From<&[u8]> for SipStatusCode {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn status_line() {
-        let sc_ok = SipStatusCode::Ok;
-        assert_eq!(
-            StatusLine::parse("SIP/2.0 200 OK\r\n".as_bytes()).unwrap(),
-            StatusLine {
-                status_code: sc_ok,
-                reason_phrase: sc_ok.default_reason_phrase()
-            }
-        );
-        let sc_not_found = SipStatusCode::NotFound;
-
-        assert_eq!(
-            StatusLine::parse("SIP/2.0 404 Not Found\r\n".as_bytes()).unwrap(),
-            StatusLine {
-                status_code: sc_not_found,
-                reason_phrase: sc_not_found.default_reason_phrase()
-            }
-        );
-    }
-}
