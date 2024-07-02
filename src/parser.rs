@@ -1,16 +1,41 @@
+use core::fmt;
+
+pub trait InputLen {
+    fn input_len(&self) -> usize;
+}
+
+impl<T, const N: usize> InputLen for &[T; N] {
+    fn input_len(&self) -> usize {
+        self.len()
+    }
+}
+
+impl<'a> InputLen for &'a str {
+    fn input_len(&self) -> usize {
+        self.len()
+    }
+}
+#[derive(Debug)]
+pub struct ParseError {
+    message: String,
+}
+
+impl ParseError {
+    pub fn new(message: String) -> Self {
+        ParseError { message }
+    }
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error parsing {}", self.message)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Position {
     line: usize,
     col: usize,
-}
-
-impl Position {
-    fn inc_line(&mut self) {
-        self.line += 1;
-    }
-
-    fn inc_col(&mut self) {
-        self.col += 1;
-    }
 }
 
 impl Default for Position {
@@ -19,57 +44,65 @@ impl Default for Position {
     }
 }
 
-pub trait InputLen {
-    fn input_len(&self) -> usize;
+pub trait Compare<T> {
+    fn compare(&self, t: T) -> bool;
 }
 
-
-impl<T, const N: usize> InputLen for &[T; N] {
-    fn input_len(&self) -> usize {
-        self.len()
+impl<'a, 'b, const N: usize> Compare<&'b [u8]> for &'a [u8; N] {
+    fn compare(&self, t: &'b [u8]) -> bool {
+        *self == t
     }
 }
 
-
+impl<'a, 'b> Compare<&'b [u8]> for &'a str {
+    fn compare(&self, t: &[u8]) -> bool {
+        self.as_bytes() == t
+    }
+}
 
 pub struct InputReader<'a> {
     input: &'a [u8],
     iterator: std::slice::Iter<'a, u8>,
-    idx: usize,
     position: Position,
 }
-
 
 impl<'a> InputReader<'a> {
     pub fn new(i: &'a [u8]) -> InputReader<'a> {
         InputReader {
             input: i,
             iterator: i.iter(),
-            idx: 0,
             position: Position::default(),
         }
     }
 
-    pub fn tag<I: InputLen + Clone>(&self, tag: I) -> &[u8] {
-        let len = tag.input_len();
-        let t = tag.clone();
+    pub fn reader_get<T>(&self, chr: T) -> Result<&[u8], ParseError>
+    where
+        T: InputLen + Clone + for<'i> Compare<&'i [u8]>,
+    {
+        let len = chr.input_len();
+        let t = chr.clone();
+        let i = self.peek_n(len);
 
-        todo!()
+        match t.compare(i) {
+            true => Ok(i),
+            false => Err(ParseError::new( "pattern not found!".to_string())),
+        }
     }
 
     pub fn peek_n(&self, len: usize) -> &[u8] {
         let remaining = self.iterator.as_slice();
-
-        todo!()
+        if len > remaining.len() {
+            return remaining;
+        }
+        return &remaining[..len];
     }
 
     pub fn peek(&mut self) -> Option<&u8> {
         let c = self.iterator.next();
         if let Some(char) = c {
-            self.position.inc_col();
-            self.idx += 1;
+            self.position.col += 1;
             if self.is_new_line(char) {
-                self.position.inc_line();
+                self.position.line += 1;
             }
         }
         c
@@ -92,7 +125,7 @@ mod tests {
     fn smoke() {
         let reader = InputReader::new("SIP/".as_bytes());
 
-        let sip = reader.tag(b"SIP");
-
+        let sip = reader.reader_get(b"SA");
+        println!("{}", std::str::from_utf8(sip.unwrap()).unwrap());
     }
 }
