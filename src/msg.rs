@@ -1,6 +1,5 @@
 use crate::{headers::SipHeaders, uri::Uri};
 
-
 use std::str;
 
 /// This struct represent SIP Message
@@ -26,6 +25,14 @@ pub struct StatusLine<'sl> {
     reason_phrase: &'sl str,
 }
 
+impl<'sl> StatusLine<'sl> {
+    pub fn new(st: SipStatusCode, rp: &'sl str) -> Self {
+        StatusLine {
+            status_code: st,
+            reason_phrase: rp,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
@@ -149,7 +156,6 @@ impl SipStatusCode {
             // 3xx — Redirection Responses
             SipStatusCode::MultipleChoices => "Multiple Choices",
 
-
             // 4xx - Client Failure Responses
             SipStatusCode::NotFound => "Not Found",
             _ => "Unknow",
@@ -246,3 +252,35 @@ impl From<&[u8]> for SipStatusCode {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::parser::Parser;
+
+    use super::*;
+
+    #[test]
+    fn status_line() {
+        let sc_ok = SipStatusCode::Ok;
+
+        assert_eq!(
+            Parser::new("SIP/2.0 200 OK\r\n".as_bytes())
+                .parse_status_line()
+                .unwrap(),
+            StatusLine {
+                status_code: sc_ok,
+                reason_phrase: sc_ok.default_reason_phrase()
+            }
+        );
+        let sc_not_found = SipStatusCode::NotFound;
+
+        assert_eq!(
+            Parser::new("SIP/2.0 404 Not Found\r\n".as_bytes())
+                .parse_status_line()
+                .unwrap(),
+            StatusLine {
+                status_code: sc_not_found,
+                reason_phrase: sc_not_found.default_reason_phrase()
+            }
+        );
+    }
+}
