@@ -72,10 +72,10 @@ impl<'a> InputReader<'a> {
         Ok(&self.input[start..self.idx])
     }
 
-    pub fn read(&mut self) -> Result<u8, ParseError>  {
+    pub fn read(&mut self) -> Result<&u8, ParseError>  {
         let c = self.next()?;
 
-        Ok(*c)
+        Ok(c)
     }
 
     fn update_pos(&mut self, c: &u8) {
