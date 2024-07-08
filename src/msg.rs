@@ -263,13 +263,11 @@ mod tests {
         let sc_ok = SipStatusCode::Ok;
 
         assert_eq!(
-            Parser::new("SIP/2.0 200 OK\r\n".as_bytes())
-                .parse_status_line()
-                .unwrap(),
-            StatusLine {
+            Parser::new("SIP/2.0 200 OK\r\n".as_bytes()).parse_status_line(),
+            Ok(StatusLine {
                 status_code: sc_ok,
                 reason_phrase: sc_ok.reason_phrase()
-            }
+            })
         );
         let sc_not_found = SipStatusCode::NotFound;
 

@@ -1,7 +1,7 @@
 use crate::{
     msg::{SipStatusCode, StatusLine},
     reader::{InputReader, ReaderError},
-    util::{is_digit, is_space},
+    util::{is_digit, is_newline, is_space},
 };
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
@@ -36,7 +36,7 @@ impl<'parser> SipParser<'parser> {
 
     pub fn parse_status_line(&mut self) -> Result<StatusLine, SipParserError> {
         self.parse_sip_version()?;
-        
+
         self.reader.read_while(is_space)?;
 
         let status_code = self.reader.read_while(is_digit)?;
@@ -44,9 +44,7 @@ impl<'parser> SipParser<'parser> {
 
         self.reader.read_while(is_space)?;
 
-        let rp = self
-            .reader
-            .read_while_utf8(|c| c != b'\r' && c != b'\n')?;
+        let rp = self.reader.read_until_and_consume_str(is_newline)?;
 
         Ok(StatusLine::new(status_code, rp))
     }

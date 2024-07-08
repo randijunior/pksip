@@ -1,5 +1,3 @@
-use itertools::PeekingNext;
-
 use crate::util::is_newline;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -18,6 +16,8 @@ pub enum ErrorKind {
     InvalidUtf8,
     /// Insufficient input for the requested operation.
     OutOfInput,
+
+    DelimiterNotFound,
 }
 #[derive(Debug, PartialEq)]
 pub struct ReaderError {
@@ -28,7 +28,7 @@ pub struct ReaderError {
 /// A struct for reading and parsing input byte by byte.
 pub struct InputReader<'a> {
     input: &'a [u8],
-    iterator: std::slice::Iter<'a, u8>,
+    iterator: std::iter::Peekable<std::slice::Iter<'a, u8>>,
     pub position: Position,
     idx: usize,
 }
@@ -42,9 +42,29 @@ impl<'a> InputReader<'a> {
     pub fn new(input: &'a [u8]) -> InputReader<'a> {
         InputReader {
             input,
-            iterator: input.iter(),
+            iterator: input.iter().peekable(),
             position: Position { line: 1, col: 0 },
             idx: 0,
+        }
+    }
+
+    pub fn peek(&mut self) -> Option<&&u8> {
+        self.iterator.peek()
+    }
+
+    fn peeking_next(
+        &mut self,
+        predicate: impl Fn(&&u8) -> bool,
+        check_utf8: bool,
+    ) -> Result<Option<&u8>, ReaderError> {
+        if let Some(n) = self.peek() {
+            if predicate(n) {
+                Ok(self.next(check_utf8).ok())
+            } else {
+                Ok(None)
+            }
+        } else {
+            Err(self.error(ErrorKind::EndOfInput))
         }
     }
 
@@ -97,7 +117,7 @@ impl<'a> InputReader<'a> {
     /// if there are not enough bytes left in the input returns [`ReaderError::OutOfInput`].
     pub fn tag(&mut self, tag: &[u8]) -> Result<&[u8], ReaderError> {
         let len = tag.len();
-        let slice = self.iterator.as_slice();
+        let slice = &self.input[self.idx..];
 
         if len >= slice.len() {
             return Err(self.error(ErrorKind::OutOfInput));
@@ -119,7 +139,7 @@ impl<'a> InputReader<'a> {
     ///
     /// * `n` - The number of bytes to read.
     pub fn read_n(&mut self, n: usize) -> Result<&[u8], ReaderError> {
-        let remaing = self.iterator.as_slice();
+        let remaing = &self.input[self.idx..];
         if n > remaing.len() {
             return Err(self.error(ErrorKind::OutOfInput));
         }
@@ -137,12 +157,14 @@ impl<'a> InputReader<'a> {
         utf8_check: bool,
     ) -> Result<&[u8], ReaderError> {
         let start = self.idx;
+        let mut next = self.peeking_next(&cb, utf8_check)?;
 
-        while let Some(c) = self.iterator.peeking_next(&cb) {
-            if utf8_check {
-                self.validate_utf8()?;
+        while next.is_some() {
+            let peek_res = self.peeking_next(&cb, utf8_check);
+            match peek_res {
+                Ok(n) => next = n,
+                Err(_) => break,
             }
-            self.update_pos(c);
         }
 
         Ok(&self.input[start..self.idx])
@@ -202,6 +224,51 @@ impl<'a> InputReader<'a> {
         self.take_while_matching(|next| predicate(**next), true)?;
 
         Ok(unsafe { std::str::from_utf8_unchecked(&self.input[start..self.idx]) })
+    }
+
+    pub fn read_until_and_consume_str(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> Result<&str, ReaderError> {
+        let start = self.idx;
+        self.take_while_matching(|next| !predicate(**next), true)?;
+        let end = self.idx;
+
+        self.read_while(&predicate)?;
+
+        Ok(unsafe { std::str::from_utf8_unchecked(&self.input[start..end]) })
+    }
+
+    fn is_eof(&self) -> bool {
+        self.idx == self.input.len()
+    }
+
+    fn read_next_if(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> Result<Option<&u8>, ReaderError> {
+        if let Some(c) = self.peeking_next(|c| predicate(**c), false)? {
+            Ok(Some(c))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn read_between(
+        &mut self,
+        beg_delim: u8,
+        end_delim: u8,
+    ) -> Result<&[u8], ReaderError> {
+        let next = self.read_next_if(|c| c == beg_delim)?;
+
+        if next.is_none() {
+            return Err(self.error(ErrorKind::DelimiterNotFound));
+        }
+        let start = self.idx;
+        self.take_while_matching(|next| **next != end_delim, false)?;
+        let end = self.idx;
+
+        Ok(&self.input[start..end])
     }
 
     pub fn validate_utf8(&mut self) -> Result<(), ReaderError> {
