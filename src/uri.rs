@@ -25,7 +25,6 @@ pub enum Scheme {
     Sips,
 }
 
-
 // scheme
 // user optional
 // password optional

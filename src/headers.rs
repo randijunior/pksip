@@ -3,7 +3,7 @@ pub mod to;
 use to::To;
 
 pub struct SipHeaders {
-    hdrs: Vec<Header>
+    hdrs: Vec<Header>,
 }
 
 pub enum Header {

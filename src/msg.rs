@@ -139,7 +139,7 @@ pub enum SipStatusCode {
 
 // https://en.wikipedia.org/wiki/List_of_SIP_response_codes
 impl SipStatusCode {
-    pub fn default_reason_phrase(&self) -> &str {
+    pub fn reason_phrase(&self) -> &str {
         match &self {
             // 1xx — Provisional Responses
             SipStatusCode::Trying => "Trying",
@@ -162,8 +162,8 @@ impl SipStatusCode {
         }
     }
 
-    pub fn default_reason_phrase_bytes(&self) -> &[u8] {
-        self.default_reason_phrase().as_bytes()
+    pub fn reason_phrase_bytes(&self) -> &[u8] {
+        self.reason_phrase().as_bytes()
     }
 }
 
@@ -254,7 +254,7 @@ impl From<&[u8]> for SipStatusCode {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::Parser;
+    use crate::parser::SipParser;
 
     use super::*;
 
@@ -263,23 +263,23 @@ mod tests {
         let sc_ok = SipStatusCode::Ok;
 
         assert_eq!(
-            Parser::new("SIP/2.0 200 OK\r\n".as_bytes())
+            SipParser::new("SIP/2.0 200 OK\r\n".as_bytes())
                 .parse_status_line()
                 .unwrap(),
             StatusLine {
                 status_code: sc_ok,
-                reason_phrase: sc_ok.default_reason_phrase()
+                reason_phrase: sc_ok.reason_phrase()
             }
         );
         let sc_not_found = SipStatusCode::NotFound;
 
         assert_eq!(
-            Parser::new("SIP/2.0 404 Not Found\r\n".as_bytes())
+            SipParser::new("SIP/2.0 404 Not Found\r\n".as_bytes())
                 .parse_status_line()
                 .unwrap(),
             StatusLine {
                 status_code: sc_not_found,
-                reason_phrase: sc_not_found.default_reason_phrase()
+                reason_phrase: sc_not_found.reason_phrase()
             }
         );
     }

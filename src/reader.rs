@@ -1,52 +1,131 @@
 use itertools::PeekingNext;
 
-pub struct InputReader<'a> {
-    input: &'a [u8],
-    iterator: std::slice::Iter<'a, u8>,
-    position: Position,
-    idx: usize
-}
+use crate::util::is_newline;
 
 #[derive(Debug, Clone, Copy)]
-struct Position {
+pub struct Position {
     line: usize,
     col: usize,
 }
-
+/// Errors that can occur while reading the input.
 #[derive(Debug)]
-pub enum ParseError {
+pub enum ErrorKind {
+    /// The tag did not match the expected value.
     TagMismatch,
-    Eof,
-    Other(&'static str)
+    /// End of file reached.
+    EndOfInput,
+    /// Invalid UTF-8 encountered in the input.
+    InvalidUtf8,
+    /// Insufficient input for the requested operation.
+    OutOfInput,
+}
+#[derive(Debug)]
+pub struct ReaderError {
+    pub(crate) err: ErrorKind,
+    pub(crate) pos: Option<Position>,
+}
+
+/// A struct for reading and parsing input byte by byte.
+pub struct InputReader<'a> {
+    input: &'a [u8],
+    iterator: std::slice::Iter<'a, u8>,
+    pub position: Position,
+    idx: usize,
+    remaing: &'a [u8],
 }
 
 impl<'a> InputReader<'a> {
-    pub fn new(i: &'a [u8]) -> InputReader<'a> {
+    /// Creates a new `InputReader` from the given input slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - A byte slice representing the input.
+    pub fn new(input: &'a [u8]) -> InputReader<'a> {
         InputReader {
-            input: i,
-            iterator: i.iter(),
+            input,
+            iterator: input.iter(),
             position: Position { line: 1, col: 1 },
-            idx: 0
+            idx: 0,
+            remaing: input,
         }
     }
-    
-    pub fn tag(&mut self, tag: &[u8]) -> Result<&[u8], ParseError> {
-        let len = tag.len();
-        let slice = self.iterator.as_slice();
+
+    /// Reads the next byte from the input and updates the position.
+    /// Returns [`ReaderError::EndOfInput`] if the end of input is reached.
+    pub fn read(&mut self) -> Result<&u8, ReaderError> {
+        Ok(self.next()?)
+    }
+
+    fn next(&mut self) -> Result<&u8, ReaderError> {
+        let c = self.iterator.next();
+        if let Some(char) = c {
+            self.update_pos(char);
+            return Ok(char);
+        } else {
+            return Err(ReaderError {
+                err: ErrorKind::EndOfInput,
+                pos: Some(self.position.clone()),
+            });
+        }
+    }
+
+    fn update_pos(&mut self, c: &u8) {
+        self.remaing = self.iterator.as_slice();
+        self.idx = self.idx + 1;
+        self.position.col += 1;
+        if is_newline(*c) {
+            self.position.line += 1;
+            self.position.col = 1;
+        }
+    }
+
+    /// Matches the input against the given prefix.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - A byte slice representing the prefix to match.
+    ///
+    /// If the prefix does not match, returns [`ReaderError::TagMismatch`],
+    /// if there are not enough bytes left in the input returns [`ReaderError::OutOfInput`].
+    pub fn prefix(&mut self, prefix: &[u8]) -> Result<&[u8], ReaderError> {
+        let len = prefix.len();
+        let slice = self.remaing;
 
         if len >= slice.len() {
-            return Err(ParseError::Eof)
+            return Err(ReaderError {
+                err: ErrorKind::EndOfInput,
+                pos: Some(self.position.clone()),
+            });
         }
         let (c, ..) = slice.split_at(len);
-        if c != tag {
-            return Err(ParseError::TagMismatch)
+        for i in 0..len {
+            let a = c[i];
+            let b = prefix[i];
+
+            if a != b {
+                return Err(ReaderError {
+                    err: ErrorKind::TagMismatch,
+                    pos: Some(self.position.clone()),
+                });
+            }
+            self.read()?;
         }
-        self.read_n(len)?;
 
         Ok(c)
     }
 
-    pub fn read_n(&mut self, n: usize) -> Result<&[u8], ParseError> {
+    /// Reads `n` bytes from the input.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The number of bytes to read.
+    pub fn read_n(&mut self, n: usize) -> Result<&[u8], ReaderError> {
+        if n > self.remaing.len() {
+            return Err(ReaderError {
+                err: ErrorKind::OutOfInput,
+                pos: Some(self.position.clone()),
+            });
+        }
         let start = self.idx;
         for _ in 0..n {
             self.next()?;
@@ -56,61 +135,61 @@ impl<'a> InputReader<'a> {
         Ok(&self.input[start..end])
     }
 
-
-    pub fn as_slice(&self) -> &[u8] {
-        self.iterator.as_slice()
-    }
-
-    pub fn read_while<F>(&mut self, predicate: F) -> Result<&[u8], ParseError> 
-     where F: Fn(u8) -> bool {
+    fn take_while_matching(
+        &mut self,
+        cb: impl Fn(&&u8) -> bool,
+    ) -> Result<&[u8], ReaderError> {
         let start = self.idx;
 
-        while let Some(c) = self.iterator.peeking_next(|next| predicate(**next)) {
+        while let Some(c) = self.iterator.peeking_next(&cb) {
             self.update_pos(c)
         }
 
         Ok(&self.input[start..self.idx])
     }
 
-    pub fn read(&mut self) -> Result<&u8, ParseError>  {
-        let c = self.next()?;
-
-        Ok(c)
+    /// Reads bytes from the input while the predicate is true.
+    ///
+    /// # Arguments
+    ///
+    /// * `predicate` - A closure that takes a byte and returns `true` if the byte should be read.
+    pub fn read_while(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> Result<&[u8], ReaderError> {
+        self.take_while_matching(|next| predicate(**next))
     }
 
-    fn update_pos(&mut self, c: &u8) {
-        self.idx = self.idx + 1;
-        self.position.col += 1;
-        if self.is_new_line(c) {
-            self.position.line += 1;
-            self.position.col = 1;
-        }
+    /// Reads bytes from the input until the predicate returns `true`.
+    ///
+    /// This function will continue reading bytes from the input until it encounters
+    /// a byte for which the predicate returns `true`. The byte that matches the predicate
+    /// will not be included in the returned slice, and the reader will be positioned just before
+    /// that byte.
+    ///
+    /// # Arguments
+    ///
+    /// * `predicate` - A closure that takes a byte and returns `true` when the reading should stop.
+    pub fn read_until(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> Result<&[u8], ReaderError> {
+        self.take_while_matching(|next| !predicate(**next))
     }
 
+    /// Reads bytes from the input until the predicate returns `true`, consuming the matching byte.
+    ///
+    /// Same as [`InputReader::read_until`], but the reader will consume the bytes that matches the predicate.
+    pub fn read_until_and_consume(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> Result<&[u8], ReaderError> {
+        let start = self.idx;
+        self.read_until(&predicate)?;
+        let end = self.idx;
 
-    fn next(&mut self) -> Result<&u8, ParseError> {
-        let c = self.iterator.next();
-        if let Some(char) = c {
-            self.update_pos(char);
-            return Ok(char);
-        } else {
-            return Err(ParseError::Eof);
-        }
-    }
+        self.read_while(predicate)?;
 
-    #[inline]
-    fn is_new_line(&self, c: &u8) -> bool {
-        *c == 0x0A
-    }
-
-    #[inline]
-    pub fn is_digit(c: u8) -> bool {
-      c >= 0x30 && c <= 0x39
-    }
-
-    #[inline]
-    pub fn is_space(c: u8) -> bool {
-        c == b' ' || c == b'\t'
+        Ok(&self.input[start..end])
     }
 }
-
