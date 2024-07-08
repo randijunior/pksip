@@ -1,14 +1,12 @@
 use crate::{
     msg::{SipStatusCode, StatusLine},
-    reader::{self, InputReader, ReaderError},
-    util::{is_digit, is_newline, is_space},
+    reader::{InputReader, ReaderError},
+    util::{is_digit, is_space},
 };
 
-use std::str;
+const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
-const SIPV2: &[u8] = "2.0".as_bytes();
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SipParserError {
     InvalidStatusLine,
     ReaderError(ReaderError),
@@ -19,17 +17,6 @@ impl From<ReaderError> for SipParserError {
     fn from(err: ReaderError) -> Self {
         SipParserError::ReaderError(err)
     }
-}
-
-#[macro_export]
-macro_rules! sip_parser_error {
-    ($value:expr) => {
-        match $value {
-            0 => Ok(()),
-            _ => Err(crate::util::Error::from($value)),
-        }
-        
-    };
 }
 
 pub struct SipParser<'parser> {
@@ -43,34 +30,24 @@ impl<'parser> SipParser<'parser> {
         }
     }
     pub fn parse_sip_version(&mut self) -> Result<(), SipParserError> {
-        self.reader.prefix(b"SIP")?;
-
-        if self.reader.read()? != &b'/' || self.reader.read_n(3)? != SIPV2 {
-            return Err(SipParserError::InvalidStatusLine);
-        }
-
+        self.reader.tag(SIPV2)?;
         Ok(())
     }
 
     pub fn parse_status_line(&mut self) -> Result<StatusLine, SipParserError> {
         self.parse_sip_version()?;
         
-        let status_code = {
-            self.reader.read_while(is_space)?;
-            let bytes = self.reader.read_while(is_digit)?;
+        self.reader.read_while(is_space)?;
 
-            SipStatusCode::from(bytes)
-        };
-        let reason_phrase = {
-            self.reader.read_while(is_space)?;
-            let bytes = self.reader.read_until_and_consume(is_newline)?;
+        let status_code = self.reader.read_while(is_digit)?;
+        let status_code = SipStatusCode::from(status_code);
 
-            str::from_utf8(bytes).map_err(|_| ReaderError {
-                err: crate::reader::ErrorKind::OutOfInput,
-                pos: None,
-            })?
-        };
+        self.reader.read_while(is_space)?;
 
-        Ok(StatusLine::new(status_code, reason_phrase))
+        let rp = self
+            .reader
+            .read_while_utf8(|c| c != b'\r' && c != b'\n')?;
+
+        Ok(StatusLine::new(status_code, rp))
     }
 }
