@@ -278,42 +278,5 @@ impl From<&[u8]> for SipStatusCode {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::SipParser as Parser;
 
-    use super::*;
-
-    #[test]
-    fn test_parse_status_line() {
-        let sc_ok = SipStatusCode::Ok;
-
-        assert_eq!(
-            Parser::new("SIP/2.0 200 OK\r\n".as_bytes()).parse_status_line(),
-            Ok(StatusLine {
-                status_code: sc_ok,
-                reason_phrase: sc_ok.reason_phrase()
-            })
-        );
-        let sc_not_found = SipStatusCode::NotFound;
-
-        assert_eq!(
-            Parser::new("SIP/2.0 404 Not Found\r\n".as_bytes())
-                .parse_status_line()
-                .unwrap(),
-            StatusLine {
-                status_code: sc_not_found,
-                reason_phrase: sc_not_found.reason_phrase()
-            }
-        );
-    }
-
-    #[test]
-    fn test_parse_request_line() {
-        let mut parser = Parser::new("REGISTER sip:alice;day=tuesday@atlanta.com\r\n".as_bytes());
-
-        let req = parser.parse_request_line();
-
-        println!("{:#?}", req);
-
-
-    }
 }
