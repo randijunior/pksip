@@ -1,19 +1,18 @@
 use crate::util::is_newline;
 
+type ReaderResult<T> = Result<T, ReaderError>;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Position {
     line: usize,
     col: usize,
 }
 /// Errors that can occur while reading the input.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
     /// The tag did not match the expected value.
     TagMismatch,
     /// End of file reached.
     EndOfInput,
-    /// Invalid UTF-8 encountered in the input.
-    InvalidUtf8,
     /// Insufficient input for the requested operation.
     OutOfInput,
 
@@ -23,6 +22,18 @@ pub enum ErrorKind {
 pub struct ReaderError {
     kind: ErrorKind,
     pos: Position,
+}
+
+impl ReaderError {
+    pub fn line(&self) -> usize {
+        self.pos.line
+    }
+    pub fn col(&self) -> usize {
+        self.pos.col
+    }
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
+    }
 }
 
 /// A struct for reading and parsing input byte by byte.
@@ -48,18 +59,43 @@ impl<'a> InputReader<'a> {
         }
     }
 
+    pub fn read(&mut self) -> ReaderResult<&u8> {
+        self.next()
+    }
+
+    pub fn remaing(&self) -> &[u8] {
+        &self.input[self.idx..]
+    }
+
+    fn update_cursor(&mut self, byte: &u8) {
+        self.idx = self.idx + 1;
+        self.position.col += 1;
+        if is_newline(*byte) {
+            self.position.line += 1;
+            self.position.col = 1;
+        }
+    }
+
+    fn next(&mut self) -> ReaderResult<&u8> {
+        if let Some(byte) = self.iterator.next() {
+            self.update_cursor(byte);
+            Ok(byte)
+        } else {
+            Err(self.error(ErrorKind::EndOfInput))
+        }
+    }
+
     pub fn peek(&mut self) -> Option<&&u8> {
         self.iterator.peek()
     }
 
-    fn peeking_next(
-        &mut self,
-        predicate: impl Fn(&&u8) -> bool,
-        check_utf8: bool,
-    ) -> Result<Option<&u8>, ReaderError> {
+    fn peeking_next<P>(&mut self, predicate: P) -> ReaderResult<Option<&u8>>
+    where
+        P: FnOnce(&&u8) -> bool,
+    {
         if let Some(n) = self.peek() {
-            if predicate(n) {
-                Ok(self.next(check_utf8).ok())
+            if predicate(&n) {
+                Ok(Some(self.next()?))
             } else {
                 Ok(None)
             }
@@ -68,27 +104,114 @@ impl<'a> InputReader<'a> {
         }
     }
 
-    /// Reads the next byte from the input and updates the position.
-    /// Returns [`ReaderError::EndOfInput`] if the end of input is reached.
-    pub fn read(&mut self) -> Result<&u8, ReaderError> {
-        Ok(self.next(false)?)
+    pub fn is_eof(&self) -> bool {
+        self.idx == self.input.len()
     }
 
-    pub fn read_utf8(&mut self) -> Result<&u8, ReaderError> {
-        Ok(self.next(true)?)
-    }
-
-    fn next(&mut self, utf8_check: bool) -> Result<&u8, ReaderError> {
-        let c = self.iterator.next();
-        if let Some(char) = c {
-            self.update_pos(char);
-            if utf8_check {
-                self.validate_utf8()?;
+    fn next_if_eq(&mut self, expected: &&u8) -> ReaderResult<&u8> {
+        match self.iterator.next_if_eq(expected) {
+            Some(byte) => {
+                self.update_cursor(byte);
+                Ok(byte)
             }
-            return Ok(char);
-        } else {
-            return Err(self.error(ErrorKind::EndOfInput));
+            None => {
+                if self.is_eof() {
+                    Err(self.error(ErrorKind::OutOfInput))
+                } else {
+                    Err(self.error(ErrorKind::TagMismatch))
+                }
+            }
         }
+    }
+
+    /// Matches the input against the given prefix.
+    pub fn tag(&mut self, tag: &[u8]) -> ReaderResult<&[u8]> {
+        let len = tag.len();
+
+        if len > self.iterator.len() {
+            return Err(self.error(ErrorKind::OutOfInput));
+        }
+        let start = self.idx;
+        for byte in tag.iter() {
+            self.next_if_eq(&&byte)?;
+        }
+        let end = self.idx;
+
+        Ok(&self.input[start..end])
+    }
+
+    fn advance_n(&mut self, n: usize) -> ReaderResult<()> {
+        for _ in 0..n {
+            self.next()?;
+        }
+        Ok(())
+    }
+
+    /// Reads `n` bytes from the input.
+    pub fn read_n(&mut self, n: usize) -> ReaderResult<&[u8]> {
+        if n > self.iterator.len() {
+            return Err(self.error(ErrorKind::OutOfInput));
+        }
+        let start = self.idx;
+        self.advance_n(n)?;
+        let end = self.idx;
+
+        Ok(&self.input[start..end])
+    }
+
+    fn take_while<P>(&mut self, predicate: P) -> ReaderResult<&[u8]>
+    where
+        P: Fn(&&u8) -> bool,
+    {
+        let start = self.idx;
+        let mut next = self.peeking_next(&predicate);
+
+        while let Ok(Some(_)) = next {
+            next = self.peeking_next(&predicate);
+        }
+        let end = self.idx;
+
+        Ok(&self.input[start..end])
+    }
+
+    /// Reads bytes from the input while the predicate is true.
+    pub fn read_while(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> ReaderResult<&[u8]> {
+        self.take_while(|n| predicate(**n))
+    }
+
+    /// Reads bytes from the input until the predicate returns `true`.
+    pub fn read_until(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> ReaderResult<&[u8]> {
+        self.take_while(|n| !predicate(**n))
+    }
+
+    pub fn read_next_if<P>(&mut self, predicate: P) -> ReaderResult<Option<&u8>>
+    where
+        P: FnOnce(u8) -> bool,
+    {
+        if let Some(c) = self.peeking_next(|c| predicate(**c))? {
+            Ok(Some(c))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn read_until_byte(&mut self, byte: u8) -> ReaderResult<&[u8]> {
+        self.read_until(|b| b == byte)
+    }
+
+    pub fn peek_for_match(&self, i: &[u8]) -> Option<&u8> {
+        for byte in self.remaing().iter() {
+            if i.contains(&byte) {
+                return Some(byte);
+            }
+        }
+        None
     }
 
     pub fn error(&self, kind: ErrorKind) -> ReaderError {
@@ -96,210 +219,5 @@ impl<'a> InputReader<'a> {
             kind,
             pos: self.position,
         }
-    }
-
-    fn update_pos(&mut self, c: &u8) {
-        self.idx = self.idx + 1;
-        self.position.col += 1;
-        if is_newline(*c) {
-            self.position.line += 1;
-            self.position.col = 1;
-        }
-    }
-
-    /// Matches the input against the given prefix.
-    ///
-    /// # Arguments
-    ///
-    /// * `prefix` - A byte slice representing the prefix to match.
-    ///
-    /// If the prefix does not match, returns [`ReaderError::PrefixMismatch`],
-    /// if there are not enough bytes left in the input returns [`ReaderError::OutOfInput`].
-    pub fn tag(&mut self, tag: &[u8]) -> Result<&[u8], ReaderError> {
-        let len = tag.len();
-        let slice = &self.input[self.idx..];
-
-        if len >= slice.len() {
-            return Err(self.error(ErrorKind::OutOfInput));
-        }
-        let (c, ..) = slice.split_at(len);
-        for i in 0..len {
-            if c[i] != tag[i] {
-                return Err(self.error(ErrorKind::TagMismatch));
-            }
-            self.read()?;
-        }
-
-        Ok(c)
-    }
-
-    /// Reads `n` bytes from the input.
-    ///
-    /// # Arguments
-    ///
-    /// * `n` - The number of bytes to read.
-    pub fn read_n(&mut self, n: usize) -> Result<&[u8], ReaderError> {
-        let remaing = &self.input[self.idx..];
-        if n > remaing.len() {
-            return Err(self.error(ErrorKind::OutOfInput));
-        }
-        let start = self.idx;
-        for _ in 0..n {
-            self.next(false)?;
-        }
-
-        Ok(&self.input[start..self.idx])
-    }
-
-    fn take_while_matching(
-        &mut self,
-        cb: impl Fn(&&u8) -> bool,
-        utf8_check: bool,
-    ) -> Result<&[u8], ReaderError> {
-        let start = self.idx;
-        let mut next = self.peeking_next(&cb, utf8_check)?;
-
-        while next.is_some() {
-            let peek_res = self.peeking_next(&cb, utf8_check);
-            match peek_res {
-                Ok(n) => next = n,
-                Err(_) => break,
-            }
-        }
-
-        Ok(&self.input[start..self.idx])
-    }
-
-    /// Reads bytes from the input while the predicate is true.
-    ///
-    /// # Arguments
-    ///
-    /// * `predicate` - A closure that takes a byte and returns `true` if the byte should be read.
-    pub fn read_while(
-        &mut self,
-        predicate: impl Fn(u8) -> bool,
-    ) -> Result<&[u8], ReaderError> {
-        self.take_while_matching(|next| predicate(**next), false)
-    }
-
-    /// Reads bytes from the input until the predicate returns `true`.
-    ///
-    /// This function will continue reading bytes from the input until it encounters
-    /// a byte for which the predicate returns `true`. The byte that matches the predicate
-    /// will not be included in the returned slice, and the reader will be positioned just before
-    /// that byte.
-    ///
-    /// # Arguments
-    ///
-    /// * `predicate` - A closure that takes a byte and returns `true` when the reading should stop.
-    pub fn read_until(
-        &mut self,
-        predicate: impl Fn(u8) -> bool,
-    ) -> Result<&[u8], ReaderError> {
-        self.take_while_matching(|next| !predicate(**next), false)
-    }
-
-    /// Reads bytes from the input until the predicate returns `true`, consuming the matching byte.
-    ///
-    /// Same as [`InputReader::read_until`], but the reader will consume the bytes that matches the predicate.
-    pub fn read_until_and_consume(
-        &mut self,
-        predicate: impl Fn(u8) -> bool,
-    ) -> Result<&[u8], ReaderError> {
-        let start = self.idx;
-        self.read_until(&predicate)?;
-        let end = self.idx;
-
-        self.read_while(predicate)?;
-
-        Ok(&self.input[start..end])
-    }
-
-    pub fn read_while_utf8(
-        &mut self,
-        predicate: impl Fn(u8) -> bool,
-    ) -> Result<&str, ReaderError> {
-        let start = self.idx;
-
-        self.take_while_matching(|next| predicate(**next), true)?;
-
-        Ok(unsafe { std::str::from_utf8_unchecked(&self.input[start..self.idx]) })
-    }
-
-    pub fn read_until_and_consume_str(
-        &mut self,
-        predicate: impl Fn(u8) -> bool,
-    ) -> Result<&str, ReaderError> {
-        let start = self.idx;
-        self.take_while_matching(|next| !predicate(**next), true)?;
-        let end = self.idx;
-
-        self.read_while(&predicate)?;
-
-        Ok(unsafe { std::str::from_utf8_unchecked(&self.input[start..end]) })
-    }
-
-    fn is_eof(&self) -> bool {
-        self.idx == self.input.len()
-    }
-
-    fn read_next_if(
-        &mut self,
-        predicate: impl Fn(u8) -> bool,
-    ) -> Result<Option<&u8>, ReaderError> {
-        if let Some(c) = self.peeking_next(|c| predicate(**c), false)? {
-            Ok(Some(c))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn read_between(
-        &mut self,
-        beg_delim: u8,
-        end_delim: u8,
-    ) -> Result<&[u8], ReaderError> {
-        let next = self.read_next_if(|c| c == beg_delim)?;
-
-        if next.is_none() {
-            return Err(self.error(ErrorKind::DelimiterNotFound));
-        }
-        let start = self.idx;
-        self.take_while_matching(|next| **next != end_delim, false)?;
-        let end = self.idx;
-
-        Ok(&self.input[start..end])
-    }
-
-    pub fn validate_utf8(&mut self) -> Result<(), ReaderError> {
-        let (i, ..) = self.input.split_at(self.idx);
-        if let Err(_) = std::str::from_utf8(i) {
-            Err(self.error(ErrorKind::InvalidUtf8))
-        } else {
-            Ok(())
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_invalid_bytes() {
-        let invalid_bytes = b"abc\x80\x80defg";
-        let mut reader = InputReader::new(invalid_bytes);
-
-        assert!(reader.read().is_ok());
-        assert!(reader.read().is_ok());
-        assert!(reader.read().is_ok());
-
-        assert_eq!(
-            reader.read_utf8(),
-            Err(ReaderError {
-                kind: ErrorKind::InvalidUtf8,
-                pos: Position { line: 1, col: 4 }
-            })
-        );
     }
 }

@@ -8,14 +8,20 @@ Request-URI: The Request-URI is a SIP or SIPS URI as described in
            characters and MUST NOT be enclosed in "<>".
 */
 #[derive(Debug, PartialEq, Eq)]
-pub struct UserInfo<'a> {
-    name: &'a str,
-    password: Option<&'a str>,
+pub struct UserInfo {
+    name: String,
+    password: Option<String>,
+}
+
+impl UserInfo {
+    pub fn new(name: String, pass: Option<String>) -> Self {
+        UserInfo { name, password: pass }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Host<'a> {
-    DomainName(&'a str),
+pub enum Host {
+    DomainName(String),
     IpAddr(IpAddr),
 }
 
@@ -44,11 +50,27 @@ pub enum Scheme {
 // SIP URI: sip:user:password@host:port;uri-parameters?headers
 // SIPS URI: sips:user:password@host:port;uri-parameters?headers
 #[derive(Debug, PartialEq, Eq)]
-pub struct Uri<'uri> {
+pub struct Uri {
     scheme: Scheme,
-    user: Option<UserInfo<'uri>>,
-    host: Host<'uri>,
+    user: Option<UserInfo>,
+    host: Host,
     port: Option<u32>,
+}
+
+impl Uri {
+    pub fn new(
+        scheme: Scheme,
+        user: Option<UserInfo>,
+        host: Host,
+        port: Option<u32>,
+    ) -> Uri {
+        Uri {
+            scheme,
+            user,
+            host,
+            port,
+        }
+    }
 }
 
 //SIP name-addr, which typically appear in From, To, and Contact header.
@@ -56,5 +78,5 @@ pub struct Uri<'uri> {
 // Struct Uri uri
 pub struct NameAddr<'a> {
     display: Option<&'a str>,
-    uri: Uri<'a>,
+    uri: Uri,
 }

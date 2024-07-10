@@ -5,7 +5,7 @@ use std::str;
 /// This struct represent SIP Message
 pub enum SipMsg<'a> {
     Request {
-        req_line: RequestLine<'a>,
+        req_line: RequestLine,
         headers: SipHeaders,
         body: Vec<u8>,
     },
@@ -35,19 +35,43 @@ impl<'sl> StatusLine<'sl> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct RequestLine<'a> {
-    pub method: Method,
-    pub uri: Uri<'a>,
+pub struct RequestLine {
+    pub(crate) method: SipMethod,
+    pub(crate) uri: Uri,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Method {
+pub enum SipMethod {
     Invite,
     Ack,
     Bye,
     Cancel,
     Register,
     Options,
+    Other
+}
+
+const SIP_INVITE: &'static [u8] = "INVITE".as_bytes();
+const SIP_CANCEL: &'static [u8] = "CANCEL".as_bytes();
+const SIP_ACK: &'static [u8] = "ACK".as_bytes();
+const SIP_BYE : &'static [u8] = "BYE".as_bytes();
+const SIP_REGISTER: &'static [u8] = "REGISTER".as_bytes();
+const SIP_OPTIONS: &'static [u8] = "OPTIONS".as_bytes();
+
+
+
+impl From<&[u8]> for SipMethod {
+    fn from(value: &[u8]) -> Self {
+        match value {
+            SIP_INVITE => SipMethod::Invite,
+            SIP_CANCEL => SipMethod::Cancel,
+            SIP_ACK => SipMethod::Ack,
+            SIP_BYE => SipMethod::Bye,
+            SIP_REGISTER => SipMethod::Register,
+            SIP_OPTIONS => SipMethod::Options,
+            _ => SipMethod::Other
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -280,5 +304,16 @@ mod tests {
                 reason_phrase: sc_not_found.reason_phrase()
             }
         );
+    }
+
+    #[test]
+    fn test_parse_request_line() {
+        let mut parser = Parser::new("REGISTER sip:alice;day=tuesday@atlanta.com\r\n".as_bytes());
+
+        let req = parser.parse_request_line();
+
+        println!("{:#?}", req);
+
+
     }
 }
