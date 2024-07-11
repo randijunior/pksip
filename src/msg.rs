@@ -5,7 +5,7 @@ use std::str;
 /// This struct represent SIP Message
 pub enum SipMsg<'a> {
     Request {
-        req_line: RequestLine,
+        req_line: RequestLine<'a>,
         headers: SipHeaders,
         body: Vec<u8>,
     },
@@ -35,9 +35,9 @@ impl<'sl> StatusLine<'sl> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct RequestLine {
+pub struct RequestLine<'a> {
     pub(crate) method: SipMethod,
-    pub(crate) uri: Uri,
+    pub(crate) uri: Uri<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,17 +48,15 @@ pub enum SipMethod {
     Cancel,
     Register,
     Options,
-    Other
+    Other,
 }
 
 const SIP_INVITE: &'static [u8] = "INVITE".as_bytes();
 const SIP_CANCEL: &'static [u8] = "CANCEL".as_bytes();
 const SIP_ACK: &'static [u8] = "ACK".as_bytes();
-const SIP_BYE : &'static [u8] = "BYE".as_bytes();
+const SIP_BYE: &'static [u8] = "BYE".as_bytes();
 const SIP_REGISTER: &'static [u8] = "REGISTER".as_bytes();
 const SIP_OPTIONS: &'static [u8] = "OPTIONS".as_bytes();
-
-
 
 impl From<&[u8]> for SipMethod {
     fn from(value: &[u8]) -> Self {
@@ -69,7 +67,7 @@ impl From<&[u8]> for SipMethod {
             SIP_BYE => SipMethod::Bye,
             SIP_REGISTER => SipMethod::Register,
             SIP_OPTIONS => SipMethod::Options,
-            _ => SipMethod::Other
+            _ => SipMethod::Other,
         }
     }
 }
@@ -278,5 +276,30 @@ impl From<&[u8]> for SipStatusCode {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::parser::SipParser as Parser;
 
+    #[test]
+    fn test_parse_status_line() {
+        let sc_ok = SipStatusCode::Ok;
+
+        assert_eq!(
+            Parser::new("SIP/2.0 200 OK\r\n".as_bytes()).parse_status_line(),
+            Ok(StatusLine {
+                status_code: sc_ok,
+                reason_phrase: sc_ok.reason_phrase()
+            })
+        );
+        let sc_not_found = SipStatusCode::NotFound;
+
+        assert_eq!(
+            Parser::new("SIP/2.0 404 Not Found\r\n".as_bytes())
+                .parse_status_line()
+                .unwrap(),
+            StatusLine {
+                status_code: sc_not_found,
+                reason_phrase: sc_not_found.reason_phrase()
+            }
+        );
+    }
 }

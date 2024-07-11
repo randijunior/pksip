@@ -8,20 +8,20 @@ Request-URI: The Request-URI is a SIP or SIPS URI as described in
            characters and MUST NOT be enclosed in "<>".
 */
 #[derive(Debug, PartialEq, Eq)]
-pub struct UserInfo {
-    name: String,
-    password: Option<String>,
+pub struct UserInfo<'a> {
+    name: &'a str,
+    password: Option<&'a str>,
 }
 
-impl UserInfo {
-    pub fn new(name: String, pass: Option<String>) -> Self {
+impl<'a> UserInfo<'a> {
+    pub fn new(name: &'a str, pass: Option<&'a str>) -> Self {
         UserInfo { name, password: pass }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Host {
-    DomainName(String),
+pub enum Host<'a> {
+    DomainName(&'a str),
     IpAddr(IpAddr),
 }
 
@@ -50,20 +50,20 @@ pub enum Scheme {
 // SIP URI: sip:user:password@host:port;uri-parameters?headers
 // SIPS URI: sips:user:password@host:port;uri-parameters?headers
 #[derive(Debug, PartialEq, Eq)]
-pub struct Uri {
+pub struct Uri<'a> {
     scheme: Scheme,
-    user: Option<UserInfo>,
-    host: Host,
+    user: Option<UserInfo<'a>>,
+    host: Host<'a>,
     port: Option<u32>,
 }
 
-impl Uri {
+impl<'a> Uri<'a> {
     pub fn new(
         scheme: Scheme,
-        user: Option<UserInfo>,
-        host: Host,
+        user: Option<UserInfo<'a>>,
+        host: Host<'a>,
         port: Option<u32>,
-    ) -> Uri {
+    ) -> Self {
         Uri {
             scheme,
             user,
@@ -78,5 +78,5 @@ impl Uri {
 // Struct Uri uri
 pub struct NameAddr<'a> {
     display: Option<&'a str>,
-    uri: Uri,
+    uri: Uri<'a>,
 }
