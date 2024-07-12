@@ -15,7 +15,10 @@ pub struct UserInfo<'a> {
 
 impl<'a> UserInfo<'a> {
     pub fn new(name: &'a str, pass: Option<&'a str>) -> Self {
-        UserInfo { name, password: pass }
+        UserInfo {
+            name,
+            password: pass,
+        }
     }
 }
 

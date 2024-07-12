@@ -20,9 +20,9 @@ pub enum SipMsg<'a> {
 #[derive(Debug, PartialEq, Eq)]
 pub struct StatusLine<'sl> {
     // Status Code
-    status_code: SipStatusCode,
+    pub(crate) status_code: SipStatusCode,
     // Reason String
-    reason_phrase: &'sl str,
+    pub(crate) reason_phrase: &'sl str,
 }
 
 impl<'sl> StatusLine<'sl> {
@@ -271,35 +271,5 @@ impl From<&[u8]> for SipStatusCode {
             b"608" => SipStatusCode::Rejected,
             _ => SipStatusCode::Unknow,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::parser::SipParser as Parser;
-
-    #[test]
-    fn test_parse_status_line() {
-        let sc_ok = SipStatusCode::Ok;
-
-        assert_eq!(
-            Parser::new("SIP/2.0 200 OK\r\n".as_bytes()).parse_status_line(),
-            Ok(StatusLine {
-                status_code: sc_ok,
-                reason_phrase: sc_ok.reason_phrase()
-            })
-        );
-        let sc_not_found = SipStatusCode::NotFound;
-
-        assert_eq!(
-            Parser::new("SIP/2.0 404 Not Found\r\n".as_bytes())
-                .parse_status_line()
-                .unwrap(),
-            StatusLine {
-                status_code: sc_not_found,
-                reason_phrase: sc_not_found.reason_phrase()
-            }
-        );
     }
 }

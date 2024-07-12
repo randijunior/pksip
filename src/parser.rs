@@ -1,7 +1,8 @@
 use crate::{
-    msg::{SipStatusCode, StatusLine},
+    macros::{alpha, digits, newline, next, sip_parse_error, space},
+    msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
     reader::{InputReader, ReaderError},
-    util::{is_digit, is_newline, is_space},
+    uri::Scheme,
 };
 
 use std::str::{self};
@@ -27,31 +28,70 @@ impl<'a> From<ReaderError<'a>> for SipParserError {
     }
 }
 
-pub struct SipParser<'parser> {
-    reader: InputReader<'parser>,
+pub fn parse_status_line<'a>(
+    reader: &'a InputReader,
+) -> Result<StatusLine<'a>, SipParserError> {
+    reader.tag(SIPV2)?;
+
+    space!(reader);
+    let digits = digits!(reader);
+    space!(reader);
+
+    let status_code = SipStatusCode::from(digits);
+    let bytes = newline!(reader);
+
+    if let Ok(rp) = str::from_utf8(bytes) {
+        Ok(StatusLine::new(status_code, rp))
+    } else {
+        sip_parse_error!("Reason phrase is invalid utf8!")
+    }
 }
 
-impl<'parser> SipParser<'parser> {
-    pub fn new(i: &'parser [u8]) -> Self {
-        SipParser {
-            reader: InputReader::new(i),
-        }
-    }
+pub fn parse_request_line<'a>(
+    reader: &'a InputReader,
+) -> Result<RequestLine<'a>, SipParserError> {
+    let method = SipMethod::from(alpha!(reader));
 
-    pub fn parse_status_line(&mut self) -> Result<StatusLine, SipParserError> {
-        self.reader.tag(SIPV2)?;
-        self.reader.read_while(is_space)?;
+    space!(reader);
 
-        let status_code = self.reader.read_while(is_digit)?;
-        let status_code = SipStatusCode::from(status_code);
+    let scheme = match reader.read_until_b(b':')? {
+        b"sip" => Ok(Scheme::Sip),
+        b"sips" => Ok(Scheme::Sips),
+        _ => sip_parse_error!("Can't parse sip uri scheme"),
+    }?;
 
-        self.reader.read_while(is_space)?;
+    next!(reader);
 
-        let rp = self.reader.read_until(is_newline)?;
-        let rp = str::from_utf8(rp).map_err(|_| SipParserError {
-            message: "Reason phrase is invalid utf8!".to_string(),
-        })?;
+    todo!()
+}
 
-        Ok(StatusLine::new(status_code, rp))
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_status_line() {
+        let sc_ok = SipStatusCode::Ok;
+        let buf = "SIP/2.0 200 OK\r\n".as_bytes();
+        let reader = InputReader::new(buf);
+
+        assert_eq!(
+            parse_status_line(&reader),
+            Ok(StatusLine {
+                status_code: sc_ok,
+                reason_phrase: sc_ok.reason_phrase()
+            })
+        );
+        let sc_not_found = SipStatusCode::NotFound;
+        let buf = "SIP/2.0 404 Not Found\r\n".as_bytes();
+        let reader = InputReader::new(buf);
+
+        assert_eq!(
+            parse_status_line(&reader),
+            Ok(StatusLine {
+                status_code: sc_not_found,
+                reason_phrase: sc_not_found.reason_phrase()
+            })
+        );
     }
 }

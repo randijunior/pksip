@@ -24,7 +24,7 @@ pub enum ErrorKind {
 pub struct ReaderError<'a> {
     pub(crate) kind: ErrorKind,
     pub(crate) pos: Position,
-    pub(crate) input: &'a [u8]
+    pub(crate) input: &'a [u8],
 }
 
 pub struct ReaderState<'a> {
@@ -37,7 +37,7 @@ pub struct ReaderState<'a> {
 }
 /// A struct for reading and parsing input byte by byte.
 pub struct InputReader<'a> {
-    input: &'a[u8],
+    input: &'a [u8],
     state: UnsafeCell<ReaderState<'a>>,
 }
 
@@ -70,6 +70,11 @@ impl<'a> InputReader<'a> {
         &mut *self.state.get()
     }
 
+    unsafe fn cur(&self) -> *const u8 {
+        let state = self.get_state();
+        state.cur
+    }
+
     pub fn read(&self) -> ReaderResult<u8> {
         let state = unsafe { self.get_state_mut() };
         if state.cur >= state.end {
@@ -89,19 +94,13 @@ impl<'a> InputReader<'a> {
     }
 
     pub fn read_n(&self, n: usize) -> ReaderResult<&[u8]> {
-        let start = unsafe {
-            let state = self.get_state();
-            state.cur
-        };
+        let start = unsafe { self.cur() };
         for _ in 0..n {
             self.read()?;
         }
-        let end = unsafe {
-            let state = self.get_state();
-            state.cur
-        };
+        let end = unsafe { self.cur() };
 
-        Ok(self.slice_from_parts(start, end))
+        Ok(unsafe { self.slice_from_parts(start, end) })
     }
 
     pub fn peek(&self) -> Option<u8> {
@@ -129,7 +128,7 @@ impl<'a> InputReader<'a> {
                 line: state.line,
                 col: self.get_col(state),
             },
-            input: self.input
+            input: self.input,
         }
     }
 
@@ -152,23 +151,17 @@ impl<'a> InputReader<'a> {
     where
         P: Fn(u8) -> bool,
     {
-        let start = unsafe {
-            let state = self.get_state();
-            state.cur
-        };
+        let start = unsafe { self.cur() };
         let mut next = self.peeking_next(&predicate);
         while let Ok(Some(_)) = next {
             next = self.peeking_next(&predicate);
         }
-        let end = unsafe {
-            let state = self.get_state();
-            state.cur
-        };
+        let end = unsafe { self.cur() };
 
-        Ok(self.slice_from_parts(start, end))
+        Ok(unsafe { self.slice_from_parts(start, end) })
     }
 
-    pub fn read_until_byte(&self, byte: u8) -> ReaderResult<&[u8]> {
+    pub fn read_until_b(&self, byte: u8) -> ReaderResult<&[u8]> {
         self.read_until(|b| b == byte)
     }
 
@@ -196,21 +189,24 @@ impl<'a> InputReader<'a> {
 
     pub fn tag(&self, tag: &[u8]) -> Result<&[u8], ReaderError> {
         let len = tag.len();
-        let slc = self.as_slice();
+        let slc = self.peek_n(len);
 
-        if len > slc.len() {
-            return Err(self.error(ErrorKind::OutOfInput));
-        }
-
-        let (c, ..) = slc.split_at(len);
-        for i in 0..len {
-            if c[i] != tag[i] {
-                return Err(self.error(ErrorKind::TagMismatch));
+        match slc {
+            Some(bytes) => {
+                for i in 0..len {
+                    if bytes[i] != tag[i] {
+                        return Err(self.error(ErrorKind::TagMismatch));
+                    }
+                    self.read()?;
+                }
+                Ok(bytes)
             }
-            self.read()?;
+            None => Err(self.error(ErrorKind::OutOfInput)),
         }
+    }
 
-        Ok(c)
+    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
+        self.as_slice().get(..n)
     }
 
     pub fn read_until<P>(&self, predicate: P) -> ReaderResult<&[u8]>
@@ -221,17 +217,14 @@ impl<'a> InputReader<'a> {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        let state = unsafe { self.get_state() };
-
-        self.slice_from_parts(state.cur, state.end)
+        unsafe {
+            let state = self.get_state();
+            self.slice_from_parts(state.cur, state.end)
+        }
     }
 
-    pub fn slice_from_parts(&self, start: *const u8, end: *const u8) -> &[u8] {
+    unsafe fn slice_from_parts(&self, start: *const u8, end: *const u8) -> &[u8] {
         assert!(start <= end);
-        let slice = unsafe {
-            core::slice::from_raw_parts(start, end as usize - start as usize)
-        };
-
-        slice
+        core::slice::from_raw_parts(start, end as usize - start as usize)
     }
 }
