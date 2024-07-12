@@ -51,12 +51,12 @@ pub enum SipMethod {
     Other,
 }
 
-const SIP_INVITE: &'static [u8] = "INVITE".as_bytes();
-const SIP_CANCEL: &'static [u8] = "CANCEL".as_bytes();
-const SIP_ACK: &'static [u8] = "ACK".as_bytes();
-const SIP_BYE: &'static [u8] = "BYE".as_bytes();
-const SIP_REGISTER: &'static [u8] = "REGISTER".as_bytes();
-const SIP_OPTIONS: &'static [u8] = "OPTIONS".as_bytes();
+const SIP_INVITE: &[u8] = "INVITE".as_bytes();
+const SIP_CANCEL: &[u8] = "CANCEL".as_bytes();
+const SIP_ACK: &[u8] = "ACK".as_bytes();
+const SIP_BYE: &[u8] = "BYE".as_bytes();
+const SIP_REGISTER: &[u8] = "REGISTER".as_bytes();
+const SIP_OPTIONS: &[u8] = "OPTIONS".as_bytes();
 
 impl From<&[u8]> for SipMethod {
     fn from(value: &[u8]) -> Self {

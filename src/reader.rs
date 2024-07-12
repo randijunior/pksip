@@ -12,13 +12,15 @@ pub struct Position {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
     /// The tag did not match the expected value.
-    TagMismatch,
+    Tag,
     /// End of file reached.
     EndOfInput,
     /// Insufficient input for the requested operation.
     OutOfInput,
 
-    DelimiterNotFound,
+    Predicate,
+
+    Delimiter,
 }
 #[derive(Debug, PartialEq)]
 pub struct ReaderError<'a> {
@@ -35,6 +37,20 @@ pub struct ReaderState<'a> {
     line: usize,
     maker: std::marker::PhantomData<&'a ()>,
 }
+
+impl<'a> ReaderState<'a> {
+    pub fn from_input(input: &'a [u8]) -> Self {
+        let begin = input.as_ptr();
+        ReaderState {
+            cur: begin,
+            begin,
+            end: unsafe { begin.add(input.len()) },
+            start_line: begin,
+            line: 1,
+            maker: PhantomData,
+        }
+    }
+}
 /// A struct for reading and parsing input byte by byte.
 pub struct InputReader<'a> {
     input: &'a [u8],
@@ -44,78 +60,77 @@ pub struct InputReader<'a> {
 impl<'a> InputReader<'a> {
     /// Creates a new `InputReader` from the given input slice.
     pub fn new(input: &'a [u8]) -> InputReader<'a> {
-        let begin = input.as_ptr();
-        let end = unsafe { begin.add(input.len()) };
-        let cur = begin;
-        let start_line = begin;
+        let reader_state = ReaderState::from_input(input);
 
         InputReader {
             input,
-            state: UnsafeCell::new(ReaderState {
-                cur,
-                begin,
-                end,
-                start_line,
-                line: 1,
-                maker: PhantomData,
-            }),
+            state: UnsafeCell::new(reader_state),
         }
     }
-
+    // Safety: the caller must ensure that there are no mutable references that
+    // point to contents of the state.
     unsafe fn get_state(&self) -> &ReaderState {
         &*self.state.get()
     }
 
-    unsafe fn get_state_mut(&self) -> &mut ReaderState<'a> {
-        &mut *self.state.get()
+    fn cur(&self) -> *const u8 {
+        unsafe { self.get_state() }.cur
     }
 
-    unsafe fn cur(&self) -> *const u8 {
-        let state = self.get_state();
-        state.cur
+    unsafe fn next(&self, state: &mut ReaderState) -> ReaderResult<u8> {
+        let byte = *state.cur;
+        state.cur = state.cur.add(1);
+
+        if is_newline(byte) {
+            state.start_line = state.cur;
+            state.line += 1;
+        }
+
+        Ok(byte)
+    }
+
+    fn is_eof(&self, state: &ReaderState) -> bool {
+        state.cur >= state.end
     }
 
     pub fn read(&self) -> ReaderResult<u8> {
-        let state = unsafe { self.get_state_mut() };
-        if state.cur >= state.end {
-            return Err(self.error(ErrorKind::EndOfInput));
-        } else {
-            unsafe {
-                let byte = *state.cur;
-                state.cur = state.cur.add(1);
-
-                if is_newline(byte) {
-                    state.start_line = state.cur;
-                    state.line += 1;
-                }
-                Ok(byte)
+        unsafe {
+            let shared = self.get_state();
+            if self.is_eof(shared) {
+                return Err(self.error(ErrorKind::EndOfInput));
             }
+        }
+        unsafe {
+            let exclusive = &mut *self.state.get();
+            self.next(exclusive)
         }
     }
 
     pub fn read_n(&self, n: usize) -> ReaderResult<&[u8]> {
-        let start = unsafe { self.cur() };
+        let start = self.cur();
         for _ in 0..n {
             self.read()?;
         }
-        let end = unsafe { self.cur() };
+        let end = self.cur();
 
         Ok(unsafe { self.slice_from_parts(start, end) })
     }
 
     pub fn peek(&self) -> Option<u8> {
-        let state = unsafe { self.get_state() };
-        if state.cur >= state.end {
-            return None;
+        unsafe {
+            let state = self.get_state();
+            if self.is_eof(state) {
+                return None;
+            }
+            Some(*state.cur) 
         }
-        unsafe { Some(*state.cur) }
     }
 
     fn get_col(&self, state: &ReaderState) -> usize {
         let cur = state.cur as usize;
         let st_line = state.start_line as usize;
 
-        assert!(cur >= st_line);
+        debug_assert!(cur >= st_line);
 
         cur - st_line
     }
@@ -132,81 +147,8 @@ impl<'a> InputReader<'a> {
         }
     }
 
-    fn peeking_next<P>(&self, predicate: P) -> ReaderResult<Option<u8>>
-    where
-        P: Fn(u8) -> bool,
-    {
-        if let Some(n) = self.peek() {
-            if predicate(n) {
-                Ok(self.read().ok())
-            } else {
-                Ok(None)
-            }
-        } else {
-            return Err(self.error(ErrorKind::EndOfInput));
-        }
-    }
-
-    pub fn read_while<P>(&self, predicate: P) -> ReaderResult<&[u8]>
-    where
-        P: Fn(u8) -> bool,
-    {
-        let start = unsafe { self.cur() };
-        let mut next = self.peeking_next(&predicate);
-        while let Ok(Some(_)) = next {
-            next = self.peeking_next(&predicate);
-        }
-        let end = unsafe { self.cur() };
-
-        Ok(unsafe { self.slice_from_parts(start, end) })
-    }
-
     pub fn read_until_b(&self, byte: u8) -> ReaderResult<&[u8]> {
         self.read_until(|b| b == byte)
-    }
-
-    pub fn peek_for_match(&self, i: &[u8]) -> Option<&u8> {
-        for byte in self.as_slice().iter() {
-            if i.contains(&byte) {
-                return Some(byte);
-            }
-        }
-        None
-    }
-
-    pub fn read_next_if_eq(&self, expected: u8) -> ReaderResult<Option<u8>> {
-        match self.peek() {
-            Some(byte) => {
-                if byte == expected {
-                    Ok(self.read().ok())
-                } else {
-                    Ok(None)
-                }
-            }
-            None => Err(self.error(ErrorKind::OutOfInput)),
-        }
-    }
-
-    pub fn tag(&self, tag: &[u8]) -> Result<&[u8], ReaderError> {
-        let len = tag.len();
-        let slc = self.peek_n(len);
-
-        match slc {
-            Some(bytes) => {
-                for i in 0..len {
-                    if bytes[i] != tag[i] {
-                        return Err(self.error(ErrorKind::TagMismatch));
-                    }
-                    self.read()?;
-                }
-                Ok(bytes)
-            }
-            None => Err(self.error(ErrorKind::OutOfInput)),
-        }
-    }
-
-    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
-        self.as_slice().get(..n)
     }
 
     pub fn read_until<P>(&self, predicate: P) -> ReaderResult<&[u8]>
@@ -214,6 +156,70 @@ impl<'a> InputReader<'a> {
         P: Fn(u8) -> bool,
     {
         self.read_while(|n| !predicate(n))
+    }
+
+    pub fn read_while<P>(&self, predicate: P) -> ReaderResult<&[u8]>
+    where
+        P: Fn(u8) -> bool,
+    {
+        let start = self.cur();
+        let mut next = self.peeking_next(&predicate);
+        while let Ok(_) = next {
+            next = self.peeking_next(&predicate);
+        }
+        let end = self.cur();
+
+        Ok(unsafe { self.slice_from_parts(start, end) })
+    }
+
+    fn peeking_next<P>(&self, predicate: P) -> ReaderResult<u8>
+    where
+        P: Fn(u8) -> bool,
+    {
+        if let Some(n) = self.peek() {
+            if predicate(n) {
+                self.read()
+            } else {
+                Err(self.error(ErrorKind::Predicate))
+            }
+        } else {
+            Err(self.error(ErrorKind::EndOfInput))
+        }
+    }
+
+    pub fn peek_for_match(&self, i: &[u8]) -> Option<&u8> {
+        self.as_slice().iter().find(|&byte| i.contains(byte))
+    }
+
+    pub fn next_if_eq(&self, expected: u8) -> ReaderResult<u8> {
+        if let Some(byte) = self.peek() {
+            if byte == expected {
+                self.read()
+            } else {
+                Err(self.error(ErrorKind::Predicate))
+            }
+        } else {
+            Err(self.error(ErrorKind::OutOfInput))
+        }
+    }
+
+    pub fn tag(&self, tag: &[u8]) -> Result<&[u8], ReaderError> {
+        let len = tag.len();
+        if let Some(bytes) = self.peek_n(len) {
+            for i in 0..len {
+                if bytes[i] != tag[i] {
+                    return Err(self.error(ErrorKind::Tag));
+                }
+                self.read()?;
+            }
+            Ok(bytes)
+        } else {
+            Err(self.error(ErrorKind::OutOfInput))
+        }
+    }
+
+    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
+        self.as_slice().get(..n)
     }
 
     pub fn as_slice(&self) -> &[u8] {

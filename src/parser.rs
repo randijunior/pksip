@@ -7,7 +7,7 @@ use crate::{
 
 use std::str::{self};
 
-const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
+const SIPV2: &[u8] = "SIP/2.0".as_bytes();
 
 #[derive(Debug, PartialEq)]
 pub struct SipParserError {
@@ -28,6 +28,7 @@ impl<'a> From<ReaderError<'a>> for SipParserError {
     }
 }
 
+#[inline]
 pub fn parse_status_line<'a>(
     reader: &'a InputReader,
 ) -> Result<StatusLine<'a>, SipParserError> {
@@ -47,6 +48,7 @@ pub fn parse_status_line<'a>(
     }
 }
 
+#[inline]
 pub fn parse_request_line<'a>(
     reader: &'a InputReader,
 ) -> Result<RequestLine<'a>, SipParserError> {
@@ -93,5 +95,32 @@ mod tests {
                 reason_phrase: sc_not_found.reason_phrase()
             })
         );
+    }
+
+    #[test]
+    fn benchmark() {
+        let sc_ok = SipStatusCode::Ok;
+        let msg = "SIP/2.0 200 OK\r\n".as_bytes();
+        let size = msg.len();
+        let mut counter = 0;
+        let now = std::time::Instant::now();
+        loop {
+            let reader = InputReader::new(msg);
+            assert_eq!(
+                parse_status_line(&reader),
+                Ok(StatusLine {
+                    status_code: sc_ok,
+                    reason_phrase: sc_ok.reason_phrase()
+                })
+            );
+            counter += 1;
+            if now.elapsed().as_secs() == 1 {
+                break;
+            }
+        }
+
+        println!("{} mbytes per second, count sip messages: {}",
+        (size * counter) / 1024 / 1024, counter
+    );
     }
 }
