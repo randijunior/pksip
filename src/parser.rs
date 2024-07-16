@@ -2,7 +2,7 @@ use crate::{
     macros::{alpha, digits, newline, next, sip_parse_error, space},
     msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
     reader::{InputReader, ReaderError},
-    uri::Scheme,
+    uri::Scheme, util::is_newline,
 };
 
 use std::str::{self};
@@ -39,9 +39,10 @@ pub fn parse_status_line<'a>(
     space!(reader);
 
     let status_code = SipStatusCode::from(digits);
-    let bytes = newline!(reader);
+    let bytes = reader.read_while(|b| !is_newline(b))?;
 
     if let Ok(rp) = str::from_utf8(bytes) {
+        newline!(reader);
         Ok(StatusLine::new(status_code, rp))
     } else {
         sip_parse_error!("Reason phrase is invalid utf8!")

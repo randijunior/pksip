@@ -12,7 +12,7 @@ macro_rules! digits {
 
 macro_rules! newline {
     ($reader:ident) => ({
-        $reader.read_until(crate::util::is_newline)?
+        $reader.read_while(crate::util::is_newline)?
     })
 }
 
