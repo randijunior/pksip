@@ -1,11 +1,6 @@
-use std::{cell::UnsafeCell, marker::PhantomData};
+use crate::util::{Cursor, Position};
 
-type ReaderResult<'a, T> = Result<T, ReaderError<'a>>;
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Position {
-    pub(crate) line: usize,
-    pub(crate) col: usize,
-}
+type Result<'a, T> = std::result::Result<T, ReaderError<'a>>;
 /// Errors that can occur while reading the input.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -22,48 +17,10 @@ pub struct ReaderError<'a> {
     pub(crate) pos: Position,
     pub(crate) input: &'a [u8],
 }
-
-pub struct Cursor<'a> {
-    begin: *const u8,
-    end: *const u8,
-    curptr: *const u8,
-    start_line: *const u8,
-    line: usize,
-    maker: std::marker::PhantomData<&'a ()>,
-}
-
-unsafe fn slice_from_parts<'a>(start: *const u8, end: *const u8) -> &'a [u8] {
-    assert!(start <= end);
-    core::slice::from_raw_parts(start, end as usize - start as usize)
-}
-
-impl<'a> Cursor<'a> {
-    pub fn from_input(input: &'a [u8]) -> Self {
-        let begin = input.as_ptr();
-        Cursor {
-            curptr: begin,
-            begin,
-            end: unsafe { begin.add(input.len()) },
-            start_line: begin,
-            line: 1,
-            maker: PhantomData,
-        }
-    }
-
-    pub fn is_eof(&self) -> bool {
-        self.curptr >= self.end
-    }
-}
-
-impl<'a> AsRef<[u8]> for Cursor<'a> {
-    fn as_ref(&self) -> &[u8] {
-        unsafe { slice_from_parts(self.curptr, self.end) }
-    }
-}
 /// A struct for reading and parsing input byte by byte.
 pub struct InputReader<'a> {
     input: &'a [u8],
-    cursor: UnsafeCell<Cursor<'a>>,
+    cursor: Cursor<'a>,
 }
 
 impl<'a> InputReader<'a> {
@@ -71,120 +28,67 @@ impl<'a> InputReader<'a> {
     pub fn new(input: &'a [u8]) -> InputReader<'a> {
         InputReader {
             input,
-            cursor: UnsafeCell::new(Cursor::from_input(input)),
+            cursor: Cursor::new(input),
         }
     }
 
-    fn next(&self) -> ReaderResult<u8> {
-        unsafe {
-            let cursor = &mut *self.cursor.get();
-            let byte = *cursor.curptr;
-            cursor.curptr = cursor.curptr.add(1);
-
-            if byte == b'\n' {
-                cursor.start_line = cursor.curptr;
-                cursor.line += 1;
-            }
-
-            Ok(byte)
+    fn next(&self) -> Result<u8> {
+        match self.cursor.advance() {
+            Some(byte) => Ok(byte),
+            None => Err(self.error(ErrorKind::EndOfInput)),
         }
     }
 
-    pub fn read(&self) -> ReaderResult<u8> {
-        unsafe {
-            let cursor = &*self.cursor.get();
-            if cursor.is_eof() {
-                return Err(self.error(ErrorKind::EndOfInput));
-            }
-        }
+    pub fn read(&self) -> Result<u8> {
         self.next()
     }
 
-    pub fn read_n(&self, n: usize) -> ReaderResult<&[u8]> {
-        let start = unsafe {
-            let cursor = &*self.cursor.get();
-            cursor.curptr
-        };
-        for _ in 0..n {
-            self.read()?;
-        }
-        let end = unsafe {
-            let cursor = &*self.cursor.get();
-            cursor.curptr
-        };
-
-        Ok(unsafe { slice_from_parts(start, end) })
-    }
-
     pub fn peek(&self) -> Option<u8> {
-        unsafe {
-            let cursor = &*self.cursor.get();
-
-            return if cursor.is_eof() {
-                None
-            } else {
-                Some(*cursor.curptr)
-            };
-        }
+        self.cursor.peek()
     }
 
-    fn get_position(&self) -> Position {
-        let (curptr, st_line, line) = unsafe {
-            let cursor = &*self.cursor.get();
+    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
+        self.as_slice().get(..n)
+    }
 
-            (cursor.curptr, cursor.start_line, cursor.line)
-        };
-        let cur = curptr as usize;
-        let st_line = st_line as usize;
-
-        debug_assert!(cur >= st_line);
-
-        Position {
-            line,
-            col: cur - st_line,
-        }
+    fn position(&self) -> Position {
+        self.cursor.position()
     }
 
     pub fn error(&self, kind: ErrorKind) -> ReaderError {
         ReaderError {
             kind,
-            pos: self.get_position(),
+            pos: self.position(),
             input: self.input,
         }
     }
 
-    pub fn read_until_b(&self, byte: u8) -> ReaderResult<&[u8]> {
+    pub fn read_until_b(&self, byte: u8) -> Result<&[u8]> {
         self.read_until(|b| b == byte)
     }
 
-    pub fn read_until<P>(&self, predicate: P) -> ReaderResult<&[u8]>
+    pub fn read_until<P>(&self, predicate: P) -> Result<&[u8]>
     where
         P: Fn(u8) -> bool,
     {
         self.read_while(|n| !predicate(n))
     }
 
-    pub fn read_while<P>(&self, predicate: P) -> ReaderResult<&[u8]>
+    pub fn read_while<P>(&self, predicate: P) -> Result<&[u8]>
     where
         P: Fn(u8) -> bool,
     {
-        let start = unsafe {
-            let cursor = &*self.cursor.get();
-            cursor.curptr
-        };
-        let mut next = self.peeking_next(&predicate);
+        let start = self.cursor.cursor();
+        let mut next = self.next_if(&predicate);
         while let Ok(Some(_)) = next {
-            next = self.peeking_next(&predicate);
+            next = self.next_if(&predicate);
         }
-        let end = unsafe {
-            let cursor = &*self.cursor.get();
-            cursor.curptr
-        };
+        let end = self.cursor.cursor();
 
-        Ok(unsafe { slice_from_parts(start, end) })
+        Ok(unsafe { crate::util::slice_from_parts(start, end) })
     }
 
-    fn peeking_next<P>(&self, predicate: P) -> ReaderResult<Option<u8>>
+    fn next_if<P>(&self, predicate: P) -> Result<Option<u8>>
     where
         P: Fn(u8) -> bool,
     {
@@ -199,23 +103,7 @@ impl<'a> InputReader<'a> {
         }
     }
 
-    pub fn peek_for_match(&self, i: &[u8]) -> Option<&u8> {
-        self.as_slice().iter().find(|&byte| i.contains(byte))
-    }
-
-    pub fn next_if_eq(&self, expected: u8) -> ReaderResult<Option<u8>> {
-        if let Some(byte) = self.peek() {
-            if byte == expected {
-                Ok(self.read().ok())
-            } else {
-                Ok(None)
-            }
-        } else {
-            Err(self.error(ErrorKind::OutOfInput))
-        }
-    }
-
-    pub fn tag(&self, tag: &[u8]) -> Result<&[u8], ReaderError> {
+    pub fn tag(&self, tag: &[u8]) -> Result<&[u8]> {
         let len = tag.len();
         if let Some(bytes) = self.peek_n(len) {
             for i in 0..len {
@@ -230,14 +118,7 @@ impl<'a> InputReader<'a> {
         }
     }
 
-    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
-        self.as_slice().get(..n)
-    }
-
     pub fn as_slice(&self) -> &[u8] {
-        unsafe {
-            let cursor = &*self.cursor.get();
-            cursor.as_ref()
-        }
+        self.cursor.as_ref()
     }
 }
