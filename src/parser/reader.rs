@@ -1,4 +1,6 @@
-use crate::util::{Cursor, Position};
+use super::cursor::{Cursor, CursorIter, Position};
+
+
 
 type Result<'a, T> = std::result::Result<T, ReaderError<'a>>;
 /// Errors that can occur while reading the input.
@@ -33,7 +35,7 @@ impl<'a> InputReader<'a> {
     }
 
     fn next(&self) -> Result<u8> {
-        match self.cursor.advance() {
+        match self.cursor.next() {
             Some(byte) => Ok(byte),
             None => Err(self.error(ErrorKind::EndOfInput)),
         }
@@ -78,28 +80,29 @@ impl<'a> InputReader<'a> {
     where
         P: Fn(u8) -> bool,
     {
-        let start = self.cursor.cursor();
-        let mut next = self.next_if(&predicate);
-        while let Ok(Some(_)) = next {
-            next = self.next_if(&predicate);
-        }
-        let end = self.cursor.cursor();
+        let start = self.cursor.index();
+        while let Ok(Some(_)) = self.next_if(&predicate) { }
+        let end = self.cursor.index();
 
-        Ok(unsafe { crate::util::slice_from_parts(start, end) })
+        Ok(&self.input[start..end])
     }
 
     fn next_if<P>(&self, predicate: P) -> Result<Option<u8>>
     where
         P: Fn(u8) -> bool,
     {
-        if let Some(n) = self.peek() {
-            if predicate(n) {
-                Ok(self.read().ok())
-            } else {
-                Ok(None)
+        match self.peek() {
+            Some(next_byte) => {
+                if predicate(next_byte) {
+                    match self.read() {
+                        Ok(byte) => Ok(Some(byte)),
+                        Err(err) => Err(err),
+                    }
+                } else {
+                    Ok(None)
+                }
             }
-        } else {
-            Err(self.error(ErrorKind::EndOfInput))
+            None => Err(self.error(ErrorKind::EndOfInput)),
         }
     }
 

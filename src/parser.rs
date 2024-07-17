@@ -1,11 +1,15 @@
+use reader::{InputReader, ReaderError};
+
 use crate::{
     macros::{alpha, digits, newline, next, sip_parse_error, space},
     msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
-    reader::{InputReader, ReaderError},
     uri::Scheme, util::is_newline,
 };
 
 use std::str::{self};
+
+mod cursor;
+mod reader;
 
 const SIPV2: &[u8] = "SIP/2.0".as_bytes();
 
