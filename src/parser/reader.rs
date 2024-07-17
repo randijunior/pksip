@@ -21,7 +21,6 @@ pub struct ReaderError<'a> {
 }
 /// A struct for reading and parsing input byte by byte.
 pub struct InputReader<'a> {
-    input: &'a [u8],
     cursor: Cursor<'a>,
 }
 
@@ -29,7 +28,6 @@ impl<'a> InputReader<'a> {
     /// Creates a new `InputReader` from the given input slice.
     pub fn new(input: &'a [u8]) -> InputReader<'a> {
         InputReader {
-            input,
             cursor: Cursor::new(input),
         }
     }
@@ -61,7 +59,7 @@ impl<'a> InputReader<'a> {
         ReaderError {
             kind,
             pos: self.position(),
-            input: self.input,
+            input: self.cursor.input(),
         }
     }
 
@@ -84,7 +82,7 @@ impl<'a> InputReader<'a> {
         while let Ok(Some(_)) = self.next_if(&predicate) { }
         let end = self.cursor.index();
 
-        Ok(&self.input[start..end])
+        Ok(self.cursor.parts(start, end))
     }
 
     fn next_if<P>(&self, predicate: P) -> Result<Option<u8>>
