@@ -85,7 +85,7 @@ impl<'a> InputReader<'a> {
         Ok(self.cursor.parts(start, end))
     }
 
-    fn next_if<P>(&self, predicate: P) -> Result<Option<u8>>
+    pub fn next_if<P>(&self, predicate: P) -> Result<Option<u8>>
     where
         P: Fn(u8) -> bool,
     {

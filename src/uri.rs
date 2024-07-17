@@ -57,7 +57,7 @@ pub struct Uri<'a> {
     scheme: Scheme,
     user: Option<UserInfo<'a>>,
     host: Host<'a>,
-    port: Option<u32>,
+    port: Option<u16>,
 }
 
 impl<'a> Uri<'a> {
@@ -65,7 +65,7 @@ impl<'a> Uri<'a> {
         scheme: Scheme,
         user: Option<UserInfo<'a>>,
         host: Host<'a>,
-        port: Option<u32>,
+        port: Option<u16>,
     ) -> Self {
         Uri {
             scheme,

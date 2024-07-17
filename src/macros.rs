@@ -28,6 +28,12 @@ macro_rules! next {
     })
 }
 
+macro_rules! peek {
+    ($reader:ident) => ({
+        $reader.peek()
+    })
+}
+
 
 macro_rules! sip_parse_error {
     ($message:expr) => ({
@@ -40,4 +46,5 @@ pub(crate) use newline;
 pub(crate) use space;
 pub(crate) use alpha;
 pub(crate) use next;
+pub(crate) use peek;
 pub(crate) use sip_parse_error;
