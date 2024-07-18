@@ -7,15 +7,6 @@ pub struct Position {
     pub(crate) idx: usize,
 }
 
-impl Default for Position {
-    fn default() -> Self {
-        Position {
-            line: 1,
-            col: 1,
-            idx: 0,
-        }
-    }
-}
 
 pub struct Cursor<'a> {
     input: &'a [u8],
@@ -26,7 +17,11 @@ impl<'a> Cursor<'a> {
     pub fn new(input: &'a [u8]) -> Self {
         Cursor {
             input,
-            pos: UnsafeCell::new(Position::default()),
+            pos: UnsafeCell::new(Position {
+                line: 1,
+                col: 1,
+                idx: 0,
+            }),
         }
     }
 

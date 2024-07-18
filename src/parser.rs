@@ -1,25 +1,22 @@
 use reader::{InputReader, ReaderError};
 
 use crate::{
-    macros::{alpha, digits, newline, next, peek, sip_parse_error, space},
+    macros::{alpha, digits, newline, next, sip_parse_error, space},
     msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
     uri::{Host, Scheme, Uri, UserInfo},
     util::is_newline,
 };
 
-use std::{
-    net::{IpAddr, Ipv6Addr},
-    str::{self, FromStr},
-};
+use std::str::{self, Utf8Error};
 
 mod cursor;
-mod reader;
+pub mod reader;
 
 const SIPV2: &[u8] = "SIP/2.0".as_bytes();
 
 #[derive(Debug, PartialEq)]
 pub struct SipParserError {
-    message: String,
+    pub(crate) message: String,
 }
 
 impl<'a> From<ReaderError<'a>> for SipParserError {
@@ -36,52 +33,12 @@ impl<'a> From<ReaderError<'a>> for SipParserError {
     }
 }
 
-#[inline(always)]
-fn alpha(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric()
-}
-#[inline(always)]
-fn user_unreserved(byte: u8) -> bool {
-    match byte {
-        b'&' | b'=' | b'+' | b'$' | b',' | b';' | b'?' | b'/' => true,
-        _ => false,
+impl From<Utf8Error> for SipParserError {
+    fn from(value: Utf8Error) -> Self {
+        SipParserError {
+            message: value.to_string(),
+        }
     }
-}
-#[inline(always)]
-fn mark(byte: u8) -> bool {
-    match byte {
-        b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')' => true,
-        _ => false,
-    }
-}
-
-#[inline(always)]
-fn uneserved(byte: u8) -> bool {
-    mark(byte) || alpha(byte)
-}
-#[inline(always)]
-fn escaped(byte: u8) -> bool {
-    byte == b'%'
-}
-
-#[inline(always)]
-fn user(byte: u8) -> bool {
-    uneserved(byte) || user_unreserved(byte) || escaped(byte)
-}
-#[inline(always)]
-fn pass(byte: u8) -> bool {
-    match byte {
-        b'&' | b'=' | b'+' | b'$' | b',' => true,
-        _ => false,
-    }
-}
-#[inline(always)]
-fn password(byte: u8) -> bool {
-    uneserved(byte) || pass(byte) || escaped(byte)
-}
-
-fn host(byte: u8) -> bool {
-    alpha(byte) || byte == b'_' || byte == b'-' || byte == b'.'
 }
 
 #[inline(always)]
@@ -107,80 +64,26 @@ pub fn parse_status_line<'a>(
 
     let status_code = SipStatusCode::from(digits);
     let bytes = reader.read_while(|b| !is_newline(b))?;
+    let reason_phrase = str::from_utf8(bytes)?;
 
-    if let Ok(rp) = str::from_utf8(bytes) {
-        newline!(reader);
-        Ok(StatusLine::new(status_code, rp))
-    } else {
-        sip_parse_error!("Reason phrase is invalid utf8!")
-    }
+    newline!(reader);
+
+    Ok(StatusLine::new(status_code, reason_phrase))
 }
 
 fn parse_uri_host<'a>(reader: &'a InputReader) -> Result<Host<'a>, SipParserError> {
     if let Some(_) = reader.next_if(|b| b == b'[')? {
-        match str::from_utf8(reader.read_until_b(b']')?) {
-            Ok(host_str) => {
-                if let Ok(host) = host_str.parse() {
-                    next!(reader);
-                    Ok(Host::IpAddr(IpAddr::V6(host)))
-                } else {
-                    sip_parse_error!("Error parsing Ipv6 Host!")
-                }
-            }
-            Err(_) => sip_parse_error!("Sip Ipv6 host is invalid utf8!"),
-        }
+        Host::parse_ipv6(reader)
     } else {
-        let host = reader.read_while(host)?;
-        match str::from_utf8(host) {
-            Ok(host) => {
-                if let Ok(addr) = IpAddr::from_str(host) {
-                    Ok(Host::IpAddr(addr))
-                } else {
-                    Ok(Host::DomainName(host))
-                }
-            }
-            Err(_) => sip_parse_error!("Sip host is invalid utf8"),
-        }
+        Host::parse(reader)
     }
 }
 
 fn parse_port(reader: &InputReader) -> Result<Option<u16>, SipParserError> {
     if let Some(_) = reader.next_if(|b| b == b':')? {
-        let digits = digits!(reader);
-        match std::str::from_utf8(digits) {
-            Ok(digits) => match u16::from_str_radix(digits, 10) {
-                Ok(port) => Ok(Some(port)),
-                Err(_) => sip_parse_error!("Port is invalid!"),
-            },
-            Err(_) => sip_parse_error!("Port is invalid utf8"),
-        }
+        Uri::parse_port(reader)
     } else {
         Ok(None)
-    }
-}
-
-#[inline]
-pub fn parse_user_and_pass<'a>(
-    reader: &'a InputReader,
-) -> Result<UserInfo<'a>, SipParserError> {
-    let bytes = reader.read_while(user)?;
-    match str::from_utf8(bytes) {
-        Ok(user) => {
-            if peek!(reader) == Some(b':') {
-                next!(reader);
-                let bytes = reader.read_while(password)?;
-                next!(reader);
-
-                match str::from_utf8(bytes) {
-                    Ok(pass) => Ok(UserInfo::new(user, Some(pass))),
-                    Err(_) => sip_parse_error!("Pass is invalid utf8!"),
-                }
-            } else {
-                next!(reader);
-                Ok(UserInfo::new(user, None))
-            }
-        }
-        Err(_) => sip_parse_error!("User is invalid utf8!"),
     }
 }
 
@@ -202,7 +105,7 @@ pub fn parse_request_line<'a>(
 
     let has_user = maybe_has_user(reader).is_some_and(|b| b == b'@');
     let user_info = if has_user {
-        Some(parse_user_and_pass(reader)?)
+        Some(UserInfo::parse(reader)?)
     } else {
         None
     };
@@ -217,6 +120,8 @@ pub fn parse_request_line<'a>(
 
 #[cfg(test)]
 mod tests {
+    use std::net::IpAddr;
+
     use super::*;
 
     #[test]
@@ -246,53 +151,24 @@ mod tests {
     }
 
     #[test]
-    fn benchmark_req_line() {
+    fn test_req_status_line() {
         let msg = "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
-        let size = msg.len();
-        let mut counter = 0;
-        let now = std::time::Instant::now();
-        loop {
-            let reader = InputReader::new(msg);
-            assert!(parse_request_line(&reader).is_ok(),);
-            counter += 1;
-            if now.elapsed().as_secs() == 1 {
-                break;
-            }
-        }
-
-        println!(
-            "{} mbytes per second, count sip messages: {}",
-            (size * counter) / 1024 / 1024,
-            counter
-        );
-    }
-
-    #[test]
-    fn benchmark() {
-        let sc_ok = SipStatusCode::Ok;
-        let msg = "SIP/2.0 200 OK\r\n".as_bytes();
-        let size = msg.len();
-        let mut counter = 0;
-        let now = std::time::Instant::now();
-        loop {
-            let reader = InputReader::new(msg);
-            assert_eq!(
-                parse_status_line(&reader),
-                Ok(StatusLine {
-                    status_code: sc_ok,
-                    reason_phrase: sc_ok.reason_phrase()
-                })
-            );
-            counter += 1;
-            if now.elapsed().as_secs() == 1 {
-                break;
-            }
-        }
-
-        println!(
-            "{} mbytes per second, count sip messages: {}",
-            (size * counter) / 1024 / 1024,
-            counter
+        let addr: IpAddr = "10.1.1.7".parse().unwrap();
+        let reader = InputReader::new(msg);
+        assert_eq!(
+            parse_request_line(&reader),
+            Ok(RequestLine {
+                method: SipMethod::Register,
+                uri: Uri {
+                    scheme: Scheme::Sip,
+                    user: Some(UserInfo {
+                        name: "1000b3",
+                        password: None
+                    }),
+                    host: Host::IpAddr(addr),
+                    port: Some(8089)
+                }
+            })
         );
     }
 }
