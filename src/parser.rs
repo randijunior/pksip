@@ -1,29 +1,151 @@
-use reader::{InputReader, ReaderError};
-
 use crate::{
-    macros::{alpha, digits, newline, next, sip_parse_error, space},
-    msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
-    uri::{Host, Scheme, Uri, UserInfo},
+    cursor::{Cursor, CursorError},
+    headers::{to::To, SipHeaders},
+    macros::{
+        alpha, b_map, digits, newline, next, peek, read_while, sip_parse_error,
+        space, until_byte, until_newline,
+    },
+    msg::{RequestLine, SipMethod, SipMsg, SipStatusCode, StatusLine},
+    uri::{GenericParam, Host, Scheme, Uri, UriParam, UserInfo},
     util::is_newline,
 };
 
-use std::str::{self, Utf8Error};
+const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
-mod cursor;
-pub mod reader;
+type Result<T> = std::result::Result<T, SipParserError>;
 
-const SIPV2: &[u8] = "SIP/2.0".as_bytes();
+use std::{
+    collections::HashMap,
+    net::IpAddr,
+    str::{self, FromStr, Utf8Error},
+};
+
+// A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
+// For reading user part on sip uri.
+const USER_SPEC_MAP: [bool; 256] = b_map![
+// \0                            \n
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// \w  !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /
+    0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1,
+//  @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _ 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+//  `  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~  \x7f  
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+
+// Extended ASCII (character code 128-255)
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+// A-Z a-z 0-9 -_.!~*'() &=+$,%
+// For reading password part on sip uri.
+const PASS_SPEC_MAP: [bool; 256] = b_map![
+// \0                            \n
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// \w  !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /
+    0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0,
+//  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+//  @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _ 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+//  `  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~  \x7f  
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+
+// Extended ASCII (character code 128-255)
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+// A-Z a-z 0-9 -_.  tirar ~*'() &=+$,%
+// For reading password part on sip uri.
+const HOST_SPEC_MAP: [bool; 256] = b_map![
+// \0                            \n
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// \w  !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0,
+//  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+//  @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _ 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+//  `  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~  \x7f  
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+
+// Extended ASCII (character code 128-255)
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+#[inline(always)]
+fn has_user(reader: &Cursor) -> bool {
+    let mut matched = None;
+    for &byte in reader.as_ref().iter() {
+        match byte {
+            b'@' | b' ' | b'\n' | b'>' => {
+                matched = Some(byte);
+                break;
+            }
+            _ => continue,
+        }
+    }
+    matched == Some(b'@')
+}
 
 #[derive(Debug, PartialEq)]
 pub struct SipParserError {
-    pub(crate) message: String,
+    message: String,
 }
 
-impl<'a> From<ReaderError<'a>> for SipParserError {
-    fn from(err: ReaderError) -> Self {
+impl From<Utf8Error> for SipParserError {
+    fn from(value: Utf8Error) -> Self {
+        SipParserError {
+            message: format!("{:#?}", value),
+        }
+    }
+}
+
+impl<'a> From<CursorError<'a>> for SipParserError {
+    fn from(err: CursorError) -> Self {
         SipParserError {
             message: format!(
-                "Failed to parse at line: {}, column: {}, kind: {:?}, input: '{}'",
+                "Failed to parse at line:{}, 
+                column:{}, 
+                kind:{:?}, 
+                input:'{}'",
                 err.pos.line,
                 err.pos.col,
                 err.kind,
@@ -33,94 +155,194 @@ impl<'a> From<ReaderError<'a>> for SipParserError {
     }
 }
 
-impl From<Utf8Error> for SipParserError {
-    fn from(value: Utf8Error) -> Self {
-        SipParserError {
-            message: value.to_string(),
-        }
-    }
-}
-
-#[inline(always)]
-fn maybe_has_user(reader: &InputReader) -> Option<u8> {
-    for &byte in reader.as_slice().iter() {
-        match byte {
-            b'@' | b' ' | b'\n' | b'>' => return Some(byte),
-            _ => continue,
-        }
-    }
-    None
-}
-
-#[inline]
-pub fn parse_status_line<'a>(
-    reader: &'a InputReader,
-) -> Result<StatusLine<'a>, SipParserError> {
-    reader.tag(SIPV2)?;
+pub fn parse_status_line<'a>(reader: &'a mut Cursor) -> Result<StatusLine<'a>> {
+    reader.prefix(SIPV2)?;
 
     space!(reader);
     let digits = digits!(reader);
     space!(reader);
 
     let status_code = SipStatusCode::from(digits);
-    let bytes = reader.read_while(|b| !is_newline(b))?;
-    let reason_phrase = str::from_utf8(bytes)?;
+    let bytes = until_newline!(reader);
+
+    let rp = str::from_utf8(bytes)?;
 
     newline!(reader);
-
-    Ok(StatusLine::new(status_code, reason_phrase))
+    Ok(StatusLine::new(status_code, rp))
 }
 
-fn parse_uri_host<'a>(reader: &'a InputReader) -> Result<Host<'a>, SipParserError> {
-    if let Some(_) = reader.next_if(|b| b == b'[')? {
-        Host::parse_ipv6(reader)
-    } else {
-        Host::parse(reader)
-    }
-}
-
-fn parse_port(reader: &InputReader) -> Result<Option<u16>, SipParserError> {
-    if let Some(_) = reader.next_if(|b| b == b':')? {
-        Uri::parse_port(reader)
-    } else {
-        Ok(None)
+#[inline]
+fn parse_scheme<'a>(reader: &'a mut Cursor) -> Result<Scheme> {
+    match until_byte!(reader, b':') {
+        b"sip" => Ok(Scheme::Sip),
+        b"sips" => Ok(Scheme::Sips),
+        // Unsupported URI scheme
+        _ => sip_parse_error!("Can't parse sip uri scheme"),
     }
 }
 
 #[inline]
-pub fn parse_request_line<'a>(
-    reader: &'a InputReader,
-) -> Result<RequestLine<'a>, SipParserError> {
-    let method = SipMethod::from(alpha!(reader));
+fn is_user(b: u8) -> bool {
+    USER_SPEC_MAP[b as usize]
+}
 
+#[inline]
+fn is_pass(b: u8) -> bool {
+    PASS_SPEC_MAP[b as usize]
+}
+
+#[inline]
+pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>> {
+    let b_method = alpha!(reader);
+    let method = SipMethod::from(b_method);
     space!(reader);
 
-    let scheme = match reader.read_until_b(b':')? {
-        b"sip" => Ok(Scheme::Sip),
-        b"sips" => Ok(Scheme::Sips),
-        _ => sip_parse_error!("Can't parse sip uri scheme"),
-    }?;
-
+    let scheme = parse_scheme(reader)?;
+    // take ':'
     next!(reader);
 
-    let has_user = maybe_has_user(reader).is_some_and(|b| b == b'@');
-    let user_info = if has_user {
-        Some(UserInfo::parse(reader)?)
+    let user_info = if has_user(reader) {
+        let bytes = read_while!(reader, is_user);
+        let name = str::from_utf8(bytes)?;
+
+        if peek!(reader) == Some(b':') {
+            next!(reader);
+            let bytes = read_while!(reader, is_pass);
+            next!(reader);
+
+            Some(UserInfo {
+                name,
+                password: Some(str::from_utf8(bytes)?),
+            })
+        } else {
+            next!(reader);
+            Some(UserInfo {
+                name,
+                password: None,
+            })
+        }
     } else {
         None
     };
-    let host = parse_uri_host(reader)?;
-    let port = parse_port(reader)?;
-    let uri = Uri::new(scheme, user_info, host, port);
 
+    let host = if let Some(_) = reader.read_if(|b| b == b'[')? {
+        // the '[' and ']' characters are removed from the host
+        next!(reader);
+        let host = until_byte!(reader, b']');
+        next!(reader);
+        let host = str::from_utf8(host)?;
+        if let Ok(host) = host.parse() {
+            next!(reader);
+            Ok(Host::IpAddr(IpAddr::V6(host)))
+        } else {
+            sip_parse_error!("Error parsing Ipv6 Host!")
+        }
+    } else {
+        let host = read_while!(reader, |b| HOST_SPEC_MAP[b as usize]);
+        let host = str::from_utf8(host)?;
+        if let Ok(addr) = IpAddr::from_str(host) {
+            Ok(Host::IpAddr(addr))
+        } else {
+            Ok(Host::DomainName(host))
+        }
+    }?;
+
+    let port = if let Some(_) = reader.read_if(|b| b == b':')? {
+        let digits = digits!(reader);
+        let digits = str::from_utf8(digits)?;
+
+        match u16::from_str_radix(digits, 10) {
+            Ok(port) => Ok(Some(port)),
+            Err(_) => sip_parse_error!("Port is invalid integer!"),
+        }
+    } else {
+        Ok(None)
+    }?;
+
+    let (rfc_params, other_params) = if let Some(_) = reader.read_if(|b| b == b';')? {
+        let mut params = HashMap::new();
+        let mut other_params = vec![];
+
+        loop {
+            match peek!(reader) {
+                Some(b'\r') | Some(b'\n') | Some(b' ') => break,
+                Some(_) => (),
+                None => break,
+            };
+            let name = until_byte!(reader, b'=');
+            next!(reader);
+            let value = read_while!(reader, |b| b != b';'
+                && b != b' '
+                && b != b'?'
+                && !is_newline(b));
+            if peek!(reader) == Some(b';') {
+                next!(reader);
+            }
+            match name {
+                b"user" => {
+                    params.insert(UriParam::User, str::from_utf8(value)?);
+                }
+                b"method" => {
+                    params.insert(UriParam::Method, str::from_utf8(value)?);
+                }
+                b"transport" => {
+                    params.insert(UriParam::Transport, str::from_utf8(value)?);
+                }
+                b"ttl" => {
+                    params.insert(UriParam::TTL, str::from_utf8(value)?);
+                }
+                b"lr" => {
+                    params.insert(UriParam::Lr, str::from_utf8(value)?);
+                }
+                b"maddr" => {
+                    params.insert(UriParam::Maddr, str::from_utf8(value)?);
+                }
+                b" " | b"?" => break,
+                b"&" => {
+                    next!(reader);
+                    continue;
+                }
+                value => {
+                    other_params.push(GenericParam {
+                        name: str::from_utf8(name)?,
+                        value: str::from_utf8(value)?,
+                    });
+                }
+            };
+        }
+
+        (
+            Some(params),
+            if other_params.len() > 0 {
+                Some(other_params)
+            } else {
+                None
+            },
+        )
+    } else {
+        (None, None)
+    };
+    space!(reader);
+
+    reader.prefix(SIPV2)?;
     newline!(reader);
 
-    Ok(RequestLine { method, uri })
+    Ok(RequestLine {
+        method,
+        uri: Uri {
+            scheme,
+            user: user_info,
+            host,
+            port,
+            rfc_params,
+            other_params,
+        },
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use std::net::IpAddr;
+    use std::{net::IpAddr, time::Instant};
 
     use super::*;
 
@@ -128,10 +350,10 @@ mod tests {
     fn test_parse_status_line() {
         let sc_ok = SipStatusCode::Ok;
         let buf = "SIP/2.0 200 OK\r\n".as_bytes();
-        let reader = InputReader::new(buf);
+        let mut reader = Cursor::new(buf);
 
         assert_eq!(
-            parse_status_line(&reader),
+            parse_status_line(&mut reader),
             Ok(StatusLine {
                 status_code: sc_ok,
                 reason_phrase: sc_ok.reason_phrase()
@@ -139,10 +361,10 @@ mod tests {
         );
         let sc_not_found = SipStatusCode::NotFound;
         let buf = "SIP/2.0 404 Not Found\r\n".as_bytes();
-        let reader = InputReader::new(buf);
+        let mut reader = Cursor::new(buf);
 
         assert_eq!(
-            parse_status_line(&reader),
+            parse_status_line(&mut reader),
             Ok(StatusLine {
                 status_code: sc_not_found,
                 reason_phrase: sc_not_found.reason_phrase()
@@ -154,9 +376,9 @@ mod tests {
     fn test_req_status_line() {
         let msg = "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
         let addr: IpAddr = "10.1.1.7".parse().unwrap();
-        let reader = InputReader::new(msg);
+        let mut reader = Cursor::new(msg);
         assert_eq!(
-            parse_request_line(&reader),
+            parse_request_line(&mut reader),
             Ok(RequestLine {
                 method: SipMethod::Register,
                 uri: Uri {
@@ -166,9 +388,19 @@ mod tests {
                         password: None
                     }),
                     host: Host::IpAddr(addr),
-                    port: Some(8089)
+                    port: Some(8089),
+                    rfc_params: None,
+                    other_params: None
                 }
             })
         );
+    }
+    #[test]
+    fn status_line() {
+        let msg =
+            "REGISTER sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15 SIP/2.0\r\n"
+                .as_bytes();
+            let mut cursor = Cursor::new(msg);
+            assert!(parse_request_line(&mut cursor).is_ok());
     }
 }

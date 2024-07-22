@@ -6,12 +6,12 @@ use std::str;
 pub enum SipMsg<'a> {
     Request {
         req_line: RequestLine<'a>,
-        headers: SipHeaders,
+        headers: SipHeaders<'a>,
         body: Vec<u8>,
     },
     Response {
         req_line: StatusLine<'a>,
-        headers: SipHeaders,
+        headers: SipHeaders<'a>,
         body: Vec<u8>,
     },
 }

@@ -2,11 +2,11 @@ pub mod to;
 
 use to::To;
 
-pub struct SipHeaders {
-    hdrs: Vec<Header>,
+pub struct SipHeaders<'a> {
+    pub(crate) hdrs: Vec<Header<'a>>,
 }
 
-pub enum Header {
+pub enum Header<'a> {
     Accept,
     AcceptEncodingUnimp,
     AcceptLanguageUnimp,
@@ -45,7 +45,7 @@ pub enum Header {
     SubjectUnimp,
     Supported,
     TimestampUnimp,
-    To(To),
+    To(To<'a>),
     Unsupported,
     UserAgentUnimp,
     Via,

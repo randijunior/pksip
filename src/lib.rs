@@ -5,3 +5,4 @@ pub mod uri;
 
 pub(crate) mod macros;
 pub(crate) mod util;
+pub(crate) mod cursor;
