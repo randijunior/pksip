@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::HashSet,
     net::IpAddr,
     str::{self},
 };
@@ -44,13 +44,13 @@ pub enum Scheme {
 // str maddr_param optional
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub enum UriParam {
-    User,
-    Method,
-    Transport,
-    TTL, //TODO: add i32
-    Lr, //TODO: add i32
-    Maddr,
+pub enum UriParam<'a> {
+    User(&'a str),
+    Method(&'a str),
+    Transport(&'a str),
+    TTL(&'a str), //TODO: add i32
+    Lr(&'a str), //TODO: add i32
+    Maddr(&'a str),
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct GenericParam<'a> {
@@ -68,8 +68,8 @@ pub struct Uri<'a> {
     pub(crate) user: Option<UserInfo<'a>>,
     pub(crate) host: Host<'a>,
     pub(crate) port: Option<u16>,
-    pub(crate) rfc_params: Option<HashMap<UriParam, &'a str>>,
-    pub(crate) other_params: Option<Vec<GenericParam<'a>>>
+    pub(crate) rfc_params: HashSet<UriParam<'a>>,
+    pub(crate) other_params: Vec<GenericParam<'a>>
 }
 
 //SIP name-addr, which typically appear in From, To, and Contact header.

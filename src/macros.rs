@@ -30,6 +30,18 @@ macro_rules! until_byte {
     })
 }
 
+macro_rules! tag {
+    ($reader:expr, $tag:expr) => ({
+        for &byte in $tag {
+            if let Some(b) = $reader.next() {
+                if b != byte {
+                    return Err($reader.error(ErrorKind::Tag).into());
+                }
+            }
+        }
+    })
+}
+
 
 macro_rules! until_newline {
     ($reader:ident) => ({
@@ -78,6 +90,7 @@ macro_rules! sip_parse_error {
 }
 
 pub(crate) use digits;
+pub(crate) use tag;
 pub(crate) use newline;
 pub(crate) use until_newline;
 pub(crate) use until_byte;

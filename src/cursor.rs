@@ -9,8 +9,8 @@ type Result<'a, T> = std::result::Result<T, CursorError<'a>>;
 /// Errors that can occur while reading the input.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
-    /// The prefix did not match the expected value.
-    Prefix,
+    /// The tag did not match the expected value.
+    Tag,
     /// End of file reached.
     Eof,
     /// Insufficient input for the requested operation.
@@ -41,16 +41,6 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    #[inline(always)]
-    pub fn idx(&self) -> usize {
-        self.pos.idx
-    }
-
-    #[inline(always)]
-    pub fn is_eof(&self) -> bool {
-        self.pos.idx == self.input.len()
-    }
-
     pub fn peek(&self) -> Option<u8> {
         let pos = self.pos;
 
@@ -60,35 +50,13 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    pub fn prefix(&mut self, prefix: &[u8]) -> Result<(usize, usize)> {
-        if self.is_eof() {
-            return Err(self.error(ErrorKind::Eof));
-        }
-        let len = prefix.len();
-        let start = self.pos.idx;
-        let slice = &self.input[start..];
-
-        if len > slice.len() {
-            return Err(self.error(ErrorKind::OutOfInput));
-        }
-        let bytes = &slice[..len];
-        for i in 0..len {
-            if bytes[i] != prefix[i] {
-                return Err(self.error(ErrorKind::Prefix));
-            }
-            self.next();
-        }
-        let end = self.pos.idx;
-        Ok((start, end))
-    }
-
     pub fn read_while(
         &mut self,
         predicate: impl Fn(u8) -> bool,
     ) -> Result<(usize, usize)> {
         let start = self.pos.idx;
         let mut next = self.read_if(&predicate);
-        while let Ok(Some(_)) = next {
+        while let Some(_) = next {
             next = self.read_if(&predicate);
         }
         let end = self.pos.idx;
@@ -96,20 +64,18 @@ impl<'a> Cursor<'a> {
         Ok((start, end))
     }
 
-    pub fn as_str(&self) -> String {
+    pub fn to_string(&self) -> String {
         String::from_utf8_lossy(self.as_ref()).to_string()
     }
 
-    pub fn read_if(&mut self, func: impl Fn(u8) -> bool) -> Result<Option<u8>> {
-        match self.peek() {
-            Some(matched) if func(matched) =>  { self.next(); Ok(Some(matched)) },
-            Some(_) => {
-                Ok(None)
-            },
-            None => {
-                Err(self.error(ErrorKind::Eof))
-            }
-        }
+    pub fn read_if(&mut self, func: impl Fn(u8) -> bool) -> Option<u8> {
+        self.peek()
+            .and_then(|n| if func(n) { self.next() } else { None })
+    }
+
+    #[inline(always)]
+    pub fn is_eof(&self) -> bool {
+        self.pos.idx == self.input.len()
     }
 
     pub fn error(&self, kind: ErrorKind) -> CursorError<'a> {
@@ -126,7 +92,6 @@ impl<'a> AsRef<[u8]> for Cursor<'a> {
         &self.input[self.pos.idx..]
     }
 }
-
 
 impl<'a> Iterator for Cursor<'a> {
     type Item = u8;
@@ -147,5 +112,3 @@ impl<'a> Iterator for Cursor<'a> {
         Some(byte)
     }
 }
-
-
