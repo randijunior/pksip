@@ -5,7 +5,7 @@ pub struct Position {
     pub(crate) idx: usize,
 }
 
-type Result<'a, T> = std::result::Result<T, CursorError<'a>>;
+type Result<'a, T> = std::result::Result<T, ByteReaderError<'a>>;
 /// Errors that can occur while reading the input.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -18,20 +18,20 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct CursorError<'a> {
+pub struct ByteReaderError<'a> {
     pub(crate) kind: ErrorKind,
     pub(crate) pos: Position,
     pub(crate) input: &'a [u8],
 }
 #[derive(Debug)]
-pub struct Cursor<'a> {
+pub struct ByteReader<'a> {
     pub(crate) input: &'a [u8],
     pub(crate) pos: Position,
 }
 
-impl<'a> Cursor<'a> {
+impl<'a> ByteReader<'a> {
     pub fn new(input: &'a [u8]) -> Self {
-        Cursor {
+        ByteReader {
             input,
             pos: Position {
                 line: 1,
@@ -48,6 +48,20 @@ impl<'a> Cursor<'a> {
             Some(&b) => Some(b),
             None => None,
         }
+    }
+
+    pub fn tag(&mut self, tag: &[u8]) -> Result<(usize, usize)> {
+        let start = self.pos.idx;
+        for &byte in tag {
+            if let Some(b) = self.next() {
+                if b != byte {
+                    return Err(self.error(ErrorKind::Tag));
+                }
+            }
+        }
+        let end = self.pos.idx;
+
+        Ok((start, end))
     }
 
     pub fn read_while(
@@ -78,8 +92,8 @@ impl<'a> Cursor<'a> {
         self.pos.idx == self.input.len()
     }
 
-    pub fn error(&self, kind: ErrorKind) -> CursorError<'a> {
-        CursorError {
+    pub fn error(&self, kind: ErrorKind) -> ByteReaderError<'a> {
+        ByteReaderError {
             kind,
             pos: self.pos,
             input: self.input,
@@ -87,13 +101,13 @@ impl<'a> Cursor<'a> {
     }
 }
 
-impl<'a> AsRef<[u8]> for Cursor<'a> {
+impl<'a> AsRef<[u8]> for ByteReader<'a> {
     fn as_ref(&self) -> &[u8] {
         &self.input[self.pos.idx..]
     }
 }
 
-impl<'a> Iterator for Cursor<'a> {
+impl<'a> Iterator for ByteReader<'a> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {

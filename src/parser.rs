@@ -1,12 +1,14 @@
 use crate::{
-    cursor::{Cursor, CursorError, ErrorKind},
-    headers::{to::To, SipHeaders},
+    byte_reader::{ByteReader, ByteReaderError},
     macros::{
-        alpha, b_map, digits, newline, next, peek, read_while, sip_parse_error, space, tag, until_byte, until_newline
+        alpha, b_map, digits, newline, next, peek, read_while, sip_parse_error,
+        space, tag, until_byte, until_newline,
     },
-    msg::{RequestLine, SipMethod, SipMsg, SipStatusCode, StatusLine},
-    uri::{GenericParam, Host, Scheme, Uri, UriParam, UserInfo},
-    util::is_newline,
+    msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
+    uri::{
+        GenericParam, Host, Scheme, Uri, UriParam, UserInfo, LR_PARAM, MADDR_PARAM,
+        METHOD_PARAM, TANSPORT_PARAM, TTL_PARAM, USER_PARAM,
+    },
 };
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
@@ -19,7 +21,6 @@ use std::{
     net::IpAddr,
     str::{FromStr, Utf8Error},
 };
-
 
 // A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
 // For reading user part on sip uri.
@@ -154,13 +155,13 @@ impl From<Utf8Error> for SipParserError {
     }
 }
 
-impl<'a> From<CursorError<'a>> for SipParserError {
-    fn from(err: CursorError) -> Self {
+impl<'a> From<ByteReaderError<'a>> for SipParserError {
+    fn from(err: ByteReaderError) -> Self {
         SipParserError {
             message: format!(
-                "Failed to parse at line:{}, 
-                column:{}, 
-                kind:{:?}, 
+                "Failed to parse at line:{},
+                column:{},
+                kind:{:?},
                 input:'{}'",
                 err.pos.line,
                 err.pos.col,
@@ -171,9 +172,8 @@ impl<'a> From<CursorError<'a>> for SipParserError {
     }
 }
 
-
-pub fn parse_status_line<'a>(reader: &'a mut Cursor) -> Result<StatusLine<'a>> {
-    tag!(reader, SIPV2);
+pub fn parse_status_line<'a>(reader: &mut ByteReader<'a>) -> Result<StatusLine<'a>> {
+    let _ = tag!(reader, SIPV2);
 
     space!(reader);
     let digits = digits!(reader);
@@ -189,7 +189,7 @@ pub fn parse_status_line<'a>(reader: &'a mut Cursor) -> Result<StatusLine<'a>> {
 }
 
 #[inline]
-fn parse_scheme<'a>(reader: &'a mut Cursor) -> Result<Scheme> {
+fn parse_scheme<'a>(reader: &mut ByteReader) -> Result<Scheme> {
     match until_byte!(reader, b':') {
         b"sip" => Ok(Scheme::Sip),
         b"sips" => Ok(Scheme::Sips),
@@ -209,7 +209,7 @@ fn is_pass(b: u8) -> bool {
 }
 
 #[inline(always)]
-fn has_user(reader: &Cursor) -> bool {
+fn has_user(reader: &ByteReader) -> bool {
     let mut matched = None;
     for &byte in reader.as_ref().iter() {
         match byte {
@@ -223,17 +223,8 @@ fn has_user(reader: &Cursor) -> bool {
     matched == Some(b'@')
 }
 
-#[inline]
-pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>> {
-    let b_method = alpha!(reader);
-    let method = SipMethod::from(b_method);
-    space!(reader);
-
-    let scheme = parse_scheme(reader)?;
-    // take ':'
-    next!(reader);
-
-    let user_info = if has_user(reader) {
+fn parse_user<'a>(reader: &mut ByteReader<'a>) -> Result<Option<UserInfo<'a>>> {
+    if has_user(reader) {
         let bytes = read_while!(reader, is_user);
         let name = str::from_utf8(bytes)?;
 
@@ -242,22 +233,24 @@ pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>>
             let bytes = read_while!(reader, is_pass);
             next!(reader);
 
-            Some(UserInfo {
+            Ok(Some(UserInfo {
                 name,
                 password: Some(str::from_utf8(bytes)?),
-            })
+            }))
         } else {
             next!(reader);
-            Some(UserInfo {
+            Ok(Some(UserInfo {
                 name,
                 password: None,
-            })
+            }))
         }
     } else {
-        None
-    };
+        Ok(None)
+    }
+}
 
-    let host = if let Some(_) = reader.read_if(|b| b == b'[') {
+fn parse_host<'a>(reader: &mut ByteReader<'a>) -> Result<Host<'a>> {
+    if let Some(_) = reader.read_if(|b| b == b'[') {
         // the '[' and ']' characters are removed from the host
         next!(reader);
         let host = until_byte!(reader, b']');
@@ -277,9 +270,11 @@ pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>>
         } else {
             Ok(Host::DomainName(host))
         }
-    }?;
+    }
+}
 
-    let port = if let Some(_) = reader.read_if(|b| b == b':') {
+fn parse_port<'a>(reader: &mut ByteReader) -> Result<Option<u16>> {
+    if let Some(_) = reader.read_if(|b| b == b':') {
         let digits = digits!(reader);
         let digits = str::from_utf8(digits)?;
 
@@ -289,10 +284,14 @@ pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>>
         }
     } else {
         Ok(None)
-    }?;
+    }
+}
 
-    let mut rfc_params = HashSet::new();
-    let mut other_params = vec![];
+fn parse_uri_params<'a>(
+    reader: &mut ByteReader<'a>,
+    rfc_params: &mut HashSet<UriParam<'a>>,
+    other_params: &mut Vec<GenericParam<'a>>
+) -> Result<()> {
     while peek!(reader) == Some(b';') {
         next!(reader);
         let name = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
@@ -304,22 +303,22 @@ pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>>
             ""
         };
         match name {
-            b"user" => {
+            USER_PARAM => {
                 rfc_params.insert(UriParam::User(value));
             }
-            b"method" => {
+            METHOD_PARAM => {
                 rfc_params.insert(UriParam::Method(value));
             }
-            b"transport" => {
+            TANSPORT_PARAM => {
                 rfc_params.insert(UriParam::Transport(value));
             }
-            b"ttl" => {
+            TTL_PARAM => {
                 rfc_params.insert(UriParam::TTL(value));
             }
-            b"lr" => {
+            LR_PARAM => {
                 rfc_params.insert(UriParam::Lr(value));
             }
-            b"maddr" => {
+            MADDR_PARAM => {
                 rfc_params.insert(UriParam::Maddr(value));
             }
             _ => {
@@ -331,20 +330,51 @@ pub fn parse_request_line<'a>(reader: &'a mut Cursor) -> Result<RequestLine<'a>>
         }
     }
 
+    Ok(())
+}
+
+
+fn parse_sip_uri<'a>(reader: &mut ByteReader<'a>) -> Result<Uri<'a>> {
+    let scheme = parse_scheme(reader)?;
+    // take ':'
+    next!(reader);
+
+    let user = parse_user(reader)?;
+    let host = parse_host(reader)?;
+    let port = parse_port(reader)?;
+    let mut rfc_params = HashSet::new();
+    let mut other_params = vec![];
+    parse_uri_params(reader, &mut rfc_params, &mut other_params)?;
+
+    Ok(Uri {
+        scheme,
+        user,
+        host,
+        port,
+        rfc_params,
+        other_params,
+    })
+
+}
+
+
+pub fn parse_request_line<'a>(
+    reader: &mut ByteReader<'a>,
+) -> Result<RequestLine<'a>> {
+    let b_method = alpha!(reader);
+    let method = SipMethod::from(b_method);
+
     space!(reader);
-    tag!(reader, SIPV2);
+    let uri = parse_sip_uri(reader)?;
+
+    space!(reader);
+
+    let _ = tag!(reader, SIPV2);
     newline!(reader);
 
     Ok(RequestLine {
         method,
-        uri: Uri {
-            scheme,
-            user: user_info,
-            host,
-            port,
-            rfc_params,
-            other_params,
-        },
+        uri,
     })
 }
 
@@ -358,7 +388,7 @@ mod tests {
     fn test_parse_status_line() {
         let sc_ok = SipStatusCode::Ok;
         let buf = "SIP/2.0 200 OK\r\n".as_bytes();
-        let mut reader = Cursor::new(buf);
+        let mut reader = ByteReader::new(buf);
 
         assert_eq!(
             parse_status_line(&mut reader),
@@ -369,7 +399,7 @@ mod tests {
         );
         let sc_not_found = SipStatusCode::NotFound;
         let buf = "SIP/2.0 404 Not Found\r\n".as_bytes();
-        let mut reader = Cursor::new(buf);
+        let mut reader = ByteReader::new(buf);
 
         assert_eq!(
             parse_status_line(&mut reader),
@@ -384,7 +414,7 @@ mod tests {
     fn test_req_status_line() {
         let msg = "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
         let addr: IpAddr = "10.1.1.7".parse().unwrap();
-        let mut reader = Cursor::new(msg);
+        let mut reader = ByteReader::new(msg);
         assert_eq!(
             parse_request_line(&mut reader),
             Ok(RequestLine {
@@ -408,7 +438,7 @@ mod tests {
         let msg =
             "REGISTER sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15 SIP/2.0\r\n"
                 .as_bytes();
-        let mut cursor = Cursor::new(msg);
-        println!("{:#?}", parse_request_line(&mut cursor));
+        let mut reader = ByteReader::new(msg);
+        println!("{:#?}", parse_request_line(&mut reader));
     }
 }

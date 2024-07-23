@@ -52,6 +52,14 @@ pub enum UriParam<'a> {
     Lr(&'a str), //TODO: add i32
     Maddr(&'a str),
 }
+
+pub(crate) const USER_PARAM: &[u8] = "user".as_bytes();
+pub(crate) const METHOD_PARAM: &[u8] = "method".as_bytes();
+pub(crate) const TANSPORT_PARAM: &[u8] = "transport".as_bytes();
+pub(crate) const TTL_PARAM: &[u8] = "ttl".as_bytes();
+pub(crate) const LR_PARAM: &[u8] = "lr".as_bytes();
+pub(crate) const MADDR_PARAM: &[u8] = "maddr".as_bytes();
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct GenericParam<'a> {
     pub(crate) name: &'a str,
