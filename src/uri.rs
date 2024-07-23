@@ -49,8 +49,9 @@ pub enum UriParam<'a> {
     Method(&'a str),
     Transport(&'a str),
     TTL(&'a str), //TODO: add i32
-    Lr(&'a str), //TODO: add i32
-    Maddr(&'a str),
+    LR(&'a str), //TODO: add i32
+    MADDR(&'a str),
+    Others(Vec<GenericUriParam<'a>>)
 }
 
 pub(crate) const USER_PARAM: &[u8] = "user".as_bytes();
@@ -60,8 +61,8 @@ pub(crate) const TTL_PARAM: &[u8] = "ttl".as_bytes();
 pub(crate) const LR_PARAM: &[u8] = "lr".as_bytes();
 pub(crate) const MADDR_PARAM: &[u8] = "maddr".as_bytes();
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct GenericParam<'a> {
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct GenericUriParam<'a> {
     pub(crate) name: &'a str,
     pub(crate) value: &'a str
 }
@@ -76,8 +77,8 @@ pub struct Uri<'a> {
     pub(crate) user: Option<UserInfo<'a>>,
     pub(crate) host: Host<'a>,
     pub(crate) port: Option<u16>,
-    pub(crate) rfc_params: HashSet<UriParam<'a>>,
-    pub(crate) other_params: Vec<GenericParam<'a>>
+    pub(crate) uri_params: HashSet<UriParam<'a>>,
+    pub(crate) header_params: Vec<GenericUriParam<'a>>
 }
 
 //SIP name-addr, which typically appear in From, To, and Contact header.

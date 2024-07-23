@@ -6,7 +6,7 @@ use crate::{
     },
     msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
     uri::{
-        GenericParam, Host, Scheme, Uri, UriParam, UserInfo, LR_PARAM, MADDR_PARAM,
+        GenericUriParam, Host, Scheme, Uri, UriParam, UserInfo, LR_PARAM, MADDR_PARAM,
         METHOD_PARAM, TANSPORT_PARAM, TTL_PARAM, USER_PARAM,
     },
 };
@@ -112,7 +112,6 @@ const HOST_SPEC_MAP: [bool; 256] = b_map![
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-
 // "[]/:&+$"  "-_.!~*'()" "%"
 const PARAM_SPEC_MAP: [bool; 256] = b_map![
 // \0                            \n
@@ -122,6 +121,35 @@ const PARAM_SPEC_MAP: [bool; 256] = b_map![
     0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0,
 //  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+//  @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _ 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+//  `  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~  \x7f  
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+
+// Extended ASCII (character code 128-255)
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+// "[]/?:+$"  "-_.!~*'()" "%"
+const HDR_SPEC_MAP: [bool; 256] = b_map![
+// \0                            \n
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// \w  !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /
+    0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0,
+//  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
 //  @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
     0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 //  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _ 
@@ -287,11 +315,16 @@ fn parse_port<'a>(reader: &mut ByteReader) -> Result<Option<u16>> {
     }
 }
 
-fn parse_uri_params<'a>(
-    reader: &mut ByteReader<'a>,
-    rfc_params: &mut HashSet<UriParam<'a>>,
-    other_params: &mut Vec<GenericParam<'a>>
-) -> Result<()> {
+fn parse_sip_uri<'a>(reader: &mut ByteReader<'a>) -> Result<Uri<'a>> {
+    let scheme = parse_scheme(reader)?;
+    // take ':'
+    reader.next();
+
+    let user = parse_user(reader)?;
+    let host = parse_host(reader)?;
+    let port = parse_port(reader)?;
+    let mut uri_params = HashSet::new();
+    let mut other_params = vec![];
     while reader.peek() == Some(b';') {
         reader.next();
         let name = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
@@ -304,55 +337,61 @@ fn parse_uri_params<'a>(
         };
         match name {
             USER_PARAM => {
-                rfc_params.insert(UriParam::User(value));
+                uri_params.insert(UriParam::User(value));
             }
             METHOD_PARAM => {
-                rfc_params.insert(UriParam::Method(value));
+                uri_params.insert(UriParam::Method(value));
             }
             TANSPORT_PARAM => {
-                rfc_params.insert(UriParam::Transport(value));
+                uri_params.insert(UriParam::Transport(value));
             }
             TTL_PARAM => {
-                rfc_params.insert(UriParam::TTL(value));
+                uri_params.insert(UriParam::TTL(value));
             }
             LR_PARAM => {
-                rfc_params.insert(UriParam::Lr(value));
+                uri_params.insert(UriParam::LR(value));
             }
             MADDR_PARAM => {
-                rfc_params.insert(UriParam::Maddr(value));
+                uri_params.insert(UriParam::MADDR(value));
             }
             _ => {
-                other_params.push(GenericParam {
+                other_params.push(GenericUriParam {
                     name: str::from_utf8(name)?,
                     value,
                 });
             }
         }
     }
+    uri_params.insert(UriParam::Others(other_params));
+    let mut header_params = vec![];
+    if reader.peek() == Some(b'?') {
+        loop {
+            // take '?' or '&'
+            reader.next();
+            let name = read_while!(reader, |b| HDR_SPEC_MAP[b as usize]);
+            let name = str::from_utf8(name)?;
+            let value = if reader.peek() == Some(b'=') {
+                reader.next();
+                let value = read_while!(reader, |b| HDR_SPEC_MAP[b as usize]);
+                str::from_utf8(value)?
+            } else {
+                ""
+            };
+            header_params.push(GenericUriParam { name, value });
+            if reader.peek() != Some(b'&') {
+                break;
+            }
+        }
+    }
 
-    Ok(())
-}
-
-
-fn parse_sip_uri<'a>(reader: &mut ByteReader<'a>) -> Result<Uri<'a>> {
-    let scheme = parse_scheme(reader)?;
-    // take ':'
-    reader.next();
-
-    let user = parse_user(reader)?;
-    let host = parse_host(reader)?;
-    let port = parse_port(reader)?;
-    let mut rfc_params = HashSet::new();
-    let mut other_params = vec![];
-    parse_uri_params(reader, &mut rfc_params, &mut other_params)?;
 
     Ok(Uri {
         scheme,
         user,
         host,
         port,
-        rfc_params,
-        other_params,
+        uri_params,
+        header_params
     })
 
 }
@@ -366,7 +405,6 @@ pub fn parse_request_line<'a>(
 
     space!(reader);
     let uri = parse_sip_uri(reader)?;
-
     space!(reader);
 
     let _ = tag!(reader, SIPV2);
@@ -427,14 +465,14 @@ mod tests {
                     }),
                     host: Host::IpAddr(addr),
                     port: Some(8089),
-                    rfc_params: HashSet::new(),
-                    other_params: vec![]
+                    uri_params: HashSet::new(),
+                    header_params: vec![]
                 }
             })
         );
     }
     #[test]
-    fn status_line() {
+    fn params() {
         let msg =
             "REGISTER sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15 SIP/2.0\r\n"
                 .as_bytes();
