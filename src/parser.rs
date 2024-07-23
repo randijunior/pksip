@@ -1,7 +1,7 @@
 use crate::{
     byte_reader::{ByteReader, ByteReaderError},
     macros::{
-        alpha, b_map, digits, newline, next, peek, read_while, sip_parse_error,
+        alpha, b_map, digits, newline, read_while, sip_parse_error,
         space, tag, until_byte, until_newline,
     },
     msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
@@ -228,17 +228,17 @@ fn parse_user<'a>(reader: &mut ByteReader<'a>) -> Result<Option<UserInfo<'a>>> {
         let bytes = read_while!(reader, is_user);
         let name = str::from_utf8(bytes)?;
 
-        if peek!(reader) == Some(b':') {
-            next!(reader);
+        if reader.peek() == Some(b':') {
+            reader.next();
             let bytes = read_while!(reader, is_pass);
-            next!(reader);
+            reader.next();
 
             Ok(Some(UserInfo {
                 name,
                 password: Some(str::from_utf8(bytes)?),
             }))
         } else {
-            next!(reader);
+            reader.next();
             Ok(Some(UserInfo {
                 name,
                 password: None,
@@ -252,12 +252,12 @@ fn parse_user<'a>(reader: &mut ByteReader<'a>) -> Result<Option<UserInfo<'a>>> {
 fn parse_host<'a>(reader: &mut ByteReader<'a>) -> Result<Host<'a>> {
     if let Some(_) = reader.read_if(|b| b == b'[') {
         // the '[' and ']' characters are removed from the host
-        next!(reader);
+        reader.next();
         let host = until_byte!(reader, b']');
-        next!(reader);
+        reader.next();
         let host = str::from_utf8(host)?;
         if let Ok(host) = host.parse() {
-            next!(reader);
+            reader.next();
             Ok(Host::IpAddr(IpAddr::V6(host)))
         } else {
             sip_parse_error!("Error parsing Ipv6 Host!")
@@ -292,11 +292,11 @@ fn parse_uri_params<'a>(
     rfc_params: &mut HashSet<UriParam<'a>>,
     other_params: &mut Vec<GenericParam<'a>>
 ) -> Result<()> {
-    while peek!(reader) == Some(b';') {
-        next!(reader);
+    while reader.peek() == Some(b';') {
+        reader.next();
         let name = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
-        let value = if peek!(reader) == Some(b'=') {
-            next!(reader);
+        let value = if reader.peek() == Some(b'=') {
+            reader.next();
             let value = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
             str::from_utf8(value)?
         } else {
@@ -337,7 +337,7 @@ fn parse_uri_params<'a>(
 fn parse_sip_uri<'a>(reader: &mut ByteReader<'a>) -> Result<Uri<'a>> {
     let scheme = parse_scheme(reader)?;
     // take ':'
-    next!(reader);
+    reader.next();
 
     let user = parse_user(reader)?;
     let host = parse_host(reader)?;

@@ -58,18 +58,6 @@ macro_rules! alpha {
     }};
 }
 
-macro_rules! next {
-    ($reader:ident) => {{
-        $reader.next()
-    }};
-}
-
-macro_rules! peek {
-    ($reader:ident) => {{
-        $reader.peek()
-    }};
-}
-
 macro_rules! b_map {
     ($($f:expr,)*) => ([
       $($f != 0,)*
@@ -88,8 +76,6 @@ pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;
 pub(crate) use newline;
-pub(crate) use next;
-pub(crate) use peek;
 pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
