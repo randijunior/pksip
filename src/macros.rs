@@ -59,9 +59,20 @@ macro_rules! alpha {
 }
 
 macro_rules! b_map {
-    ($($f:expr,)*) => ([
-      $($f != 0,)*
-    ])
+    ($name:ident => $( $slice:expr ),+) => {
+        const $name: [bool; 256] = {
+            let mut arr = [false; 256];
+            $(
+                let slice = $slice;
+                let mut i = 0;
+                while i < slice.len() {
+                    arr[slice[i] as usize] = true;
+                    i += 1;
+                }
+            )*
+            arr
+        };
+    };
 }
 
 macro_rules! sip_parse_error {
