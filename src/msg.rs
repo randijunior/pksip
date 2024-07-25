@@ -51,6 +51,14 @@ pub enum SipMethod {
     Other,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Transport {
+    UDP,
+    TCP,
+    TLS,
+    SCTP
+}
+
 const SIP_INVITE: &[u8] = "INVITE".as_bytes();
 const SIP_CANCEL: &[u8] = "CANCEL".as_bytes();
 const SIP_ACK: &[u8] = "ACK".as_bytes();

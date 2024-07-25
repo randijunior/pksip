@@ -53,12 +53,16 @@ impl<'a> ByteReader<'a> {
 
     pub fn tag(&mut self, tag: &[u8]) -> Result<Offset> {
         let start = self.pos.idx;
-        for &byte in tag {
-            if let Some(b) = self.next() {
-                if b != byte {
-                    return Err(self.error(ErrorKind::Tag));
-                }
+        let input = &self.input[start..];
+        let len = tag.len();
+        if len > input.len() {
+            return Err(self.error(ErrorKind::OutOfInput));
+        }
+        for i in 0..len {
+            if input[i] != tag[i] {
+                return Err(self.error(ErrorKind::Tag));
             }
+            self.next();
         }
         let end = self.pos.idx;
 
@@ -85,11 +89,6 @@ impl<'a> ByteReader<'a> {
             .and_then(|n| if func(n) { self.next() } else { None })
     }
 
-    #[inline(always)]
-    pub fn is_eof(&self) -> bool {
-        self.pos.idx == self.input.len()
-    }
-
     pub fn error(&self, kind: ErrorKind) -> ByteReaderError<'a> {
         ByteReaderError {
             kind,
@@ -109,7 +108,7 @@ impl<'a> Iterator for ByteReader<'a> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.is_eof() {
+        if self.pos.idx > self.input.len() {
             return None;
         }
         let byte = self.input[self.pos.idx];
@@ -122,5 +121,6 @@ impl<'a> Iterator for ByteReader<'a> {
             self.pos.col += 1;
         }
         Some(byte)
+
     }
 }

@@ -5,10 +5,7 @@ use crate::{
         until_byte, until_newline,
     },
     msg::{RequestLine, SipMethod, SipStatusCode, StatusLine},
-    uri::{
-        GenericUriParam, Host, Scheme, Uri, UriParam, UserInfo, LR_PARAM,
-        MADDR_PARAM, METHOD_PARAM, TANSPORT_PARAM, TTL_PARAM, USER_PARAM,
-    },
+    uri::{GenericParams, Host, Scheme, Uri, UserInfo},
 };
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
@@ -17,7 +14,7 @@ type Result<T> = std::result::Result<T, SipParserError>;
 
 use core::str;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     net::IpAddr,
     str::{FromStr, Utf8Error},
 };
@@ -29,6 +26,13 @@ const USER_UNRESERVED: &[u8] = b"&=+$,;?/";
 const TOKEN: &[u8] = b"-.!%*_`'~+";
 const PASS: &[u8] = b"&=+$,";
 const HOST: &[u8] = b"_-.";
+
+pub(crate) const USER_PARAM: &[u8] = "user".as_bytes();
+pub(crate) const METHOD_PARAM: &[u8] = "method".as_bytes();
+pub(crate) const TANSPORT_PARAM: &[u8] = "transport".as_bytes();
+pub(crate) const TTL_PARAM: &[u8] = "ttl".as_bytes();
+pub(crate) const LR_PARAM: &[u8] = "lr".as_bytes();
+pub(crate) const MADDR_PARAM: &[u8] = "maddr".as_bytes();
 
 // A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
 // For reading user part on sip uri.
@@ -122,7 +126,10 @@ impl<'a> SipParser<'a> {
             let host = str::from_utf8(host)?;
             if let Ok(host) = host.parse() {
                 reader.next();
-                Ok(Host::IpAddr(IpAddr::V6(host)))
+                Ok(Host::IpAddr {
+                    host: IpAddr::V6(host),
+                    port: Self::parse_port(reader)?,
+                })
             } else {
                 sip_parse_error!("Error parsing Ipv6 Host!")
             }
@@ -130,9 +137,15 @@ impl<'a> SipParser<'a> {
             let host = read_while!(reader, |b| HOST_SPEC_MAP[b as usize]);
             let host = str::from_utf8(host)?;
             if let Ok(addr) = IpAddr::from_str(host) {
-                Ok(Host::IpAddr(addr))
+                Ok(Host::IpAddr {
+                    host: addr,
+                    port: Self::parse_port(reader)?,
+                })
             } else {
-                Ok(Host::DomainName(host))
+                Ok(Host::DomainName {
+                    host,
+                    port: Self::parse_port(reader)?,
+                })
             }
         }
     }
@@ -158,51 +171,47 @@ impl<'a> SipParser<'a> {
 
         let user = Self::parse_user(reader)?;
         let host = Self::parse_host(reader)?;
-        let port = Self::parse_port(reader)?;
-        let mut uri_params = HashSet::new();
-        let mut other_params = vec![];
-        while reader.peek() == Some(b';') {
-            reader.next();
-            let name = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
-            let value = if reader.peek() == Some(b'=') {
+        let mut user_param = None;
+        let mut method_param = None;
+        let mut transport_param = None;
+        let mut ttl_param = None;
+        let mut lr_param = None;
+        let mut maddr_param = None;
+        let mut other_params = None;
+        if reader.peek() == Some(b';') {
+            let mut others = HashMap::new();
+            loop {
+                if reader.peek() != Some(b';') {
+                    break;
+                }
                 reader.next();
-                let value = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
-                str::from_utf8(value)?
-            } else {
-                ""
-            };
-            match name {
-                USER_PARAM => {
-                    uri_params.insert(UriParam::User(value));
-                }
-                METHOD_PARAM => {
-                    uri_params.insert(UriParam::Method(value));
-                }
-                TANSPORT_PARAM => {
-                    uri_params.insert(UriParam::Transport(value));
-                }
-                TTL_PARAM => {
-                    uri_params.insert(UriParam::TTL(value));
-                }
-                LR_PARAM => {
-                    uri_params.insert(UriParam::LR(value));
-                }
-                MADDR_PARAM => {
-                    uri_params.insert(UriParam::MADDR(value));
-                }
-                _ => {
-                    other_params.push(GenericUriParam {
-                        name: str::from_utf8(name)?,
-                        value,
-                    });
+                let name = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
+                let value = if reader.peek() == Some(b'=') {
+                    reader.next();
+                    let value = read_while!(reader, |b| PARAM_SPEC_MAP[b as usize]);
+                    str::from_utf8(value)?
+                } else {
+                    ""
+                };
+                match name {
+                    USER_PARAM => user_param = Some(value),
+                    METHOD_PARAM => method_param = Some(value),
+                    TANSPORT_PARAM => transport_param = Some(value),
+                    TTL_PARAM => ttl_param = Some(value),
+                    LR_PARAM => lr_param = Some(value),
+                    MADDR_PARAM => maddr_param = Some(value),
+                    _ => {
+                        others.insert(str::from_utf8(name)?, value);
+                    }
                 }
             }
+            if others.len() > 0 {
+                other_params = Some(GenericParams { params: others });
+            }
         }
-        if other_params.len() > 0 {
-            uri_params.insert(UriParam::Others(other_params));
-        }
-        let mut header_params = vec![];
+        let mut header_params = None;
         if reader.peek() == Some(b'?') {
+            let mut params = HashMap::new();
             loop {
                 // take '?' or '&'
                 reader.next();
@@ -215,19 +224,26 @@ impl<'a> SipParser<'a> {
                 } else {
                     ""
                 };
-                header_params.push(GenericUriParam { name, value });
+                params.insert(name, value);
                 if reader.peek() != Some(b'&') {
                     break;
                 }
             }
+
+            header_params = Some(GenericParams { params })
         }
 
         Ok(Uri {
             scheme,
             user,
             host,
-            port,
-            uri_params,
+            user_param,
+            method_param,
+            transport_param,
+            lr_param,
+            maddr_param,
+            ttl_param,
+            other_params,
             header_params,
         })
     }
@@ -326,6 +342,34 @@ mod tests {
     }
 
     #[test]
+    fn status_line() {
+        let sc_ok = SipStatusCode::Ok;
+        let msg = "SIP/2.0 200 OK\r\n".as_bytes();
+        let size_of_msg = msg.len();
+        let mut counter = 0;
+        let now = std::time::Instant::now();
+        loop {
+            assert_eq!(
+                SipParser::new(msg).parse_status_line().unwrap(),
+                StatusLine {
+                    status_code: sc_ok,
+                    reason_phrase: sc_ok.reason_phrase()
+                }
+            );
+            counter += 1;
+            if now.elapsed().as_secs() == 1 {
+                break;
+            }
+        }
+
+        println!(
+            "{} mbytes per second, count sip messages: {}",
+            (size_of_msg * counter) / 1024 / 1024,
+            counter
+        );
+    }
+
+    #[test]
     fn test_req_status_line() {
         let msg = "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
         let addr: IpAddr = "10.1.1.7".parse().unwrap();
@@ -339,10 +383,18 @@ mod tests {
                         name: "1000b3",
                         password: None
                     }),
-                    host: Host::IpAddr(addr),
-                    port: Some(8089),
-                    uri_params: HashSet::new(),
-                    header_params: vec![]
+                    host: Host::IpAddr {
+                        host: addr,
+                        port: Some(8089)
+                    },
+                    user_param: None,
+                    method_param: None,
+                    transport_param: None,
+                    lr_param: None,
+                    maddr_param: None,
+                    ttl_param: None,
+                    other_params: None,
+                    header_params: None,
                 }
             })
         );
@@ -350,8 +402,35 @@ mod tests {
     #[test]
     fn params() {
         let msg =
-            "REGISTER sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15 SIP/2.0\r\n"
+            "REGISTER sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15;other=a SIP/2.0\r\n"
                 .as_bytes();
-        println!("{:#?}", SipParser::new(msg).parse_request_line());
+
+        assert_eq!(
+            SipParser::new(msg).parse_request_line(),
+            Ok(RequestLine {
+                method: SipMethod::Register,
+                uri: Uri {
+                    scheme: Scheme::Sip,
+                    user: Some(UserInfo {
+                        name: "alice",
+                        password: None
+                    }),
+                    host: Host::DomainName {
+                        host: "atlanta.com",
+                        port: None
+                    },
+                    user_param: None,
+                    method_param: None,
+                    transport_param: None,
+                    lr_param: None,
+                    maddr_param: Some("239.255.255.1"),
+                    ttl_param: Some("15"),
+                    other_params: Some(GenericParams {
+                        params: HashMap::from([("other", "a")])
+                    }),
+                    header_params: None,
+                }
+            })
+        );
     }
 }

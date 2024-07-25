@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     net::IpAddr,
     str::{self},
 };
@@ -19,8 +19,8 @@ pub struct UserInfo<'a> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Host<'a> {
-    DomainName(&'a str),
-    IpAddr(IpAddr),
+    DomainName { host: &'a str, port: Option<u16> },
+    IpAddr { host: IpAddr, port: Option<u16> },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -43,28 +43,9 @@ pub enum Scheme {
 // int lr_param optional
 // str maddr_param optional
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum UriParam<'a> {
-    User(&'a str),
-    Method(&'a str),
-    Transport(&'a str),
-    TTL(&'a str), //TODO: add i32
-    LR(&'a str), //TODO: add i32
-    MADDR(&'a str),
-    Others(Vec<GenericUriParam<'a>>)
-}
-
-pub(crate) const USER_PARAM: &[u8] = "user".as_bytes();
-pub(crate) const METHOD_PARAM: &[u8] = "method".as_bytes();
-pub(crate) const TANSPORT_PARAM: &[u8] = "transport".as_bytes();
-pub(crate) const TTL_PARAM: &[u8] = "ttl".as_bytes();
-pub(crate) const LR_PARAM: &[u8] = "lr".as_bytes();
-pub(crate) const MADDR_PARAM: &[u8] = "maddr".as_bytes();
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct GenericUriParam<'a> {
-    pub(crate) name: &'a str,
-    pub(crate) value: &'a str
+#[derive(Debug, PartialEq, Eq)]
+pub struct GenericParams<'a> {
+    pub(crate) params: HashMap<&'a str, &'a str>
 }
 
 // struct sip_param/other_param other parameters group together
@@ -76,9 +57,14 @@ pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
     pub(crate) user: Option<UserInfo<'a>>,
     pub(crate) host: Host<'a>,
-    pub(crate) port: Option<u16>,
-    pub(crate) uri_params: HashSet<UriParam<'a>>,
-    pub(crate) header_params: Vec<GenericUriParam<'a>>
+    pub(crate) user_param: Option<&'a str>,
+    pub(crate) method_param: Option<&'a str>,
+    pub(crate) transport_param: Option<&'a str>,
+    pub(crate) ttl_param: Option<&'a str>,
+    pub(crate) lr_param: Option<&'a str>,
+    pub(crate) maddr_param: Option<&'a str>,
+    pub(crate) other_params: Option<GenericParams<'a>>,
+    pub(crate) header_params: Option<GenericParams<'a>>
 }
 
 //SIP name-addr, which typically appear in From, To, and Contact header.
