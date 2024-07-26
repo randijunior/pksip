@@ -56,7 +56,7 @@ pub enum Transport {
     UDP,
     TCP,
     TLS,
-    SCTP
+    SCTP,
 }
 
 const SIP_INVITE: &[u8] = "INVITE".as_bytes();
@@ -174,7 +174,9 @@ impl SipStatusCode {
             // 1xx — Provisional Responses
             SipStatusCode::Trying => "Trying",
             SipStatusCode::Ringing => "Ringing",
-            SipStatusCode::CallIsBeingForwarded => "Call is Being Forwarded",
+            SipStatusCode::CallIsBeingForwarded => {
+                "Call is Being Forwarded"
+            }
             SipStatusCode::Queued => "Queued",
             SipStatusCode::SessionProgress => "Session Progress",
 

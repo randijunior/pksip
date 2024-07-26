@@ -7,7 +7,6 @@ pub struct SipHeaders<'a> {
     pub(crate) hdrs: Vec<Header<'a>>,
 }
 
-
 pub enum Header<'a> {
     Accept,
     AcceptEncoding,
@@ -53,5 +52,5 @@ pub enum Header<'a> {
     Via,
     Warning,
     WWWAuthenticate,
-    Other
+    Other,
 }

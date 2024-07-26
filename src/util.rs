@@ -26,7 +26,9 @@ pub(crate) fn alphanum(byte: u8) -> bool {
 #[inline(always)]
 fn mark(byte: u8) -> bool {
     match byte {
-        b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')' => true,
+        b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')' => {
+            true
+        }
         _ => false,
     }
 }

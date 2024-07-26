@@ -1,4 +1,3 @@
-
 /*
 Via               =  ( "Via" / "v" ) HCOLON via-parm *(COMMA via-parm)
 via-parm          =  sent-protocol LWS sent-by *( SEMI via-params )
@@ -20,19 +19,23 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
-use std::{collections::HashSet, net::IpAddr};
+use crate::{
+    msg::Transport,
+    uri::{GenericParams, HostPort},
+};
 
-use crate::{msg::Transport, uri::{GenericParams, Host}};
-
+pub struct ViaParams<'a> {
+    ttl: Option<&'a str>,
+    maddr: Option<&'a str>,
+    received: Option<&'a str>,
+    branch: Option<&'a str>,
+    extension: Option<&'a str>,
+}
 
 pub struct Via<'a> {
     transport: Transport,
-    sent_by: Host<'a>,
+    sent_by: HostPort<'a>,
     ttl: u8,
-    ttl_param: Option<&'a str>,
-    maddr_param: Option<&'a str>,
-    received_param: Option<&'a str>,
-    branch_param: Option<&'a str>,
-    extension_param: Option<&'a str>,
+    params: Option<ViaParams<'a>>,
     other_params: Option<GenericParams<'a>>,
 }

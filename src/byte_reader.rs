@@ -25,7 +25,7 @@ pub struct ByteReaderError<'a> {
     pub(crate) input: &'a [u8],
 }
 #[derive(Debug)]
-pub struct ByteReader<'a> {
+pub(crate) struct ByteReader<'a> {
     pub(crate) input: &'a [u8],
     pub(crate) pos: Position,
 }
@@ -69,11 +69,14 @@ impl<'a> ByteReader<'a> {
         Ok((start, end))
     }
 
-    pub fn read_while(&mut self, predicate: impl Fn(u8) -> bool) -> Result<Offset> {
+    pub fn read_while(
+        &mut self,
+        func: impl Fn(u8) -> bool,
+    ) -> Result<Offset> {
         let start = self.pos.idx;
-        let mut next = self.read_if(&predicate);
+        let mut next = self.read_if(&func);
         while let Some(_) = next {
-            next = self.read_if(&predicate);
+            next = self.read_if(&func);
         }
         let end = self.pos.idx;
 
@@ -108,19 +111,18 @@ impl<'a> Iterator for ByteReader<'a> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos.idx > self.input.len() {
-            return None;
+        match self.input.get(self.pos.idx) {
+            Some(&byte) => {
+                self.pos.idx += 1;
+                if byte == b'\n' {
+                    self.pos.col = 1;
+                    self.pos.line += 1;
+                } else {
+                    self.pos.col += 1;
+                }
+                Some(byte)
+            }
+            None => None,
         }
-        let byte = self.input[self.pos.idx];
-
-        self.pos.idx += 1;
-        if byte == b'\n' {
-            self.pos.col = 1;
-            self.pos.line += 1;
-        } else {
-            self.pos.col += 1;
-        }
-        Some(byte)
-
     }
 }

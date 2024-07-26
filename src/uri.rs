@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     net::IpAddr,
     str::{self},
 };
@@ -18,7 +18,7 @@ pub struct UserInfo<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Host<'a> {
+pub enum HostPort<'a> {
     DomainName { host: &'a str, port: Option<u16> },
     IpAddr { host: IpAddr, port: Option<u16> },
 }
@@ -45,7 +45,23 @@ pub enum Scheme {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GenericParams<'a> {
-    pub(crate) params: HashMap<&'a str, &'a str>
+    pub(crate) params: HashMap<&'a str, &'a str>,
+}
+
+impl<'a> GenericParams<'a> {
+    pub fn new(params: HashMap<&'a str, &'a str>) -> Self {
+        Self { params }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
+pub struct UriParams<'a> {
+    pub(crate) user: Option<&'a str>,
+    pub(crate) method: Option<&'a str>,
+    pub(crate) transport: Option<&'a str>,
+    pub(crate) ttl: Option<&'a str>,
+    pub(crate) lr: Option<&'a str>,
+    pub(crate) maddr: Option<&'a str>,
 }
 
 // struct sip_param/other_param other parameters group together
@@ -56,15 +72,10 @@ pub struct GenericParams<'a> {
 pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
     pub(crate) user: Option<UserInfo<'a>>,
-    pub(crate) host: Host<'a>,
-    pub(crate) user_param: Option<&'a str>,
-    pub(crate) method_param: Option<&'a str>,
-    pub(crate) transport_param: Option<&'a str>,
-    pub(crate) ttl_param: Option<&'a str>,
-    pub(crate) lr_param: Option<&'a str>,
-    pub(crate) maddr_param: Option<&'a str>,
+    pub(crate) host: HostPort<'a>,
+    pub(crate) params: Option<UriParams<'a>>,
     pub(crate) other_params: Option<GenericParams<'a>>,
-    pub(crate) header_params: Option<GenericParams<'a>>
+    pub(crate) header_params: Option<GenericParams<'a>>,
 }
 
 //SIP name-addr, which typically appear in From, To, and Contact header.

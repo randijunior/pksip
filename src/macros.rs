@@ -38,7 +38,8 @@ macro_rules! tag {
 
 macro_rules! until_newline {
     ($reader:ident) => {{
-        let (start, end) = $reader.read_while(|b| !crate::util::is_newline(b))?;
+        let (start, end) =
+            $reader.read_while(|b| !crate::util::is_newline(b))?;
 
         &$reader.input[start..end]
     }};
@@ -52,7 +53,8 @@ macro_rules! newline {
 
 macro_rules! alpha {
     ($reader:ident) => {{
-        let (start, end) = $reader.read_while(crate::util::is_alphabetic)?;
+        let (start, end) =
+            $reader.read_while(crate::util::is_alphabetic)?;
 
         &$reader.input[start..end]
     }};
