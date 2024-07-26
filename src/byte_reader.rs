@@ -6,7 +6,7 @@ pub struct Position {
 }
 
 type Result<'a, T> = std::result::Result<T, ByteReaderError<'a>>;
-type Offset = (usize, usize);
+type Range = (usize, usize);
 /// Errors that can occur while reading the input.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -51,7 +51,7 @@ impl<'a> ByteReader<'a> {
         }
     }
 
-    pub fn tag(&mut self, tag: &[u8]) -> Result<Offset> {
+    pub fn tag(&mut self, tag: &[u8]) -> Result<Range> {
         let start = self.pos.idx;
         let input = &self.input[start..];
         let len = tag.len();
@@ -72,7 +72,7 @@ impl<'a> ByteReader<'a> {
     pub fn read_while(
         &mut self,
         func: impl Fn(u8) -> bool,
-    ) -> Result<Offset> {
+    ) -> Result<Range> {
         let start = self.pos.idx;
         let mut next = self.read_if(&func);
         while let Some(_) = next {
