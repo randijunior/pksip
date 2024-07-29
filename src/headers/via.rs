@@ -20,8 +20,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::{
-    msg::Transport,
-    uri::{GenericParams, HostPort},
+    iter::ByteReader, msg::Transport, uri::{GenericParams, HostPort}
 };
 
 pub struct ViaParams<'a> {
@@ -35,7 +34,7 @@ pub struct ViaParams<'a> {
 pub struct Via<'a> {
     transport: Transport,
     sent_by: HostPort<'a>,
-    ttl: u8,
+    ttl: u32,
     params: Option<ViaParams<'a>>,
     other_params: Option<GenericParams<'a>>,
 }

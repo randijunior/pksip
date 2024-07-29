@@ -69,10 +69,10 @@ impl<'a> ByteReader<'a> {
         Ok((start, end))
     }
 
-    pub fn read_while(
-        &mut self,
-        func: impl Fn(u8) -> bool,
-    ) -> Result<Range> {
+    pub fn read_while<F>(&mut self, func: F) -> Result<Range>
+    where
+        F: Fn(u8) -> bool,
+    {
         let start = self.pos.idx;
         let mut next = self.read_if(&func);
         while let Some(_) = next {
@@ -87,7 +87,10 @@ impl<'a> ByteReader<'a> {
         String::from_utf8_lossy(self.as_ref()).to_string()
     }
 
-    pub fn read_if(&mut self, func: impl Fn(u8) -> bool) -> Option<u8> {
+    pub fn read_if<F>(&mut self, func: F) -> Option<u8>
+    where
+        F: FnOnce(u8) -> bool,
+    {
         self.peek()
             .and_then(|n| if func(n) { self.next() } else { None })
     }

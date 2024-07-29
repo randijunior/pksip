@@ -4,8 +4,9 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::str::Utf8Error;
 
-use crate::byte_reader::ByteReader;
-use crate::byte_reader::ByteReaderError;
+use crate::headers::via::Via;
+use crate::iter::ByteReader;
+use crate::iter::ByteReaderError;
 
 use crate::macros::alpha;
 use crate::macros::b_map;
@@ -156,7 +157,7 @@ impl<'a> SipParser<'a> {
             let host = until_byte!(reader, b']');
             reader.next();
             let host = str::from_utf8(host)?;
-            if let Ok(host) = host.parse() {
+            return if let Ok(host) = host.parse() {
                 reader.next();
                 Ok(HostPort::IpAddr {
                     host: IpAddr::V6(host),
@@ -165,20 +166,19 @@ impl<'a> SipParser<'a> {
             } else {
                 sip_parse_error!("Error parsing Ipv6 HostPort!")
             }
+        }
+        let host = read_while!(reader, |b| HOST_SPEC_MAP[b as usize]);
+        let host = str::from_utf8(host)?;
+        if let Ok(addr) = IpAddr::from_str(host) {
+            Ok(HostPort::IpAddr {
+                host: addr,
+                port: Self::parse_port(reader)?,
+            })
         } else {
-            let host = read_while!(reader, |b| HOST_SPEC_MAP[b as usize]);
-            let host = str::from_utf8(host)?;
-            if let Ok(addr) = IpAddr::from_str(host) {
-                Ok(HostPort::IpAddr {
-                    host: addr,
-                    port: Self::parse_port(reader)?,
-                })
-            } else {
-                Ok(HostPort::DomainName {
-                    host,
-                    port: Self::parse_port(reader)?,
-                })
-            }
+           Ok(HostPort::DomainName {
+                host,
+                port: Self::parse_port(reader)?,
+            })
         }
     }
 
@@ -270,6 +270,10 @@ impl<'a> SipParser<'a> {
             other_params,
             header_params,
         })
+    }
+
+    pub fn parse_via_hdr(reader: &mut ByteReader<'a>) -> Via<'a> {
+        todo!()
     }
 
     fn parse_status_line(&mut self) -> Result<StatusLine<'a>> {
