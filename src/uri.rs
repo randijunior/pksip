@@ -45,12 +45,12 @@ pub enum Scheme {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GenericParams<'a> {
-    pub(crate) params: HashMap<&'a str, &'a str>,
+    pub(crate) inner: HashMap<&'a str, &'a str>,
 }
 
 impl<'a> GenericParams<'a> {
     pub fn new(params: HashMap<&'a str, &'a str>) -> Self {
-        Self { params }
+        Self { inner: params }
     }
 }
 

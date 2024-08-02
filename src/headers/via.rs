@@ -20,21 +20,42 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::{
-    iter::ByteReader, msg::Transport, uri::{GenericParams, HostPort}
+    msg::Transport, uri::{GenericParams, HostPort}
 };
 
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct ViaParams<'a> {
     ttl: Option<&'a str>,
     maddr: Option<&'a str>,
     received: Option<&'a str>,
     branch: Option<&'a str>,
     extension: Option<&'a str>,
+    rport: Option<u16>,
 }
 
+impl<'a> ViaParams<'a> {
+    pub fn set_branch(&mut self, branch: &'a str) {
+        self.branch = Some(branch);
+    }
+
+    pub fn set_ttl(&mut self, ttl: &'a str) {
+        self.ttl = Some(ttl);
+    }
+    pub fn set_maddr(&mut self, maddr: &'a str) {
+        self.maddr = Some(maddr);
+    }
+    pub fn set_received(&mut self, received: &'a str) {
+        self.received = Some(received);
+    }
+    pub fn set_rport(&mut self, rport: u16) {
+        self.rport = Some(rport);
+    }
+}
+
+// SIP Via Header
 pub struct Via<'a> {
     transport: Transport,
     sent_by: HostPort<'a>,
-    ttl: u32,
     params: Option<ViaParams<'a>>,
     other_params: Option<GenericParams<'a>>,
 }

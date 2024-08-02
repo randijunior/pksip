@@ -17,3 +17,8 @@ pub fn is_newline(c: u8) -> bool {
 pub fn is_alphabetic(c: u8) -> bool {
     c.is_ascii_alphabetic()
 }
+
+#[inline(always)]
+pub fn is_valid_port(v: u16) -> bool {
+    matches!(v, 0..=65535)
+}

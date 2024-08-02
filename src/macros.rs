@@ -28,7 +28,7 @@ macro_rules! until_byte {
     }};
 }
 
-macro_rules! tag {
+macro_rules! find {
     ($reader:expr, $tag:expr) => {{
         let (start, end) = $reader.tag($tag)?;
 
@@ -92,6 +92,6 @@ pub(crate) use newline;
 pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
-pub(crate) use tag;
+pub(crate) use find;
 pub(crate) use until_byte;
 pub(crate) use until_newline;

@@ -21,19 +21,24 @@ pub enum ErrorKind {
 #[derive(Debug, PartialEq)]
 pub struct ByteReaderError<'a> {
     pub(crate) kind: ErrorKind,
-    pub(crate) pos: Position,
+    pub(crate) line: usize,
+    pub(crate) col: usize,
     pub(crate) input: &'a [u8],
 }
 #[derive(Debug)]
 pub(crate) struct ByteReader<'a> {
     pub(crate) input: &'a [u8],
-    pub(crate) pos: Position,
+    finished: bool,
+    len: usize,
+    pos: Position,
 }
 
 impl<'a> ByteReader<'a> {
     pub fn new(input: &'a [u8]) -> Self {
         ByteReader {
             input,
+            len: input.len(),
+            finished: false,
             pos: Position {
                 line: 1,
                 col: 1,
@@ -42,63 +47,91 @@ impl<'a> ByteReader<'a> {
         }
     }
 
-    pub fn peek(&self) -> Option<u8> {
-        let pos = self.pos;
-
-        match self.input.get(pos.idx) {
-            Some(&b) => Some(b),
-            None => None,
+    pub fn peek(&self) -> Option<&u8> {
+        if self.finished {
+            return None;
         }
+        Some(&self.input[self.pos.idx])
     }
 
     pub fn tag(&mut self, tag: &[u8]) -> Result<Range> {
-        let start = self.pos.idx;
-        let input = &self.input[start..];
-        let len = tag.len();
-        if len > input.len() {
-            return Err(self.error(ErrorKind::OutOfInput));
-        }
-        for i in 0..len {
-            if input[i] != tag[i] {
+        let start = self.idx();
+        for &expected in tag {
+            let Some(&byte) = self.next() else {
+                return Err(self.error(ErrorKind::OutOfInput));
+            };
+            if byte != expected {
                 return Err(self.error(ErrorKind::Tag));
             }
-            self.next();
         }
-        let end = self.pos.idx;
-
+        let end = self.idx();
         Ok((start, end))
+    }
+
+    #[inline(always)]
+    fn advance(&mut self, byte: &u8) {
+        self.pos.idx += 1;
+        if *byte == b'\n' {
+            self.pos.col = 1;
+            self.pos.line += 1;
+        } else {
+            self.pos.col += 1;
+        }
+    }
+
+    #[inline(always)]
+    pub fn idx(&self) -> usize {
+        self.pos.idx
     }
 
     pub fn read_while<F>(&mut self, func: F) -> Result<Range>
     where
         F: Fn(u8) -> bool,
     {
-        let start = self.pos.idx;
+        let start = self.idx();
         let mut next = self.read_if(&func);
         while let Some(_) = next {
             next = self.read_if(&func);
         }
-        let end = self.pos.idx;
-
+        let end = self.idx();
         Ok((start, end))
+    }
+
+    #[inline(always)]
+    pub fn col(&self) -> usize {
+        self.pos.col
     }
 
     pub fn to_string(&self) -> String {
         String::from_utf8_lossy(self.as_ref()).to_string()
     }
 
-    pub fn read_if<F>(&mut self, func: F) -> Option<u8>
+    pub fn read_if<F>(&mut self, func: F) -> Option<&u8>
     where
         F: FnOnce(u8) -> bool,
     {
-        self.peek()
-            .and_then(|n| if func(n) { self.next() } else { None })
+        match self.peek() {
+            Some(&b) => {
+                if func(b) {
+                    self.next()
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    #[inline(always)]
+    pub fn line(&self) -> usize {
+        self.pos.line
     }
 
     pub fn error(&self, kind: ErrorKind) -> ByteReaderError<'a> {
         ByteReaderError {
             kind,
-            pos: self.pos,
+            line: self.line(),
+            col: self.col(),
             input: self.input,
         }
     }
@@ -106,26 +139,23 @@ impl<'a> ByteReader<'a> {
 
 impl<'a> AsRef<[u8]> for ByteReader<'a> {
     fn as_ref(&self) -> &[u8] {
-        &self.input[self.pos.idx..]
+        &self.input[self.idx()..]
     }
 }
 
 impl<'a> Iterator for ByteReader<'a> {
-    type Item = u8;
+    type Item = &'a u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.input.get(self.pos.idx) {
-            Some(&byte) => {
-                self.pos.idx += 1;
-                if byte == b'\n' {
-                    self.pos.col = 1;
-                    self.pos.line += 1;
-                } else {
-                    self.pos.col += 1;
-                }
-                Some(byte)
-            }
-            None => None,
+        if self.finished {
+            return None;
         }
+        let byte = &self.input[self.pos.idx];
+        self.advance(byte);
+
+        if self.pos.idx + 1 == self.len {
+            self.finished = true;
+        }
+        Some(byte)
     }
 }

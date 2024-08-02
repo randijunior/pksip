@@ -57,6 +57,24 @@ pub enum Transport {
     TCP,
     TLS,
     SCTP,
+    Unknow
+}
+
+const TRANSPORT_UDP: &[u8] = "UDP".as_bytes();
+const TRANSPORT_TCP: &[u8] = "TCP".as_bytes();
+const TRANSPORT_TLS: &[u8] = "TLS".as_bytes();
+const TRANSPORT_SCTP: &[u8] = "SCTP".as_bytes();
+
+impl From<&[u8]> for Transport {
+    fn from(value: &[u8]) -> Self {
+        match value {
+            TRANSPORT_UDP => Transport::UDP,
+            TRANSPORT_TCP => Transport::TCP,
+            TRANSPORT_TLS => Transport::TLS,
+            TRANSPORT_SCTP => Transport::SCTP,
+            _ => Transport::Unknow,
+        }
+    }
 }
 
 const SIP_INVITE: &[u8] = "INVITE".as_bytes();
