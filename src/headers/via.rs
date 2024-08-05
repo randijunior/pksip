@@ -20,7 +20,8 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::{
-    msg::Transport, uri::{GenericParams, HostPort}
+    msg::Transport,
+    uri::{GenericParams, HostPort},
 };
 
 #[derive(Debug, PartialEq, Eq, Default)]
@@ -29,7 +30,6 @@ pub struct ViaParams<'a> {
     maddr: Option<&'a str>,
     received: Option<&'a str>,
     branch: Option<&'a str>,
-    extension: Option<&'a str>,
     rport: Option<u16>,
 }
 
@@ -53,9 +53,10 @@ impl<'a> ViaParams<'a> {
 }
 
 // SIP Via Header
+#[derive(Debug, PartialEq, Eq)]
 pub struct Via<'a> {
-    transport: Transport,
-    sent_by: HostPort<'a>,
-    params: Option<ViaParams<'a>>,
-    other_params: Option<GenericParams<'a>>,
+    pub(crate) transport: Transport,
+    pub(crate) sent_by: HostPort<'a>,
+    pub(crate) params: Option<ViaParams<'a>>,
+    pub(crate) others_params: Option<GenericParams<'a>>,
 }

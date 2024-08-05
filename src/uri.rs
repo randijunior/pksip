@@ -49,8 +49,16 @@ pub struct GenericParams<'a> {
 }
 
 impl<'a> GenericParams<'a> {
-    pub fn new(params: HashMap<&'a str, &'a str>) -> Self {
-        Self { inner: params }
+    pub fn new() -> Self {
+        Self { inner: HashMap::new() }
+    }
+
+    pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
+        self.inner.insert(k, v)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 }
 

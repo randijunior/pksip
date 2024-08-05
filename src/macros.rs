@@ -6,42 +6,41 @@ macro_rules! space {
 
 macro_rules! digits {
     ($reader:ident) => {{
-        let (start, end) = $reader.read_while(crate::util::is_digit)?;
+        let range = $reader.read_while(crate::util::is_digit)?;
 
-        &$reader.input[start..end]
+        &$reader.input[range]
     }};
 }
 
 macro_rules! read_while {
     ($reader:expr, $func:expr) => {{
-        let (start, end) = $reader.read_while($func)?;
+        let range = $reader.read_while($func)?;
 
-        &$reader.input[start..end]
+        &$reader.input[range]
     }};
 }
 
 macro_rules! until_byte {
     ($reader:expr, $byte:expr) => {{
-        let (start, end) = $reader.read_while(|b| b != $byte)?;
+        let range = $reader.read_while(|b| b != $byte)?;
 
-        &$reader.input[start..end]
+        &$reader.input[range]
     }};
 }
 
 macro_rules! find {
     ($reader:expr, $tag:expr) => {{
-        let (start, end) = $reader.tag($tag)?;
+        let range = $reader.tag($tag)?;
 
-        &$reader.input[start..end]
+        &$reader.input[range]
     }};
 }
 
 macro_rules! until_newline {
     ($reader:ident) => {{
-        let (start, end) =
-            $reader.read_while(|b| !crate::util::is_newline(b))?;
+        let range = $reader.read_while(|b| !crate::util::is_newline(b))?;
 
-        &$reader.input[start..end]
+        &$reader.input[range]
     }};
 }
 
@@ -53,10 +52,9 @@ macro_rules! newline {
 
 macro_rules! alpha {
     ($reader:ident) => {{
-        let (start, end) =
-            $reader.read_while(crate::util::is_alphabetic)?;
+        let range = $reader.read_while(crate::util::is_alphabetic)?;
 
-        &$reader.input[start..end]
+        &$reader.input[range]
     }};
 }
 
@@ -88,10 +86,10 @@ macro_rules! sip_parse_error {
 pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;
+pub(crate) use find;
 pub(crate) use newline;
 pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
-pub(crate) use find;
 pub(crate) use until_byte;
 pub(crate) use until_newline;

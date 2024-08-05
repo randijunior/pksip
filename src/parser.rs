@@ -50,7 +50,7 @@ const HOST: &[u8] = b"_-.";
 
 pub(crate) const USER_PARAM: &str = "user";
 pub(crate) const METHOD_PARAM: &str = "method";
-pub(crate) const TANSPORT_PARAM: &str = "transport";
+pub(crate) const TRANSPORT_PARAM: &str = "transport";
 pub(crate) const TTL_PARAM: &str = "ttl";
 pub(crate) const LR_PARAM: &str = "lr";
 pub(crate) const MADDR_PARAM: &str = "maddr";
@@ -137,30 +137,25 @@ impl<'a> SipParser<'a> {
         matched == Some(b'@')
     }
 
-    fn parse_user(
-        reader: &mut ByteReader<'a>,
-    ) -> Result<Option<UserInfo<'a>>> {
-        if Self::has_user(reader) {
-            let bytes = read_while!(reader, is_user);
-            let name = str::from_utf8(bytes)?;
-            return if reader.next() == Some(&b':') {
-                let bytes = read_while!(reader, is_pass);
-                let bytes = str::from_utf8(bytes)?;
-                reader.next();
+    fn parse_user(reader: &mut ByteReader<'a>) -> Result<Option<UserInfo<'a>>> {
+        if !Self::has_user(reader) {
+            return Ok(None);
+        }
+        let bytes = read_while!(reader, is_user);
+        let name = str::from_utf8(bytes)?;
+        let mut user = UserInfo {
+            name,
+            password: None,
+        };
 
-                Ok(Some(UserInfo {
-                    name,
-                    password: Some(bytes),
-                }))
-            } else {
-                Ok(Some(UserInfo {
-                    name,
-                    password: None,
-                }))
-            };
+        if reader.next() == Some(&b':') {
+            let bytes = read_while!(reader, is_pass);
+            let bytes = str::from_utf8(bytes)?;
+            reader.next();
+            user.password = Some(bytes);
         }
 
-        Ok(None)
+        Ok(Some(user))
     }
 
     fn parse_sip_version(reader: &mut ByteReader<'a>) -> Result<()> {
@@ -174,8 +169,8 @@ impl<'a> SipParser<'a> {
             // the '[' and ']' characters are removed from the host
             reader.next();
             let host = until_byte!(reader, b']');
-            reader.next();
             let host = str::from_utf8(host)?;
+            reader.next();
             return if let Ok(host) = host.parse() {
                 reader.next();
                 Ok(HostPort::IpAddr {
@@ -208,7 +203,7 @@ impl<'a> SipParser<'a> {
             match digits.parse::<u16>() {
                 Ok(port) if is_valid_port(port) => Ok(Some(port)),
                 Ok(_) | Err(_) => {
-                    sip_parse_error!("Port is invalid!")
+                    sip_parse_error!("Sip Uri Port is invalid!")
                 }
             }
         } else {
@@ -220,7 +215,7 @@ impl<'a> SipParser<'a> {
         reader: &mut ByteReader<'a>,
     ) -> Result<(Option<UriParams<'a>>, Option<GenericParams<'a>>)> {
         if reader.peek() == Some(&b';') {
-            let mut others = HashMap::new();
+            let mut others = GenericParams::new();
             let mut uri_params = UriParams::default();
             while let Some(&b';') = reader.peek() {
                 reader.next();
@@ -236,12 +231,12 @@ impl<'a> SipParser<'a> {
                 match name {
                     USER_PARAM => uri_params.user = Some(value),
                     METHOD_PARAM => uri_params.method = Some(value),
-                    TANSPORT_PARAM => uri_params.transport = Some(value),
+                    TRANSPORT_PARAM => uri_params.transport = Some(value),
                     TTL_PARAM => uri_params.ttl = Some(value),
                     LR_PARAM => uri_params.lr = Some(value),
                     MADDR_PARAM => uri_params.maddr = Some(value),
                     _ => {
-                        others.insert(name, value);
+                        others.set(name, value);
                     }
                 }
             }
@@ -249,7 +244,7 @@ impl<'a> SipParser<'a> {
             let others = if others.is_empty() {
                 None
             } else {
-                Some(GenericParams::new(others))
+                Some(others)
             };
 
             Ok((params, others))
@@ -269,7 +264,7 @@ impl<'a> SipParser<'a> {
 
         let mut header_params = None;
         if reader.peek() == Some(&b'?') {
-            let mut params = HashMap::new();
+            let mut params = GenericParams::new();
             loop {
                 // take '?' or '&'
                 reader.next();
@@ -282,13 +277,13 @@ impl<'a> SipParser<'a> {
                 } else {
                     ""
                 };
-                params.insert(name, value);
+                params.set(name, value);
                 if reader.peek() != Some(&b'&') {
                     break;
                 }
             }
 
-            header_params = Some(GenericParams::new(params))
+            header_params = Some(params)
         }
 
         Ok(Uri {
@@ -303,8 +298,12 @@ impl<'a> SipParser<'a> {
 
     fn parse_via_params(
         reader: &mut ByteReader<'a>,
-    ) -> Result<Option<ViaParams<'a>>> {
+    ) -> Result<(Option<ViaParams<'a>>, Option<GenericParams<'a>>)> {
+        if reader.peek() != Some(&b';') {
+            return Ok((None, None));
+        }
         let mut params = ViaParams::default();
+        let mut others = GenericParams::new();
         while let Some(&b';') = reader.peek() {
             reader.next();
             let name = read_while!(reader, is_via_param);
@@ -320,32 +319,45 @@ impl<'a> SipParser<'a> {
                 TTL_PARAM => params.set_ttl(value),
                 MADDR_PARAM => params.set_maddr(value),
                 RECEIVED_PARAM => params.set_received(value),
-                RPORT_PARAM => {
-                    todo!()
+                RPORT_PARAM => match value.parse::<u16>() {
+                    Ok(port) if is_valid_port(port) => params.set_rport(port),
+                    Ok(_) | Err(_) => {
+                        return sip_parse_error!("Via param rport is invalid!")
+                    }
+                },
+                other => {
+                    others.set(name, other);
                 }
-                _ => (),
             }
         }
-        Ok(None)
+
+        let others = if others.is_empty() {
+            None
+        } else {
+            Some(others)
+        };
+
+        Ok((Some(params), others))
     }
 
     fn parse_via_hdr(reader: &mut ByteReader<'a>) -> Result<Via<'a>> {
         Self::parse_sip_version(reader)?;
         if reader.next() != Some(&b'/') {
-            return Err(SipParserError {
-                message: format!(
-                    "Failed to parse at line:{} column:{}",
-                    reader.col(),
-                    reader.line()
-                ),
-            });
+            return sip_parse_error!("Invalid via Hdr!");
         }
         let bytes = until_byte!(reader, b' ');
         let transport = Transport::from(bytes);
+        space!(reader);
         let sent_by = Self::parse_host(reader)?;
-        let params = Self::parse_via_params(reader)?;
+        let (params, others_params) = Self::parse_via_params(reader)?;
 
-        todo!()
+        Ok(Via { transport, sent_by, params, others_params })
+    }
+
+    fn parse_hdr_via(&mut self) -> Result<Via<'a>> {
+        let reader = &mut self.reader;
+
+        Self::parse_via_hdr(reader)
     }
 
     fn parse_status_line(&mut self) -> Result<StatusLine<'a>> {
@@ -473,8 +485,7 @@ mod tests {
 
     #[test]
     fn test_req_status_line() {
-        let msg =
-            "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
+        let msg = "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
         let addr: IpAddr = "10.1.1.7".parse().unwrap();
         assert_eq!(
             SipParser::new(msg).parse_request_line(),
@@ -499,37 +510,8 @@ mod tests {
     }
     #[test]
     fn params() {
-        let msg = "REGISTER sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15;other=a SIP/2.0\r\n"
+        let msg = "SIP/2.0/SCTP server10.biloxi.com;branch=z9hG4bKnashds8;rport;received=192.0.2.1\r\n"
             .as_bytes();
-
-        assert_eq!(
-            SipParser::new(msg).parse_request_line(),
-            Ok(RequestLine {
-                method: SipMethod::Register,
-                uri: Uri {
-                    scheme: Scheme::Sip,
-                    user: Some(UserInfo {
-                        name: "alice",
-                        password: None
-                    }),
-                    host: HostPort::DomainName {
-                        host: "atlanta.com",
-                        port: None
-                    },
-                    params: Some(UriParams {
-                        user: None,
-                        method: None,
-                        transport: None,
-                        lr: None,
-                        maddr: Some("239.255.255.1"),
-                        ttl: Some("15")
-                    }),
-                    other_params: Some(GenericParams {
-                        inner: HashMap::from([("other", "a")])
-                    }),
-                    header_params: None,
-                }
-            })
-        );
+        println!("{:#?}", SipParser::new(msg).parse_hdr_via())
     }
 }

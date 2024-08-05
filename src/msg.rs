@@ -57,7 +57,7 @@ pub enum Transport {
     TCP,
     TLS,
     SCTP,
-    Unknow
+    Unknow,
 }
 
 const TRANSPORT_UDP: &[u8] = "UDP".as_bytes();
@@ -192,9 +192,7 @@ impl SipStatusCode {
             // 1xx — Provisional Responses
             SipStatusCode::Trying => "Trying",
             SipStatusCode::Ringing => "Ringing",
-            SipStatusCode::CallIsBeingForwarded => {
-                "Call is Being Forwarded"
-            }
+            SipStatusCode::CallIsBeingForwarded => "Call is Being Forwarded",
             SipStatusCode::Queued => "Queued",
             SipStatusCode::SessionProgress => "Session Progress",
 
