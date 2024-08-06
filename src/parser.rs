@@ -74,9 +74,7 @@ b_map!(PARAM_SPEC_MAP => b"[]/:&+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 // "[]/?:+$"  "-_.!~*'()" "%"
 b_map!(HDR_SPEC_MAP => b"[]/?:+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 
-b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
-
-b_map!(VIA_PARAM_SPEC_MAP => b"[:]", TOKEN_SPEC_MAP);
+b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 
 #[inline(always)]
 fn is_user(b: u8) -> bool {
@@ -319,12 +317,20 @@ impl<'a> SipParser<'a> {
                 TTL_PARAM => params.set_ttl(value),
                 MADDR_PARAM => params.set_maddr(value),
                 RECEIVED_PARAM => params.set_received(value),
-                RPORT_PARAM => match value.parse::<u16>() {
-                    Ok(port) if is_valid_port(port) => params.set_rport(port),
-                    Ok(_) | Err(_) => {
-                        return sip_parse_error!("Via param rport is invalid!")
+                RPORT_PARAM => {
+                    if !value.is_empty() {
+                        match value.parse::<u16>() {
+                            Ok(port) if is_valid_port(port) => {
+                                params.set_rport(port)
+                            }
+                            Ok(_) | Err(_) => {
+                                return sip_parse_error!(
+                                    "Via param rport is invalid!"
+                                )
+                            }
+                        }
                     }
-                },
+                }
                 other => {
                     others.set(name, other);
                 }
@@ -351,7 +357,12 @@ impl<'a> SipParser<'a> {
         let sent_by = Self::parse_host(reader)?;
         let (params, others_params) = Self::parse_via_params(reader)?;
 
-        Ok(Via { transport, sent_by, params, others_params })
+        Ok(Via {
+            transport,
+            sent_by,
+            params,
+            others_params,
+        })
     }
 
     fn parse_hdr_via(&mut self) -> Result<Via<'a>> {
