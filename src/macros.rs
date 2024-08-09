@@ -1,60 +1,69 @@
 macro_rules! space {
     ($reader:ident) => {{
-        $reader.read_while(crate::util::is_space)?;
+        $reader.read_while(crate::util::is_space);
     }};
 }
 
 macro_rules! digits {
     ($reader:ident) => {{
-        let range = $reader.read_while(crate::util::is_digit)?;
+        let range = $reader.read_while(crate::util::is_digit);
 
-        &$reader.input[range]
+        &$reader.src[range]
     }};
 }
 
 macro_rules! read_while {
     ($reader:expr, $func:expr) => {{
-        let range = $reader.read_while($func)?;
+        let range = $reader.read_while($func);
 
-        &$reader.input[range]
+        &$reader.src[range]
     }};
 }
 
 macro_rules! until_byte {
     ($reader:expr, $byte:expr) => {{
-        let range = $reader.read_while(|b| b != $byte)?;
+        let range = $reader.read_while(|b| b != $byte);
 
-        &$reader.input[range]
+        &$reader.src[range]
     }};
 }
 
 macro_rules! find {
     ($reader:expr, $tag:expr) => {{
-        let range = $reader.tag($tag)?;
+        let range = $reader.read_tag($tag)?;
 
-        &$reader.input[range]
+        &$reader.src[range]
     }};
 }
 
 macro_rules! until_newline {
     ($reader:ident) => {{
-        let range = $reader.read_while(|b| !crate::util::is_newline(b))?;
+        let range = $reader.read_while(|b| !crate::util::is_newline(b));
 
-        &$reader.input[range]
+        &$reader.src[range]
     }};
 }
 
+macro_rules! peek_while {
+    ($reader:expr, $func:expr) => {{
+        let range = $reader.peek_while($func);
+
+        (&$reader.src[range])
+    }};
+}
+
+
 macro_rules! newline {
     ($reader:ident) => {{
-        $reader.read_while(crate::util::is_newline)?;
+        $reader.read_while(crate::util::is_newline);
     }};
 }
 
 macro_rules! alpha {
     ($reader:ident) => {{
-        let range = $reader.read_while(crate::util::is_alphabetic)?;
+        let range = $reader.read_while(crate::util::is_alphabetic);
 
-        &$reader.input[range]
+        &$reader.src[range]
     }};
 }
 
@@ -89,6 +98,7 @@ pub(crate) use digits;
 pub(crate) use find;
 pub(crate) use newline;
 pub(crate) use read_while;
+pub(crate) use peek_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
 pub(crate) use until_byte;

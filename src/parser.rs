@@ -1,11 +1,11 @@
 use core::str;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::str::Utf8Error;
 
 use crate::headers::via::Via;
 use crate::headers::via::ViaParams;
+use crate::headers::SipHeaders;
 use crate::iter::ByteReader;
 use crate::iter::ByteReaderError;
 
@@ -14,6 +14,7 @@ use crate::macros::b_map;
 use crate::macros::digits;
 use crate::macros::find;
 use crate::macros::newline;
+use crate::macros::peek_while;
 use crate::macros::read_while;
 use crate::macros::sip_parse_error;
 use crate::macros::space;
@@ -22,6 +23,7 @@ use crate::macros::until_newline;
 
 use crate::msg::RequestLine;
 use crate::msg::SipMethod;
+use crate::msg::SipMsg;
 use crate::msg::SipStatusCode;
 use crate::msg::StatusLine;
 
@@ -32,6 +34,8 @@ use crate::uri::Scheme;
 use crate::uri::Uri;
 use crate::uri::UriParams;
 use crate::uri::UserInfo;
+use crate::util::is_alphabetic;
+use crate::util::is_space;
 use crate::util::is_valid_port;
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
@@ -101,6 +105,45 @@ fn is_via_param(b: u8) -> bool {
     VIA_PARAM_SPEC_MAP[b as usize]
 }
 
+trait ParseHeader<'a, T> {
+    fn parse_header(&self, reader: &mut ByteReader<'a>) -> Result<T>;
+}
+
+// Via: SIP/2.0/UDP proxy1.example.com;branch=z9hG4bK776asdhds, SIP/2.0/UDP proxy2.example.com;branch=z9hG4bKnashds8
+impl<'a> ParseHeader<'a, Via<'a>> for SipParser<'a> {
+    fn parse_header(&self, reader: &mut ByteReader<'a>) -> Result<Via<'a>> {
+        Self::parse_sip_version(reader)?;
+
+        if reader.next() != Some(&b'/') {
+            return sip_parse_error!("Invalid via Hdr!");
+        }
+        let bytes = until_byte!(reader, b' ');
+        let transport = Transport::from(bytes);
+
+        space!(reader);
+
+        let sent_by = Self::parse_host(reader)?;
+        let (params, others_params) = Self::parse_via_params(reader)?;
+
+        let comment = if reader.peek() == Some(&b'(') {
+            reader.next();
+            let comment = until_byte!(reader, b')');
+            reader.next();
+            Some(str::from_utf8(comment)?)
+        } else {
+            None
+        };
+
+        Ok(Via {
+            transport,
+            sent_by,
+            params,
+            others_params,
+            comment,
+        })
+    }
+}
+
 pub struct SipParser<'a> {
     reader: ByteReader<'a>,
 }
@@ -124,12 +167,9 @@ impl<'a> SipParser<'a> {
     fn has_user(reader: &ByteReader) -> bool {
         let mut matched = None;
         for &byte in reader.as_ref().iter() {
-            match byte {
-                b'@' | b' ' | b'\n' | b'>' => {
-                    matched = Some(byte);
-                    break;
-                }
-                _ => continue,
+            if matches!(byte, b'@' | b' ' | b'\n' | b'>') {
+                matched = Some(byte);
+                break;
             }
         }
         matched == Some(b'@')
@@ -346,31 +386,6 @@ impl<'a> SipParser<'a> {
         Ok((Some(params), others))
     }
 
-    fn parse_via_hdr(reader: &mut ByteReader<'a>) -> Result<Via<'a>> {
-        Self::parse_sip_version(reader)?;
-        if reader.next() != Some(&b'/') {
-            return sip_parse_error!("Invalid via Hdr!");
-        }
-        let bytes = until_byte!(reader, b' ');
-        let transport = Transport::from(bytes);
-        space!(reader);
-        let sent_by = Self::parse_host(reader)?;
-        let (params, others_params) = Self::parse_via_params(reader)?;
-
-        Ok(Via {
-            transport,
-            sent_by,
-            params,
-            others_params,
-        })
-    }
-
-    fn parse_hdr_via(&mut self) -> Result<Via<'a>> {
-        let reader = &mut self.reader;
-
-        Self::parse_via_hdr(reader)
-    }
-
     fn parse_status_line(&mut self) -> Result<StatusLine<'a>> {
         let reader = &mut self.reader;
         Self::parse_sip_version(reader)?;
@@ -402,6 +417,33 @@ impl<'a> SipParser<'a> {
 
         Ok(RequestLine { method, uri })
     }
+
+    fn is_sip_request(&self) -> bool {
+        let reader = &self.reader;
+        let tag = peek_while!(reader, is_alphabetic);
+        let next = reader.src.get(tag.len() + 1);
+        const SIP: &[u8] = b"SIP";
+
+        next.is_some_and(|next| (next == &b'/' || is_space(*next)) && tag == SIP)
+    }
+}
+
+pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
+    let mut parser = SipParser::new(buff);
+
+    let msg = if parser.is_sip_request() {
+        let req_line = parser.parse_request_line()?;
+        let headers = SipHeaders::new();
+
+        todo!()
+    } else {
+        let status_line = parser.parse_status_line()?;
+        let headers = SipHeaders::new();
+
+        todo!()
+    };
+
+    msg
 }
 
 #[derive(Debug, PartialEq)]
@@ -421,14 +463,12 @@ impl<'a> From<ByteReaderError<'a>> for SipParserError {
     fn from(err: ByteReaderError) -> Self {
         SipParserError {
             message: format!(
-                "Failed to parse at line:{},
-                column:{},
-                kind:{:?},
-                input:'{}'",
+                "Failed to parse at line:{} column:{} kind:{:?}
+                {}",
                 err.line,
                 err.col,
                 err.kind,
-                String::from_utf8_lossy(err.input)
+                String::from_utf8_lossy(err.src)
             ),
         }
     }
@@ -519,10 +559,31 @@ mod tests {
             })
         );
     }
-    #[test]
-    fn params() {
-        let msg = "SIP/2.0/SCTP server10.biloxi.com;branch=z9hG4bKnashds8;rport;received=192.0.2.1\r\n"
-            .as_bytes();
-        println!("{:#?}", SipParser::new(msg).parse_hdr_via())
-    }
+    /*
+    "INVITE sip:user@foo SIP/2.0\n"
+    "from: Hi I'm Joe <sip:joe.user@bar.otherdomain.com>;tag=123457890123456\r"
+    "To: Fellow User <sip:user@foo.bar.domain.com>\r\n"
+    "Call-ID: 12345678901234567890@bar\r\n"
+    "Content-Length: 0\r\n"
+    "CSeq: 123456 INVITE\n"
+    "Contact: <sip:joe@bar> ; q=0.5;expires=3600,sip:user@host;q=0.500\r"
+    "  ,sip:user2@host2\n"
+    "Content-Type: text/html ; charset=ISO-8859-4\r"
+    "Route: <sip:bigbox3.site3.atlanta.com;lr>,\r\n"
+    "  <sip:server10.biloxi.com;lr>\r"
+    "Record-Route: <sip:server10.biloxi.com>,\r\n" /* multiple routes+folding*/
+    "  <sip:bigbox3.site3.atlanta.com;lr>\n"
+    "v: SIP/2.0/SCTP bigbox3.site3.atlanta.com;branch=z9hG4bK77ef4c230\n"
+    "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8\n" /* folding. */
+    " ;received=192.0.2.1\r\n"
+    "Via: SIP/2.0/UDP 10.2.1.1, SIP/2.0/TCP 192.168.1.1\n"
+    "Organization: \r"
+    "Max-Forwards: 70\n"
+    "X-Header: \r\n"        /* empty header */
+    "P-Associated-URI:\r\n" /* empty header without space */
+    "\r\n"
+
+
+
+     */
 }

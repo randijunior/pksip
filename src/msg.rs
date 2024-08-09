@@ -7,12 +7,12 @@ pub enum SipMsg<'a> {
     Request {
         req_line: RequestLine<'a>,
         headers: SipHeaders<'a>,
-        body: Vec<u8>,
+        body: &'a[u8],
     },
     Response {
         req_line: StatusLine<'a>,
         headers: SipHeaders<'a>,
-        body: Vec<u8>,
+        body: &'a[u8],
     },
 }
 

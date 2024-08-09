@@ -2,10 +2,18 @@ pub mod to;
 pub mod via;
 
 use to::To;
+use via::Via;
 
 pub struct SipHeaders<'a> {
     pub(crate) hdrs: Vec<Header<'a>>,
 }
+
+impl<'a> SipHeaders<'a> {
+    pub fn new() -> Self {
+        Self { hdrs: vec![] }
+    }
+}
+
 
 pub enum Header<'a> {
     Accept,
@@ -49,8 +57,9 @@ pub enum Header<'a> {
     To(To<'a>),
     Unsupported,
     UserAgent,
-    Via,
+    Via(Via<'a>),
     Warning,
     WWWAuthenticate,
     Other,
 }
+

@@ -58,5 +58,6 @@ pub struct Via<'a> {
     pub(crate) transport: Transport,
     pub(crate) sent_by: HostPort<'a>,
     pub(crate) params: Option<ViaParams<'a>>,
+    pub(crate) comment: Option<&'a str>,
     pub(crate) others_params: Option<GenericParams<'a>>,
 }

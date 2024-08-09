@@ -1,14 +1,14 @@
 use std::ops::Range;
 
 type Result<'a, T> = std::result::Result<T, ByteReaderError<'a>>;
-/// Errors that can occur while reading the input.
+/// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
     /// The tag did not match the expected value.
     Tag,
     /// End of file reached.
     Eof,
-    /// Insufficient input for the requested operation.
+    /// Insufficient src for the requested operation.
     OutOfInput,
 }
 
@@ -17,11 +17,11 @@ pub struct ByteReaderError<'a> {
     pub(crate) kind: ErrorKind,
     pub(crate) line: usize,
     pub(crate) col: usize,
-    pub(crate) input: &'a [u8],
+    pub(crate) src: &'a [u8],
 }
 #[derive(Debug)]
 pub(crate) struct ByteReader<'a> {
-    pub(crate) input: &'a [u8],
+    pub(crate) src: &'a [u8],
     finished: bool,
     len: usize,
     line: usize,
@@ -30,10 +30,10 @@ pub(crate) struct ByteReader<'a> {
 }
 
 impl<'a> ByteReader<'a> {
-    pub fn new(input: &'a [u8]) -> Self {
+    pub fn new(src: &'a [u8]) -> Self {
         ByteReader {
-            input,
-            len: input.len(),
+            src,
+            len: src.len(),
             finished: false,
             line: 1,
             col: 1,
@@ -45,16 +45,27 @@ impl<'a> ByteReader<'a> {
         if self.finished {
             return None;
         }
-        Some(&self.input[self.idx])
+        Some(&self.src[self.idx])
     }
 
-    #[inline(always)]
-    pub fn idx(&self) -> usize {
-        self.idx
+    pub fn iter(&self) -> std::slice::Iter<u8> {
+        self.src.iter()
     }
 
-    pub fn tag(&mut self, tag: &[u8]) -> Result<Range<usize>> {
-        let start = self.idx();
+
+    pub fn peek_while<F>(&self, func: F) -> Range<usize> 
+    where
+    F: Fn(u8) -> bool
+    {
+        let mut idx = self.idx;
+        for _ in self.iter().take_while(|&&b| func(b)) {
+            idx += 1;
+        }
+        self.idx..idx
+    }
+
+    pub fn read_tag(&mut self, tag: &[u8]) -> Result<Range<usize>> {
+        let start = self.idx;
         for &expected in tag {
             let Some(&byte) = self.peek() else {
                 return self.error(ErrorKind::OutOfInput);
@@ -64,27 +75,24 @@ impl<'a> ByteReader<'a> {
             }
             self.next();
         }
-        let end = self.idx();
+        let end = self.idx;
         Ok(start..end)
     }
 
-    pub fn read_while<F>(&mut self, func: F) -> Result<Range<usize>>
+    pub fn read_while<F>(&mut self, func: F) -> Range<usize>
     where
         F: Fn(u8) -> bool,
     {
-        let start = self.idx();
+        let start = self.idx;
         let mut next = self.read_if(&func);
         while let Some(_) = next {
             next = self.read_if(&func);
         }
-        let end = self.idx();
-        Ok(start..end)
+        let end = self.idx;
+
+        start..end
     }
 
-    #[inline(always)]
-    pub fn col(&self) -> usize {
-        self.col
-    }
 
     pub fn read_if<F>(&mut self, func: F) -> Option<&u8>
     where
@@ -103,19 +111,17 @@ impl<'a> ByteReader<'a> {
     }
 
     #[inline(always)]
-    pub fn line(&self) -> usize {
-        self.line
-    }
-
-    #[inline(always)]
-    pub fn bump(&mut self, byte: &u8) {
-        self.idx += 1;
+    pub fn advance(&mut self) -> &'a u8 {
+        let byte = &self.src[self.idx];
         if *byte == b'\n' {
             self.col = 1;
             self.line += 1;
         } else {
             self.col += 1;
         }
+        self.idx += 1;
+        
+        byte
     }
 
     pub fn error<T>(
@@ -124,16 +130,16 @@ impl<'a> ByteReader<'a> {
     ) -> std::result::Result<T, ByteReaderError> {
         Err(ByteReaderError {
             kind,
-            line: self.line(),
-            col: self.col(),
-            input: self.input,
+            line: self.line,
+            col: self.col,
+            src: self.src,
         })
     }
 }
 
 impl<'a> AsRef<[u8]> for ByteReader<'a> {
     fn as_ref(&self) -> &[u8] {
-        &self.input[self.idx()..]
+        &self.src[self.idx..]
     }
 }
 
@@ -144,9 +150,8 @@ impl<'a> Iterator for ByteReader<'a> {
         if self.finished {
             return None;
         }
-        let byte = &self.input[self.idx];
-        self.bump(byte);
-        if self.idx + 1 == self.len {
+        let byte = self.advance();
+        if self.idx == self.len {
             self.finished = true;
         }
         Some(byte)
