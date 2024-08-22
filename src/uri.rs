@@ -89,7 +89,13 @@ pub struct Uri<'a> {
 //SIP name-addr, which typically appear in From, To, and Contact header.
 // display optional display part
 // Struct Uri uri
+#[derive(Debug, PartialEq, Eq)]
 pub struct NameAddr<'a> {
-    display: Option<&'a str>,
-    uri: Uri<'a>,
+    pub(crate) display: Option<&'a str>,
+    pub(crate) uri: Uri<'a>,
+}
+#[derive(Debug, PartialEq, Eq)]
+pub enum SipUri<'a> {
+    Uri(Uri<'a>),
+    NameAddr(NameAddr<'a>)
 }

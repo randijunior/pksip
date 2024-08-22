@@ -86,9 +86,7 @@ macro_rules! b_map {
 
 macro_rules! sip_parse_error {
     ($message:expr) => {{
-        Err(crate::parser::SipParserError {
-            message: $message.to_string(),
-        })
+        Err(crate::parser::SipParserError::from($message))
     }};
 }
 

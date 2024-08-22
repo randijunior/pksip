@@ -48,6 +48,10 @@ impl<'a> ByteReader<'a> {
         Some(&self.src[self.idx])
     }
 
+    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
+        self.as_ref().get(..n)
+    }
+
     pub fn iter(&self) -> std::slice::Iter<u8> {
         self.src.iter()
     }

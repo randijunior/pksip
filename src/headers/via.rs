@@ -20,9 +20,14 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::{
+    byte_reader::ByteReader,
+    macros::{sip_parse_error, space, until_byte},
     msg::Transport,
+    parser::SipParser,
     uri::{GenericParams, HostPort},
 };
+use std::str;
+use super::{Header, SipHeaderParser};
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct ViaParams<'a> {
@@ -60,4 +65,44 @@ pub struct Via<'a> {
     pub(crate) params: Option<ViaParams<'a>>,
     pub(crate) comment: Option<&'a str>,
     pub(crate) others_params: Option<GenericParams<'a>>,
+}
+
+impl<'a> SipHeaderParser<'a> for Via<'a> {
+    const NAME: &'a [u8] = b"Via";
+    const SHORT_NAME: Option<&'a [u8]> = Some(b"v");
+
+    fn parse(
+        reader: &mut ByteReader<'a>,
+    ) -> crate::parser::Result<Via<'a>> {
+        SipParser::parse_sip_version(reader)?;
+
+        if reader.next() != Some(&b'/') {
+            return sip_parse_error!("Invalid via Hdr!");
+        }
+        let bytes = until_byte!(reader, b' ');
+        let transport = Transport::from(bytes);
+
+        space!(reader);
+
+        let sent_by = SipParser::parse_host(reader)?;
+        let (params, others_params) = SipParser::parse_via_params(reader)?;
+
+        let comment = if reader.peek() == Some(&b'(') {
+            reader.next();
+            let comment = until_byte!(reader, b')');
+            reader.next();
+            Some(str::from_utf8(comment)?)
+        } else {
+            None
+        };
+
+        Ok(Via {
+            transport,
+            sent_by,
+            params,
+            others_params,
+            comment,
+        })
+    }
+
 }

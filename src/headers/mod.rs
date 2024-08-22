@@ -1,8 +1,25 @@
 pub mod to;
+pub mod from;
 pub mod via;
 
-use to::To;
-use via::Via;
+pub use to::To;
+pub use via::Via;
+pub use from::From;
+
+use crate::{byte_reader::ByteReader, parser::Result};
+
+
+pub(crate) trait SipHeaderParser<'a>: Sized {
+    const NAME: &'a [u8];
+    const SHORT_NAME: Option<&'a [u8]> = None;
+
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self>;
+
+    #[inline]
+    fn match_name(name: &[u8]) -> bool {
+        name.eq_ignore_ascii_case(Self::NAME) || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
+    }
+}
 
 pub struct SipHeaders<'a> {
     pub(crate) hdrs: Vec<Header<'a>>,
@@ -11,6 +28,9 @@ pub struct SipHeaders<'a> {
 impl<'a> SipHeaders<'a> {
     pub fn new() -> Self {
         Self { hdrs: vec![] }
+    }
+    pub fn push_header(&mut self, hdr: Header<'a>) {
+        self.hdrs.push(hdr);
     }
 }
 
@@ -35,7 +55,7 @@ pub enum Header<'a> {
     Date,
     ErrorInfo,
     Expires,
-    From,
+    From(From<'a>),
     InReplyTo,
     MaxForwards,
     MimeVersion,

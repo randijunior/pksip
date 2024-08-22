@@ -1,4 +1,4 @@
-use crate::{headers::SipHeaders, uri::Uri};
+use crate::{headers::SipHeaders, uri::{SipUri, Uri}};
 
 use std::str;
 
@@ -37,7 +37,7 @@ impl<'sl> StatusLine<'sl> {
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
     pub(crate) method: SipMethod,
-    pub(crate) uri: Uri<'a>,
+    pub(crate) uri: SipUri<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
