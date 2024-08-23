@@ -45,7 +45,7 @@ pub enum Scheme {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GenericParams<'a> {
-    pub(crate) inner: HashMap<&'a str, &'a str>,
+    pub(crate) inner: HashMap<&'a str, Option<&'a str>>,
 }
 
 impl<'a> GenericParams<'a> {
@@ -53,7 +53,7 @@ impl<'a> GenericParams<'a> {
         Self { inner: HashMap::new() }
     }
 
-    pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
+    pub fn set(&mut self, k: &'a str, v: Option<&'a str>) -> Option<Option<&str>> {
         self.inner.insert(k, v)
     }
 

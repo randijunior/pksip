@@ -1,4 +1,4 @@
-use crate::headers::{self, From as FromHeader, SipHeaderParser, Via};
+use crate::headers::{self, CallId, SipHeaderParser, To, Via};
 
 use crate::{byte_reader::ByteReader, headers::Header};
 
@@ -53,15 +53,16 @@ const TOKEN: &[u8] = b"-.!%*_`'~+";
 const PASS: &[u8] = b"&=+$,";
 const HOST: &[u8] = b"_-.";
 
-pub(crate) const USER_PARAM: &str = "user";
-pub(crate) const METHOD_PARAM: &str = "method";
-pub(crate) const TRANSPORT_PARAM: &str = "transport";
-pub(crate) const TTL_PARAM: &str = "ttl";
-pub(crate) const LR_PARAM: &str = "lr";
-pub(crate) const MADDR_PARAM: &str = "maddr";
-pub(crate) const BRANCH_PARAM: &str = "branch";
-pub(crate) const RPORT_PARAM: &str = "rport";
-pub(crate) const RECEIVED_PARAM: &str = "received";
+pub(crate) const USER_PARAM: &[u8] = b"user";
+pub(crate) const METHOD_PARAM: &[u8] = b"method";
+pub(crate) const TRANSPORT_PARAM: &[u8] = b"transport";
+pub(crate) const TTL_PARAM: &[u8] = b"ttl";
+pub(crate) const LR_PARAM: &[u8] = b"lr";
+pub(crate) const MADDR_PARAM: &[u8] = b"maddr";
+pub(crate) const BRANCH_PARAM: &[u8] = b"branch";
+pub(crate) const RPORT_PARAM: &[u8] = b"rport";
+pub(crate) const RECEIVED_PARAM: &[u8] = b"received";
+pub(crate) const TAG_PARAM: &[u8] = b"tag";
 
 pub(crate) const SCHEME_SIP: &[u8] = b"sip";
 pub(crate) const SCHEME_SIPS: &[u8] = b"sips";
@@ -106,6 +107,11 @@ fn is_hdr(b: u8) -> bool {
 #[inline(always)]
 fn is_via_param(b: u8) -> bool {
     VIA_PARAM_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_token(b: u8) -> bool {
+    TOKEN_SPEC_MAP[b as usize]
 }
 
 pub struct SipParser<'a> {
@@ -166,6 +172,29 @@ impl<'a> SipParser<'a> {
         Ok(())
     }
 
+    pub(crate) fn parse_fromto_param(
+        reader: &mut ByteReader<'a>,
+    ) -> Result<(Option<&'a str>, Option<GenericParams<'a>>)> {
+        let mut tag = None;
+        let mut other_params = None;
+        while let Some(&b';') = reader.peek() {
+            let (name, value) = To::parse_param(reader)?;
+            if name == TAG_PARAM {
+                tag = value
+            } else {
+                if other_params.is_none() {
+                    other_params = Some(GenericParams::new());
+                }
+                other_params
+                    .as_mut()
+                    .unwrap()
+                    .set(str::from_utf8(name)?, value);
+            }
+        }
+
+        Ok((tag, other_params))
+    }
+
     pub(crate) fn parse_sip_uri(reader: &mut ByteReader<'a>) -> Result<SipUri<'a>> {
         space!(reader);
         let peeked = reader.peek();
@@ -179,19 +208,21 @@ impl<'a> SipParser<'a> {
                 let display = str::from_utf8(display)?;
 
                 space!(reader);
-                
+
                 // must be an '<'
                 let Some(&b'<') = reader.next() else {
-                    return sip_parse_error!("Invalid name addr!")
+                    return sip_parse_error!("Invalid name addr!");
                 };
                 let uri = Self::parse_uri(reader, true)?;
                 // must be an '>'
                 let Some(&b'>') = reader.next() else {
-                    return sip_parse_error!("Invalid name addr!")
+                    return sip_parse_error!("Invalid name addr!");
                 };
 
-                Ok(SipUri::NameAddr(NameAddr { display: Some(display), uri }))
-
+                Ok(SipUri::NameAddr(NameAddr {
+                    display: Some(display),
+                    uri,
+                }))
             }
             // NameAddr without display name
             Some(&b'<') => {
@@ -212,18 +243,21 @@ impl<'a> SipParser<'a> {
                 let display = str::from_utf8(display)?;
 
                 space!(reader);
-                
+
                 // must be an '<'
                 let Some(&b'<') = reader.next() else {
-                    return sip_parse_error!("Invalid name addr!")
+                    return sip_parse_error!("Invalid name addr!");
                 };
                 let uri = Self::parse_uri(reader, true)?;
                 // must be an '>'
                 let Some(&b'>') = reader.next() else {
-                    return sip_parse_error!("Invalid name addr!")
+                    return sip_parse_error!("Invalid name addr!");
                 };
 
-                Ok(SipUri::NameAddr(NameAddr { display: Some(display), uri }))
+                Ok(SipUri::NameAddr(NameAddr {
+                    display: Some(display),
+                    uri,
+                }))
             }
             None => {
                 todo!()
@@ -286,22 +320,22 @@ impl<'a> SipParser<'a> {
             while let Some(&b';') = reader.peek() {
                 reader.next();
                 let name = read_while!(reader, is_param);
-                let name = str::from_utf8(name)?;
                 let value = if reader.peek() == Some(&b'=') {
                     reader.next();
                     let value = read_while!(reader, is_param);
-                    str::from_utf8(value)?
+                    Some(str::from_utf8(value)?)
                 } else {
-                    ""
+                    None
                 };
                 match name {
-                    USER_PARAM => uri_params.user = Some(value),
-                    METHOD_PARAM => uri_params.method = Some(value),
-                    TRANSPORT_PARAM => uri_params.transport = Some(value),
-                    TTL_PARAM => uri_params.ttl = Some(value),
-                    LR_PARAM => uri_params.lr = Some(value),
-                    MADDR_PARAM => uri_params.maddr = Some(value),
+                    USER_PARAM => uri_params.user = value,
+                    METHOD_PARAM => uri_params.method = value,
+                    TRANSPORT_PARAM => uri_params.transport = value,
+                    TTL_PARAM => uri_params.ttl = value,
+                    LR_PARAM => uri_params.lr = value,
+                    MADDR_PARAM => uri_params.maddr = value,
                     _ => {
+                        let name = str::from_utf8(name)?;
                         others.set(name, value);
                     }
                 }
@@ -319,7 +353,10 @@ impl<'a> SipParser<'a> {
         }
     }
 
-    fn parse_uri(reader: &mut ByteReader<'a>, parse_params: bool) -> Result<Uri<'a>> {
+    fn parse_uri(
+        reader: &mut ByteReader<'a>,
+        parse_params: bool,
+    ) -> Result<Uri<'a>> {
         let scheme = Self::parse_scheme(reader)?;
         // take ':'
         reader.next();
@@ -350,9 +387,9 @@ impl<'a> SipParser<'a> {
                 let value = if reader.peek() == Some(&b'=') {
                     reader.next();
                     let value = read_while!(reader, is_hdr);
-                    str::from_utf8(value)?
+                    Some(str::from_utf8(value)?)
                 } else {
-                    ""
+                    None
                 };
                 params.set(name, value);
                 if reader.peek() != Some(&b'&') {
@@ -384,7 +421,6 @@ impl<'a> SipParser<'a> {
         while let Some(&b';') = reader.peek() {
             reader.next();
             let name = read_while!(reader, is_via_param);
-            let name = str::from_utf8(name)?;
             let mut value = "";
             if let Some(&b'=') = reader.peek() {
                 reader.next();
@@ -411,7 +447,8 @@ impl<'a> SipParser<'a> {
                     }
                 }
                 other => {
-                    others.set(name, other);
+                    let name = str::from_utf8(other)?;
+                    others.set(name, Some(value));
                 }
             }
         }
@@ -469,10 +506,10 @@ impl<'a> SipParser<'a> {
         next.is_some_and(|next| (next == &b'/' || is_space(*next)) && tag == SIP)
     }
 
-    pub fn parse_headers(&mut self, headers: &mut SipHeaders<'a>) -> Result<()> {
+    fn parse_headers(&mut self, headers: &mut SipHeaders<'a>) -> Result<()> {
         'headers: loop {
             let reader = &mut self.reader;
-            let name = read_while!(reader, |b| TOKEN_SPEC_MAP[b as usize]);
+            let name = read_while!(reader, is_token);
 
             if reader.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
@@ -487,9 +524,17 @@ impl<'a> SipParser<'a> {
                     };
                     reader.next();
                 },
-                to if FromHeader::match_name(to) => {
-                    let from = FromHeader::parse(reader)?;
-                    headers.push_header(Header::From(from));
+                to if To::match_name(to) => {
+                    let to = To::parse(reader)?;
+                    headers.push_header(Header::To(to))
+                }
+                from if headers::From::match_name(from) => {
+                    let from = headers::From::parse(reader)?;
+                    headers.push_header(Header::From(from))
+                }
+                cid if CallId::match_name(cid) => {
+                    let call_id = CallId::parse(reader)?;
+                    headers.push_header(Header::CallId(call_id))
                 }
                 _ => todo!(),
             };

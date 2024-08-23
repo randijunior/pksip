@@ -1,13 +1,19 @@
-pub mod to;
 pub mod from;
+pub mod to;
 pub mod via;
+mod call_id;
 
+pub use call_id::CallId;
+pub use from::From;
 pub use to::To;
 pub use via::Via;
-pub use from::From;
 
-use crate::{byte_reader::ByteReader, parser::Result};
-
+use crate::{
+    byte_reader::ByteReader,
+    macros::read_while,
+    parser::{is_token, Result}
+};
+use std::str;
 
 pub(crate) trait SipHeaderParser<'a>: Sized {
     const NAME: &'a [u8];
@@ -17,7 +23,26 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
 
     #[inline]
     fn match_name(name: &[u8]) -> bool {
-        name.eq_ignore_ascii_case(Self::NAME) || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
+        name.eq_ignore_ascii_case(Self::NAME)
+            || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
+    }
+
+    fn parse_param(
+        reader: &mut ByteReader<'a>,
+    ) -> Result<(&'a [u8], Option<&'a str>)> {
+        // take ';' character
+        reader.next();
+
+        let name = read_while!(reader, is_token);
+        let value = if reader.peek() == Some(&b'=') {
+            reader.next();
+            let value = read_while!(reader, is_token);
+            Some(str::from_utf8(value)?)
+        } else {
+            None
+        };
+
+        Ok((name, value))
     }
 }
 
@@ -34,7 +59,7 @@ impl<'a> SipHeaders<'a> {
     }
 }
 
-
+// Headers, as defined in RFC3261.
 pub enum Header<'a> {
     Accept,
     AcceptEncoding,
@@ -43,7 +68,7 @@ pub enum Header<'a> {
     Allow,
     AuthenticationInfo,
     Authorization,
-    CallID,
+    CallId(CallId<'a>),
     CallInfo,
     Contact,
     ContentDisposition,
@@ -80,6 +105,5 @@ pub enum Header<'a> {
     Via(Via<'a>),
     Warning,
     WWWAuthenticate,
-    Other,
+    Other { name: &'a str, value: &'a str },
 }
-

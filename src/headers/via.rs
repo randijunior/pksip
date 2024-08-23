@@ -25,6 +25,7 @@ use crate::{
     msg::Transport,
     parser::SipParser,
     uri::{GenericParams, HostPort},
+    parser::Result
 };
 use std::str;
 use super::{Header, SipHeaderParser};
@@ -73,7 +74,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
 
     fn parse(
         reader: &mut ByteReader<'a>,
-    ) -> crate::parser::Result<Via<'a>> {
+    ) -> Result<Via<'a>> {
         SipParser::parse_sip_version(reader)?;
 
         if reader.next() != Some(&b'/') {
