@@ -20,7 +20,7 @@ impl<'a> SipHeaderParser<'a> for From<'a> {
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<From<'a>> {
         let uri = SipParser::parse_sip_uri(reader)?;
-        let (tag,other_params) = SipParser::parse_fromto_param(reader)?;
+        let (tag, other_params) = SipParser::parse_fromto_param(reader)?;
 
         Ok(From {
             tag,

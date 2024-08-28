@@ -50,7 +50,9 @@ pub struct GenericParams<'a> {
 
 impl<'a> GenericParams<'a> {
     pub fn new() -> Self {
-        Self { inner: HashMap::new() }
+        Self {
+            inner: HashMap::new(),
+        }
     }
 
     pub fn set(&mut self, k: &'a str, v: Option<&'a str>) -> Option<Option<&str>> {
@@ -97,5 +99,5 @@ pub struct NameAddr<'a> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum SipUri<'a> {
     Uri(Uri<'a>),
-    NameAddr(NameAddr<'a>)
+    NameAddr(NameAddr<'a>),
 }

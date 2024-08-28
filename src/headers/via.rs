@@ -19,16 +19,16 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
+use super::{Header, SipHeaderParser};
 use crate::{
     byte_reader::ByteReader,
     macros::{sip_parse_error, space, until_byte},
     msg::Transport,
+    parser::Result,
     parser::SipParser,
     uri::{GenericParams, HostPort},
-    parser::Result
 };
 use std::str;
-use super::{Header, SipHeaderParser};
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct ViaParams<'a> {
@@ -72,9 +72,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     const NAME: &'a [u8] = b"Via";
     const SHORT_NAME: Option<&'a [u8]> = Some(b"v");
 
-    fn parse(
-        reader: &mut ByteReader<'a>,
-    ) -> Result<Via<'a>> {
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Via<'a>> {
         SipParser::parse_sip_version(reader)?;
 
         if reader.next() != Some(&b'/') {
@@ -105,5 +103,4 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
             comment,
         })
     }
-
 }

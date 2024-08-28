@@ -1,7 +1,9 @@
+mod call_id;
+pub mod contact;
 pub mod from;
+pub mod route;
 pub mod to;
 pub mod via;
-mod call_id;
 
 pub use call_id::CallId;
 pub use from::From;
@@ -11,7 +13,7 @@ pub use via::Via;
 use crate::{
     byte_reader::ByteReader,
     macros::read_while,
-    parser::{is_token, Result}
+    parser::{is_token, Result},
 };
 use std::str;
 
@@ -27,9 +29,7 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
             || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
     }
 
-    fn parse_param(
-        reader: &mut ByteReader<'a>,
-    ) -> Result<(&'a [u8], Option<&'a str>)> {
+    fn parse_param(reader: &mut ByteReader<'a>) -> Result<(&'a [u8], Option<&'a str>)> {
         // take ';' character
         reader.next();
 

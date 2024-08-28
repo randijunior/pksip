@@ -56,10 +56,9 @@ impl<'a> ByteReader<'a> {
         self.src.iter()
     }
 
-
-    pub fn peek_while<F>(&self, func: F) -> Range<usize> 
+    pub fn peek_while<F>(&self, func: F) -> Range<usize>
     where
-    F: Fn(u8) -> bool
+        F: Fn(u8) -> bool,
     {
         let mut idx = self.idx;
         for _ in self.iter().take_while(|&&b| func(b)) {
@@ -97,7 +96,6 @@ impl<'a> ByteReader<'a> {
         start..end
     }
 
-
     pub fn read_if<F>(&mut self, func: F) -> Option<&u8>
     where
         F: FnOnce(u8) -> bool,
@@ -124,14 +122,11 @@ impl<'a> ByteReader<'a> {
             self.col += 1;
         }
         self.idx += 1;
-        
+
         byte
     }
 
-    pub fn error<T>(
-        &self,
-        kind: ErrorKind,
-    ) -> std::result::Result<T, ByteReaderError> {
+    pub fn error<T>(&self, kind: ErrorKind) -> std::result::Result<T, ByteReaderError> {
         Err(ByteReaderError {
             kind,
             line: self.line,

@@ -1,4 +1,7 @@
-use crate::{headers::SipHeaders, uri::{SipUri, Uri}};
+use crate::{
+    headers::SipHeaders,
+    uri::{SipUri, Uri},
+};
 
 use std::str;
 
@@ -7,12 +10,12 @@ pub enum SipMsg<'a> {
     Request {
         req_line: RequestLine<'a>,
         headers: SipHeaders<'a>,
-        body: &'a[u8],
+        body: &'a [u8],
     },
     Response {
         req_line: StatusLine<'a>,
         headers: SipHeaders<'a>,
-        body: &'a[u8],
+        body: &'a [u8],
     },
 }
 

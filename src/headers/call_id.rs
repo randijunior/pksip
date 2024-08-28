@@ -4,7 +4,9 @@ use super::SipHeaderParser;
 
 use std::str;
 
-pub struct CallId<'a>(&'a str);
+pub struct CallId<'a> {
+    id: &'a str,
+}
 
 impl<'a> SipHeaderParser<'a> for CallId<'a> {
     const NAME: &'a [u8] = b"Call-ID";
@@ -14,6 +16,6 @@ impl<'a> SipHeaderParser<'a> for CallId<'a> {
         let id = until_newline!(reader);
         let id = str::from_utf8(id)?;
 
-        Ok(CallId(id))
+        Ok(CallId { id })
     }
 }

@@ -43,8 +43,7 @@ use crate::util::is_valid_port;
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
-const ALPHA_NUM: &[u8] =
-    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const ALPHA_NUM: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 const UNRESERVED: &[u8] = b"-_.!~*'()%";
 const ESCAPED: &[u8] = b"%";
@@ -176,23 +175,22 @@ impl<'a> SipParser<'a> {
         reader: &mut ByteReader<'a>,
     ) -> Result<(Option<&'a str>, Option<GenericParams<'a>>)> {
         let mut tag = None;
-        let mut other_params = None;
+        let mut params = GenericParams::new();
         while let Some(&b';') = reader.peek() {
             let (name, value) = To::parse_param(reader)?;
             if name == TAG_PARAM {
                 tag = value
             } else {
-                if other_params.is_none() {
-                    other_params = Some(GenericParams::new());
-                }
-                other_params
-                    .as_mut()
-                    .unwrap()
-                    .set(str::from_utf8(name)?, value);
+                params.set(str::from_utf8(name)?, value);
             }
         }
+        let params = if params.is_empty() {
+            None
+        } else {
+            Some(params)
+        };
 
-        Ok((tag, other_params))
+        Ok((tag, params))
     }
 
     pub(crate) fn parse_sip_uri(reader: &mut ByteReader<'a>) -> Result<SipUri<'a>> {
@@ -353,10 +351,7 @@ impl<'a> SipParser<'a> {
         }
     }
 
-    fn parse_uri(
-        reader: &mut ByteReader<'a>,
-        parse_params: bool,
-    ) -> Result<Uri<'a>> {
+    fn parse_uri(reader: &mut ByteReader<'a>, parse_params: bool) -> Result<Uri<'a>> {
         let scheme = Self::parse_scheme(reader)?;
         // take ':'
         reader.next();
@@ -435,13 +430,9 @@ impl<'a> SipParser<'a> {
                 RPORT_PARAM => {
                     if !value.is_empty() {
                         match value.parse::<u16>() {
-                            Ok(port) if is_valid_port(port) => {
-                                params.set_rport(port)
-                            }
+                            Ok(port) if is_valid_port(port) => params.set_rport(port),
                             Ok(_) | Err(_) => {
-                                return sip_parse_error!(
-                                    "Via param rport is invalid!"
-                                )
+                                return sip_parse_error!("Via param rport is invalid!")
                             }
                         }
                     }
