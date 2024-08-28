@@ -40,7 +40,7 @@ impl<'sl> StatusLine<'sl> {
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
     pub(crate) method: SipMethod,
-    pub(crate) uri: SipUri<'a>,
+    pub(crate) uri: Uri<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

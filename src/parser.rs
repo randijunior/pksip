@@ -484,7 +484,7 @@ impl<'a> SipParser<'a> {
 
         Ok(RequestLine {
             method,
-            uri: SipUri::Uri(uri),
+            uri,
         })
     }
 
@@ -672,7 +672,7 @@ mod tests {
             SipParser::new(msg).parse_request_line(),
             Ok(RequestLine {
                 method: SipMethod::Register,
-                uri: SipUri::Uri(Uri {
+                uri: Uri {
                     scheme: Scheme::Sip,
                     user: Some(UserInfo {
                         name: "1000b3",
@@ -685,7 +685,7 @@ mod tests {
                     params: None,
                     other_params: None,
                     header_params: None,
-                })
+                }
             })
         );
     }
