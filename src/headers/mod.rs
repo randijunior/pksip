@@ -6,7 +6,9 @@ pub mod to;
 pub mod via;
 
 pub use call_id::CallId;
+use contact::Contact;
 pub use from::From;
+use route::Route;
 pub use to::To;
 pub use via::Via;
 
@@ -70,7 +72,7 @@ pub enum Header<'a> {
     Authorization,
     CallId(CallId<'a>),
     CallInfo,
-    Contact,
+    Contact(Contact<'a>),
     ContentDisposition,
     ContentEncoding,
     ContentLanguage,
@@ -94,7 +96,7 @@ pub enum Header<'a> {
     ReplyTo,
     Require,
     RetryAfter,
-    Route,
+    Route(Route<'a>),
     Server,
     Subject,
     Supported,

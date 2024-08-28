@@ -1,3 +1,5 @@
+use crate::headers::contact::Contact;
+use crate::headers::route::Route;
 use crate::headers::{self, CallId, SipHeaderParser, To, Via};
 
 use crate::{byte_reader::ByteReader, headers::Header};
@@ -62,6 +64,8 @@ pub(crate) const BRANCH_PARAM: &[u8] = b"branch";
 pub(crate) const RPORT_PARAM: &[u8] = b"rport";
 pub(crate) const RECEIVED_PARAM: &[u8] = b"received";
 pub(crate) const TAG_PARAM: &[u8] = b"tag";
+pub(crate) const Q_PARAM: &[u8] = b"q";
+pub(crate) const EXPIRES_PARAM: &[u8] = b"expires";
 
 pub(crate) const SCHEME_SIP: &[u8] = b"sip";
 pub(crate) const SCHEME_SIPS: &[u8] = b"sips";
@@ -177,6 +181,7 @@ impl<'a> SipParser<'a> {
         let mut tag = None;
         let mut params = GenericParams::new();
         while let Some(&b';') = reader.peek() {
+            reader.next();
             let (name, value) = To::parse_param(reader)?;
             if name == TAG_PARAM {
                 tag = value
@@ -507,6 +512,14 @@ impl<'a> SipParser<'a> {
             }
 
             match name {
+                route if Via::match_name(route) => 'route: loop {
+                    let route = Route::parse(reader)?;
+                    headers.push_header(Header::Route(route));
+                    let Some(&b',') = reader.peek() else {
+                        break 'route;
+                    };
+                    reader.next();
+                }
                 via if Via::match_name(via) => 'via: loop {
                     let via = Via::parse(reader)?;
                     headers.push_header(Header::Via(via));
@@ -514,18 +527,22 @@ impl<'a> SipParser<'a> {
                         break 'via;
                     };
                     reader.next();
-                },
-                to if To::match_name(to) => {
-                    let to = To::parse(reader)?;
-                    headers.push_header(Header::To(to))
                 }
                 from if headers::From::match_name(from) => {
                     let from = headers::From::parse(reader)?;
                     headers.push_header(Header::From(from))
                 }
+                to if To::match_name(to) => {
+                    let to = To::parse(reader)?;
+                    headers.push_header(Header::To(to))
+                }
                 cid if CallId::match_name(cid) => {
                     let call_id = CallId::parse(reader)?;
                     headers.push_header(Header::CallId(call_id))
+                }
+                contact if Contact::match_name(contact) => {
+                    let contact = Contact::parse(reader)?;
+                    headers.push_header(Header::Contact(contact))
                 }
                 _ => todo!(),
             };
