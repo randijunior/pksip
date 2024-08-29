@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 memchr = "2.7.4"
+constcat = "0.5.0"

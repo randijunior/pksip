@@ -1,7 +1,7 @@
 use crate::{
     byte_reader::ByteReader,
     parser::{Result, SipParser},
-    uri::{GenericParams, SipUri},
+    uri::{Params, SipUri},
 };
 
 use super::SipHeaderParser;
@@ -11,7 +11,7 @@ use std::str;
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,
-    pub(crate) other_params: Option<GenericParams<'a>>,
+    pub(crate) other_params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for To<'a> {

@@ -38,7 +38,7 @@ use crate::uri::Scheme;
 use crate::uri::Uri;
 use crate::uri::UriParams;
 use crate::uri::UserInfo;
-use crate::uri::{GenericParams, NameAddr, SipUri};
+use crate::uri::{Params, NameAddr, SipUri};
 use crate::util::is_alphabetic;
 use crate::util::is_space;
 use crate::util::is_valid_port;
@@ -177,9 +177,9 @@ impl<'a> SipParser<'a> {
 
     pub(crate) fn parse_fromto_param(
         reader: &mut ByteReader<'a>,
-    ) -> Result<(Option<&'a str>, Option<GenericParams<'a>>)> {
+    ) -> Result<(Option<&'a str>, Option<Params<'a>>)> {
         let mut tag = None;
-        let mut params = GenericParams::new();
+        let mut params = Params::new();
         while let Some(&b';') = reader.peek() {
             reader.next();
             let (name, value) = To::parse_param(reader)?;
@@ -316,9 +316,9 @@ impl<'a> SipParser<'a> {
 
     fn parse_uri_param(
         reader: &mut ByteReader<'a>,
-    ) -> Result<(Option<UriParams<'a>>, Option<GenericParams<'a>>)> {
+    ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>)> {
         if reader.peek() == Some(&b';') {
-            let mut others = GenericParams::new();
+            let mut others = Params::new();
             let mut uri_params = UriParams::default();
             while let Some(&b';') = reader.peek() {
                 reader.next();
@@ -378,7 +378,7 @@ impl<'a> SipParser<'a> {
 
         let mut header_params = None;
         if reader.peek() == Some(&b'?') {
-            let mut params = GenericParams::new();
+            let mut params = Params::new();
             loop {
                 // take '?' or '&'
                 reader.next();
@@ -412,12 +412,12 @@ impl<'a> SipParser<'a> {
 
     pub(crate) fn parse_via_params(
         reader: &mut ByteReader<'a>,
-    ) -> Result<(Option<ViaParams<'a>>, Option<GenericParams<'a>>)> {
+    ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
         if reader.peek() != Some(&b';') {
             return Ok((None, None));
         }
         let mut params = ViaParams::default();
-        let mut others = GenericParams::new();
+        let mut others = Params::new();
         while let Some(&b';') = reader.peek() {
             reader.next();
             let name = read_while!(reader, is_via_param);

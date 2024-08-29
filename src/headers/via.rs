@@ -26,7 +26,7 @@ use crate::{
     msg::Transport,
     parser::Result,
     parser::SipParser,
-    uri::{GenericParams, HostPort},
+    uri::{Params, HostPort},
 };
 use std::str;
 
@@ -65,7 +65,7 @@ pub struct Via<'a> {
     pub(crate) sent_by: HostPort<'a>,
     pub(crate) params: Option<ViaParams<'a>>,
     pub(crate) comment: Option<&'a str>,
-    pub(crate) others_params: Option<GenericParams<'a>>,
+    pub(crate) others_params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for Via<'a> {

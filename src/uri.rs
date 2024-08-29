@@ -44,11 +44,11 @@ pub enum Scheme {
 // str maddr_param optional
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct GenericParams<'a> {
+pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, Option<&'a str>>,
 }
 
-impl<'a> GenericParams<'a> {
+impl<'a> Params<'a> {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
@@ -84,8 +84,8 @@ pub struct Uri<'a> {
     pub(crate) user: Option<UserInfo<'a>>,
     pub(crate) host: HostPort<'a>,
     pub(crate) params: Option<UriParams<'a>>,
-    pub(crate) other_params: Option<GenericParams<'a>>,
-    pub(crate) header_params: Option<GenericParams<'a>>,
+    pub(crate) other_params: Option<Params<'a>>,
+    pub(crate) header_params: Option<Params<'a>>,
 }
 
 //SIP name-addr, which typically appear in From, To, and Contact header.
