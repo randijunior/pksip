@@ -20,7 +20,7 @@ macro_rules! read_while {
     }};
 }
 
-macro_rules! until_byte {
+macro_rules! read_until_byte {
     ($reader:expr, $byte:expr) => {{
         let range = $reader.read_while(|b| b != $byte);
 
@@ -98,5 +98,5 @@ pub(crate) use peek_while;
 pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
-pub(crate) use until_byte;
+pub(crate) use read_until_byte;
 pub(crate) use until_newline;

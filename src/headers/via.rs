@@ -22,7 +22,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 use super::{Header, SipHeaderParser};
 use crate::{
     byte_reader::ByteReader,
-    macros::{sip_parse_error, space, until_byte},
+    macros::{sip_parse_error, space, read_until_byte},
     msg::Transport,
     parser::Result,
     parser::SipParser,
@@ -78,7 +78,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
         if reader.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let bytes = until_byte!(reader, b' ');
+        let bytes = read_until_byte!(reader, b' ');
         let transport = Transport::from(bytes);
 
         space!(reader);
@@ -88,7 +88,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
 
         let comment = if reader.peek() == Some(&b'(') {
             reader.next();
-            let comment = until_byte!(reader, b')');
+            let comment = read_until_byte!(reader, b')');
             reader.next();
             Some(str::from_utf8(comment)?)
         } else {

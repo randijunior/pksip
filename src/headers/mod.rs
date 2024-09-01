@@ -1,14 +1,23 @@
-mod call_id;
+pub mod call_id;
 pub mod contact;
 pub mod from;
 pub mod route;
 pub mod to;
 pub mod via;
-mod accept;
+pub mod accept;
+pub mod max_fowards;
+pub mod cseq;
+pub mod expires;
+pub mod allow;
 
+use accept::Accept;
+use allow::Allow;
 pub use call_id::CallId;
 use contact::Contact;
+use cseq::CSeq;
+use expires::Expires;
 pub use from::From;
+use max_fowards::MaxForwards;
 use route::Route;
 pub use to::To;
 pub use via::Via;
@@ -64,11 +73,11 @@ impl<'a> SipHeaders<'a> {
 
 // Headers, as defined in RFC3261.
 pub enum Header<'a> {
-    Accept,
+    Accept(Accept<'a>),
     AcceptEncoding,
     AcceptLanguage,
     AlertInfo,
-    Allow,
+    Allow(Allow<'a>),
     AuthenticationInfo,
     Authorization,
     CallId(CallId<'a>),
@@ -79,13 +88,13 @@ pub enum Header<'a> {
     ContentLanguage,
     ContentLength,
     ContentType,
-    CSeq,
+    CSeq(CSeq<'a>),
     Date,
     ErrorInfo,
-    Expires,
+    Expires(Expires),
     From(From<'a>),
     InReplyTo,
-    MaxForwards,
+    MaxForwards(MaxForwards),
     MimeVersion,
     MinExpires,
     Organization,

@@ -39,19 +39,19 @@ impl<'sl> StatusLine<'sl> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
-    pub(crate) method: SipMethod,
+    pub(crate) method: SipMethod<'a>,
     pub(crate) uri: Uri<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SipMethod {
+pub enum SipMethod<'a> {
     Invite,
     Ack,
     Bye,
     Cancel,
     Register,
     Options,
-    Other,
+    Other(&'a [u8]),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,8 +87,8 @@ const SIP_BYE: &[u8] = "BYE".as_bytes();
 const SIP_REGISTER: &[u8] = "REGISTER".as_bytes();
 const SIP_OPTIONS: &[u8] = "OPTIONS".as_bytes();
 
-impl From<&[u8]> for SipMethod {
-    fn from(value: &[u8]) -> Self {
+impl<'a> From<&'a [u8]> for SipMethod<'a> {
+    fn from(value: &'a [u8]) -> Self {
         match value {
             SIP_INVITE => SipMethod::Invite,
             SIP_CANCEL => SipMethod::Cancel,
@@ -96,7 +96,7 @@ impl From<&[u8]> for SipMethod {
             SIP_BYE => SipMethod::Bye,
             SIP_REGISTER => SipMethod::Register,
             SIP_OPTIONS => SipMethod::Options,
-            _ => SipMethod::Other,
+            _ => SipMethod::Other(value),
         }
     }
 }

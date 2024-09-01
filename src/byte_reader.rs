@@ -48,6 +48,11 @@ impl<'a> ByteReader<'a> {
         Some(&self.src[self.idx])
     }
 
+    #[inline]
+    pub fn is_eof(&self) -> bool {
+        self.finished
+    }
+
     pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
         self.as_ref().get(..n)
     }

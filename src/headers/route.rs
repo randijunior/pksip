@@ -17,7 +17,7 @@ pub struct Route<'a> {
 impl<'a> SipHeaderParser<'a> for Route<'a> {
     const NAME: &'a [u8] = b"Route";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Route<'a>> {
         if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(reader)? {
             let mut params = Params::new();
             while let Some(&b';') = reader.peek() {

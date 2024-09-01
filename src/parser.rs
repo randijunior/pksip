@@ -1,4 +1,9 @@
+use crate::headers::accept::Accept;
+use crate::headers::allow::Allow;
 use crate::headers::contact::Contact;
+use crate::headers::cseq::CSeq;
+use crate::headers::expires::Expires;
+use crate::headers::max_fowards::MaxForwards;
 use crate::headers::route::Route;
 use crate::headers::{self, CallId, SipHeaderParser, To, Via};
 
@@ -24,7 +29,7 @@ use crate::macros::peek_while;
 use crate::macros::read_while;
 use crate::macros::sip_parse_error;
 use crate::macros::space;
-use crate::macros::until_byte;
+use crate::macros::read_until_byte;
 use crate::macros::until_newline;
 
 use crate::msg::RequestLine;
@@ -122,14 +127,14 @@ pub struct SipParser<'a> {
 }
 
 impl<'a> SipParser<'a> {
-    pub fn new(i: &'a [u8]) -> Self {
+    pub fn new(bytes: &'a [u8]) -> Self {
         SipParser {
-            reader: ByteReader::new(i),
+            reader: ByteReader::new(bytes)
         }
     }
 
     fn parse_scheme(reader: &mut ByteReader) -> Result<Scheme> {
-        match until_byte!(reader, b':') {
+        match read_until_byte!(reader, b':') {
             SCHEME_SIP => Ok(Scheme::Sip),
             SCHEME_SIPS => Ok(Scheme::Sips),
             // Unsupported URI scheme
@@ -206,7 +211,7 @@ impl<'a> SipParser<'a> {
             // Nameaddr with quoted display name
             Some(b'"') => {
                 reader.next();
-                let display = until_byte!(reader, b'"');
+                let display = read_until_byte!(reader, b'"');
                 reader.next();
                 let display = str::from_utf8(display)?;
 
@@ -271,7 +276,7 @@ impl<'a> SipParser<'a> {
     pub(crate) fn parse_host(reader: &mut ByteReader<'a>) -> Result<HostPort<'a>> {
         if let Some(_) = reader.read_if(|b| b == b'[') {
             // the '[' and ']' characters are removed from the host
-            let host = until_byte!(reader, b']');
+            let host = read_until_byte!(reader, b']');
             let host = str::from_utf8(host)?;
             reader.next();
             return if let Ok(host) = host.parse() {
@@ -510,9 +515,10 @@ impl<'a> SipParser<'a> {
             if reader.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
             }
+            space!(reader);
 
             match name {
-                route if Via::match_name(route) => 'route: loop {
+                route if Route::match_name(route) => 'route: loop {
                     let route = Route::parse(reader)?;
                     headers.push_header(Header::Route(route));
                     let Some(&b',') = reader.peek() else {
@@ -528,6 +534,10 @@ impl<'a> SipParser<'a> {
                     };
                     reader.next();
                 }
+                max_fowards if MaxForwards::match_name(max_fowards) => {
+                    let max_fowards = MaxForwards::parse(reader)?;
+                    headers.push_header(Header::MaxForwards(max_fowards))
+                }
                 from if headers::From::match_name(from) => {
                     let from = headers::From::parse(reader)?;
                     headers.push_header(Header::From(from))
@@ -540,9 +550,29 @@ impl<'a> SipParser<'a> {
                     let call_id = CallId::parse(reader)?;
                     headers.push_header(Header::CallId(call_id))
                 }
-                contact if Contact::match_name(contact) => {
+                cseq if CSeq::match_name(cseq) => {
+                    let cseq = CSeq::parse(reader)?;
+                    headers.push_header(Header::CSeq(cseq))
+                }
+                contact if Contact::match_name(contact) => 'contact: loop {
                     let contact = Contact::parse(reader)?;
-                    headers.push_header(Header::Contact(contact))
+                    headers.push_header(Header::Contact(contact));
+                    let Some(&b',') = reader.peek() else {
+                        break 'contact;
+                    };
+                    reader.next();
+                }
+                accept if Accept::match_name(accept) => {
+                    let accept = Accept::parse(reader)?;
+                    headers.push_header(Header::Accept(accept));
+                }
+                allow if Allow::match_name(allow) => {
+                    let allow = Allow::parse(reader)?;
+                    headers.push_header(Header::Allow(allow));
+                }
+                expires if Expires::match_name(expires) => {
+                    let expires = Expires::parse(reader)?;
+                    headers.push_header(Header::Expires(expires));
                 }
                 _ => todo!(),
             };

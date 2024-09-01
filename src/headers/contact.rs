@@ -4,17 +4,24 @@ use super::SipHeaderParser;
 
 use std::str;
 
-pub struct Contact<'a> {
-    uri: SipUri<'a>,
-    q: Option<f32>,
-    expires: Option<u32>,
-    other_params: Option<Params<'a>>,
+pub enum Contact<'a> {
+    Star,
+    Uri {
+        uri: SipUri<'a>,
+        q: Option<f32>,
+        expires: Option<u32>,
+        other_params: Option<Params<'a>>,
+    }
 }
 
 impl<'a> SipHeaderParser<'a> for Contact<'a> {
     const NAME: &'a [u8] = b"Contact";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Contact<'a>> {
+        if reader.peek() == Some(&b'*') {
+            reader.next();
+            return Ok(Contact::Star);
+        }
         let uri = SipParser::parse_sip_uri(reader)?;
         let mut q: Option<f32> = None;
         let mut expires: Option<u32> = None;
@@ -40,6 +47,6 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
             Some(params)
         };
 
-        Ok(Contact { uri, q, expires, other_params })
+        Ok(Contact::Uri { uri, q, expires, other_params })
     }
 }
