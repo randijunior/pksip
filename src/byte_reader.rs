@@ -1,6 +1,7 @@
 use std::ops::Range;
+use std::result;
 
-type Result<'a, T> = std::result::Result<T, ByteReaderError<'a>>;
+type Result<'a, T> = std::result::Result<T, ReaderError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -13,7 +14,7 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ByteReaderError<'a> {
+pub struct ReaderError<'a> {
     pub(crate) kind: ErrorKind,
     pub(crate) line: usize,
     pub(crate) col: usize,
@@ -101,6 +102,10 @@ impl<'a> ByteReader<'a> {
         start..end
     }
 
+    pub fn read_if_eq(&mut self, expected: u8) -> Option<&u8> {
+        self.read_if(|b| b == expected)
+    }
+
     pub fn read_if<F>(&mut self, func: F) -> Option<&u8>
     where
         F: FnOnce(u8) -> bool,
@@ -131,8 +136,8 @@ impl<'a> ByteReader<'a> {
         byte
     }
 
-    pub fn error<T>(&self, kind: ErrorKind) -> std::result::Result<T, ByteReaderError> {
-        Err(ByteReaderError {
+    pub fn error<T>(&self, kind: ErrorKind) -> result::Result<T, ReaderError> {
+        Err(ReaderError {
             kind,
             line: self.line,
             col: self.col,

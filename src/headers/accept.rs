@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{
     byte_reader::ByteReader,
-    macros::{read_while, sip_parse_error},
+    macros::{parse_param, read_while, sip_parse_error},
     parser::Result,
     uri::Params,
     util::is_newline,
@@ -42,23 +42,15 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                 let mut iter = mtype.split(|&b| b == b'/').map(str::from_utf8);
 
                 if let (Some(mtype), Some(subtype)) = (iter.next(), iter.next()) {
-                    let mut params = Params::new();
-                    while let Some(&b';') = reader.peek() {
-                        let (name, value) = Accept::parse_param(reader)?;
-                        params.set(str::from_utf8(name)?, value);
-                    }
-                    let params = if params.is_empty() {
-                        None
-                    } else {
-                        Some(params)
-                    };
-                    mtypes.push(MediaType {
+                    let param = parse_param!(reader, Accept, |param| Some(param));
+                    let media_type = MediaType {
                         mimetype: MimeType {
                             mtype: mtype?,
                             subtype: subtype?,
                         },
-                        param: params,
-                    })
+                        param,
+                    };
+                    mtypes.push(media_type);
                 } else {
                     return sip_parse_error!("Invalid Accept Reader!");
                 }

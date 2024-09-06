@@ -9,7 +9,7 @@ pub struct MaxForwards(u32);
 impl<'a> SipHeaderParser<'a> for MaxForwards {
     const NAME: &'a [u8] = b"Max-Forwards";
     
-    fn parse(reader: &mut ByteReader<'a>) -> Result<MaxForwards> {
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let digits = digits!(reader);
         match str::from_utf8(digits)?.parse()  {
             Ok(max_f) => Ok(MaxForwards(max_f)),

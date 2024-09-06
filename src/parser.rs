@@ -1,4 +1,5 @@
 use crate::headers::accept::Accept;
+use crate::headers::accept_encoding::AcceptEncoding;
 use crate::headers::allow::Allow;
 use crate::headers::contact::Contact;
 use crate::headers::cseq::CSeq;
@@ -16,11 +17,11 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::str::Utf8Error;
 
-use crate::byte_reader::ByteReaderError;
+use crate::byte_reader::ReaderError;
 use crate::headers::via::ViaParams;
 use crate::headers::SipHeaders;
 
-use crate::macros::alpha;
+use crate::macros::{alpha, parse_param};
 use crate::macros::b_map;
 use crate::macros::digits;
 use crate::macros::find;
@@ -59,18 +60,18 @@ const TOKEN: &[u8] = b"-.!%*_`'~+";
 const PASS: &[u8] = b"&=+$,";
 const HOST: &[u8] = b"_-.";
 
-pub(crate) const USER_PARAM: &[u8] = b"user";
-pub(crate) const METHOD_PARAM: &[u8] = b"method";
-pub(crate) const TRANSPORT_PARAM: &[u8] = b"transport";
-pub(crate) const TTL_PARAM: &[u8] = b"ttl";
-pub(crate) const LR_PARAM: &[u8] = b"lr";
-pub(crate) const MADDR_PARAM: &[u8] = b"maddr";
-pub(crate) const BRANCH_PARAM: &[u8] = b"branch";
-pub(crate) const RPORT_PARAM: &[u8] = b"rport";
-pub(crate) const RECEIVED_PARAM: &[u8] = b"received";
-pub(crate) const TAG_PARAM: &[u8] = b"tag";
-pub(crate) const Q_PARAM: &[u8] = b"q";
-pub(crate) const EXPIRES_PARAM: &[u8] = b"expires";
+pub(crate) const USER_PARAM: &str = "user";
+pub(crate) const METHOD_PARAM: &str = "method";
+pub(crate) const TRANSPORT_PARAM: &str = "transport";
+pub(crate) const TTL_PARAM: &str = "ttl";
+pub(crate) const LR_PARAM: &str = "lr";
+pub(crate) const MADDR_PARAM: &str = "maddr";
+pub(crate) const BRANCH_PARAM: &str = "branch";
+pub(crate) const RPORT_PARAM: &str = "rport";
+pub(crate) const RECEIVED_PARAM: &str = "received";
+pub(crate) const TAG_PARAM: &str = "tag";
+pub(crate) const Q_PARAM: &str = "q";
+pub(crate) const EXPIRES_PARAM: &str = "expires";
 
 pub(crate) const SCHEME_SIP: &[u8] = b"sip";
 pub(crate) const SCHEME_SIPS: &[u8] = b"sips";
@@ -91,6 +92,8 @@ b_map!(HDR_SPEC_MAP => b"[]/?:+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
 
 b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
+
+pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
 #[inline(always)]
 fn is_user(b: u8) -> bool {
@@ -184,25 +187,19 @@ impl<'a> SipParser<'a> {
         reader: &mut ByteReader<'a>,
     ) -> Result<(Option<&'a str>, Option<Params<'a>>)> {
         let mut tag = None;
-        let mut params = Params::new();
-        while let Some(&b';') = reader.peek() {
-            reader.next();
-            let (name, value) = To::parse_param(reader)?;
+        let params = parse_param!(reader, To, |param: Param<'a>| {
+            let (name, value) = param;
             if name == TAG_PARAM {
-                tag = value
+                tag = value;
+                None
             } else {
-                params.set(str::from_utf8(name)?, value);
+                Some(param)
             }
-        }
-        let params = if params.is_empty() {
-            None
-        } else {
-            Some(params)
-        };
+         });
 
         Ok((tag, params))
     }
-
+    
     pub(crate) fn parse_sip_uri(reader: &mut ByteReader<'a>) -> Result<SipUri<'a>> {
         space!(reader);
         let peeked = reader.peek();
@@ -231,7 +228,7 @@ impl<'a> SipParser<'a> {
                     display: Some(display),
                     uri,
                 }))
-            }
+            },
             // NameAddr without display name
             Some(&b'<') => {
                 reader.next();
@@ -239,16 +236,16 @@ impl<'a> SipParser<'a> {
                 reader.next();
 
                 Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
-            }
+            },
             // SipUri
             Some(_) if reader.peek_n(3) == Some(SCHEME_SIP) => {
                 let uri = Self::parse_uri(reader, false)?;
                 Ok(SipUri::Uri(uri))
-            }
+            },
             // Nameaddr with unquoted display name
             Some(_) => {
-                let display = read_while!(reader, |b| TOKEN_SPEC_MAP[b as usize]);
-                let display = str::from_utf8(display)?;
+                let display = read_while!(reader, is_token);
+                let display = unsafe { str::from_utf8_unchecked(display) };
 
                 space!(reader);
 
@@ -266,7 +263,7 @@ impl<'a> SipParser<'a> {
                     display: Some(display),
                     uri,
                 }))
-            }
+            },
             None => {
                 todo!()
             }
@@ -286,11 +283,11 @@ impl<'a> SipParser<'a> {
                     port: Self::parse_port(reader)?,
                 })
             } else {
-                sip_parse_error!("Error parsing Ipv6 HostPort!")
+                sip_parse_error!("ReaderError parsing Ipv6 HostPort!")
             };
         }
         let host = read_while!(reader, |b| HOST_SPEC_MAP[b as usize]);
-        let host = str::from_utf8(host)?;
+        let host = unsafe { str::from_utf8_unchecked(host) };
         if let Ok(addr) = IpAddr::from_str(host) {
             Ok(HostPort::IpAddr {
                 host: addr,
@@ -307,7 +304,7 @@ impl<'a> SipParser<'a> {
     fn parse_port(reader: &mut ByteReader) -> Result<Option<u16>> {
         if let Some(_) = reader.read_if(|b| b == b':') {
             let digits = digits!(reader);
-            let digits = str::from_utf8(digits)?;
+            let digits = unsafe { str::from_utf8_unchecked(digits) };
             match digits.parse::<u16>() {
                 Ok(port) if is_valid_port(port) => Ok(Some(port)),
                 Ok(_) | Err(_) => {
@@ -328,10 +325,11 @@ impl<'a> SipParser<'a> {
             while let Some(&b';') = reader.peek() {
                 reader.next();
                 let name = read_while!(reader, is_param);
+                let name = unsafe { str::from_utf8_unchecked(name) };
                 let value = if reader.peek() == Some(&b'=') {
                     reader.next();
                     let value = read_while!(reader, is_param);
-                    Some(str::from_utf8(value)?)
+                    Some(unsafe { str::from_utf8_unchecked(value) })
                 } else {
                     None
                 };
@@ -343,7 +341,6 @@ impl<'a> SipParser<'a> {
                     LR_PARAM => uri_params.lr = value,
                     MADDR_PARAM => uri_params.maddr = value,
                     _ => {
-                        let name = str::from_utf8(name)?;
                         others.set(name, value);
                     }
                 }
@@ -388,11 +385,11 @@ impl<'a> SipParser<'a> {
                 // take '?' or '&'
                 reader.next();
                 let name = read_while!(reader, is_hdr);
-                let name = str::from_utf8(name)?;
+                let name = unsafe { str::from_utf8_unchecked(name) };
                 let value = if reader.peek() == Some(&b'=') {
                     reader.next();
                     let value = read_while!(reader, is_hdr);
-                    Some(str::from_utf8(value)?)
+                    Some(unsafe { str::from_utf8_unchecked(value) })
                 } else {
                     None
                 };
@@ -426,11 +423,12 @@ impl<'a> SipParser<'a> {
         while let Some(&b';') = reader.peek() {
             reader.next();
             let name = read_while!(reader, is_via_param);
+            let name = unsafe { str::from_utf8_unchecked(name) };
             let mut value = "";
             if let Some(&b'=') = reader.peek() {
                 reader.next();
                 let v = read_while!(reader, is_via_param);
-                value = str::from_utf8(v)?;
+                value = unsafe { str::from_utf8_unchecked(v) };
             }
             match name {
                 BRANCH_PARAM => params.set_branch(value),
@@ -446,9 +444,8 @@ impl<'a> SipParser<'a> {
                             }
                         }
                     }
-                }
-                other => {
-                    let name = str::from_utf8(other)?;
+                },
+                _ => {
                     others.set(name, Some(value));
                 }
             }
@@ -525,7 +522,7 @@ impl<'a> SipParser<'a> {
                         break 'route;
                     };
                     reader.next();
-                }
+                },
                 via if Via::match_name(via) => 'via: loop {
                     let via = Via::parse(reader)?;
                     headers.push_header(Header::Via(via));
@@ -533,27 +530,27 @@ impl<'a> SipParser<'a> {
                         break 'via;
                     };
                     reader.next();
-                }
+                },
                 max_fowards if MaxForwards::match_name(max_fowards) => {
                     let max_fowards = MaxForwards::parse(reader)?;
                     headers.push_header(Header::MaxForwards(max_fowards))
-                }
+                },
                 from if headers::From::match_name(from) => {
                     let from = headers::From::parse(reader)?;
                     headers.push_header(Header::From(from))
-                }
+                },
                 to if To::match_name(to) => {
                     let to = To::parse(reader)?;
                     headers.push_header(Header::To(to))
-                }
+                },
                 cid if CallId::match_name(cid) => {
                     let call_id = CallId::parse(reader)?;
                     headers.push_header(Header::CallId(call_id))
-                }
+                },
                 cseq if CSeq::match_name(cseq) => {
                     let cseq = CSeq::parse(reader)?;
                     headers.push_header(Header::CSeq(cseq))
-                }
+                },
                 contact if Contact::match_name(contact) => 'contact: loop {
                     let contact = Contact::parse(reader)?;
                     headers.push_header(Header::Contact(contact));
@@ -561,19 +558,23 @@ impl<'a> SipParser<'a> {
                         break 'contact;
                     };
                     reader.next();
-                }
+                },
+                accept_encoding if AcceptEncoding::match_name(accept_encoding) => {
+                    let accept_encoding = AcceptEncoding::parse(reader)?;
+                    headers.push_header(Header::AcceptEncoding(accept_encoding));
+                },
                 accept if Accept::match_name(accept) => {
                     let accept = Accept::parse(reader)?;
                     headers.push_header(Header::Accept(accept));
-                }
+                },
                 allow if Allow::match_name(allow) => {
                     let allow = Allow::parse(reader)?;
                     headers.push_header(Header::Allow(allow));
-                }
+                },
                 expires if Expires::match_name(expires) => {
                     let expires = Expires::parse(reader)?;
                     headers.push_header(Header::Expires(expires));
-                }
+                },
                 _ => todo!(),
             };
             break 'headers;
@@ -636,8 +637,8 @@ impl From<Utf8Error> for SipParserError {
     }
 }
 
-impl<'a> From<ByteReaderError<'a>> for SipParserError {
-    fn from(err: ByteReaderError) -> Self {
+impl<'a> From<ReaderError<'a>> for SipParserError {
+    fn from(err: ReaderError) -> Self {
         SipParserError {
             message: format!(
                 "Failed to parse at line:{} column:{} kind:{:?}

@@ -9,8 +9,16 @@ pub mod max_fowards;
 pub mod cseq;
 pub mod expires;
 pub mod allow;
+pub mod accept_encoding;
+pub mod accept_language;
+pub mod alert_info;
+
+use std::str;
 
 use accept::Accept;
+use accept_encoding::AcceptEncoding;
+use accept_language::AcceptLanguage;
+use alert_info::AlertInfo;
 use allow::Allow;
 pub use call_id::CallId;
 use contact::Contact;
@@ -27,7 +35,6 @@ use crate::{
     macros::read_while,
     parser::{is_token, Result},
 };
-use std::str;
 
 pub(crate) trait SipHeaderParser<'a>: Sized {
     const NAME: &'a [u8];
@@ -41,20 +48,33 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
             || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
     }
 
-    fn parse_param(reader: &mut ByteReader<'a>) -> Result<(&'a [u8], Option<&'a str>)> {
+    fn parse_param(reader: &mut ByteReader<'a>) -> Result<(&'a str, Option<&'a str>)> {
         // take ';' character
         reader.next();
 
         let name = read_while!(reader, is_token);
+        let name = unsafe { str::from_utf8_unchecked(name) };
         let value = if reader.peek() == Some(&b'=') {
             reader.next();
             let value = read_while!(reader, is_token);
-            Some(str::from_utf8(value)?)
+            Some(unsafe { str::from_utf8_unchecked(value) })
         } else {
             None
         };
 
         Ok((name, value))
+    }
+
+    fn parse_q_value(param: Option<&str>) -> Option<f32> {
+        if let Some(q_param) = param {
+            if let Ok(value) = q_param.parse::<f32>() {
+                if (0.0..=1.0).contains(&value) {
+                    return Some(value);
+                }
+            }
+            return None;
+        }
+        None
     }
 }
 
@@ -74,9 +94,9 @@ impl<'a> SipHeaders<'a> {
 // Headers, as defined in RFC3261.
 pub enum Header<'a> {
     Accept(Accept<'a>),
-    AcceptEncoding,
-    AcceptLanguage,
-    AlertInfo,
+    AcceptEncoding(AcceptEncoding<'a>),
+    AcceptLanguage(AcceptLanguage<'a>),
+    AlertInfo(AlertInfo<'a>),
     Allow(Allow<'a>),
     AuthenticationInfo,
     Authorization,

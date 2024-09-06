@@ -72,7 +72,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     const NAME: &'a [u8] = b"Via";
     const SHORT_NAME: Option<&'a [u8]> = Some(b"v");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Via<'a>> {
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         SipParser::parse_sip_version(reader)?;
 
         if reader.next() != Some(&b'/') {

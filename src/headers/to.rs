@@ -18,7 +18,7 @@ impl<'a> SipHeaderParser<'a> for To<'a> {
     const NAME: &'a [u8] = b"From";
     const SHORT_NAME: Option<&'a [u8]> = Some(b"f");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<To<'a>> {
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let uri = SipParser::parse_sip_uri(reader)?;
         let (tag, other_params) = SipParser::parse_fromto_param(reader)?;
 

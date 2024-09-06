@@ -83,6 +83,28 @@ macro_rules! b_map {
     };
 }
 
+macro_rules! parse_param {
+    ($reader:expr, $type:ident, $func:expr) => {{
+        if let Some(&b';') = $reader.read_if_eq(b';') {
+            let mut params = Params::new();
+            while let Some(&b';') = $reader.peek() {
+                $reader.next();
+                let param = $type::parse_param($reader)?;
+                if let Some(param) = $func(param) {
+                    params.set(param.0, param.1);
+                }
+            }
+            if params.is_empty() {
+                None
+            } else {
+                Some(params)
+            }
+        } else {
+            None
+        }
+    }};
+}
+
 macro_rules! sip_parse_error {
     ($message:expr) => {{
         Err(crate::parser::SipParserError::from($message))
@@ -94,9 +116,10 @@ pub(crate) use b_map;
 pub(crate) use digits;
 pub(crate) use find;
 pub(crate) use newline;
+pub(crate) use parse_param;
 pub(crate) use peek_while;
+pub(crate) use read_until_byte;
 pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
-pub(crate) use read_until_byte;
 pub(crate) use until_newline;

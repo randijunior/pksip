@@ -1,8 +1,11 @@
-use crate::{byte_reader::ByteReader, parser::{SipParser, EXPIRES_PARAM, Q_PARAM, Result}, uri::{Params, SipUri}};
+use crate::{
+    byte_reader::ByteReader,
+    macros::parse_param,
+    parser::{Param, Result, SipParser, EXPIRES_PARAM, Q_PARAM},
+    uri::{Params, SipUri},
+};
 
 use super::SipHeaderParser;
-
-use std::str;
 
 pub enum Contact<'a> {
     Star,
@@ -10,14 +13,14 @@ pub enum Contact<'a> {
         uri: SipUri<'a>,
         q: Option<f32>,
         expires: Option<u32>,
-        other_params: Option<Params<'a>>,
-    }
+        param: Option<Params<'a>>,
+    },
 }
 
 impl<'a> SipHeaderParser<'a> for Contact<'a> {
     const NAME: &'a [u8] = b"Contact";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Contact<'a>> {
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         if reader.peek() == Some(&b'*') {
             reader.next();
             return Ok(Contact::Star);
@@ -25,28 +28,29 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
         let uri = SipParser::parse_sip_uri(reader)?;
         let mut q: Option<f32> = None;
         let mut expires: Option<u32> = None;
-        let mut params = Params::new();
-        while let Some(&b';') = reader.peek() {
-            reader.next();
-            let (name, value) = Contact::parse_param(reader)?;
+        let param = parse_param!(reader, Contact, |param: Param<'a>| {
+            let (name, value) = param;
             match name {
-                Q_PARAM => if let Some(q_param) = value {
-                    q = q_param.parse().ok();
+                Q_PARAM => {
+                    q = Contact::parse_q_value(value);
+                    None
                 },
-                EXPIRES_PARAM => if let Some(expires_param) = value {
-                    expires = expires_param.parse().ok();
+                EXPIRES_PARAM => {
+                    if let Some(expires_param) = value {
+                        expires = expires_param.parse().ok();
+                        return None
+                    }
+                    return Some(param)
                 },
-                _=> {
-                    params.set(str::from_utf8(name)?, value);
-                }
+                _ => Some(param),
             }
-        }
-        let other_params = if params.is_empty() {
-            None
-        } else {
-            Some(params)
-        };
+        });
 
-        Ok(Contact::Uri { uri, q, expires, other_params })
+        Ok(Contact::Uri {
+            uri,
+            q,
+            expires,
+            param,
+        })
     }
 }
