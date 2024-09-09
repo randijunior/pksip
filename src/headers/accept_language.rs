@@ -43,6 +43,16 @@ impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
         let mut languages: Vec<Language> = Vec::new();
         space!(reader);
 
-        todo!()
+        let lang = Language::parse(reader)?;
+        languages.push(lang);
+
+        while let Some(b',') = reader.peek() {
+            reader.next();
+            let lang = Language::parse(reader)?;
+            languages.push(lang);
+            space!(reader);
+        }
+
+        Ok(AcceptLanguage { languages })
     }
 }
