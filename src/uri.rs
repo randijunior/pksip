@@ -43,7 +43,7 @@ pub enum Scheme {
 // int lr_param optional
 // str maddr_param optional
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, Option<&'a str>>,
 }

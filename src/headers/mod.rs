@@ -21,6 +21,7 @@ use accept_encoding::AcceptEncoding;
 use accept_language::AcceptLanguage;
 use alert_info::AlertInfo;
 use allow::Allow;
+use auth_info::AuthenticationInfo;
 pub use call_id::CallId;
 use contact::Contact;
 use cseq::CSeq;
@@ -99,7 +100,7 @@ pub enum Header<'a> {
     AcceptLanguage(AcceptLanguage<'a>),
     AlertInfo(AlertInfo<'a>),
     Allow(Allow<'a>),
-    AuthenticationInfo,
+    AuthenticationInfo(AuthenticationInfo<'a>),
     Authorization,
     CallId(CallId<'a>),
     CallInfo,
