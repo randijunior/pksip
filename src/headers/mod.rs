@@ -13,6 +13,7 @@ pub mod accept_encoding;
 pub mod accept_language;
 pub mod alert_info;
 pub mod authentication_info;
+pub mod authorization;
 
 use std::str;
 
