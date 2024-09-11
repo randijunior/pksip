@@ -14,6 +14,10 @@ pub fn is_newline(c: u8) -> bool {
 }
 
 #[inline(always)]
+pub fn not_comma_or_newline(c: u8) -> bool {
+    !matches!(c, b',' | b'\r' | b'\n')
+}
+#[inline(always)]
 pub fn is_alphabetic(c: u8) -> bool {
     c.is_ascii_alphabetic()
 }

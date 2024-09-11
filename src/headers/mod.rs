@@ -12,7 +12,7 @@ pub mod allow;
 pub mod accept_encoding;
 pub mod accept_language;
 pub mod alert_info;
-pub mod auth_info;
+pub mod authentication_info;
 
 use std::str;
 
@@ -21,7 +21,7 @@ use accept_encoding::AcceptEncoding;
 use accept_language::AcceptLanguage;
 use alert_info::AlertInfo;
 use allow::Allow;
-use auth_info::AuthenticationInfo;
+use authentication_info::AuthenticationInfo;
 pub use call_id::CallId;
 use contact::Contact;
 use cseq::CSeq;
@@ -38,6 +38,23 @@ use crate::{
     parser::{is_token, Result},
 };
 
+pub(crate) fn parse_generic_param<'a>(reader: &mut ByteReader<'a>) -> Result<(&'a str, Option<&'a str>)> {
+    // take ';' character
+    reader.next();
+
+    let name = read_while!(reader, is_token);
+    let name = unsafe { str::from_utf8_unchecked(name) };
+    let value = if reader.peek() == Some(&b'=') {
+        reader.next();
+        let value = read_while!(reader, is_token);
+        Some(unsafe { str::from_utf8_unchecked(value) })
+    } else {
+        None
+    };
+
+    Ok((name, value))
+}
+
 pub(crate) trait SipHeaderParser<'a>: Sized {
     const NAME: &'a [u8];
     const SHORT_NAME: Option<&'a [u8]> = None;
@@ -48,23 +65,6 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
     fn match_name(name: &[u8]) -> bool {
         name.eq_ignore_ascii_case(Self::NAME)
             || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
-    }
-
-    fn parse_param(reader: &mut ByteReader<'a>) -> Result<(&'a str, Option<&'a str>)> {
-        // take ';' character
-        reader.next();
-
-        let name = read_while!(reader, is_token);
-        let name = unsafe { str::from_utf8_unchecked(name) };
-        let value = if reader.peek() == Some(&b'=') {
-            reader.next();
-            let value = read_while!(reader, is_token);
-            Some(unsafe { str::from_utf8_unchecked(value) })
-        } else {
-            None
-        };
-
-        Ok((name, value))
     }
 
     fn parse_q_value(param: Option<&str>) -> Option<f32> {

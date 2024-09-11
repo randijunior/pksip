@@ -19,7 +19,7 @@ impl<'a> SipHeaderParser<'a> for Route<'a> {
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(reader)? {
-            let param = parse_param!(reader, Route, |param| Some(param));
+            let param = parse_param!(reader, |param| Some(param));
             Ok(Route {
                 name_addr: addr,
                 param,

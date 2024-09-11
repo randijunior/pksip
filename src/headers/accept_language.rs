@@ -21,7 +21,7 @@ impl<'a> Language<'a> {
         let language = read_while!(reader, is_lang);
         let language = unsafe { str::from_utf8_unchecked(language) };
         let mut q: Option<f32> = None;
-        let param = parse_param!(reader, AcceptLanguage, |param: Param<'a>| {
+        let param = parse_param!(reader, |param: Param<'a>| {
             let (name, value) = param;
             if name == Q_PARAM {
                 q = AcceptLanguage::parse_q_value(value);

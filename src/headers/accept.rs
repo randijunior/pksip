@@ -42,7 +42,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                 let mut iter = mtype.split(|&b| b == b'/').map(str::from_utf8);
 
                 if let (Some(mtype), Some(subtype)) = (iter.next(), iter.next()) {
-                    let param = parse_param!(reader, Accept, |param| Some(param));
+                    let param = parse_param!(reader, |param| Some(param));
                     let media_type = MediaType {
                         mimetype: MimeType {
                             mtype: mtype?,

@@ -84,12 +84,12 @@ macro_rules! b_map {
 }
 
 macro_rules! parse_param {
-    ($reader:expr, $type:ident, $func:expr) => {{
+    ($reader:expr, $func:expr) => {{
         if let Some(&b';') = $reader.read_if_eq(b';') {
             let mut params = Params::new();
             while let Some(&b';') = $reader.peek() {
                 $reader.next();
-                let param = $type::parse_param($reader)?;
+                let param = crate::headers::parse_generic_param($reader)?;
                 if let Some(param) = $func(param) {
                     params.set(param.0, param.1);
                 }

@@ -187,7 +187,7 @@ impl<'a> SipParser<'a> {
         reader: &mut ByteReader<'a>,
     ) -> Result<(Option<&'a str>, Option<Params<'a>>)> {
         let mut tag = None;
-        let params = parse_param!(reader, To, |param: Param<'a>| {
+        let params = parse_param!(reader, |param: Param<'a>| {
             let (name, value) = param;
             if name == TAG_PARAM {
                 tag = value;

@@ -29,7 +29,7 @@ impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
         let Some(&b'>') = reader.next() else {
             return sip_parse_error!("Invalid alert info!");
         };
-        let params = parse_param!(reader, AlertInfo, |param| Some(param));
+        let params = parse_param!(reader, |param| Some(param));
 
         Ok(AlertInfo { url, params })
     }

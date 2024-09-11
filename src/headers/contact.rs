@@ -28,7 +28,7 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
         let uri = SipParser::parse_sip_uri(reader)?;
         let mut q: Option<f32> = None;
         let mut expires: Option<u32> = None;
-        let param = parse_param!(reader, Contact, |param: Param<'a>| {
+        let param = parse_param!(reader, |param: Param<'a>| {
             let (name, value) = param;
             match name {
                 Q_PARAM => {

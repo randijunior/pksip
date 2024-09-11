@@ -20,7 +20,7 @@ impl<'a> Coding<'a> {
         let coding = read_while!(reader, is_token);
         let content_coding = unsafe { str::from_utf8_unchecked(coding) };
         let mut q: Option<f32> = None;
-        let param = parse_param!(reader, AcceptEncoding, |param: Param<'a>| {
+        let param = parse_param!(reader, |param: Param<'a>| {
             let (name, value) = param;
             if name == Q_PARAM {
                 q = AcceptEncoding::parse_q_value(value);
