@@ -23,7 +23,7 @@ impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
         let Some(&b'<') = reader.next() else {
             return sip_parse_error!("Invalid alert info!");
         };
-        let url = read_while!(reader, |b| b != b'>' && b != b';');
+        let url = read_while!(reader, |b| !matches!(b, b'>' | b';'));
         let url = str::from_utf8(url)?;
         // must be an '>'
         let Some(&b'>') = reader.next() else {

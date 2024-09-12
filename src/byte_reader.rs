@@ -66,11 +66,11 @@ impl<'a> ByteReader<'a> {
     where
         F: Fn(u8) -> bool,
     {
-        let mut idx = self.idx;
+        let mut end = self.idx;
         for _ in self.iter().take_while(|&&b| func(b)) {
-            idx += 1;
+            end += 1;
         }
-        self.idx..idx
+        self.idx..end
     }
 
     pub fn read_tag(&mut self, tag: &[u8]) -> Result<Range<usize>> {

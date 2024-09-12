@@ -105,6 +105,28 @@ macro_rules! parse_param {
     }};
 }
 
+macro_rules! parse_auth_param {
+    ($reader: expr) => {{
+        if $reader.peek() == Some(&b'=') {
+            $reader.next();
+            match $reader.peek() {
+                Some(b'"') => {
+                    $reader.next();
+                    let value = crate::macros::read_until_byte!($reader, b'"');
+                    Some((std::str::from_utf8(value)?))
+                }
+                Some(_) => {
+                    let value = read_while!($reader, is_token);
+                    Some(unsafe { std::str::from_utf8_unchecked(value) })
+                }
+                None => None,
+            }
+        } else {
+            None
+        }
+    }};
+}
+
 macro_rules! sip_parse_error {
     ($message:expr) => {{
         Err(crate::parser::SipParserError::from($message))
@@ -123,3 +145,5 @@ pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
 pub(crate) use until_newline;
+pub(crate) use parse_auth_param;
+

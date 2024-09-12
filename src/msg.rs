@@ -1,13 +1,26 @@
 use crate::{
-   request::Request, response::Response, uri::Uri
+   headers::SipHeaders, uri::Uri
 };
 
 use std::str;
 
+pub struct SipRequest<'a> {
+    req_line: RequestLine<'a>,
+    headers: SipHeaders<'a>,
+    body: &'a [u8],
+}
+
+
+pub struct SipResponse<'a> {
+    req_line: StatusLine<'a>,
+    headers: SipHeaders<'a>,
+    body: &'a [u8],
+}
+
 /// This struct represent SIP Message
 pub enum SipMsg<'a> {
-    Request(Request<'a>),
-    Response(Response<'a>),
+    Request(SipRequest<'a>),
+    Response(SipResponse<'a>),
 }
 
 /// This struct represent SIP status line
