@@ -141,5 +141,5 @@ pub enum Header<'a> {
     Via(Via<'a>),
     Warning,
     WWWAuthenticate,
-    Other { name: &'a str, value: &'a str },
+    Generic { name: &'a str, value: &'a str },
 }
