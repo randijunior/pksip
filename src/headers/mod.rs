@@ -1,28 +1,28 @@
-pub mod call_id;
-pub mod contact;
-pub mod from;
-pub mod route;
-pub mod to;
-pub mod via;
 pub mod accept;
-pub mod max_fowards;
-pub mod cseq;
-pub mod expires;
-pub mod allow;
 pub mod accept_encoding;
 pub mod accept_language;
 pub mod alert_info;
+pub mod allow;
 pub mod authentication_info;
 pub mod authorization;
+pub mod call_id;
 pub mod call_info;
+pub mod contact;
 pub mod content_disposition;
 pub mod content_encoding;
 pub mod content_language;
 pub mod content_length;
 pub mod content_type;
+pub mod cseq;
 pub mod date;
 pub mod error_info;
+pub mod expires;
+pub mod from;
 pub mod in_reply_to;
+pub mod max_fowards;
+pub mod route;
+pub mod to;
+pub mod via;
 
 use std::str;
 
@@ -58,7 +58,9 @@ use crate::{
     parser::{is_token, Result},
 };
 
-pub(crate) fn parse_generic_param<'a>(reader: &mut ByteReader<'a>) -> Result<(&'a str, Option<&'a str>)> {
+pub(crate) fn parse_generic_param<'a>(
+    reader: &mut ByteReader<'a>,
+) -> Result<(&'a str, Option<&'a str>)> {
     // take ';' character
     reader.next();
 
