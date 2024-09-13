@@ -41,17 +41,13 @@ impl<'a> Coding<'a> {
 // encoding         =  codings *(SEMI accept-param)
 // codings          =  content-coding / "*"
 // content-coding   =  token
-pub struct AcceptEncoding<'a> {
-    codings: Vec<Coding<'a>>,
-}
+pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
 impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
     const NAME: &'a [u8] = b"Accept-Encoding";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut codings: Vec<Coding> = Vec::new();
-        space!(reader);
-
         let coding = Coding::parse(reader)?;
         codings.push(coding);
 
@@ -62,6 +58,6 @@ impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
             space!(reader);
         }
 
-        Ok(AcceptEncoding { codings })
+        Ok(AcceptEncoding(codings))
     }
 }

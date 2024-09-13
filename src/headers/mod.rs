@@ -14,6 +14,15 @@ pub mod accept_language;
 pub mod alert_info;
 pub mod authentication_info;
 pub mod authorization;
+pub mod call_info;
+pub mod content_disposition;
+pub mod content_encoding;
+pub mod content_language;
+pub mod content_length;
+pub mod content_type;
+pub mod date;
+pub mod error_info;
+pub mod in_reply_to;
 
 use std::str;
 
@@ -25,10 +34,19 @@ use allow::Allow;
 use authentication_info::AuthenticationInfo;
 use authorization::Authorization;
 pub use call_id::CallId;
+use call_info::CallInfo;
 use contact::Contact;
+use content_disposition::ContentDisposition;
+use content_encoding::ContentEncoding;
+use content_language::ContentLanguage;
+use content_length::ContentLength;
+use content_type::ContentType;
 use cseq::CSeq;
+use date::Date;
+use error_info::ErrorInfo;
 use expires::Expires;
 pub use from::From;
+use in_reply_to::InReplyTo;
 use max_fowards::MaxForwards;
 use route::Route;
 pub use to::To;
@@ -105,19 +123,19 @@ pub enum Header<'a> {
     AuthenticationInfo(AuthenticationInfo<'a>),
     Authorization(Authorization<'a>),
     CallId(CallId<'a>),
-    CallInfo,
+    CallInfo(CallInfo<'a>),
     Contact(Contact<'a>),
-    ContentDisposition,
-    ContentEncoding,
-    ContentLanguage,
-    ContentLength,
-    ContentType,
+    ContentDisposition(ContentDisposition<'a>),
+    ContentEncoding(ContentEncoding<'a>),
+    ContentLanguage(ContentLanguage<'a>),
+    ContentLength(ContentLength),
+    ContentType(ContentType<'a>),
     CSeq(CSeq<'a>),
-    Date,
-    ErrorInfo,
+    Date(Date<'a>),
+    ErrorInfo(ErrorInfo<'a>),
     Expires(Expires),
     From(From<'a>),
-    InReplyTo,
+    InReplyTo(InReplyTo<'a>),
     MaxForwards(MaxForwards),
     MimeVersion,
     MinExpires,

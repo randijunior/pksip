@@ -59,6 +59,7 @@ const USER_UNRESERVED: &[u8] = b"&=+$,;?/";
 const TOKEN: &[u8] = b"-.!%*_`'~+";
 const PASS: &[u8] = b"&=+$,";
 const HOST: &[u8] = b"_-.";
+const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 
 pub(crate) const USER_PARAM: &str = "user";
 pub(crate) const METHOD_PARAM: &str = "method";
@@ -93,37 +94,9 @@ b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
 
 b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 
+b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
+
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
-
-#[inline(always)]
-fn is_user(b: u8) -> bool {
-    USER_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_pass(b: u8) -> bool {
-    PASS_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_param(b: u8) -> bool {
-    PARAM_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_hdr(b: u8) -> bool {
-    HDR_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_via_param(b: u8) -> bool {
-    VIA_PARAM_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_token(b: u8) -> bool {
-    TOKEN_SPEC_MAP[b as usize]
-}
 
 pub struct SipParser<'a> {
     reader: ByteReader<'a>,
@@ -582,6 +555,41 @@ impl<'a> SipParser<'a> {
 
         Ok(())
     }
+}
+
+#[inline(always)]
+fn is_user(b: u8) -> bool {
+    USER_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_pass(b: u8) -> bool {
+    PASS_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_param(b: u8) -> bool {
+    PARAM_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_hdr(b: u8) -> bool {
+    HDR_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_via_param(b: u8) -> bool {
+    VIA_PARAM_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_uri_content(b: u8) -> bool {
+    GENERIC_URI_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_token(b: u8) -> bool {
+    TOKEN_SPEC_MAP[b as usize]
 }
 
 pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {

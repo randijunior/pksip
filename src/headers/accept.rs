@@ -12,13 +12,13 @@ use super::SipHeaderParser;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct MimeType<'a> {
-    mtype: &'a str,
-    subtype: &'a str,
+    pub mtype: &'a str,
+    pub subtype: &'a str,
 }
 
 pub struct MediaType<'a> {
-    mimetype: MimeType<'a>,
-    param: Option<Params<'a>>,
+    pub mimetype: MimeType<'a>,
+    pub param: Option<Params<'a>>,
 }
 
 pub struct Accept<'a> {

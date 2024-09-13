@@ -25,6 +25,7 @@ impl<'a> Language<'a> {
             let (name, value) = param;
             if name == Q_PARAM {
                 q = AcceptLanguage::parse_q_value(value);
+                return None;
             }
             Some(param)
         });

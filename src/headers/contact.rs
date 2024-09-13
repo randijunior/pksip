@@ -19,6 +19,7 @@ pub enum Contact<'a> {
 
 impl<'a> SipHeaderParser<'a> for Contact<'a> {
     const NAME: &'a [u8] = b"Contact";
+    const SHORT_NAME: Option<&'a [u8]> = Some(b"m");
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         if reader.peek() == Some(&b'*') {

@@ -11,8 +11,8 @@ impl<'a> SipHeaderParser<'a> for MaxForwards {
     
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let digits = digits!(reader);
-        match str::from_utf8(digits)?.parse()  {
-            Ok(max_f) => Ok(MaxForwards(max_f)),
+        match unsafe { str::from_utf8_unchecked(digits) }.parse()  {
+            Ok(digits) => Ok(MaxForwards(digits)),
             Err(_) => sip_parse_error!("invalid Max Fowards")
         }
     }
