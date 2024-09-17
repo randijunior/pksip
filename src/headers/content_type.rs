@@ -3,8 +3,7 @@ use core::str;
 use crate::{
     byte_reader::ByteReader,
     macros::{parse_param, read_while},
-    parser::{is_token, Result},
-    uri::Params,
+    parser::{is_token, Result}
 };
 
 use super::{

@@ -23,6 +23,10 @@ pub mod max_fowards;
 pub mod route;
 pub mod to;
 pub mod via;
+pub mod mime_version;
+pub mod min_expires;
+pub mod organization;
+pub mod priority;
 
 use std::str;
 
@@ -48,6 +52,10 @@ use expires::Expires;
 pub use from::From;
 use in_reply_to::InReplyTo;
 use max_fowards::MaxForwards;
+use mime_version::MimeVersion;
+use min_expires::MinExpires;
+use organization::Organization;
+use priority::Priority;
 use route::Route;
 pub use to::To;
 pub use via::Via;
@@ -139,10 +147,10 @@ pub enum Header<'a> {
     From(From<'a>),
     InReplyTo(InReplyTo<'a>),
     MaxForwards(MaxForwards),
-    MimeVersion,
-    MinExpires,
-    Organization,
-    Priority,
+    MimeVersion(MimeVersion),
+    MinExpires(MinExpires),
+    Organization(Organization<'a>),
+    Priority(Priority<'a>),
     ProxyAuthenticate,
     ProxyAuthorization,
     ProxyRequire,
