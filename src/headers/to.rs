@@ -11,7 +11,7 @@ use std::str;
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,
-    pub(crate) other_params: Option<Params<'a>>,
+    pub(crate) params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for To<'a> {
@@ -20,12 +20,8 @@ impl<'a> SipHeaderParser<'a> for To<'a> {
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let uri = SipParser::parse_sip_uri(reader)?;
-        let (tag, other_params) = SipParser::parse_fromto_param(reader)?;
+        let (tag, params) = SipParser::parse_fromto_param(reader)?;
 
-        Ok(To {
-            tag,
-            uri,
-            other_params,
-        })
+        Ok(To { tag, uri, params })
     }
 }

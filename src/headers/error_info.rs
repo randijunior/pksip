@@ -7,12 +7,11 @@ use crate::{
     uri::Params,
 };
 
-
 use super::SipHeaderParser;
 
 pub struct GenericUri<'a> {
     scheme: &'a str,
-    content: &'a str
+    content: &'a str,
 }
 
 pub struct ErrorUri<'a> {
@@ -21,13 +20,13 @@ pub struct ErrorUri<'a> {
 }
 
 impl<'a> ErrorUri<'a> {
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> { 
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         // must be an '<'
         let Some(&b'<') = reader.next() else {
             return sip_parse_error!("Invalid uri!");
         };
         let scheme = read_while!(reader, is_token);
-        let scheme = unsafe { str::from_utf8_unchecked(scheme) };        
+        let scheme = unsafe { str::from_utf8_unchecked(scheme) };
         let Some(&b':') = reader.next() else {
             return sip_parse_error!("Invalid uri!");
         };
@@ -39,17 +38,18 @@ impl<'a> ErrorUri<'a> {
         };
         let params = parse_param!(reader, |param: Param<'a>| Some(param));
 
-
-        Ok(ErrorUri { url: GenericUri { scheme, content }, params })
+        Ok(ErrorUri {
+            url: GenericUri { scheme, content },
+            params,
+        })
     }
 }
 
 pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 
-
 impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
     const NAME: &'a [u8] = b"Error-Info";
-    
+
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut infos: Vec<ErrorUri> = Vec::new();
         let uri = ErrorUri::parse(reader)?;

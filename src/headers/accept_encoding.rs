@@ -3,7 +3,7 @@ use std::str;
 use crate::{
     byte_reader::ByteReader,
     macros::{parse_param, read_while, space},
-    parser::{is_token, Param, Q_PARAM, Result},
+    parser::{is_token, Param, Result, Q_PARAM},
     uri::Params,
 };
 

@@ -4,9 +4,7 @@ use crate::{byte_reader::ByteReader, macros::until_newline, parser::Result};
 
 use super::SipHeaderParser;
 
-
 pub struct Organization<'a>(&'a str);
-
 
 impl<'a> SipHeaderParser<'a> for Organization<'a> {
     const NAME: &'a [u8] = b"Organization";

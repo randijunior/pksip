@@ -138,6 +138,7 @@ pub(crate) use b_map;
 pub(crate) use digits;
 pub(crate) use find;
 pub(crate) use newline;
+pub(crate) use parse_auth_param;
 pub(crate) use parse_param;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;
@@ -145,5 +146,3 @@ pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
 pub(crate) use until_newline;
-pub(crate) use parse_auth_param;
-

@@ -1,7 +1,6 @@
 use std::ops::Range;
-use std::result;
 
-type Result<'a, T> = std::result::Result<T, ReaderError<'a>>;
+type ReaderResult<'a, T> = std::result::Result<T, ReaderError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -73,7 +72,7 @@ impl<'a> ByteReader<'a> {
         self.idx..end
     }
 
-    pub fn read_tag(&mut self, tag: &[u8]) -> Result<Range<usize>> {
+    pub fn read_tag(&mut self, tag: &[u8]) -> ReaderResult<Range<usize>> {
         let start = self.idx;
         for &expected in tag {
             let Some(&byte) = self.peek() else {
@@ -136,7 +135,7 @@ impl<'a> ByteReader<'a> {
         byte
     }
 
-    pub fn error<T>(&self, kind: ErrorKind) -> result::Result<T, ReaderError> {
+    pub fn error<T>(&self, kind: ErrorKind) -> Result<T, ReaderError> {
         Err(ReaderError {
             kind,
             line: self.line,

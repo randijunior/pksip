@@ -20,4 +20,3 @@ impl<'a> SipHeaderParser<'a> for InReplyTo<'a> {
         Ok(InReplyTo(ids))
     }
 }
-

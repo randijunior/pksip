@@ -1,9 +1,9 @@
 use crate::{
     byte_reader::ByteReader,
     macros::{parse_param, read_while, space},
-    parser::{Param, Q_PARAM, Result},
-    util::is_alphabetic,
+    parser::{Param, Result, Q_PARAM},
     uri::Params,
+    util::is_alphabetic,
 };
 
 use super::SipHeaderParser;

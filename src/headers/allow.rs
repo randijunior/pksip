@@ -6,7 +6,7 @@ pub struct Allow<'a>(Vec<SipMethod<'a>>);
 
 impl<'a> SipHeaderParser<'a> for Allow<'a> {
     const NAME: &'a [u8] = b"Allow";
-    
+
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut allow: Vec<SipMethod> = Vec::new();
         let b_method = alpha!(reader);
@@ -25,6 +25,4 @@ impl<'a> SipHeaderParser<'a> for Allow<'a> {
 
         Ok(Allow(allow))
     }
-
-    
 }

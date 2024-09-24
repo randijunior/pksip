@@ -35,14 +35,14 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
                 Q_PARAM => {
                     q = Contact::parse_q_value(value);
                     None
-                },
+                }
                 EXPIRES_PARAM => {
                     if let Some(expires_param) = value {
                         expires = expires_param.parse().ok();
-                        return None
+                        return None;
                     }
-                    return Some(param)
-                },
+                    return Some(param);
+                }
                 _ => Some(param),
             }
         });

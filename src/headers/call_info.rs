@@ -2,7 +2,8 @@ use crate::{
     byte_reader::ByteReader,
     macros::{parse_param, read_while, sip_parse_error},
     parser::{Param, Result},
-    uri::Params, util::is_newline,
+    uri::Params,
+    util::is_newline,
 };
 
 use super::SipHeaderParser;
@@ -23,7 +24,7 @@ pub struct CallInfo<'a> {
 
 impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
     const NAME: &'a [u8] = b"Call-Info";
-    
+
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut purpose: Option<&'a str> = None;
         // must be an '<'
@@ -39,13 +40,16 @@ impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
         let params = parse_param!(reader, |param: Param<'a>| {
             let (name, value) = param;
             if name == "purpose" {
-               purpose = value;
-               return None;
+                purpose = value;
+                return None;
             }
             Some(param)
         });
 
-
-        Ok(CallInfo { url, params, purpose })
+        Ok(CallInfo {
+            url,
+            params,
+            purpose,
+        })
     }
 }

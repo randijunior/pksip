@@ -21,17 +21,17 @@ use crate::byte_reader::ReaderError;
 use crate::headers::via::ViaParams;
 use crate::headers::SipHeaders;
 
-use crate::macros::{alpha, parse_param};
 use crate::macros::b_map;
 use crate::macros::digits;
 use crate::macros::find;
 use crate::macros::newline;
 use crate::macros::peek_while;
+use crate::macros::read_until_byte;
 use crate::macros::read_while;
 use crate::macros::sip_parse_error;
 use crate::macros::space;
-use crate::macros::read_until_byte;
 use crate::macros::until_newline;
+use crate::macros::{alpha, parse_param};
 
 use crate::msg::RequestLine;
 use crate::msg::SipMethod;
@@ -44,7 +44,7 @@ use crate::uri::Scheme;
 use crate::uri::Uri;
 use crate::uri::UriParams;
 use crate::uri::UserInfo;
-use crate::uri::{Params, NameAddr, SipUri};
+use crate::uri::{NameAddr, Params, SipUri};
 use crate::util::is_alphabetic;
 use crate::util::is_space;
 use crate::util::is_valid_port;
@@ -105,7 +105,7 @@ pub struct SipParser<'a> {
 impl<'a> SipParser<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         SipParser {
-            reader: ByteReader::new(bytes)
+            reader: ByteReader::new(bytes),
         }
     }
 
@@ -168,11 +168,11 @@ impl<'a> SipParser<'a> {
             } else {
                 Some(param)
             }
-         });
+        });
 
         Ok((tag, params))
     }
-    
+
     pub(crate) fn parse_sip_uri(reader: &mut ByteReader<'a>) -> Result<SipUri<'a>> {
         space!(reader);
         let peeked = reader.peek();
@@ -201,7 +201,7 @@ impl<'a> SipParser<'a> {
                     display: Some(display),
                     uri,
                 }))
-            },
+            }
             // NameAddr without display name
             Some(&b'<') => {
                 reader.next();
@@ -209,12 +209,12 @@ impl<'a> SipParser<'a> {
                 reader.next();
 
                 Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
-            },
+            }
             // SipUri
             Some(_) if reader.peek_n(3) == Some(SCHEME_SIP) => {
                 let uri = Self::parse_uri(reader, false)?;
                 Ok(SipUri::Uri(uri))
-            },
+            }
             // Nameaddr with unquoted display name
             Some(_) => {
                 let display = read_while!(reader, is_token);
@@ -236,7 +236,7 @@ impl<'a> SipParser<'a> {
                     display: Some(display),
                     uri,
                 }))
-            },
+            }
             None => {
                 todo!()
             }
@@ -417,7 +417,7 @@ impl<'a> SipParser<'a> {
                             }
                         }
                     }
-                },
+                }
                 _ => {
                     others.set(name, Some(value));
                 }
@@ -462,10 +462,7 @@ impl<'a> SipParser<'a> {
         Self::parse_sip_version(reader)?;
         newline!(reader);
 
-        Ok(RequestLine {
-            method,
-            uri,
-        })
+        Ok(RequestLine { method, uri })
     }
 
     fn is_sip_request(&self) -> bool {
@@ -507,23 +504,23 @@ impl<'a> SipParser<'a> {
                 max_fowards if MaxForwards::match_name(max_fowards) => {
                     let max_fowards = MaxForwards::parse(reader)?;
                     headers.push_header(Header::MaxForwards(max_fowards))
-                },
+                }
                 from if headers::From::match_name(from) => {
                     let from = headers::From::parse(reader)?;
                     headers.push_header(Header::From(from))
-                },
+                }
                 to if To::match_name(to) => {
                     let to = To::parse(reader)?;
                     headers.push_header(Header::To(to))
-                },
+                }
                 cid if CallId::match_name(cid) => {
                     let call_id = CallId::parse(reader)?;
                     headers.push_header(Header::CallId(call_id))
-                },
+                }
                 cseq if CSeq::match_name(cseq) => {
                     let cseq = CSeq::parse(reader)?;
                     headers.push_header(Header::CSeq(cseq))
-                },
+                }
                 contact if Contact::match_name(contact) => 'contact: loop {
                     let contact = Contact::parse(reader)?;
                     headers.push_header(Header::Contact(contact));
@@ -535,19 +532,19 @@ impl<'a> SipParser<'a> {
                 accept_encoding if AcceptEncoding::match_name(accept_encoding) => {
                     let accept_encoding = AcceptEncoding::parse(reader)?;
                     headers.push_header(Header::AcceptEncoding(accept_encoding));
-                },
+                }
                 accept if Accept::match_name(accept) => {
                     let accept = Accept::parse(reader)?;
                     headers.push_header(Header::Accept(accept));
-                },
+                }
                 allow if Allow::match_name(allow) => {
                     let allow = Allow::parse(reader)?;
                     headers.push_header(Header::Allow(allow));
-                },
+                }
                 expires if Expires::match_name(expires) => {
                     let expires = Expires::parse(reader)?;
                     headers.push_header(Header::Expires(expires));
-                },
+                }
                 _ => todo!(),
             };
             break 'headers;

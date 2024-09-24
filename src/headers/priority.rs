@@ -1,6 +1,10 @@
 use core::str;
 
-use crate::{byte_reader::ByteReader, macros::read_while, parser::{is_token, Result}};
+use crate::{
+    byte_reader::ByteReader,
+    macros::read_while,
+    parser::{is_token, Result},
+};
 
 use super::SipHeaderParser;
 

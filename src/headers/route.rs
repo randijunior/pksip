@@ -7,8 +7,6 @@ use crate::{
 
 use super::SipHeaderParser;
 
-use std::str;
-
 pub struct Route<'a> {
     pub(crate) name_addr: NameAddr<'a>,
     pub(crate) param: Option<Params<'a>>,

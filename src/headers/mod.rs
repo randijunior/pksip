@@ -20,13 +20,20 @@ pub mod expires;
 pub mod from;
 pub mod in_reply_to;
 pub mod max_fowards;
-pub mod route;
-pub mod to;
-pub mod via;
 pub mod mime_version;
 pub mod min_expires;
 pub mod organization;
 pub mod priority;
+pub mod proxy_authenticate;
+pub mod proxy_authorization;
+pub mod proxy_require;
+pub mod record_route;
+pub mod reply_to;
+pub mod require;
+pub mod retry_after;
+pub mod route;
+pub mod to;
+pub mod via;
 
 use std::str;
 
@@ -36,7 +43,7 @@ use accept_language::AcceptLanguage;
 use alert_info::AlertInfo;
 use allow::Allow;
 use authentication_info::AuthenticationInfo;
-use authorization::Authorization;
+use authorization::{Authorization, Credential, Digest};
 pub use call_id::CallId;
 use call_info::CallInfo;
 use contact::Contact;
@@ -56,14 +63,22 @@ use mime_version::MimeVersion;
 use min_expires::MinExpires;
 use organization::Organization;
 use priority::Priority;
+use proxy_authenticate::ProxyAuthenticate;
+use proxy_authorization::ProxyAuthorization;
+use proxy_require::ProxyRequire;
+use record_route::RecordRoute;
+use reply_to::ReplyTo;
+use require::Require;
+use retry_after::RetryAfter;
 use route::Route;
 pub use to::To;
 pub use via::Via;
 
 use crate::{
     byte_reader::ByteReader,
-    macros::read_while,
+    macros::{parse_auth_param, read_until_byte, read_while, sip_parse_error, space},
     parser::{is_token, Result},
+    uri::Params,
 };
 
 pub(crate) fn parse_generic_param<'a>(
@@ -108,6 +123,47 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         }
         None
     }
+
+    fn parse_auth_credential(reader: &mut ByteReader<'a>) -> Result<Credential<'a>> {
+        let scheme = match reader.peek() {
+            Some(b'"') => {
+                reader.next();
+                let value = read_until_byte!(reader, b'"');
+                reader.next();
+                value
+            }
+            Some(_) => {
+                read_while!(reader, is_token)
+            }
+            None => return sip_parse_error!("eof!"),
+        };
+
+        match scheme {
+            b"Digest" => Ok(Credential::Digest(Digest::parse(reader)?)),
+            other => {
+                space!(reader);
+                let other = std::str::from_utf8(other)?;
+                let name = read_while!(reader, is_token);
+                let name = unsafe { std::str::from_utf8_unchecked(name) };
+                let val = parse_auth_param!(reader);
+                let mut params = Params::new();
+                params.set(name, val);
+
+                while let Some(b',') = reader.peek() {
+                    space!(reader);
+                    let name = read_while!(reader, is_token);
+                    let name = unsafe { std::str::from_utf8_unchecked(name) };
+                    let val = parse_auth_param!(reader);
+                    params.set(name, val);
+                }
+
+                Ok(Credential::Other {
+                    scheme: other,
+                    param: params,
+                })
+            }
+        }
+    }
 }
 
 pub struct SipHeaders<'a> {
@@ -151,13 +207,13 @@ pub enum Header<'a> {
     MinExpires(MinExpires),
     Organization(Organization<'a>),
     Priority(Priority<'a>),
-    ProxyAuthenticate,
-    ProxyAuthorization,
-    ProxyRequire,
-    RecordRoute,
-    ReplyTo,
-    Require,
-    RetryAfter,
+    ProxyAuthenticate(ProxyAuthenticate<'a>),
+    ProxyAuthorization(ProxyAuthorization<'a>),
+    ProxyRequire(ProxyRequire<'a>),
+    RecordRoute(RecordRoute<'a>),
+    ReplyTo(ReplyTo<'a>),
+    Require(Require<'a>),
+    RetryAfter(RetryAfter<'a>),
     Route(Route<'a>),
     Server,
     Subject,

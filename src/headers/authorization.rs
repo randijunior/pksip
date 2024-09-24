@@ -23,7 +23,7 @@ pub struct Digest<'a> {
 }
 
 impl<'a> Digest<'a> {
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+    pub fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut digest = Digest::default();
         loop {
             space!(reader);
@@ -53,7 +53,7 @@ impl<'a> Digest<'a> {
             }
         }
 
-       Ok(digest)
+        Ok(digest)
     }
 }
 
@@ -93,52 +93,14 @@ auth-scheme       =  token
 
 */
 
-pub struct Authorization<'a> {
-    cred: Credential<'a>,
-}
+pub struct Authorization<'a>(Credential<'a>);
 
 impl<'a> SipHeaderParser<'a> for Authorization<'a> {
     const NAME: &'a [u8] = b"Authorization";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let scheme = match reader.peek() {
-            Some(b'"') => {
-                reader.next();
-                let value = read_until_byte!(reader, b'"');
-                reader.next();
-                value
-            }
-            Some(_) => {
-                read_while!(reader, is_token)
-            }
-            None => return sip_parse_error!("eof!"),
-        };
+        let cred = Self::parse_auth_credential(reader)?;
 
-        let cred = match scheme {
-            b"Digest" => {
-                Credential::Digest(Digest::parse(reader)?)
-            }
-            other => {
-                space!(reader);                
-                let other = std::str::from_utf8(other)?;
-                let name = read_while!(reader, is_token);
-                let name = unsafe { std::str::from_utf8_unchecked(name) };
-                let val = parse_auth_param!(reader);
-                let mut params = Params::new();
-                params.set(name, val);
-
-                while let Some(b',') = reader.peek() {
-                    space!(reader);
-                    let name = read_while!(reader, is_token);
-                    let name = unsafe { std::str::from_utf8_unchecked(name) };
-                    let val = parse_auth_param!(reader);
-                    params.set(name, val);
-                }
-
-                Credential::Other { scheme: other, param: params }
-            },
-        };
-
-        Ok(Authorization { cred })
+        Ok(Authorization(cred))
     }
 }

@@ -1,6 +1,4 @@
-use crate::{
-   headers::SipHeaders, uri::Uri
-};
+use crate::{headers::SipHeaders, uri::Uri};
 
 use std::str;
 
@@ -9,7 +7,6 @@ pub struct SipRequest<'a> {
     headers: SipHeaders<'a>,
     body: &'a [u8],
 }
-
 
 pub struct SipResponse<'a> {
     req_line: StatusLine<'a>,

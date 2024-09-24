@@ -2,7 +2,8 @@ use crate::{
     byte_reader::ByteReader,
     macros::{parse_param, read_while, sip_parse_error, space},
     parser::Result,
-    uri::Params, util::is_newline,
+    uri::Params,
+    util::is_newline,
 };
 
 pub struct AlertInfo<'a> {

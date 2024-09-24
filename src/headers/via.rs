@@ -22,11 +22,11 @@ ttl               =  1*3DIGIT ; 0 to 255
 use super::{Header, SipHeaderParser};
 use crate::{
     byte_reader::ByteReader,
-    macros::{sip_parse_error, space, read_until_byte},
+    macros::{read_until_byte, sip_parse_error, space},
     msg::Transport,
     parser::Result,
     parser::SipParser,
-    uri::{Params, HostPort},
+    uri::{HostPort, Params},
 };
 use std::str;
 
