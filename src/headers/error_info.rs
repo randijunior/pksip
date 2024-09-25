@@ -48,7 +48,7 @@ impl<'a> ErrorUri<'a> {
 pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 
 impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
-    const NAME: &'a [u8] = b"Error-Info";
+    const NAME: &'static [u8] = b"Error-Info";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut infos: Vec<ErrorUri> = Vec::new();

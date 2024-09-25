@@ -1,0 +1,19 @@
+use core::str;
+
+use crate::{byte_reader::ByteReader, macros::until_newline, parser::Result};
+
+use super::SipHeaderParser;
+
+pub struct Subject<'a>(&'a str);
+
+impl<'a> SipHeaderParser<'a> for Subject<'a> {
+    const NAME: &'static [u8] = b"Subject";
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"s");
+
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+        let val = until_newline!(reader);
+        let val = str::from_utf8(val)?;
+
+        Ok(Subject(val))
+    }
+}

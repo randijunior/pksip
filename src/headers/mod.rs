@@ -32,8 +32,14 @@ pub mod reply_to;
 pub mod require;
 pub mod retry_after;
 pub mod route;
+pub mod server;
+pub mod subject;
+pub mod supported;
+pub mod timestamp;
 pub mod to;
 pub mod via;
+pub mod unsupported;
+pub mod user_agent;
 
 use std::str;
 
@@ -71,7 +77,13 @@ use reply_to::ReplyTo;
 use require::Require;
 use retry_after::RetryAfter;
 use route::Route;
+use server::Server;
+use subject::Subject;
+use supported::Supported;
+use timestamp::Timestamp;
 pub use to::To;
+use unsupported::Unsupported;
+use user_agent::UserAgent;
 pub use via::Via;
 
 use crate::{
@@ -80,6 +92,8 @@ use crate::{
     parser::{is_token, Result},
     uri::Params,
 };
+
+pub struct OptionTag<'a>(&'a str);
 
 pub(crate) fn parse_generic_param<'a>(
     reader: &mut ByteReader<'a>,
@@ -101,8 +115,8 @@ pub(crate) fn parse_generic_param<'a>(
 }
 
 pub(crate) trait SipHeaderParser<'a>: Sized {
-    const NAME: &'a [u8];
-    const SHORT_NAME: Option<&'a [u8]> = None;
+    const NAME: &'static [u8];
+    const SHORT_NAME: Option<&'static [u8]> = None;
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self>;
 
@@ -172,7 +186,7 @@ pub struct SipHeaders<'a> {
 
 impl<'a> SipHeaders<'a> {
     pub fn new() -> Self {
-        Self { hdrs: vec![] }
+        Self { hdrs: Vec::new() }
     }
     pub fn push_header(&mut self, hdr: Header<'a>) {
         self.hdrs.push(hdr);
@@ -215,13 +229,13 @@ pub enum Header<'a> {
     Require(Require<'a>),
     RetryAfter(RetryAfter<'a>),
     Route(Route<'a>),
-    Server,
-    Subject,
-    Supported,
-    Timestamp,
+    Server(Server<'a>),
+    Subject(Subject<'a>),
+    Supported(Supported<'a>),
+    Timestamp(Timestamp<'a>),
     To(To<'a>),
-    Unsupported,
-    UserAgent,
+    Unsupported(Unsupported<'a>),
+    UserAgent(UserAgent<'a>),
     Via(Via<'a>),
     Warning,
     WWWAuthenticate,

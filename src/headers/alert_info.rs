@@ -16,7 +16,7 @@ use super::SipHeaderParser;
 use std::str;
 
 impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
-    const NAME: &'a [u8] = b"Alert-Info";
+    const NAME: &'static [u8] = b"Alert-Info";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         space!(reader);

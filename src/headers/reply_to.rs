@@ -13,7 +13,7 @@ pub struct ReplyTo<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for ReplyTo<'a> {
-    const NAME: &'a [u8] = b"Reply-To";
+    const NAME: &'static [u8] = b"Reply-To";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let uri = SipParser::parse_sip_uri(reader)?;

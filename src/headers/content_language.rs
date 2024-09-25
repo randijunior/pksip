@@ -11,7 +11,7 @@ use super::SipHeaderParser;
 pub struct ContentLanguage<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ContentLanguage<'a> {
-    const NAME: &'a [u8] = b"Content-Language";
+    const NAME: &'static [u8] = b"Content-Language";
 
     fn parse(reader: &mut crate::byte_reader::ByteReader<'a>) -> crate::parser::Result<Self> {
         let mut languages: Vec<&'a str> = Vec::new();

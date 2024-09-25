@@ -26,7 +26,7 @@ pub struct Accept<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Accept<'a> {
-    const NAME: &'a [u8] = b"Accept";
+    const NAME: &'static [u8] = b"Accept";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Accept<'a>> {
         let mut mtypes: Vec<MediaType<'a>> = Vec::new();

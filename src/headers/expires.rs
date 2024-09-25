@@ -11,7 +11,7 @@ use super::SipHeaderParser;
 pub struct Expires(i32);
 
 impl<'a> SipHeaderParser<'a> for Expires {
-    const NAME: &'a [u8] = b"Expires";
+    const NAME: &'static [u8] = b"Expires";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let digits = digits!(reader);

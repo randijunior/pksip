@@ -14,8 +14,8 @@ use super::{
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeaderParser<'a> for ContentType<'a> {
-    const NAME: &'a [u8] = b"Content-Type";
-    const SHORT_NAME: Option<&'a [u8]> = Some(b"c");
+    const NAME: &'static [u8] = b"Content-Type";
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"c");
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mtype = read_while!(reader, is_token);

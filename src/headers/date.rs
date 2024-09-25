@@ -7,7 +7,7 @@ use std::str;
 pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Date<'a> {
-    const NAME: &'a [u8] = b"Date";
+    const NAME: &'static [u8] = b"Date";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let date = until_newline!(reader);

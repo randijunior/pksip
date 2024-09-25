@@ -11,8 +11,8 @@ use super::SipHeaderParser;
 pub struct ContentEncoding<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ContentEncoding<'a> {
-    const NAME: &'a [u8] = b"Content-Encoding";
-    const SHORT_NAME: Option<&'a [u8]> = Some(b"e");
+    const NAME: &'static [u8] = b"Content-Encoding";
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"e");
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut codings: Vec<&'a str> = Vec::new();

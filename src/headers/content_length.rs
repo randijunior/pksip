@@ -11,8 +11,8 @@ use super::SipHeaderParser;
 pub struct ContentLength(u32);
 
 impl<'a> SipHeaderParser<'a> for ContentLength {
-    const NAME: &'a [u8] = b"Content-Length";
-    const SHORT_NAME: Option<&'a [u8]> = Some(b"l");
+    const NAME: &'static [u8] = b"Content-Length";
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"l");
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let digits = digits!(reader);

@@ -14,7 +14,7 @@ pub struct CSeq<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for CSeq<'a> {
-    const NAME: &'a [u8] = b"CSeq";
+    const NAME: &'static [u8] = b"CSeq";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let digits = digits!(reader);

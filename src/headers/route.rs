@@ -13,7 +13,7 @@ pub struct Route<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Route<'a> {
-    const NAME: &'a [u8] = b"Route";
+    const NAME: &'static [u8] = b"Route";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(reader)? {

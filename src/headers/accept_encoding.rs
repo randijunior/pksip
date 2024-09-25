@@ -44,7 +44,7 @@ impl<'a> Coding<'a> {
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
 impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
-    const NAME: &'a [u8] = b"Accept-Encoding";
+    const NAME: &'static [u8] = b"Accept-Encoding";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut codings: Vec<Coding> = Vec::new();

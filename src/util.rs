@@ -4,6 +4,11 @@ pub fn is_digit(c: u8) -> bool {
 }
 
 #[inline(always)]
+pub fn is_float(c: u8) -> bool {
+    is_digit(c) || c == b'.'
+}
+
+#[inline(always)]
 pub fn is_space(c: u8) -> bool {
     c == b' ' || c == b'\t'
 }

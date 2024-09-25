@@ -7,8 +7,8 @@ use std::str;
 pub struct CallId<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for CallId<'a> {
-    const NAME: &'a [u8] = b"Call-ID";
-    const SHORT_NAME: Option<&'a [u8]> = Some(b"i");
+    const NAME: &'static [u8] = b"Call-ID";
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"i");
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let id = until_newline!(reader);

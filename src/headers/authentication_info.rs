@@ -18,7 +18,7 @@ pub struct AuthenticationInfo<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
-    const NAME: &'a [u8] = b"Authentication-Info";
+    const NAME: &'static [u8] = b"Authentication-Info";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut nextnonce: Option<&'a str> = None;

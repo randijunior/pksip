@@ -96,7 +96,7 @@ auth-scheme       =  token
 pub struct Authorization<'a>(Credential<'a>);
 
 impl<'a> SipHeaderParser<'a> for Authorization<'a> {
-    const NAME: &'a [u8] = b"Authorization";
+    const NAME: &'static [u8] = b"Authorization";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let cred = Self::parse_auth_credential(reader)?;

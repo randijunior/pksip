@@ -13,7 +13,7 @@ pub struct ContentDisposition<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
-    const NAME: &'a [u8] = b"Content-Disposition";
+    const NAME: &'static [u8] = b"Content-Disposition";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let disp_type = read_while!(reader, is_token);

@@ -8,10 +8,11 @@ use crate::{
 
 use super::{OptionTag, SipHeaderParser};
 
-pub struct ProxyRequire<'a>(Vec<OptionTag<'a>>);
+pub struct Supported<'a>(Vec<OptionTag<'a>>);
 
-impl<'a> SipHeaderParser<'a> for ProxyRequire<'a> {
-    const NAME: &'static [u8] = b"Proxy-Require";
+impl<'a> SipHeaderParser<'a> for Supported<'a> {
+    const NAME: &'static [u8] = b"Supported";
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"k");
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let tag = read_while!(reader, is_token);
@@ -25,6 +26,6 @@ impl<'a> SipHeaderParser<'a> for ProxyRequire<'a> {
             space!(reader);
         }
 
-        Ok(ProxyRequire(tags))
+        Ok(Supported(tags))
     }
 }

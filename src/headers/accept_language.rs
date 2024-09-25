@@ -38,7 +38,7 @@ pub struct AcceptLanguage<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
-    const NAME: &'a [u8] = b"Accept-Language";
+    const NAME: &'static [u8] = b"Accept-Language";
 
     fn parse(reader: &mut ByteReader<'a>) -> crate::parser::Result<Self> {
         let mut languages: Vec<Language> = Vec::new();

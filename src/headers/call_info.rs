@@ -23,7 +23,7 @@ pub struct CallInfo<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
-    const NAME: &'a [u8] = b"Call-Info";
+    const NAME: &'static [u8] = b"Call-Info";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let mut purpose: Option<&'a str> = None;
