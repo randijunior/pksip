@@ -58,7 +58,7 @@ impl<'a> ByteReader<'a> {
     }
 
     pub fn iter(&self) -> std::slice::Iter<u8> {
-        self.src.iter()
+        self.as_ref().iter()
     }
 
     pub fn peek_while<F>(&self, func: F) -> Range<usize>
