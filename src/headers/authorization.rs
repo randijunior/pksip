@@ -1,6 +1,6 @@
 use crate::{
     byte_reader::ByteReader,
-    macros::{parse_auth_param, parse_param, read_until_byte, read_while, sip_parse_error, space},
+    macros::{parse_auth_param, read_while, space},
     parser::{is_token, Result},
     uri::Params,
 };
@@ -8,10 +8,10 @@ use crate::{
 use super::SipHeaderParser;
 
 #[derive(Debug, Default)]
-pub struct Digest<'a> {
-    realm: Option<&'a str>,
+pub struct DigestCredential<'a> {
+    realm: &'a str,
     username: Option<&'a str>,
-    nonce: Option<&'a str>,
+    nonce: &'a str,
     uri: Option<&'a str>,
     response: Option<&'a str>,
     algorithm: Option<&'a str>,
@@ -22,15 +22,15 @@ pub struct Digest<'a> {
     param: Params<'a>,
 }
 
-impl<'a> Digest<'a> {
-    pub fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let mut digest = Digest::default();
+impl<'a> DigestCredential<'a> {
+    pub(crate) fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+        let mut digest = DigestCredential::default();
         loop {
             space!(reader);
             match read_while!(reader, is_token) {
-                b"realm" => digest.realm = parse_auth_param!(reader),
+                b"realm" => digest.realm = parse_auth_param!(reader).unwrap_or(""),
                 b"username" => digest.username = parse_auth_param!(reader),
-                b"nonce" => digest.nonce = parse_auth_param!(reader),
+                b"nonce" => digest.nonce = parse_auth_param!(reader).unwrap_or(""),
                 b"uri" => digest.uri = parse_auth_param!(reader),
                 b"response" => digest.response = parse_auth_param!(reader),
                 b"algorithm" => digest.algorithm = parse_auth_param!(reader),
@@ -58,7 +58,7 @@ impl<'a> Digest<'a> {
 }
 
 pub enum Credential<'a> {
-    Digest(Digest<'a>),
+    Digest(DigestCredential<'a>),
     Other { scheme: &'a str, param: Params<'a> },
 }
 
@@ -93,14 +93,16 @@ auth-scheme       =  token
 
 */
 
-pub struct Authorization<'a>(Credential<'a>);
+pub struct Authorization<'a> {
+    credential: Credential<'a>
+}
 
 impl<'a> SipHeaderParser<'a> for Authorization<'a> {
     const NAME: &'static [u8] = b"Authorization";
 
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let cred = Self::parse_auth_credential(reader)?;
+        let credential = Self::parse_auth_credential(reader)?;
 
-        Ok(Authorization(cred))
+        Ok(Authorization {  credential })
     }
 }

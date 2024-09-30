@@ -37,9 +37,10 @@ pub mod subject;
 pub mod supported;
 pub mod timestamp;
 pub mod to;
-pub mod via;
 pub mod unsupported;
 pub mod user_agent;
+pub mod via;
+pub mod warning;
 
 use std::str;
 
@@ -49,7 +50,7 @@ use accept_language::AcceptLanguage;
 use alert_info::AlertInfo;
 use allow::Allow;
 use authentication_info::AuthenticationInfo;
-use authorization::{Authorization, Credential, Digest};
+use authorization::{Authorization, Credential, DigestCredential};
 pub use call_id::CallId;
 use call_info::CallInfo;
 use contact::Contact;
@@ -85,6 +86,7 @@ pub use to::To;
 use unsupported::Unsupported;
 use user_agent::UserAgent;
 pub use via::Via;
+use warning::Warning;
 
 use crate::{
     byte_reader::ByteReader,
@@ -138,7 +140,9 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         None
     }
 
-    fn parse_auth_credential(reader: &mut ByteReader<'a>) -> Result<Credential<'a>> {
+    fn parse_auth_credential(
+        reader: &mut ByteReader<'a>,
+    ) -> Result<Credential<'a>> {
         let scheme = match reader.peek() {
             Some(b'"') => {
                 reader.next();
@@ -153,7 +157,7 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         };
 
         match scheme {
-            b"Digest" => Ok(Credential::Digest(Digest::parse(reader)?)),
+            b"Digest" => Ok(Credential::Digest(DigestCredential::parse(reader)?)),
             other => {
                 space!(reader);
                 let other = std::str::from_utf8(other)?;
@@ -237,7 +241,7 @@ pub enum Header<'a> {
     Unsupported(Unsupported<'a>),
     UserAgent(UserAgent<'a>),
     Via(Via<'a>),
-    Warning,
+    Warning(Warning<'a>),
     WWWAuthenticate,
     Generic { name: &'a str, value: &'a str },
 }

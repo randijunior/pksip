@@ -1,13 +1,17 @@
+use crate::{byte_reader::ByteReader, parser::Result};
+
 use super::{authorization::Credential, SipHeaderParser};
 
-pub struct ProxyAuthorization<'a>(Credential<'a>);
+pub struct ProxyAuthorization<'a> {
+    credential: Credential<'a>
+}
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthorization<'a> {
     const NAME: &'static [u8] = b"Proxy-Authorization";
 
-    fn parse(reader: &mut crate::byte_reader::ByteReader<'a>) -> crate::parser::Result<Self> {
-        let cred = Self::parse_auth_credential(reader)?;
+    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+        let credential = Self::parse_auth_credential(reader)?;
 
-        Ok(ProxyAuthorization(cred))
+        Ok(ProxyAuthorization { credential })
     }
 }

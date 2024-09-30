@@ -553,6 +553,10 @@ impl<'a> SipParser<'a> {
         Ok(())
     }
 }
+#[inline(always)]
+pub(crate) fn is_host(b: u8) -> bool {
+    HOST_SPEC_MAP[b as usize]
+}
 
 #[inline(always)]
 fn is_user(b: u8) -> bool {
