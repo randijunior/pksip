@@ -3,7 +3,7 @@ use crate::{byte_reader::ByteReader, parser::Result};
 use super::{authorization::Credential, SipHeaderParser};
 
 pub struct ProxyAuthorization<'a> {
-    credential: Credential<'a>
+    credential: Credential<'a>,
 }
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthorization<'a> {

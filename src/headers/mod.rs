@@ -41,6 +41,7 @@ pub mod unsupported;
 pub mod user_agent;
 pub mod via;
 pub mod warning;
+pub mod www_authenticate;
 
 use std::str;
 
@@ -70,7 +71,7 @@ use mime_version::MimeVersion;
 use min_expires::MinExpires;
 use organization::Organization;
 use priority::Priority;
-use proxy_authenticate::ProxyAuthenticate;
+use proxy_authenticate::{Challenge, DigestChallenge, ProxyAuthenticate};
 use proxy_authorization::ProxyAuthorization;
 use proxy_require::ProxyRequire;
 use record_route::RecordRoute;
@@ -87,10 +88,13 @@ use unsupported::Unsupported;
 use user_agent::UserAgent;
 pub use via::Via;
 use warning::Warning;
+use www_authenticate::WWWAuthenticate;
 
 use crate::{
     byte_reader::ByteReader,
-    macros::{parse_auth_param, read_until_byte, read_while, sip_parse_error, space},
+    macros::{
+        parse_auth_param, read_until_byte, read_while, sip_parse_error, space, until_newline,
+    },
     parser::{is_token, Result},
     uri::Params,
 };
@@ -140,9 +144,7 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         None
     }
 
-    fn parse_auth_credential(
-        reader: &mut ByteReader<'a>,
-    ) -> Result<Credential<'a>> {
+    fn parse_auth_credential(reader: &mut ByteReader<'a>) -> Result<Credential<'a>> {
         let scheme = match reader.peek() {
             Some(b'"') => {
                 reader.next();
@@ -176,6 +178,47 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
                 }
 
                 Ok(Credential::Other {
+                    scheme: other,
+                    param: params,
+                })
+            }
+        }
+    }
+
+    fn parse_auth_challenge(reader: &mut ByteReader<'a>) -> Result<Challenge<'a>> {
+        let scheme = match reader.peek() {
+            Some(b'"') => {
+                reader.next();
+                let value = read_until_byte!(reader, b'"');
+                reader.next();
+                value
+            }
+            Some(_) => {
+                read_while!(reader, is_token)
+            }
+            None => return sip_parse_error!("eof!"),
+        };
+
+        match scheme {
+            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(reader)?)),
+            other => {
+                space!(reader);
+                let other = std::str::from_utf8(other)?;
+                let name = read_while!(reader, is_token);
+                let name = unsafe { std::str::from_utf8_unchecked(name) };
+                let val = parse_auth_param!(reader);
+                let mut params = Params::new();
+                params.set(name, val);
+
+                while let Some(b',') = reader.peek() {
+                    space!(reader);
+                    let name = read_while!(reader, is_token);
+                    let name = unsafe { std::str::from_utf8_unchecked(name) };
+                    let val = parse_auth_param!(reader);
+                    params.set(name, val);
+                }
+
+                Ok(Challenge::Other {
                     scheme: other,
                     param: params,
                 })
@@ -242,6 +285,6 @@ pub enum Header<'a> {
     UserAgent(UserAgent<'a>),
     Via(Via<'a>),
     Warning(Warning<'a>),
-    WWWAuthenticate,
-    Generic { name: &'a str, value: &'a str },
+    WWWAuthenticate(WWWAuthenticate<'a>),
+    Other { name: &'a str, value: &'a str },
 }

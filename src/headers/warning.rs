@@ -1,13 +1,16 @@
 use core::str;
 
-use crate::{macros::{digits, read_until_byte, read_while, sip_parse_error, space}, parser::is_host};
+use crate::{
+    macros::{digits, read_until_byte, read_while, sip_parse_error, space},
+    parser::is_host,
+};
 
 use super::SipHeaderParser;
 
 pub struct Warning<'a> {
     code: u32,
     host: &'a str,
-    text: &'a str
+    text: &'a str,
 }
 
 impl<'a> SipHeaderParser<'a> for Warning<'a> {
@@ -33,4 +36,3 @@ impl<'a> SipHeaderParser<'a> for Warning<'a> {
         }
     }
 }
-

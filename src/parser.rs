@@ -1,12 +1,45 @@
 use crate::headers::accept::Accept;
 use crate::headers::accept_encoding::AcceptEncoding;
+use crate::headers::accept_language::AcceptLanguage;
+use crate::headers::alert_info::AlertInfo;
 use crate::headers::allow::Allow;
+use crate::headers::authentication_info::AuthenticationInfo;
+use crate::headers::authorization::Authorization;
+use crate::headers::call_id::CallId;
 use crate::headers::contact::Contact;
+use crate::headers::content_disposition::ContentDisposition;
+use crate::headers::content_encoding::ContentEncoding;
+use crate::headers::content_length::ContentLength;
+use crate::headers::content_type::ContentType;
 use crate::headers::cseq::CSeq;
+use crate::headers::date::Date;
+use crate::headers::error_info::ErrorInfo;
 use crate::headers::expires::Expires;
+use crate::headers::in_reply_to::InReplyTo;
 use crate::headers::max_fowards::MaxForwards;
+use crate::headers::mime_version::MimeVersion;
+use crate::headers::min_expires::MinExpires;
+use crate::headers::organization::Organization;
+use crate::headers::priority::Priority;
+use crate::headers::proxy_authenticate::ProxyAuthenticate;
+use crate::headers::proxy_authorization::ProxyAuthorization;
+use crate::headers::proxy_require::ProxyRequire;
+use crate::headers::record_route::RecordRoute;
+use crate::headers::reply_to::ReplyTo;
+use crate::headers::require::Require;
+use crate::headers::retry_after::RetryAfter;
 use crate::headers::route::Route;
-use crate::headers::{self, CallId, SipHeaderParser, To, Via};
+use crate::headers::server::Server;
+use crate::headers::subject::Subject;
+use crate::headers::supported::Supported;
+use crate::headers::timestamp::Timestamp;
+use crate::headers::to::To;
+use crate::headers::unsupported::Unsupported;
+use crate::headers::user_agent::UserAgent;
+use crate::headers::via::Via;
+use crate::headers::warning::Warning;
+use crate::headers::www_authenticate::WWWAuthenticate;
+use crate::headers::{self, SipHeaderParser};
 
 use crate::{byte_reader::ByteReader, headers::Header};
 
@@ -45,9 +78,9 @@ use crate::uri::Uri;
 use crate::uri::UriParams;
 use crate::uri::UserInfo;
 use crate::uri::{NameAddr, Params, SipUri};
-use crate::util::is_alphabetic;
 use crate::util::is_space;
 use crate::util::is_valid_port;
+use crate::util::{is_alphabetic, is_newline};
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
@@ -475,8 +508,8 @@ impl<'a> SipParser<'a> {
     }
 
     fn parse_headers(&mut self, headers: &mut SipHeaders<'a>) -> Result<()> {
+        let reader = &mut self.reader;
         'headers: loop {
-            let reader = &mut self.reader;
             let name = read_while!(reader, is_token);
 
             if reader.next() != Some(&b':') {
@@ -485,6 +518,10 @@ impl<'a> SipParser<'a> {
             space!(reader);
 
             match name {
+                error_info if ErrorInfo::match_name(error_info) => {
+                    let error_info = ErrorInfo::parse(reader)?;
+                    headers.push_header(Header::ErrorInfo(error_info))
+                }
                 route if Route::match_name(route) => 'route: loop {
                     let route = Route::parse(reader)?;
                     headers.push_header(Header::Route(route));
@@ -521,6 +558,10 @@ impl<'a> SipParser<'a> {
                     let cseq = CSeq::parse(reader)?;
                     headers.push_header(Header::CSeq(cseq))
                 }
+                auth if Authorization::match_name(auth) => {
+                    let auth = Authorization::parse(reader)?;
+                    headers.push_header(Header::Authorization(auth))
+                }
                 contact if Contact::match_name(contact) => 'contact: loop {
                     let contact = Contact::parse(reader)?;
                     headers.push_header(Header::Contact(contact));
@@ -529,6 +570,94 @@ impl<'a> SipParser<'a> {
                     };
                     reader.next();
                 },
+                expires if Expires::match_name(expires) => {
+                    let expires = Expires::parse(reader)?;
+                    headers.push_header(Header::Expires(expires));
+                }
+                in_reply_to if InReplyTo::match_name(in_reply_to) => {
+                    let in_reply_to = InReplyTo::parse(reader)?;
+                    headers.push_header(Header::InReplyTo(in_reply_to));
+                }
+                mime_version if MimeVersion::match_name(mime_version) => {
+                    let mime_version = MimeVersion::parse(reader)?;
+                    headers.push_header(Header::MimeVersion(mime_version));
+                }
+                min_expires if MinExpires::match_name(min_expires) => {
+                    let min_expires = MinExpires::parse(reader)?;
+                    headers.push_header(Header::MinExpires(min_expires));
+                }
+                user_agent if UserAgent::match_name(user_agent) => {
+                    let user_agent = UserAgent::parse(reader)?;
+                    headers.push_header(Header::UserAgent(user_agent))
+                }
+                date if Date::match_name(date) => {
+                    let date = Date::parse(reader)?;
+                    headers.push_header(Header::Date(date))
+                }
+                server if Server::match_name(server) => {
+                    let server = Server::parse(reader)?;
+                    headers.push_header(Header::Server(server))
+                }
+                subject if Subject::match_name(subject) => {
+                    let subject = Subject::parse(reader)?;
+                    headers.push_header(Header::Subject(subject))
+                }
+                priority if Priority::match_name(priority) => {
+                    let priority = Priority::parse(reader)?;
+                    headers.push_header(Header::Priority(priority))
+                }
+                proxy_authenticate if ProxyAuthenticate::match_name(proxy_authenticate) => {
+                    let proxy_authenticate = ProxyAuthenticate::parse(reader)?;
+                    headers.push_header(Header::ProxyAuthenticate(proxy_authenticate))
+                }
+                proxy_authorization if ProxyAuthorization::match_name(proxy_authorization) => {
+                    let proxy_authorization = ProxyAuthorization::parse(reader)?;
+                    headers.push_header(Header::ProxyAuthorization(proxy_authorization))
+                }
+                proxy_require if ProxyRequire::match_name(proxy_require) => {
+                    let proxy_require = ProxyRequire::parse(reader)?;
+                    headers.push_header(Header::ProxyRequire(proxy_require))
+                }
+                reply_to if ReplyTo::match_name(reply_to) => {
+                    let reply_to = ReplyTo::parse(reader)?;
+                    headers.push_header(Header::ReplyTo(reply_to))
+                }
+                content_length if ContentLength::match_name(content_length) => {
+                    let content_length = ContentLength::parse(reader)?;
+                    headers.push_header(Header::ContentLength(content_length))
+                }
+                content_encoding if ContentEncoding::match_name(content_encoding) => {
+                    let content_encoding = ContentEncoding::parse(reader)?;
+                    headers.push_header(Header::ContentEncoding(content_encoding))
+                }
+                content_type if ContentType::match_name(content_type) => {
+                    let content_type = ContentType::parse(reader)?;
+                    headers.push_header(Header::ContentType(content_type))
+                }
+                content_disposition if ContentDisposition::match_name(content_disposition) => {
+                    let content_disposition = ContentDisposition::parse(reader)?;
+                    headers.push_header(Header::ContentDisposition(content_disposition))
+                }
+                record_route if RecordRoute::match_name(record_route) => 'rr: loop {
+                    let record_route = RecordRoute::parse(reader)?;
+                    headers.push_header(Header::RecordRoute(record_route));
+                    let Some(&b',') = reader.peek() else {
+                        break 'rr;
+                    };
+                    reader.next();
+                },
+                require if Require::match_name(require) => {
+                    let require = Require::parse(reader)?;
+                    headers.push_header(Header::Require(require))
+                }
+                retry_after if RetryAfter::match_name(retry_after) => {
+                    let retry_after = RetryAfter::parse(reader)?;
+                    headers.push_header(Header::RetryAfter(retry_after))
+                }
+                organization if Organization::match_name(organization) => {
+                    let organization = Organization::parse(reader)?;
+                    headers.push_header(Header::Organization(organization))
+                }
                 accept_encoding if AcceptEncoding::match_name(accept_encoding) => {
                     let accept_encoding = AcceptEncoding::parse(reader)?;
                     headers.push_header(Header::AcceptEncoding(accept_encoding));
@@ -537,16 +666,58 @@ impl<'a> SipParser<'a> {
                     let accept = Accept::parse(reader)?;
                     headers.push_header(Header::Accept(accept));
                 }
+                accept_language if AcceptLanguage::match_name(accept_language) => {
+                    let accept_language = AcceptLanguage::parse(reader)?;
+                    headers.push_header(Header::AcceptLanguage(accept_language));
+                }
+                alert_info if AlertInfo::match_name(alert_info) => {
+                    let alert_info = AlertInfo::parse(reader)?;
+                    headers.push_header(Header::AlertInfo(alert_info));
+                }
                 allow if Allow::match_name(allow) => {
                     let allow = Allow::parse(reader)?;
                     headers.push_header(Header::Allow(allow));
                 }
-                expires if Expires::match_name(expires) => {
-                    let expires = Expires::parse(reader)?;
-                    headers.push_header(Header::Expires(expires));
+                auth_info if AuthenticationInfo::match_name(auth_info) => {
+                    let auth_info = AuthenticationInfo::parse(reader)?;
+                    headers.push_header(Header::AuthenticationInfo(auth_info));
                 }
-                _ => todo!(),
+                supported if Supported::match_name(supported) => {
+                    let supported = Supported::parse(reader)?;
+                    headers.push_header(Header::Supported(supported));
+                }
+                timestamp if Timestamp::match_name(timestamp) => {
+                    let timestamp = Timestamp::parse(reader)?;
+                    headers.push_header(Header::Timestamp(timestamp));
+                }
+                user_agent if UserAgent::match_name(user_agent) => {
+                    let user_agent = UserAgent::parse(reader)?;
+                    headers.push_header(Header::UserAgent(user_agent));
+                }
+                unsupported if Unsupported::match_name(unsupported) => {
+                    let unsupported = Unsupported::parse(reader)?;
+                    headers.push_header(Header::Unsupported(unsupported));
+                }
+                www_authenticate if WWWAuthenticate::match_name(www_authenticate) => {
+                    let www_authenticate = WWWAuthenticate::parse(reader)?;
+                    headers.push_header(Header::WWWAuthenticate(www_authenticate));
+                }
+                warning if Warning::match_name(warning) => {
+                    let warning = Warning::parse(reader)?;
+                    headers.push_header(Header::Warning(warning));
+                }
+                _ => {
+                    let name = unsafe { str::from_utf8_unchecked(name) };
+                    let value = until_newline!(reader);
+                    let value = str::from_utf8(value)?;
+
+                    headers.push_header(Header::Other { name, value });
+                }
             };
+            newline!(reader);
+            if !reader.is_eof() {
+                continue;
+            }
             break 'headers;
         }
 
@@ -746,31 +917,4 @@ mod tests {
             })
         );
     }
-    /*
-    "INVITE sip:user@foo SIP/2.0\n"
-    "from: Hi I'm Joe <sip:joe.user@bar.otherdomain.com>;tag=123457890123456\r"
-    "To: Fellow User <sip:user@foo.bar.domain.com>\r\n"
-    "Call-ID: 12345678901234567890@bar\r\n"
-    "Content-Length: 0\r\n"
-    "CSeq: 123456 INVITE\n"
-    "Contact: <sip:joe@bar> ; q=0.5;expires=3600,sip:user@host;q=0.500\r"
-    "  ,sip:user2@host2\n"
-    "Content-Type: text/html ; charset=ISO-8859-4\r"
-    "Route: <sip:bigbox3.site3.atlanta.com;lr>,\r\n"
-    "  <sip:server10.biloxi.com;lr>\r"
-    "Record-Route: <sip:server10.biloxi.com>,\r\n" /* multiple routes+folding*/
-    "  <sip:bigbox3.site3.atlanta.com;lr>\n"
-    "v: SIP/2.0/SCTP bigbox3.site3.atlanta.com;branch=z9hG4bK77ef4c230\n"
-    "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8\n" /* folding. */
-    " ;received=192.0.2.1\r\n"
-    "Via: SIP/2.0/UDP 10.2.1.1, SIP/2.0/TCP 192.168.1.1\n"
-    "Organization: \r"
-    "Max-Forwards: 70\n"
-    "X-Header: \r\n"        /* empty header */
-    "P-Associated-URI:\r\n" /* empty header without space */
-    "\r\n"
-
-
-
-     */
 }

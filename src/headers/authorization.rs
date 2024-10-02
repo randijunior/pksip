@@ -24,7 +24,7 @@ pub struct DigestCredential<'a> {
 
 impl<'a> DigestCredential<'a> {
     pub(crate) fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let mut digest = DigestCredential::default();
+        let mut digest = Self::default();
         loop {
             space!(reader);
             match read_while!(reader, is_token) {
@@ -94,7 +94,7 @@ auth-scheme       =  token
 */
 
 pub struct Authorization<'a> {
-    credential: Credential<'a>
+    credential: Credential<'a>,
 }
 
 impl<'a> SipHeaderParser<'a> for Authorization<'a> {
@@ -103,6 +103,6 @@ impl<'a> SipHeaderParser<'a> for Authorization<'a> {
     fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
         let credential = Self::parse_auth_credential(reader)?;
 
-        Ok(Authorization {  credential })
+        Ok(Authorization { credential })
     }
 }
