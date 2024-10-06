@@ -1,3 +1,13 @@
+macro_rules! peek {
+    ($reader:ident) => {{
+        if let Some(byte) = $reader.peek() {
+            Ok(byte)
+        } else {
+            $reader.error(crate::byte_reader::ErrorKind::Eof)
+        }
+    }};
+}
+
 macro_rules! space {
     ($reader:ident) => {{
         $reader.read_while(crate::util::is_space);
@@ -85,10 +95,9 @@ macro_rules! b_map {
 
 macro_rules! parse_param {
     ($reader:expr, $func:expr) => {{
-        if let Some(&b';') = $reader.read_if_eq(b';') {
+        if let Some(&b';') = $reader.peek() {
             let mut params = crate::uri::Params::new();
             while let Some(&b';') = $reader.peek() {
-                $reader.next();
                 let param = crate::headers::parse_generic_param($reader)?;
                 if let Some(param) = $func(param) {
                     params.set(param.0, param.1);
@@ -133,6 +142,7 @@ macro_rules! sip_parse_error {
     }};
 }
 
+pub(crate) use peek;
 pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;

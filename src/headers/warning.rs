@@ -23,7 +23,7 @@ impl<'a> SipHeaderParser<'a> for Warning<'a> {
             space!(reader);
             let host = read_while!(reader, is_host);
             let host = unsafe { str::from_utf8_unchecked(host) };
-            if let Some(b'"') = reader.read_if_eq(b'"') {
+            if let Ok(Some(b'"')) = reader.read_if_eq(b'"') {
                 let text = read_until_byte!(reader, b'"');
                 let text = unsafe { str::from_utf8_unchecked(text) };
 

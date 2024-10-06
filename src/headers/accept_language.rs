@@ -57,3 +57,8 @@ impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
         Ok(AcceptLanguage { languages })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+}

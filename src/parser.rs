@@ -277,7 +277,7 @@ impl<'a> SipParser<'a> {
     }
 
     pub(crate) fn parse_host(reader: &mut ByteReader<'a>) -> Result<HostPort<'a>> {
-        if let Some(_) = reader.read_if(|b| b == b'[') {
+        if let Ok(Some(_)) = reader.read_if(|b| b == b'[') {
             // the '[' and ']' characters are removed from the host
             let host = read_until_byte!(reader, b']');
             let host = str::from_utf8(host)?;
@@ -308,7 +308,7 @@ impl<'a> SipParser<'a> {
     }
 
     fn parse_port(reader: &mut ByteReader) -> Result<Option<u16>> {
-        if let Some(_) = reader.read_if(|b| b == b':') {
+        if let Ok(Some(_)) = reader.read_if(|b| b == b':') {
             let digits = digits!(reader);
             let digits = unsafe { str::from_utf8_unchecked(digits) };
             match digits.parse::<u16>() {

@@ -106,6 +106,7 @@ pub(crate) fn parse_generic_param<'a>(
 ) -> Result<(&'a str, Option<&'a str>)> {
     // take ';' character
     reader.next();
+    space!(reader);
 
     let name = read_while!(reader, is_token);
     let name = unsafe { str::from_utf8_unchecked(name) };
