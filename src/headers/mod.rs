@@ -91,7 +91,7 @@ use warning::Warning;
 use www_authenticate::WWWAuthenticate;
 
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{
         parse_auth_param, read_until_byte, read_while, sip_parse_error, space, until_newline,
     },
@@ -102,17 +102,17 @@ use crate::{
 pub struct OptionTag<'a>(&'a str);
 
 pub(crate) fn parse_generic_param<'a>(
-    reader: &mut ByteReader<'a>,
+    scanner: &mut Scanner<'a>,
 ) -> Result<(&'a str, Option<&'a str>)> {
     // take ';' character
-    reader.next();
-    space!(reader);
+    scanner.next();
+    space!(scanner);
 
-    let name = read_while!(reader, is_token);
+    let name = read_while!(scanner, is_token);
     let name = unsafe { str::from_utf8_unchecked(name) };
-    let value = if reader.peek() == Some(&b'=') {
-        reader.next();
-        let value = read_while!(reader, is_token);
+    let value = if scanner.peek() == Some(&b'=') {
+        scanner.next();
+        let value = read_while!(scanner, is_token);
         Some(unsafe { str::from_utf8_unchecked(value) })
     } else {
         None
@@ -125,7 +125,7 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
     const NAME: &'static [u8];
     const SHORT_NAME: Option<&'static [u8]> = None;
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self>;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self>;
 
     #[inline]
     fn match_name(name: &[u8]) -> bool {
@@ -145,36 +145,36 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         None
     }
 
-    fn parse_auth_credential(reader: &mut ByteReader<'a>) -> Result<Credential<'a>> {
-        let scheme = match reader.peek() {
+    fn parse_auth_credential(scanner: &mut Scanner<'a>) -> Result<Credential<'a>> {
+        let scheme = match scanner.peek() {
             Some(b'"') => {
-                reader.next();
-                let value = read_until_byte!(reader, b'"');
-                reader.next();
+                scanner.next();
+                let value = read_until_byte!(scanner, b'"');
+                scanner.next();
                 value
             }
             Some(_) => {
-                read_while!(reader, is_token)
+                read_while!(scanner, is_token)
             }
             None => return sip_parse_error!("eof!"),
         };
 
         match scheme {
-            b"Digest" => Ok(Credential::Digest(DigestCredential::parse(reader)?)),
+            b"Digest" => Ok(Credential::Digest(DigestCredential::parse(scanner)?)),
             other => {
-                space!(reader);
+                space!(scanner);
                 let other = std::str::from_utf8(other)?;
-                let name = read_while!(reader, is_token);
+                let name = read_while!(scanner, is_token);
                 let name = unsafe { std::str::from_utf8_unchecked(name) };
-                let val = parse_auth_param!(reader);
+                let val = parse_auth_param!(scanner);
                 let mut params = Params::new();
                 params.set(name, val);
 
-                while let Some(b',') = reader.peek() {
-                    space!(reader);
-                    let name = read_while!(reader, is_token);
+                while let Some(b',') = scanner.peek() {
+                    space!(scanner);
+                    let name = read_while!(scanner, is_token);
                     let name = unsafe { std::str::from_utf8_unchecked(name) };
-                    let val = parse_auth_param!(reader);
+                    let val = parse_auth_param!(scanner);
                     params.set(name, val);
                 }
 
@@ -186,36 +186,36 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         }
     }
 
-    fn parse_auth_challenge(reader: &mut ByteReader<'a>) -> Result<Challenge<'a>> {
-        let scheme = match reader.peek() {
+    fn parse_auth_challenge(scanner: &mut Scanner<'a>) -> Result<Challenge<'a>> {
+        let scheme = match scanner.peek() {
             Some(b'"') => {
-                reader.next();
-                let value = read_until_byte!(reader, b'"');
-                reader.next();
+                scanner.next();
+                let value = read_until_byte!(scanner, b'"');
+                scanner.next();
                 value
             }
             Some(_) => {
-                read_while!(reader, is_token)
+                read_while!(scanner, is_token)
             }
             None => return sip_parse_error!("eof!"),
         };
 
         match scheme {
-            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(reader)?)),
+            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(scanner)?)),
             other => {
-                space!(reader);
+                space!(scanner);
                 let other = std::str::from_utf8(other)?;
-                let name = read_while!(reader, is_token);
+                let name = read_while!(scanner, is_token);
                 let name = unsafe { std::str::from_utf8_unchecked(name) };
-                let val = parse_auth_param!(reader);
+                let val = parse_auth_param!(scanner);
                 let mut params = Params::new();
                 params.set(name, val);
 
-                while let Some(b',') = reader.peek() {
-                    space!(reader);
-                    let name = read_while!(reader, is_token);
+                while let Some(b',') = scanner.peek() {
+                    space!(scanner);
+                    let name = read_while!(scanner, is_token);
                     let name = unsafe { std::str::from_utf8_unchecked(name) };
-                    let val = parse_auth_param!(reader);
+                    let val = parse_auth_param!(scanner);
                     params.set(name, val);
                 }
 

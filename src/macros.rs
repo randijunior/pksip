@@ -1,78 +1,68 @@
-macro_rules! peek {
-    ($reader:ident) => {{
-        if let Some(byte) = $reader.peek() {
-            Ok(byte)
-        } else {
-            $reader.error(crate::byte_reader::ErrorKind::Eof)
-        }
-    }};
-}
-
 macro_rules! space {
-    ($reader:ident) => {{
-        $reader.read_while(crate::util::is_space);
+    ($scanner:ident) => {{
+        $scanner.read_while(crate::util::is_space);
     }};
 }
 
 macro_rules! digits {
-    ($reader:ident) => {{
-        let range = $reader.read_while(crate::util::is_digit);
+    ($scanner:ident) => {{
+        let range = $scanner.read_while(crate::util::is_digit);
 
-        &$reader.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! read_while {
-    ($reader:expr, $func:expr) => {{
-        let range = $reader.read_while($func);
+    ($scanner:expr, $func:expr) => {{
+        let range = $scanner.read_while($func);
 
-        &$reader.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! read_until_byte {
-    ($reader:expr, $byte:expr) => {{
-        let range = $reader.read_while(|b| b != $byte);
+    ($scanner:expr, $byte:expr) => {{
+        let range = $scanner.read_while(|b| b != $byte);
 
-        &$reader.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! find {
-    ($reader:expr, $tag:expr) => {{
-        let range = $reader.read_tag($tag)?;
+    ($scanner:expr, $tag:expr) => {{
+        let range = $scanner.read_tag($tag)?;
 
-        &$reader.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! until_newline {
-    ($reader:ident) => {{
-        let range = $reader.read_while(|b| !crate::util::is_newline(b));
+    ($scanner:ident) => {{
+        let range = $scanner.read_while(|b| !crate::util::is_newline(b));
 
-        &$reader.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! peek_while {
-    ($reader:expr, $func:expr) => {{
-        let range = $reader.peek_while($func);
+    ($scanner:expr, $func:expr) => {{
+        let range = $scanner.peek_while($func);
 
-        (&$reader.src[range])
+        (&$scanner.src[range])
     }};
 }
 
 macro_rules! newline {
-    ($reader:ident) => {{
-        $reader.read_while(crate::util::is_newline);
+    ($scanner:ident) => {{
+        $scanner.read_while(crate::util::is_newline);
     }};
 }
 
 macro_rules! alpha {
-    ($reader:ident) => {{
-        let range = $reader.read_while(crate::util::is_alphabetic);
+    ($scanner:ident) => {{
+        let range = $scanner.read_while(crate::util::is_alphabetic);
 
-        &$reader.src[range]
+        &$scanner.src[range]
     }};
 }
 
@@ -94,11 +84,11 @@ macro_rules! b_map {
 }
 
 macro_rules! parse_param {
-    ($reader:expr, $func:expr) => {{
-        if let Some(&b';') = $reader.peek() {
+    ($scanner:expr, $func:expr) => {{
+        if let Some(&b';') = $scanner.peek() {
             let mut params = crate::uri::Params::new();
-            while let Some(&b';') = $reader.peek() {
-                let param = crate::headers::parse_generic_param($reader)?;
+            while let Some(&b';') = $scanner.peek() {
+                let param = crate::headers::parse_generic_param($scanner)?;
                 if let Some(param) = $func(param) {
                     params.set(param.0, param.1);
                 }
@@ -115,17 +105,17 @@ macro_rules! parse_param {
 }
 
 macro_rules! parse_auth_param {
-    ($reader: expr) => {{
-        if $reader.peek() == Some(&b'=') {
-            $reader.next();
-            match $reader.peek() {
+    ($scanner: expr) => {{
+        if $scanner.peek() == Some(&b'=') {
+            $scanner.next();
+            match $scanner.peek() {
                 Some(b'"') => {
-                    $reader.next();
-                    let value = crate::macros::read_until_byte!($reader, b'"');
+                    $scanner.next();
+                    let value = crate::macros::read_until_byte!($scanner, b'"');
                     Some((std::str::from_utf8(value)?))
                 }
                 Some(_) => {
-                    let value = read_while!($reader, is_token);
+                    let value = read_while!($scanner, is_token);
                     Some(unsafe { std::str::from_utf8_unchecked(value) })
                 }
                 None => None,
@@ -142,7 +132,6 @@ macro_rules! sip_parse_error {
     }};
 }
 
-pub(crate) use peek;
 pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;

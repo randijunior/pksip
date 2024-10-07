@@ -1,5 +1,5 @@
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{parse_param, sip_parse_error},
     parser::{Result, SipParser},
     uri::{NameAddr, Params, SipUri},
@@ -15,9 +15,9 @@ pub struct Route<'a> {
 impl<'a> SipHeaderParser<'a> for Route<'a> {
     const NAME: &'static [u8] = b"Route";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(reader)? {
-            let param = parse_param!(reader, |param| Some(param));
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(scanner)? {
+            let param = parse_param!(scanner, |param| Some(param));
             Ok(Route {
                 name_addr: addr,
                 param,

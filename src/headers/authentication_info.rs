@@ -1,5 +1,5 @@
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{parse_auth_param, read_while, sip_parse_error, space},
     parser::{is_token, Result},
     uri::Params,
@@ -20,7 +20,7 @@ pub struct AuthenticationInfo<'a> {
 impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
     const NAME: &'static [u8] = b"Authentication-Info";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let mut nextnonce: Option<&'a str> = None;
         let mut rspauth: Option<&'a str> = None;
         let mut qop: Option<&'a str> = None;
@@ -29,21 +29,21 @@ impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
 
         macro_rules! parse {
             () => {
-                space!(reader);
-                match read_while!(reader, is_token) {
-                    b"nextnonce" => nextnonce = parse_auth_param!(reader),
-                    b"qop" => qop = parse_auth_param!(reader),
-                    b"rspauth" => rspauth = parse_auth_param!(reader),
-                    b"cnonce" => cnonce = parse_auth_param!(reader),
-                    b"nc" => nc = parse_auth_param!(reader),
+                space!(scanner);
+                match read_while!(scanner, is_token) {
+                    b"nextnonce" => nextnonce = parse_auth_param!(scanner),
+                    b"qop" => qop = parse_auth_param!(scanner),
+                    b"rspauth" => rspauth = parse_auth_param!(scanner),
+                    b"cnonce" => cnonce = parse_auth_param!(scanner),
+                    b"nc" => nc = parse_auth_param!(scanner),
                     _ => sip_parse_error!("Can't parse Authentication-Info")?,
                 };
             };
         }
 
         parse!();
-        while let Some(b',') = reader.peek() {
-            reader.next();
+        while let Some(b',') = scanner.peek() {
+            scanner.next();
             parse!();
         }
 

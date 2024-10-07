@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{digits, sip_parse_error},
     parser::Result,
 };
@@ -14,8 +14,8 @@ impl<'a> SipHeaderParser<'a> for ContentLength {
     const NAME: &'static [u8] = b"Content-Length";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"l");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let digits = digits!(reader);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let digits = digits!(scanner);
         let digits = unsafe { str::from_utf8_unchecked(digits) };
         if let Ok(cl) = digits.parse() {
             Ok(ContentLength(cl))

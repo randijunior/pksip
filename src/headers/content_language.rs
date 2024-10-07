@@ -13,19 +13,19 @@ pub struct ContentLanguage<'a>(Vec<&'a str>);
 impl<'a> SipHeaderParser<'a> for ContentLanguage<'a> {
     const NAME: &'static [u8] = b"Content-Language";
 
-    fn parse(reader: &mut crate::byte_reader::ByteReader<'a>) -> crate::parser::Result<Self> {
+    fn parse(scanner: &mut crate::scanner::Scanner<'a>) -> crate::parser::Result<Self> {
         let mut languages: Vec<&'a str> = Vec::new();
         let is_lang = |byte: u8| byte == b'*' || byte == b'-' || is_alphabetic(byte);
-        let language = read_while!(reader, is_lang);
+        let language = read_while!(scanner, is_lang);
         let language = unsafe { str::from_utf8_unchecked(language) };
         languages.push(language);
 
-        while let Some(b',') = reader.peek() {
-            reader.next();
-            let language = read_while!(reader, is_token);
+        while let Some(b',') = scanner.peek() {
+            scanner.next();
+            let language = read_while!(scanner, is_token);
             let language = unsafe { str::from_utf8_unchecked(language) };
             languages.push(language);
-            space!(reader);
+            space!(scanner);
         }
 
         Ok(ContentLanguage(languages))

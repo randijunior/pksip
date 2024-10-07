@@ -41,7 +41,7 @@ use crate::headers::warning::Warning;
 use crate::headers::www_authenticate::WWWAuthenticate;
 use crate::headers::{self, SipHeaderParser};
 
-use crate::{byte_reader::ByteReader, headers::Header};
+use crate::{scanner::Scanner, headers::Header};
 
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
@@ -50,7 +50,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::str::Utf8Error;
 
-use crate::byte_reader::ReaderError;
+use crate::scanner::ScannerError;
 use crate::headers::via::ViaParams;
 use crate::headers::SipHeaders;
 
@@ -132,18 +132,18 @@ b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
 pub struct SipParser<'a> {
-    reader: ByteReader<'a>,
+    scanner: Scanner<'a>,
 }
 
 impl<'a> SipParser<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         SipParser {
-            reader: ByteReader::new(bytes),
+            scanner: Scanner::new(bytes),
         }
     }
 
-    fn parse_scheme(reader: &mut ByteReader) -> Result<Scheme> {
-        match read_until_byte!(reader, b':') {
+    fn parse_scheme(scanner: &mut Scanner) -> Result<Scheme> {
+        match read_until_byte!(scanner, b':') {
             SCHEME_SIP => Ok(Scheme::Sip),
             SCHEME_SIPS => Ok(Scheme::Sips),
             // Unsupported URI scheme
@@ -151,9 +151,9 @@ impl<'a> SipParser<'a> {
         }
     }
 
-    fn has_user(reader: &ByteReader) -> bool {
+    fn has_user(scanner: &Scanner) -> bool {
         let mut matched = None;
-        for &byte in reader.as_ref().iter() {
+        for &byte in scanner.as_ref().iter() {
             if matches!(byte, b'@' | b' ' | b'\n' | b'>') {
                 matched = Some(byte);
                 break;
@@ -162,38 +162,38 @@ impl<'a> SipParser<'a> {
         matched == Some(b'@')
     }
 
-    fn parse_user(reader: &mut ByteReader<'a>) -> Result<Option<UserInfo<'a>>> {
-        if !Self::has_user(reader) {
+    fn parse_user(scanner: &mut Scanner<'a>) -> Result<Option<UserInfo<'a>>> {
+        if !Self::has_user(scanner) {
             return Ok(None);
         }
-        let bytes = read_while!(reader, is_user);
+        let bytes = read_while!(scanner, is_user);
         let name = str::from_utf8(bytes)?;
         let mut user = UserInfo {
             name,
             password: None,
         };
 
-        if reader.next() == Some(&b':') {
-            let bytes = read_while!(reader, is_pass);
+        if scanner.next() == Some(&b':') {
+            let bytes = read_while!(scanner, is_pass);
             let bytes = str::from_utf8(bytes)?;
-            reader.next();
+            scanner.next();
             user.password = Some(bytes);
         }
 
         Ok(Some(user))
     }
 
-    pub(crate) fn parse_sip_version(reader: &mut ByteReader<'a>) -> Result<()> {
-        let _version = find!(reader, SIPV2);
+    pub(crate) fn parse_sip_version(scanner: &mut Scanner<'a>) -> Result<()> {
+        let _version = find!(scanner, SIPV2);
 
         Ok(())
     }
 
     pub(crate) fn parse_fromto_param(
-        reader: &mut ByteReader<'a>,
+        scanner: &mut Scanner<'a>,
     ) -> Result<(Option<&'a str>, Option<Params<'a>>)> {
         let mut tag = None;
-        let params = parse_param!(reader, |param: Param<'a>| {
+        let params = parse_param!(scanner, |param: Param<'a>| {
             let (name, value) = param;
             if name == TAG_PARAM {
                 tag = value;
@@ -206,27 +206,27 @@ impl<'a> SipParser<'a> {
         Ok((tag, params))
     }
 
-    pub(crate) fn parse_sip_uri(reader: &mut ByteReader<'a>) -> Result<SipUri<'a>> {
-        space!(reader);
-        let peeked = reader.peek();
+    pub(crate) fn parse_sip_uri(scanner: &mut Scanner<'a>) -> Result<SipUri<'a>> {
+        space!(scanner);
+        let peeked = scanner.peek();
 
         match peeked {
             // Nameaddr with quoted display name
             Some(b'"') => {
-                reader.next();
-                let display = read_until_byte!(reader, b'"');
-                reader.next();
+                scanner.next();
+                let display = read_until_byte!(scanner, b'"');
+                scanner.next();
                 let display = str::from_utf8(display)?;
 
-                space!(reader);
+                space!(scanner);
 
                 // must be an '<'
-                let Some(&b'<') = reader.next() else {
+                let Some(&b'<') = scanner.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
-                let uri = Self::parse_uri(reader, true)?;
+                let uri = Self::parse_uri(scanner, true)?;
                 // must be an '>'
-                let Some(&b'>') = reader.next() else {
+                let Some(&b'>') = scanner.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
 
@@ -237,31 +237,31 @@ impl<'a> SipParser<'a> {
             }
             // NameAddr without display name
             Some(&b'<') => {
-                reader.next();
-                let uri = Self::parse_uri(reader, true)?;
-                reader.next();
+                scanner.next();
+                let uri = Self::parse_uri(scanner, true)?;
+                scanner.next();
 
                 Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
             }
             // SipUri
-            Some(_) if reader.peek_n(3) == Some(SCHEME_SIP) => {
-                let uri = Self::parse_uri(reader, false)?;
+            Some(_) if scanner.peek_n(3) == Some(SCHEME_SIP) => {
+                let uri = Self::parse_uri(scanner, false)?;
                 Ok(SipUri::Uri(uri))
             }
             // Nameaddr with unquoted display name
             Some(_) => {
-                let display = read_while!(reader, is_token);
+                let display = read_while!(scanner, is_token);
                 let display = unsafe { str::from_utf8_unchecked(display) };
 
-                space!(reader);
+                space!(scanner);
 
                 // must be an '<'
-                let Some(&b'<') = reader.next() else {
+                let Some(&b'<') = scanner.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
-                let uri = Self::parse_uri(reader, true)?;
+                let uri = Self::parse_uri(scanner, true)?;
                 // must be an '>'
-                let Some(&b'>') = reader.next() else {
+                let Some(&b'>') = scanner.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
 
@@ -276,40 +276,40 @@ impl<'a> SipParser<'a> {
         }
     }
 
-    pub(crate) fn parse_host(reader: &mut ByteReader<'a>) -> Result<HostPort<'a>> {
-        if let Ok(Some(_)) = reader.read_if(|b| b == b'[') {
+    pub(crate) fn parse_host(scanner: &mut Scanner<'a>) -> Result<HostPort<'a>> {
+        if let Ok(Some(_)) = scanner.read_if(|b| b == b'[') {
             // the '[' and ']' characters are removed from the host
-            let host = read_until_byte!(reader, b']');
+            let host = read_until_byte!(scanner, b']');
             let host = str::from_utf8(host)?;
-            reader.next();
+            scanner.next();
             return if let Ok(host) = host.parse() {
-                reader.next();
+                scanner.next();
                 Ok(HostPort::IpAddr {
                     host: IpAddr::V6(host),
-                    port: Self::parse_port(reader)?,
+                    port: Self::parse_port(scanner)?,
                 })
             } else {
-                sip_parse_error!("ReaderError parsing Ipv6 HostPort!")
+                sip_parse_error!("scannerError parsing Ipv6 HostPort!")
             };
         }
-        let host = read_while!(reader, |b| HOST_SPEC_MAP[b as usize]);
+        let host = read_while!(scanner, |b| HOST_SPEC_MAP[b as usize]);
         let host = unsafe { str::from_utf8_unchecked(host) };
         if let Ok(addr) = IpAddr::from_str(host) {
             Ok(HostPort::IpAddr {
                 host: addr,
-                port: Self::parse_port(reader)?,
+                port: Self::parse_port(scanner)?,
             })
         } else {
             Ok(HostPort::DomainName {
                 host,
-                port: Self::parse_port(reader)?,
+                port: Self::parse_port(scanner)?,
             })
         }
     }
 
-    fn parse_port(reader: &mut ByteReader) -> Result<Option<u16>> {
-        if let Ok(Some(_)) = reader.read_if(|b| b == b':') {
-            let digits = digits!(reader);
+    fn parse_port(scanner: &mut Scanner) -> Result<Option<u16>> {
+        if let Ok(Some(_)) = scanner.read_if(|b| b == b':') {
+            let digits = digits!(scanner);
             let digits = unsafe { str::from_utf8_unchecked(digits) };
             match digits.parse::<u16>() {
                 Ok(port) if is_valid_port(port) => Ok(Some(port)),
@@ -323,18 +323,18 @@ impl<'a> SipParser<'a> {
     }
 
     fn parse_uri_param(
-        reader: &mut ByteReader<'a>,
+        scanner: &mut Scanner<'a>,
     ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>)> {
-        if reader.peek() == Some(&b';') {
+        if scanner.peek() == Some(&b';') {
             let mut others = Params::new();
             let mut uri_params = UriParams::default();
-            while let Some(&b';') = reader.peek() {
-                reader.next();
-                let name = read_while!(reader, is_param);
+            while let Some(&b';') = scanner.peek() {
+                scanner.next();
+                let name = read_while!(scanner, is_param);
                 let name = unsafe { str::from_utf8_unchecked(name) };
-                let value = if reader.peek() == Some(&b'=') {
-                    reader.next();
-                    let value = read_while!(reader, is_param);
+                let value = if scanner.peek() == Some(&b'=') {
+                    scanner.next();
+                    let value = read_while!(scanner, is_param);
                     Some(unsafe { str::from_utf8_unchecked(value) })
                 } else {
                     None
@@ -364,13 +364,13 @@ impl<'a> SipParser<'a> {
         }
     }
 
-    fn parse_uri(reader: &mut ByteReader<'a>, parse_params: bool) -> Result<Uri<'a>> {
-        let scheme = Self::parse_scheme(reader)?;
+    fn parse_uri(scanner: &mut Scanner<'a>, parse_params: bool) -> Result<Uri<'a>> {
+        let scheme = Self::parse_scheme(scanner)?;
         // take ':'
-        reader.next();
+        scanner.next();
 
-        let user = Self::parse_user(reader)?;
-        let host = Self::parse_host(reader)?;
+        let user = Self::parse_user(scanner)?;
+        let host = Self::parse_host(scanner)?;
 
         if !parse_params {
             return Ok(Uri {
@@ -382,25 +382,25 @@ impl<'a> SipParser<'a> {
                 header_params: None,
             });
         }
-        let (params, other_params) = Self::parse_uri_param(reader)?;
+        let (params, other_params) = Self::parse_uri_param(scanner)?;
 
         let mut header_params = None;
-        if reader.peek() == Some(&b'?') {
+        if scanner.peek() == Some(&b'?') {
             let mut params = Params::new();
             loop {
                 // take '?' or '&'
-                reader.next();
-                let name = read_while!(reader, is_hdr);
+                scanner.next();
+                let name = read_while!(scanner, is_hdr);
                 let name = unsafe { str::from_utf8_unchecked(name) };
-                let value = if reader.peek() == Some(&b'=') {
-                    reader.next();
-                    let value = read_while!(reader, is_hdr);
+                let value = if scanner.peek() == Some(&b'=') {
+                    scanner.next();
+                    let value = read_while!(scanner, is_hdr);
                     Some(unsafe { str::from_utf8_unchecked(value) })
                 } else {
                     None
                 };
                 params.set(name, value);
-                if reader.peek() != Some(&b'&') {
+                if scanner.peek() != Some(&b'&') {
                     break;
                 }
             }
@@ -419,21 +419,21 @@ impl<'a> SipParser<'a> {
     }
 
     pub(crate) fn parse_via_params(
-        reader: &mut ByteReader<'a>,
+        scanner: &mut Scanner<'a>,
     ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
-        if reader.peek() != Some(&b';') {
+        if scanner.peek() != Some(&b';') {
             return Ok((None, None));
         }
         let mut params = ViaParams::default();
         let mut others = Params::new();
-        while let Some(&b';') = reader.peek() {
-            reader.next();
-            let name = read_while!(reader, is_via_param);
+        while let Some(&b';') = scanner.peek() {
+            scanner.next();
+            let name = read_while!(scanner, is_via_param);
             let name = unsafe { str::from_utf8_unchecked(name) };
             let mut value = "";
-            if let Some(&b'=') = reader.peek() {
-                reader.next();
-                let v = read_while!(reader, is_via_param);
+            if let Some(&b'=') = scanner.peek() {
+                scanner.next();
+                let v = read_while!(scanner, is_via_param);
                 value = unsafe { str::from_utf8_unchecked(v) };
             }
             match name {
@@ -467,255 +467,255 @@ impl<'a> SipParser<'a> {
     }
 
     fn parse_status_line(&mut self) -> Result<StatusLine<'a>> {
-        let reader = &mut self.reader;
-        Self::parse_sip_version(reader)?;
+        let scanner = &mut self.scanner;
+        Self::parse_sip_version(scanner)?;
 
-        space!(reader);
-        let digits = digits!(reader);
-        space!(reader);
+        space!(scanner);
+        let digits = digits!(scanner);
+        space!(scanner);
 
         let status_code = SipStatusCode::from(digits);
-        let bytes = until_newline!(reader);
+        let bytes = until_newline!(scanner);
 
         let rp = str::from_utf8(bytes)?;
 
-        newline!(reader);
+        newline!(scanner);
         Ok(StatusLine::new(status_code, rp))
     }
 
     fn parse_request_line(&mut self) -> Result<RequestLine<'a>> {
-        let reader = &mut self.reader;
-        let b_method = alpha!(reader);
+        let scanner = &mut self.scanner;
+        let b_method = alpha!(scanner);
         let method = SipMethod::from(b_method);
 
-        space!(reader);
-        let uri = Self::parse_uri(reader, true)?;
-        space!(reader);
+        space!(scanner);
+        let uri = Self::parse_uri(scanner, true)?;
+        space!(scanner);
 
-        Self::parse_sip_version(reader)?;
-        newline!(reader);
+        Self::parse_sip_version(scanner)?;
+        newline!(scanner);
 
         Ok(RequestLine { method, uri })
     }
 
     fn is_sip_request(&self) -> bool {
         const SIP: &[u8] = b"SIP";
-        let reader = &self.reader;
-        let tag = peek_while!(reader, is_alphabetic);
-        let next = reader.src.get(tag.len() + 1);
+        let scanner = &self.scanner;
+        let tag = peek_while!(scanner, is_alphabetic);
+        let next = scanner.src.get(tag.len() + 1);
 
         next.is_some_and(|next| (next == &b'/' || is_space(*next)) && tag == SIP)
     }
 
     fn parse_headers(&mut self, headers: &mut SipHeaders<'a>) -> Result<()> {
-        let reader = &mut self.reader;
+        let scanner = &mut self.scanner;
         'headers: loop {
-            let name = read_while!(reader, is_token);
+            let name = read_while!(scanner, is_token);
 
-            if reader.next() != Some(&b':') {
+            if scanner.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
             }
-            space!(reader);
+            space!(scanner);
 
             match name {
                 error_info if ErrorInfo::match_name(error_info) => {
-                    let error_info = ErrorInfo::parse(reader)?;
+                    let error_info = ErrorInfo::parse(scanner)?;
                     headers.push_header(Header::ErrorInfo(error_info))
                 }
                 route if Route::match_name(route) => 'route: loop {
-                    let route = Route::parse(reader)?;
+                    let route = Route::parse(scanner)?;
                     headers.push_header(Header::Route(route));
-                    let Some(&b',') = reader.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'route;
                     };
-                    reader.next();
+                    scanner.next();
                 },
                 via if Via::match_name(via) => 'via: loop {
-                    let via = Via::parse(reader)?;
+                    let via = Via::parse(scanner)?;
                     headers.push_header(Header::Via(via));
-                    let Some(&b',') = reader.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'via;
                     };
-                    reader.next();
+                    scanner.next();
                 },
                 max_fowards if MaxForwards::match_name(max_fowards) => {
-                    let max_fowards = MaxForwards::parse(reader)?;
+                    let max_fowards = MaxForwards::parse(scanner)?;
                     headers.push_header(Header::MaxForwards(max_fowards))
                 }
                 from if headers::From::match_name(from) => {
-                    let from = headers::From::parse(reader)?;
+                    let from = headers::From::parse(scanner)?;
                     headers.push_header(Header::From(from))
                 }
                 to if To::match_name(to) => {
-                    let to = To::parse(reader)?;
+                    let to = To::parse(scanner)?;
                     headers.push_header(Header::To(to))
                 }
                 cid if CallId::match_name(cid) => {
-                    let call_id = CallId::parse(reader)?;
+                    let call_id = CallId::parse(scanner)?;
                     headers.push_header(Header::CallId(call_id))
                 }
                 cseq if CSeq::match_name(cseq) => {
-                    let cseq = CSeq::parse(reader)?;
+                    let cseq = CSeq::parse(scanner)?;
                     headers.push_header(Header::CSeq(cseq))
                 }
                 auth if Authorization::match_name(auth) => {
-                    let auth = Authorization::parse(reader)?;
+                    let auth = Authorization::parse(scanner)?;
                     headers.push_header(Header::Authorization(auth))
                 }
                 contact if Contact::match_name(contact) => 'contact: loop {
-                    let contact = Contact::parse(reader)?;
+                    let contact = Contact::parse(scanner)?;
                     headers.push_header(Header::Contact(contact));
-                    let Some(&b',') = reader.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'contact;
                     };
-                    reader.next();
+                    scanner.next();
                 },
                 expires if Expires::match_name(expires) => {
-                    let expires = Expires::parse(reader)?;
+                    let expires = Expires::parse(scanner)?;
                     headers.push_header(Header::Expires(expires));
                 }
                 in_reply_to if InReplyTo::match_name(in_reply_to) => {
-                    let in_reply_to = InReplyTo::parse(reader)?;
+                    let in_reply_to = InReplyTo::parse(scanner)?;
                     headers.push_header(Header::InReplyTo(in_reply_to));
                 }
                 mime_version if MimeVersion::match_name(mime_version) => {
-                    let mime_version = MimeVersion::parse(reader)?;
+                    let mime_version = MimeVersion::parse(scanner)?;
                     headers.push_header(Header::MimeVersion(mime_version));
                 }
                 min_expires if MinExpires::match_name(min_expires) => {
-                    let min_expires = MinExpires::parse(reader)?;
+                    let min_expires = MinExpires::parse(scanner)?;
                     headers.push_header(Header::MinExpires(min_expires));
                 }
                 user_agent if UserAgent::match_name(user_agent) => {
-                    let user_agent = UserAgent::parse(reader)?;
+                    let user_agent = UserAgent::parse(scanner)?;
                     headers.push_header(Header::UserAgent(user_agent))
                 }
                 date if Date::match_name(date) => {
-                    let date = Date::parse(reader)?;
+                    let date = Date::parse(scanner)?;
                     headers.push_header(Header::Date(date))
                 }
                 server if Server::match_name(server) => {
-                    let server = Server::parse(reader)?;
+                    let server = Server::parse(scanner)?;
                     headers.push_header(Header::Server(server))
                 }
                 subject if Subject::match_name(subject) => {
-                    let subject = Subject::parse(reader)?;
+                    let subject = Subject::parse(scanner)?;
                     headers.push_header(Header::Subject(subject))
                 }
                 priority if Priority::match_name(priority) => {
-                    let priority = Priority::parse(reader)?;
+                    let priority = Priority::parse(scanner)?;
                     headers.push_header(Header::Priority(priority))
                 }
                 proxy_authenticate if ProxyAuthenticate::match_name(proxy_authenticate) => {
-                    let proxy_authenticate = ProxyAuthenticate::parse(reader)?;
+                    let proxy_authenticate = ProxyAuthenticate::parse(scanner)?;
                     headers.push_header(Header::ProxyAuthenticate(proxy_authenticate))
                 }
                 proxy_authorization if ProxyAuthorization::match_name(proxy_authorization) => {
-                    let proxy_authorization = ProxyAuthorization::parse(reader)?;
+                    let proxy_authorization = ProxyAuthorization::parse(scanner)?;
                     headers.push_header(Header::ProxyAuthorization(proxy_authorization))
                 }
                 proxy_require if ProxyRequire::match_name(proxy_require) => {
-                    let proxy_require = ProxyRequire::parse(reader)?;
+                    let proxy_require = ProxyRequire::parse(scanner)?;
                     headers.push_header(Header::ProxyRequire(proxy_require))
                 }
                 reply_to if ReplyTo::match_name(reply_to) => {
-                    let reply_to = ReplyTo::parse(reader)?;
+                    let reply_to = ReplyTo::parse(scanner)?;
                     headers.push_header(Header::ReplyTo(reply_to))
                 }
                 content_length if ContentLength::match_name(content_length) => {
-                    let content_length = ContentLength::parse(reader)?;
+                    let content_length = ContentLength::parse(scanner)?;
                     headers.push_header(Header::ContentLength(content_length))
                 }
                 content_encoding if ContentEncoding::match_name(content_encoding) => {
-                    let content_encoding = ContentEncoding::parse(reader)?;
+                    let content_encoding = ContentEncoding::parse(scanner)?;
                     headers.push_header(Header::ContentEncoding(content_encoding))
                 }
                 content_type if ContentType::match_name(content_type) => {
-                    let content_type = ContentType::parse(reader)?;
+                    let content_type = ContentType::parse(scanner)?;
                     headers.push_header(Header::ContentType(content_type))
                 }
                 content_disposition if ContentDisposition::match_name(content_disposition) => {
-                    let content_disposition = ContentDisposition::parse(reader)?;
+                    let content_disposition = ContentDisposition::parse(scanner)?;
                     headers.push_header(Header::ContentDisposition(content_disposition))
                 }
                 record_route if RecordRoute::match_name(record_route) => 'rr: loop {
-                    let record_route = RecordRoute::parse(reader)?;
+                    let record_route = RecordRoute::parse(scanner)?;
                     headers.push_header(Header::RecordRoute(record_route));
-                    let Some(&b',') = reader.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'rr;
                     };
-                    reader.next();
+                    scanner.next();
                 },
                 require if Require::match_name(require) => {
-                    let require = Require::parse(reader)?;
+                    let require = Require::parse(scanner)?;
                     headers.push_header(Header::Require(require))
                 }
                 retry_after if RetryAfter::match_name(retry_after) => {
-                    let retry_after = RetryAfter::parse(reader)?;
+                    let retry_after = RetryAfter::parse(scanner)?;
                     headers.push_header(Header::RetryAfter(retry_after))
                 }
                 organization if Organization::match_name(organization) => {
-                    let organization = Organization::parse(reader)?;
+                    let organization = Organization::parse(scanner)?;
                     headers.push_header(Header::Organization(organization))
                 }
                 accept_encoding if AcceptEncoding::match_name(accept_encoding) => {
-                    let accept_encoding = AcceptEncoding::parse(reader)?;
+                    let accept_encoding = AcceptEncoding::parse(scanner)?;
                     headers.push_header(Header::AcceptEncoding(accept_encoding));
                 }
                 accept if Accept::match_name(accept) => {
-                    let accept = Accept::parse(reader)?;
+                    let accept = Accept::parse(scanner)?;
                     headers.push_header(Header::Accept(accept));
                 }
                 accept_language if AcceptLanguage::match_name(accept_language) => {
-                    let accept_language = AcceptLanguage::parse(reader)?;
+                    let accept_language = AcceptLanguage::parse(scanner)?;
                     headers.push_header(Header::AcceptLanguage(accept_language));
                 }
                 alert_info if AlertInfo::match_name(alert_info) => {
-                    let alert_info = AlertInfo::parse(reader)?;
+                    let alert_info = AlertInfo::parse(scanner)?;
                     headers.push_header(Header::AlertInfo(alert_info));
                 }
                 allow if Allow::match_name(allow) => {
-                    let allow = Allow::parse(reader)?;
+                    let allow = Allow::parse(scanner)?;
                     headers.push_header(Header::Allow(allow));
                 }
                 auth_info if AuthenticationInfo::match_name(auth_info) => {
-                    let auth_info = AuthenticationInfo::parse(reader)?;
+                    let auth_info = AuthenticationInfo::parse(scanner)?;
                     headers.push_header(Header::AuthenticationInfo(auth_info));
                 }
                 supported if Supported::match_name(supported) => {
-                    let supported = Supported::parse(reader)?;
+                    let supported = Supported::parse(scanner)?;
                     headers.push_header(Header::Supported(supported));
                 }
                 timestamp if Timestamp::match_name(timestamp) => {
-                    let timestamp = Timestamp::parse(reader)?;
+                    let timestamp = Timestamp::parse(scanner)?;
                     headers.push_header(Header::Timestamp(timestamp));
                 }
                 user_agent if UserAgent::match_name(user_agent) => {
-                    let user_agent = UserAgent::parse(reader)?;
+                    let user_agent = UserAgent::parse(scanner)?;
                     headers.push_header(Header::UserAgent(user_agent));
                 }
                 unsupported if Unsupported::match_name(unsupported) => {
-                    let unsupported = Unsupported::parse(reader)?;
+                    let unsupported = Unsupported::parse(scanner)?;
                     headers.push_header(Header::Unsupported(unsupported));
                 }
                 www_authenticate if WWWAuthenticate::match_name(www_authenticate) => {
-                    let www_authenticate = WWWAuthenticate::parse(reader)?;
+                    let www_authenticate = WWWAuthenticate::parse(scanner)?;
                     headers.push_header(Header::WWWAuthenticate(www_authenticate));
                 }
                 warning if Warning::match_name(warning) => {
-                    let warning = Warning::parse(reader)?;
+                    let warning = Warning::parse(scanner)?;
                     headers.push_header(Header::Warning(warning));
                 }
                 _ => {
                     let name = unsafe { str::from_utf8_unchecked(name) };
-                    let value = until_newline!(reader);
+                    let value = until_newline!(scanner);
                     let value = str::from_utf8(value)?;
 
                     headers.push_header(Header::Other { name, value });
                 }
             };
-            newline!(reader);
-            if !reader.is_eof() {
+            newline!(scanner);
+            if !scanner.is_eof() {
                 continue;
             }
             break 'headers;
@@ -817,8 +817,8 @@ impl From<Utf8Error> for SipParserError {
     }
 }
 
-impl<'a> From<ReaderError<'a>> for SipParserError {
-    fn from(err: ReaderError) -> Self {
+impl<'a> From<ScannerError<'a>> for SipParserError {
+    fn from(err: ScannerError) -> Self {
         SipParserError {
             message: format!(
                 "Failed to parse at line:{} column:{} kind:{:?}

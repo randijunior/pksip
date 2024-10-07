@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{parse_param, read_while, sip_parse_error},
     parser::Result,
     uri::Params,
@@ -28,21 +28,21 @@ pub struct Accept<'a> {
 impl<'a> SipHeaderParser<'a> for Accept<'a> {
     const NAME: &'static [u8] = b"Accept";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Accept<'a>> {
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Accept<'a>> {
         let mut mtypes: Vec<MediaType<'a>> = Vec::new();
         loop {
-            if reader.is_eof() {
+            if scanner.is_eof() {
                 break;
             }
-            if let Some(&c) = reader.peek() {
+            if let Some(&c) = scanner.peek() {
                 if is_newline(c) {
                     break;
                 }
-                let mtype = read_while!(reader, |c: u8| c != b',' && !is_newline(c));
+                let mtype = read_while!(scanner, |c: u8| c != b',' && !is_newline(c));
                 let mut iter = mtype.split(|&b| b == b'/').map(str::from_utf8);
 
                 if let (Some(mtype), Some(subtype)) = (iter.next(), iter.next()) {
-                    let param = parse_param!(reader, |param| Some(param));
+                    let param = parse_param!(scanner, |param| Some(param));
                     let media_type = MediaType {
                         mimetype: MimeType {
                             mtype: mtype?,
@@ -52,7 +52,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                     };
                     mtypes.push(media_type);
                 } else {
-                    return sip_parse_error!("Invalid Accept Reader!");
+                    return sip_parse_error!("Invalid Accept scanner!");
                 }
             }
         }

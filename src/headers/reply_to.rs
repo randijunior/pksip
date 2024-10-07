@@ -1,5 +1,5 @@
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::parse_param,
     parser::{Result, SipParser},
     uri::{Params, SipUri},
@@ -15,9 +15,9 @@ pub struct ReplyTo<'a> {
 impl<'a> SipHeaderParser<'a> for ReplyTo<'a> {
     const NAME: &'static [u8] = b"Reply-To";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let uri = SipParser::parse_sip_uri(reader)?;
-        let param = parse_param!(reader, |param| Some(param));
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let uri = SipParser::parse_sip_uri(scanner)?;
+        let param = parse_param!(scanner, |param| Some(param));
 
         Ok(ReplyTo { uri, param })
     }

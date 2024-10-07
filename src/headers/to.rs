@@ -1,5 +1,5 @@
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     parser::{Result, SipParser},
     uri::{Params, SipUri},
 };
@@ -18,9 +18,9 @@ impl<'a> SipHeaderParser<'a> for To<'a> {
     const NAME: &'static [u8] = b"From";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"f");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let uri = SipParser::parse_sip_uri(reader)?;
-        let (tag, params) = SipParser::parse_fromto_param(reader)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let uri = SipParser::parse_sip_uri(scanner)?;
+        let (tag, params) = SipParser::parse_fromto_param(scanner)?;
 
         Ok(To { tag, uri, params })
     }

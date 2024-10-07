@@ -1,5 +1,5 @@
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{parse_param, read_while, space},
     parser::{is_token, Result},
     uri::Params,
@@ -15,11 +15,11 @@ pub struct ContentDisposition<'a> {
 impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
     const NAME: &'static [u8] = b"Content-Disposition";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let disp_type = read_while!(reader, is_token);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let disp_type = read_while!(scanner, is_token);
         let disp_type = unsafe { std::str::from_utf8_unchecked(disp_type) };
-        space!(reader);
-        let params = parse_param!(reader, |param| Some(param));
+        space!(scanner);
+        let params = parse_param!(scanner, |param| Some(param));
 
         Ok(ContentDisposition { disp_type, params })
     }

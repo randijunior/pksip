@@ -1,5 +1,5 @@
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{parse_param, read_while, sip_parse_error},
     parser::{Param, Result},
     uri::Params,
@@ -25,19 +25,19 @@ pub struct CallInfo<'a> {
 impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
     const NAME: &'static [u8] = b"Call-Info";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let mut purpose: Option<&'a str> = None;
         // must be an '<'
-        let Some(&b'<') = reader.next() else {
+        let Some(&b'<') = scanner.next() else {
             return sip_parse_error!("Invalid call info!");
         };
-        let url = read_while!(reader, |b| !matches!(b, b'>' | b';') && !is_newline(b));
+        let url = read_while!(scanner, |b| !matches!(b, b'>' | b';') && !is_newline(b));
         let url = str::from_utf8(url)?;
         // must be an '>'
-        let Some(&b'>') = reader.next() else {
+        let Some(&b'>') = scanner.next() else {
             return sip_parse_error!("Invalid call info!");
         };
-        let params = parse_param!(reader, |param: Param<'a>| {
+        let params = parse_param!(scanner, |param: Param<'a>| {
             let (name, value) = param;
             if name == "purpose" {
                 purpose = value;

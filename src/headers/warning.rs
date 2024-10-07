@@ -16,15 +16,15 @@ pub struct Warning<'a> {
 impl<'a> SipHeaderParser<'a> for Warning<'a> {
     const NAME: &'static [u8] = b"Warning";
 
-    fn parse(reader: &mut crate::byte_reader::ByteReader<'a>) -> crate::parser::Result<Self> {
-        let code = digits!(reader);
+    fn parse(scanner: &mut crate::scanner::Scanner<'a>) -> crate::parser::Result<Self> {
+        let code = digits!(scanner);
         let code = unsafe { str::from_utf8_unchecked(code) };
         if let Ok(code) = code.parse::<u32>() {
-            space!(reader);
-            let host = read_while!(reader, is_host);
+            space!(scanner);
+            let host = read_while!(scanner, is_host);
             let host = unsafe { str::from_utf8_unchecked(host) };
-            if let Ok(Some(b'"')) = reader.read_if_eq(b'"') {
-                let text = read_until_byte!(reader, b'"');
+            if let Ok(Some(b'"')) = scanner.read_if_eq(b'"') {
+                let text = read_until_byte!(scanner, b'"');
                 let text = unsafe { str::from_utf8_unchecked(text) };
 
                 Ok(Warning { code, host, text })

@@ -1,10 +1,11 @@
 use std::str;
 
 use crate::{
-    byte_reader::ByteReader,
-    macros::{parse_param, peek, read_while, space},
+    macros::{parse_param, read_while, space},
     parser::{is_token, Param, Result, Q_PARAM},
+    scanner::Scanner,
     uri::Params,
+    util::is_newline,
 };
 
 use super::SipHeaderParser;
@@ -17,12 +18,12 @@ pub struct Coding<'a> {
 }
 
 impl<'a> Coding<'a> {
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        space!(reader);
-        let coding = read_while!(reader, is_token);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        space!(scanner);
+        let coding = read_while!(scanner, is_token);
         let content_coding = unsafe { str::from_utf8_unchecked(coding) };
         let mut q = None;
-        let param = parse_param!(reader, |param: Param<'a>| {
+        let param = parse_param!(scanner, |param: Param<'a>| {
             let (name, value) = param;
             if name == Q_PARAM {
                 q = AcceptEncoding::parse_q_value(value);
@@ -49,18 +50,19 @@ pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
     const NAME: &'static [u8] = b"Accept-Encoding";
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        space!(reader);
-        if reader.is_eof() {
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        space!(scanner);
+
+        if scanner.peek().is_some_and(|&b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }
         let mut codings: Vec<Coding> = Vec::new();
-        let coding = Coding::parse(reader)?;
+        let coding = Coding::parse(scanner)?;
         codings.push(coding);
 
-        while let Ok(b',') = peek!(reader) {
-            reader.next();
-            let coding = Coding::parse(reader)?;
+        while let Some(b',') = scanner.peek() {
+            scanner.next();
+            let coding = Coding::parse(scanner)?;
             codings.push(coding);
         }
 
@@ -75,9 +77,9 @@ mod test {
     #[test]
     fn parse() {
         let src = b"compress, gzip\r\n";
-        let mut reader = ByteReader::new(src);
+        let mut scanner = Scanner::new(src);
         assert_eq!(
-            AcceptEncoding::parse(&mut reader),
+            AcceptEncoding::parse(&mut scanner),
             Ok(AcceptEncoding(vec![
                 Coding {
                     content_coding: "compress",
@@ -92,9 +94,9 @@ mod test {
             ]))
         );
 
-        let mut reader = ByteReader::new(b"*\r\n");
+        let mut scanner = Scanner::new(b"*\r\n");
         assert_eq!(
-            AcceptEncoding::parse(&mut reader),
+            AcceptEncoding::parse(&mut scanner),
             Ok(AcceptEncoding(vec![Coding {
                 content_coding: "*",
                 q: None,
@@ -103,9 +105,9 @@ mod test {
         );
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
-        let mut reader = ByteReader::new(src);
+        let mut scanner = Scanner::new(src);
         assert_eq!(
-            AcceptEncoding::parse(&mut reader),
+            AcceptEncoding::parse(&mut scanner),
             Ok(AcceptEncoding(vec![
                 Coding {
                     content_coding: "gzip",

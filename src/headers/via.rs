@@ -21,7 +21,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 
 use super::SipHeaderParser;
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{read_until_byte, sip_parse_error, space},
     msg::Transport,
     parser::{Result, SipParser},
@@ -71,24 +71,24 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     const NAME: &'static [u8] = b"Via";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"v");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        SipParser::parse_sip_version(reader)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        SipParser::parse_sip_version(scanner)?;
 
-        if reader.next() != Some(&b'/') {
+        if scanner.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let bytes = read_until_byte!(reader, b' ');
+        let bytes = read_until_byte!(scanner, b' ');
         let transport = Transport::from(bytes);
 
-        space!(reader);
+        space!(scanner);
 
-        let sent_by = SipParser::parse_host(reader)?;
-        let (params, others_params) = SipParser::parse_via_params(reader)?;
+        let sent_by = SipParser::parse_host(scanner)?;
+        let (params, others_params) = SipParser::parse_via_params(scanner)?;
 
-        let comment = if reader.peek() == Some(&b'(') {
-            reader.next();
-            let comment = read_until_byte!(reader, b')');
-            reader.next();
+        let comment = if scanner.peek() == Some(&b'(') {
+            scanner.next();
+            let comment = read_until_byte!(scanner, b')');
+            scanner.next();
             Some(str::from_utf8(comment)?)
         } else {
             None

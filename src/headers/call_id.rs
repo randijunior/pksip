@@ -1,4 +1,4 @@
-use crate::{byte_reader::ByteReader, macros::until_newline, parser::Result};
+use crate::{scanner::Scanner, macros::until_newline, parser::Result};
 
 use super::SipHeaderParser;
 
@@ -10,8 +10,8 @@ impl<'a> SipHeaderParser<'a> for CallId<'a> {
     const NAME: &'static [u8] = b"Call-ID";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"i");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let id = until_newline!(reader);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let id = until_newline!(scanner);
         let id = str::from_utf8(id)?;
 
         Ok(CallId(id))

@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-type ReaderResult<'a, T> = std::result::Result<T, ReaderError<'a>>;
+type ScannerResult<'a, T> = std::result::Result<T, ScannerError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -11,14 +11,14 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ReaderError<'a> {
+pub struct ScannerError<'a> {
     pub(crate) kind: ErrorKind,
     pub(crate) line: usize,
     pub(crate) col: usize,
     pub(crate) src: &'a [u8],
 }
 #[derive(Debug)]
-pub(crate) struct ByteReader<'a> {
+pub(crate) struct Scanner<'a> {
     pub(crate) src: &'a [u8],
     finished: bool,
     len: usize,
@@ -27,9 +27,9 @@ pub(crate) struct ByteReader<'a> {
     idx: usize,
 }
 
-impl<'a> ByteReader<'a> {
+impl<'a> Scanner<'a> {
     pub fn new(src: &'a [u8]) -> Self {
-        ByteReader {
+        Scanner {
             src,
             len: src.len(),
             finished: false,
@@ -51,7 +51,7 @@ impl<'a> ByteReader<'a> {
         self.finished
     }
 
-    pub fn read_n(&mut self, n: usize) -> ReaderResult<Range<usize>> {
+    pub fn read_n(&mut self, n: usize) -> ScannerResult<Range<usize>> {
         let start = self.idx;
         for _ in 0..n {
             if let None = self.next() {
@@ -78,7 +78,7 @@ impl<'a> ByteReader<'a> {
         self.idx..end
     }
 
-    pub fn read_tag(&mut self, tag: &[u8]) -> ReaderResult<Range<usize>> {
+    pub fn read_tag(&mut self, tag: &[u8]) -> ScannerResult<Range<usize>> {
         let start = self.idx;
         for &expected in tag {
             let Some(&byte) = self.peek() else {
@@ -107,11 +107,11 @@ impl<'a> ByteReader<'a> {
         start..end
     }
 
-    pub fn read_if_eq(&mut self, expected: u8) -> ReaderResult<Option<&u8>> {
+    pub fn read_if_eq(&mut self, expected: u8) -> ScannerResult<Option<&u8>> {
         self.read_if(|b| b == expected)
     }
 
-    pub fn read_if<F>(&mut self, func: F) -> ReaderResult<Option<&u8>>
+    pub fn read_if<F>(&mut self, func: F) -> ScannerResult<Option<&u8>>
     where
         F: FnOnce(u8) -> bool,
     {
@@ -141,8 +141,8 @@ impl<'a> ByteReader<'a> {
         byte
     }
 
-    pub fn error<T>(&self, kind: ErrorKind) -> Result<T, ReaderError> {
-        Err(ReaderError {
+    pub fn error<T>(&self, kind: ErrorKind) -> Result<T, ScannerError> {
+        Err(ScannerError {
             kind,
             line: self.line,
             col: self.col,
@@ -151,13 +151,13 @@ impl<'a> ByteReader<'a> {
     }
 }
 
-impl<'a> AsRef<[u8]> for ByteReader<'a> {
+impl<'a> AsRef<[u8]> for Scanner<'a> {
     fn as_ref(&self) -> &[u8] {
         &self.src[self.idx..]
     }
 }
 
-impl<'a> Iterator for ByteReader<'a> {
+impl<'a> Iterator for Scanner<'a> {
     type Item = &'a u8;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -181,23 +181,23 @@ mod test {
     #[test]
     fn test_peek() {
         let src = "Hello, world!".as_bytes();
-        let reader = ByteReader::new(src);
+        let scanner = Scanner::new(src);
 
-        assert_eq!(reader.peek(), Some(&b'H'));
-        assert_eq!(reader.peek_n(6), Some("Hello,".as_bytes()));
-        assert_eq!(reader.peek_while(is_alphabetic), Range { start: 0, end: 5 });
+        assert_eq!(scanner.peek(), Some(&b'H'));
+        assert_eq!(scanner.peek_n(6), Some("Hello,".as_bytes()));
+        assert_eq!(scanner.peek_while(is_alphabetic), Range { start: 0, end: 5 });
     }
 
     #[test]
     fn test_tag() {
         let src = "This is an test!".as_bytes();
-        let mut reader = ByteReader::new(src);
+        let mut scanner = Scanner::new(src);
 
-        assert_eq!(reader.read_tag(b"This"), Ok(Range { start: 0, end: 4 }));
-        assert_eq!(reader.read_tag(b" is"), Ok(Range { start: 4, end: 7 }));
+        assert_eq!(scanner.read_tag(b"This"), Ok(Range { start: 0, end: 4 }));
+        assert_eq!(scanner.read_tag(b" is"), Ok(Range { start: 4, end: 7 }));
         assert_eq!(
-            reader.read_tag(b"not exist!"),
-            Err(ReaderError {
+            scanner.read_tag(b"not exist!"),
+            Err(ScannerError {
                 kind: ErrorKind::Tag,
                 line: 1,
                 col: 8,
@@ -205,12 +205,12 @@ mod test {
             })
         );
         assert_eq!(
-            reader.read_tag(b" an test!"),
+            scanner.read_tag(b" an test!"),
             Ok(Range { start: 7, end: 16 })
         );
         assert_eq!(
-            reader.read_tag(b"end!"),
-            Err(ReaderError {
+            scanner.read_tag(b"end!"),
+            Err(ScannerError {
                 kind: ErrorKind::Eof,
                 line: 1,
                 col: 17,
@@ -222,27 +222,27 @@ mod test {
     #[test]
     fn test_read() {
         let src = "Input to\r\nread".as_bytes();
-        let mut reader = ByteReader::new(src);
+        let mut scanner = Scanner::new(src);
 
         assert_eq!(
-            reader.read_while(|b| b == b'I'),
+            scanner.read_while(|b| b == b'I'),
             Range { start: 0, end: 1 }
         );
         assert_eq!(
-            reader.read_while(is_alphabetic),
+            scanner.read_while(is_alphabetic),
             Range { start: 1, end: 5 }
         );
-        assert_eq!(reader.read_while(is_space), Range { start: 5, end: 6 });
-        assert_eq!(reader.read_if(|b| b == b't'), Ok(Some(&b't')));
-        assert_eq!(reader.read_if_eq(b'o'), Ok(Some(&b'o')));
+        assert_eq!(scanner.read_while(is_space), Range { start: 5, end: 6 });
+        assert_eq!(scanner.read_if(|b| b == b't'), Ok(Some(&b't')));
+        assert_eq!(scanner.read_if_eq(b'o'), Ok(Some(&b'o')));
         assert_eq!(
-            reader.read_while(is_newline),
+            scanner.read_while(is_newline),
             Range { start: 8, end: 10 }
         );
 
-        assert_eq!(reader.line, 2);
-        assert_eq!(reader.col, 1);
+        assert_eq!(scanner.line, 2);
+        assert_eq!(scanner.col, 1);
 
-        assert_eq!(reader.read_n(4), Ok(Range { start: 10, end: 14 }));
+        assert_eq!(scanner.read_n(4), Ok(Range { start: 10, end: 14 }));
     }
 }

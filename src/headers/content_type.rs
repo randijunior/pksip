@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    byte_reader::ByteReader,
+    scanner::Scanner,
     macros::{parse_param, read_while},
     parser::{is_token, Result},
 };
@@ -17,13 +17,13 @@ impl<'a> SipHeaderParser<'a> for ContentType<'a> {
     const NAME: &'static [u8] = b"Content-Type";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"c");
 
-    fn parse(reader: &mut ByteReader<'a>) -> Result<Self> {
-        let mtype = read_while!(reader, is_token);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let mtype = read_while!(scanner, is_token);
         let mtype = unsafe { str::from_utf8_unchecked(mtype) };
-        reader.next();
-        let sub = read_while!(reader, is_token);
+        scanner.next();
+        let sub = read_while!(scanner, is_token);
         let sub = unsafe { str::from_utf8_unchecked(sub) };
-        let param = parse_param!(reader, |param| Some(param));
+        let param = parse_param!(scanner, |param| Some(param));
 
         Ok(ContentType(MediaType {
             mimetype: MimeType {
