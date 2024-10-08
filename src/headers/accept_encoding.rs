@@ -75,7 +75,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn parse() {
+    fn test_parse() {
         let src = b"compress, gzip\r\n";
         let mut scanner = Scanner::new(src);
         assert_eq!(

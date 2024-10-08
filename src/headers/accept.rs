@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
-    macros::{parse_param, read_while, sip_parse_error},
+    macros::{parse_param, read_until_byte, read_while, sip_parse_error, space},
     parser::Result,
+    scanner::Scanner,
     uri::Params,
     util::is_newline,
 };
@@ -15,12 +15,12 @@ pub struct MimeType<'a> {
     pub mtype: &'a str,
     pub subtype: &'a str,
 }
-
+#[derive(PartialEq, Debug)]
 pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,
 }
-
+#[derive(PartialEq, Debug)]
 pub struct Accept<'a> {
     media_types: Vec<MediaType<'a>>,
 }
@@ -38,27 +38,68 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                 if is_newline(c) {
                     break;
                 }
-                let mtype = read_while!(scanner, |c: u8| c != b',' && !is_newline(c));
-                let mut iter = mtype.split(|&b| b == b'/').map(str::from_utf8);
+                let mtype = read_until_byte!(scanner, b'/');
+                scanner.next();
+                let subtype =
+                    read_while!(scanner, |c: u8| c != b',' && !is_newline(c) && c != b';');
 
-                if let (Some(mtype), Some(subtype)) = (iter.next(), iter.next()) {
-                    let param = parse_param!(scanner, |param| Some(param));
-                    let media_type = MediaType {
-                        mimetype: MimeType {
-                            mtype: mtype?,
-                            subtype: subtype?,
-                        },
-                        param,
-                    };
-                    mtypes.push(media_type);
-                } else {
-                    return sip_parse_error!("Invalid Accept scanner!");
-                }
+                let param = parse_param!(scanner, |param| Some(param));
+                let media_type = MediaType {
+                    mimetype: MimeType {
+                        mtype: str::from_utf8(mtype)?,
+                        subtype: str::from_utf8(subtype)?,
+                    },
+                    param,
+                };
+                mtypes.push(media_type);
+                scanner.read_if_eq(b',')?;
+                space!(scanner);
             }
         }
 
         Ok(Accept {
             media_types: mtypes,
         })
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"application/sdp;level=1, application/x-private, text/html\r\n";
+        let mut sc = Scanner::new(src);
+        let mut params = Params::new();
+        params.set("level", Some("1"));
+
+        assert_eq!(
+            Accept::parse(&mut sc),
+            Ok(Accept {
+                media_types: vec![
+                    MediaType {
+                        mimetype: MimeType {
+                            mtype: "application",
+                            subtype: "sdp"
+                        },
+                        param: Some(params)
+                    },
+                    MediaType {
+                        mimetype: MimeType {
+                            mtype: "application",
+                            subtype: "x-private"
+                        },
+                        param: None
+                    },
+                    MediaType {
+                        mimetype: MimeType {
+                            mtype: "text",
+                            subtype: "html"
+                        },
+                        param: None
+                    }
+                ]
+            })
+        );
     }
 }
