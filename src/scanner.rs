@@ -233,7 +233,7 @@ mod test {
             Range { start: 1, end: 5 }
         );
         assert_eq!(scanner.read_while(is_space), Range { start: 5, end: 6 });
-        assert_eq!(scanner.read_if(|b| b == b't'), Ok(Some(&b't')));
+        assert_eq!(scanner.read_if(is_alphabetic), Ok(Some(&b't')));
         assert_eq!(scanner.read_if_eq(b'o'), Ok(Some(&b'o')));
         assert_eq!(
             scanner.read_while(is_newline),

@@ -47,6 +47,15 @@ impl<'a> Coding<'a> {
 #[derive(Debug, PartialEq, Default)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
+impl<'a> AcceptEncoding<'a> {
+    pub fn get(&self, index: usize) -> Option<&Coding<'a>> {
+        self.0.get(index)
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
 impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
     const NAME: &'static [u8] = b"Accept-Encoding";
 
@@ -78,53 +87,51 @@ mod test {
     fn test_parse() {
         let src = b"compress, gzip\r\n";
         let mut scanner = Scanner::new(src);
-        assert_eq!(
-            AcceptEncoding::parse(&mut scanner),
-            Ok(AcceptEncoding(vec![
-                Coding {
-                    content_coding: "compress",
-                    q: None,
-                    param: None
-                },
-                Coding {
-                    content_coding: "gzip",
-                    q: None,
-                    param: None
-                },
-            ]))
-        );
+        let accept_encoding = AcceptEncoding::parse(&mut scanner).unwrap();
+
+        assert!(accept_encoding.len() == 2);
+        assert_eq!(scanner.as_ref(), b"\r\n");
+
+        let coding = accept_encoding.get(0).unwrap();
+        assert_eq!(coding.content_coding, "compress");
+        assert_eq!(coding.q, None);
+        assert_eq!(coding.param, None);
+
+        let coding = accept_encoding.get(1).unwrap();
+        assert_eq!(coding.content_coding, "gzip");
+        assert_eq!(coding.q, None);
+        assert_eq!(coding.param, None);
 
         let mut scanner = Scanner::new(b"*\r\n");
-        assert_eq!(
-            AcceptEncoding::parse(&mut scanner),
-            Ok(AcceptEncoding(vec![Coding {
-                content_coding: "*",
-                q: None,
-                param: None
-            }]))
-        );
+        let accept_encoding = AcceptEncoding::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+
+        let coding = accept_encoding.get(0).unwrap();
+        assert_eq!(coding.content_coding, "*");
+        assert_eq!(coding.q, None);
+        assert_eq!(coding.param, None);
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
         let mut scanner = Scanner::new(src);
-        assert_eq!(
-            AcceptEncoding::parse(&mut scanner),
-            Ok(AcceptEncoding(vec![
-                Coding {
-                    content_coding: "gzip",
-                    q: Some(1.0),
-                    param: None
-                },
-                Coding {
-                    content_coding: "identity",
-                    q: Some(0.5),
-                    param: None
-                },
-                Coding {
-                    content_coding: "*",
-                    q: Some(0.0),
-                    param: None
-                }
-            ]))
-        );
+        let accept_encoding = AcceptEncoding::parse(&mut scanner).unwrap();
+
+        assert!(accept_encoding.len() == 3);
+        assert_eq!(scanner.as_ref(), b"\r\n");
+
+        let coding = accept_encoding.get(0).unwrap();
+        assert_eq!(coding.content_coding, "gzip");
+        assert_eq!(coding.q, Some(1.0));
+        assert_eq!(coding.param, None);
+
+        let coding = accept_encoding.get(1).unwrap();
+        assert_eq!(coding.content_coding, "identity");
+        assert_eq!(coding.q, Some(0.5));
+        assert_eq!(coding.param, None);
+
+        let coding = accept_encoding.get(2).unwrap();
+        assert_eq!(coding.content_coding, "*");
+        assert_eq!(coding.q, Some(0.0));
+        assert_eq!(coding.param, None);
     }
 }
