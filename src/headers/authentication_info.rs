@@ -1,7 +1,7 @@
 use crate::{
-    scanner::Scanner,
     macros::{parse_auth_param, read_while, sip_parse_error, space},
     parser::{is_token, Result},
+    scanner::Scanner,
     uri::Params,
 };
 
@@ -54,5 +54,38 @@ impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
             cnonce,
             nc,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"nextnonce=\"47364c23432d2e131a5fb210812c\"\r\n";
+        let mut scanner = Scanner::new(src);
+        let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(auth_info.nextnonce, Some("47364c23432d2e131a5fb210812c"));
+
+        let src = b"nextnonce=\"5ccc069c403ebaf9f0171e9517f40e41\", cnonce=\"0a4f113b\", nc=00000001, qop=\"auth\", rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
+        let mut scanner = Scanner::new(src);
+        let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(
+            auth_info.nextnonce,
+            Some("5ccc069c403ebaf9f0171e9517f40e41")
+        );
+        assert_eq!(auth_info.cnonce, Some("0a4f113b"));
+        assert_eq!(
+            auth_info.nextnonce,
+            Some("5ccc069c403ebaf9f0171e9517f40e41")
+        );
+        assert_eq!(auth_info.nc, Some("00000001"));
+        assert_eq!(auth_info.qop, Some("auth"));
+        assert_eq!(auth_info.rspauth, Some("6629fae49393a05397450978507c4ef1"));
     }
 }

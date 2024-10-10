@@ -80,7 +80,7 @@ impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]

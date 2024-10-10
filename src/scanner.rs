@@ -173,7 +173,7 @@ impl<'a> Iterator for Scanner<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::util::{is_alphabetic, is_newline, is_space};
 
     use super::*;

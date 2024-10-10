@@ -112,6 +112,7 @@ macro_rules! parse_auth_param {
                 Some(b'"') => {
                     $scanner.next();
                     let value = crate::macros::read_until_byte!($scanner, b'"');
+                    $scanner.next();
                     Some((std::str::from_utf8(value)?))
                 }
                 Some(_) => {

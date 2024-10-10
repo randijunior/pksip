@@ -1,17 +1,17 @@
 use crate::{
-    scanner::Scanner,
     macros::{parse_auth_param, read_while, space},
     parser::{is_token, Result},
+    scanner::Scanner,
     uri::Params,
 };
 
 use super::SipHeaderParser;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct DigestCredential<'a> {
-    realm: &'a str,
+    realm: Option<&'a str>,
     username: Option<&'a str>,
-    nonce: &'a str,
+    nonce: Option<&'a str>,
     uri: Option<&'a str>,
     response: Option<&'a str>,
     algorithm: Option<&'a str>,
@@ -28,9 +28,9 @@ impl<'a> DigestCredential<'a> {
         loop {
             space!(scanner);
             match read_while!(scanner, is_token) {
-                b"realm" => digest.realm = parse_auth_param!(scanner).unwrap_or(""),
+                b"realm" => digest.realm = parse_auth_param!(scanner),
                 b"username" => digest.username = parse_auth_param!(scanner),
-                b"nonce" => digest.nonce = parse_auth_param!(scanner).unwrap_or(""),
+                b"nonce" => digest.nonce = parse_auth_param!(scanner),
                 b"uri" => digest.uri = parse_auth_param!(scanner),
                 b"response" => digest.response = parse_auth_param!(scanner),
                 b"algorithm" => digest.algorithm = parse_auth_param!(scanner),
@@ -56,7 +56,7 @@ impl<'a> DigestCredential<'a> {
         Ok(digest)
     }
 }
-
+#[derive(Debug, PartialEq)]
 pub enum Credential<'a> {
     Digest(DigestCredential<'a>),
     Other { scheme: &'a str, param: Params<'a> },
@@ -92,9 +92,13 @@ other-response    =  auth-scheme LWS auth-param
 auth-scheme       =  token
 
 */
+#[derive(Debug)]
+pub struct Authorization<'a>(Credential<'a>);
 
-pub struct Authorization<'a> {
-    credential: Credential<'a>,
+impl<'a> Authorization<'a> {
+    pub fn credential(&self) -> &Credential<'a> {
+        &self.0
+    }
 }
 
 impl<'a> SipHeaderParser<'a> for Authorization<'a> {
@@ -103,6 +107,27 @@ impl<'a> SipHeaderParser<'a> for Authorization<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let credential = Self::parse_auth_credential(scanner)?;
 
-        Ok(Authorization { credential })
+        Ok(Authorization(credential))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", nonce=\"84a4cc6f3082121f32b42a2187831a9e\",response=\"7587245234b3434cc3412213e5f113a5432\"\r\n";
+        let mut scanner = Scanner::new(src);
+        let auth = Authorization::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        let cred = auth.credential();
+        assert_matches!(cred, Credential::Digest(digest_credential) => {
+            assert_eq!(digest_credential.username, Some("Alice"));
+            assert_eq!(digest_credential.realm, Some("atlanta.com"));
+            assert_eq!(digest_credential.nonce, Some("84a4cc6f3082121f32b42a2187831a9e"));
+            assert_eq!(digest_credential.response, Some("7587245234b3434cc3412213e5f113a5432"));
+        });
     }
 }

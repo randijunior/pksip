@@ -68,7 +68,7 @@ impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
@@ -85,7 +85,7 @@ mod test {
         assert_eq!(lang.q, None);
         assert_eq!(lang.param, None);
 
-        let src = b"fr, en;q=0.8, de;q=0.6\r\n";
+        let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
         let mut scanner = Scanner::new(src);
         let accept_language = AcceptLanguage::parse(&mut scanner).unwrap();
 
@@ -93,18 +93,18 @@ mod test {
         assert_eq!(scanner.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
-        assert_eq!(lang.language, "fr");
+        assert_eq!(lang.language, "da");
         assert_eq!(lang.q, None);
         assert_eq!(lang.param, None);
 
         let lang = accept_language.get(1).unwrap();
-        assert_eq!(lang.language, "en");
+        assert_eq!(lang.language, "en-gb");
         assert_eq!(lang.q, Some(0.8));
         assert_eq!(lang.param, None);
 
         let lang = accept_language.get(2).unwrap();
-        assert_eq!(lang.language, "de");
-        assert_eq!(lang.q, Some(0.6));
+        assert_eq!(lang.language, "en");
+        assert_eq!(lang.q, Some(0.7));
         assert_eq!(lang.param, None);
 
 

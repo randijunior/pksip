@@ -10,17 +10,17 @@ use crate::{
 
 use super::SipHeaderParser;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct MimeType<'a> {
     pub mtype: &'a str,
     pub subtype: &'a str,
 }
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,
 }
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
 impl<'a> Accept<'a> {
@@ -64,7 +64,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
     }
 }
 #[cfg(test)]
-mod test {
+mod tests {
     use std::collections::HashMap;
 
     use super::*;
