@@ -10,7 +10,7 @@ use super::{
     accept::{MediaType, MimeType},
     SipHeaderParser,
 };
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeaderParser<'a> for ContentType<'a> {
@@ -32,5 +32,16 @@ impl<'a> SipHeaderParser<'a> for ContentType<'a> {
             },
             param,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"application/sdp\r\n";
+        let mut scanner = Scanner::new(src);
     }
 }

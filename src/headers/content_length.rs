@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::SipHeaderParser;
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentLength(u32);
 
 impl<'a> SipHeaderParser<'a> for ContentLength {
@@ -22,5 +22,19 @@ impl<'a> SipHeaderParser<'a> for ContentLength {
         } else {
             sip_parse_error!("invalid content length")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse() {
+        let src = b"349\r\n";
+        let mut scanner = Scanner::new(src);
+        let c_length = ContentLength::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(c_length, ContentLength(349))
     }
 }

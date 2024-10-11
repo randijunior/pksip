@@ -1,12 +1,12 @@
 use crate::{
-    scanner::Scanner,
     macros::parse_param,
     parser::{Param, Result, SipParser, EXPIRES_PARAM, Q_PARAM},
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
 use super::SipHeaderParser;
-
+#[derive(Debug)]
 pub enum Contact<'a> {
     Star,
     Uri {
@@ -53,5 +53,93 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
             expires,
             param,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr};
+
+    use crate::uri::{HostPort, Scheme, UserInfo};
+
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"\"Mr. Watson\" <sip:watson@worcester.bell-telephone.com> \
+        ;q=0.7; expires=3600\r\n";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+
+        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::NameAddr(addr), q, expires, param }) => {
+            assert_eq!(addr.display, Some("Mr. Watson"));
+            assert_eq!(addr.uri.user, Some(UserInfo { name: "watson", password: None }));
+            assert_eq!(addr.uri.host, HostPort::DomainName { host: "worcester.bell-telephone.com", port: None });
+            assert_eq!(addr.uri.scheme, Scheme::Sip);
+            assert_eq!(q, Some(0.7));
+            assert_eq!(expires, Some(3600));
+            assert_eq!(param, None);
+        });
+
+        let src = b"*\r\n";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+
+        assert_matches!(contact, Ok(Contact::Star));
+
+        let src = b"\"Mr. Watson\" <mailto:watson@bell-telephone.com> ;q=0.1\r\n";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+        assert_matches!(contact, Err(err) => {
+            assert_eq!(err.message, "Unsupported URI scheme: mailto".to_string())
+        });
+        assert_eq!(scanner.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
+
+        let src = b"sip:caller@u1.example.com\r\n";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
+            assert_eq!(uri.user, Some(UserInfo { name: "caller", password: None }));
+            assert_eq!(uri.host, HostPort::DomainName { host: "u1.example.com", port: None });
+            assert_eq!(uri.scheme, Scheme::Sip);
+        });
+    }
+
+    #[test]
+    fn test_parse_host_port() {
+        let src = b"sip:192.168.1.1:5060";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
+            assert_eq!(uri.host, HostPort::IpAddr {
+                host: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: Some(5060)
+            });
+            assert_eq!(uri.scheme, Scheme::Sip);
+        });
+        let src = b"sips:[2620:0:2ef0:7070:250:60ff:fe03:32b7]";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
+            let addr: IpAddr = "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
+            assert_eq!(uri.host, HostPort::IpAddr {
+                host: addr,
+                port: None
+            });
+            assert_eq!(uri.scheme, Scheme::Sips);
+        });
+
+        let src = b"sip:thks.ashwin:pass@212.123.1.213\r\n";
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
+
+        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
+            assert_eq!(uri.host, HostPort::IpAddr {
+                host: IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213)),
+                port: None
+            });
+            assert_eq!(uri.scheme, Scheme::Sip);
+            assert_eq!(uri.user, Some(UserInfo { name: "thks.ashwin", password: Some("pass") }));
+        });
     }
 }

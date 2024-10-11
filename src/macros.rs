@@ -84,7 +84,8 @@ macro_rules! b_map {
 }
 
 macro_rules! parse_param {
-    ($scanner:expr, $func:expr) => {{
+    ($scanner:ident, $func:expr) => {{
+        crate::macros::space!($scanner);
         if let Some(&b';') = $scanner.peek() {
             let mut params = crate::uri::Params::new();
             while let Some(&b';') = $scanner.peek() {

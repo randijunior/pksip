@@ -70,7 +70,10 @@ mod tests {
         assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(auth_info.nextnonce, Some("47364c23432d2e131a5fb210812c"));
 
-        let src = b"nextnonce=\"5ccc069c403ebaf9f0171e9517f40e41\", cnonce=\"0a4f113b\", nc=00000001, qop=\"auth\", rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
+        let src = b"nextnonce=\"5ccc069c403ebaf9f0171e9517f40e41\", \
+        cnonce=\"0a4f113b\", nc=00000001, \
+        qop=\"auth\", \
+        rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
         let mut scanner = Scanner::new(src);
         let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
 

@@ -10,12 +10,12 @@ use crate::{
 
 use super::SipHeaderParser;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MimeType<'a> {
     pub mtype: &'a str,
     pub subtype: &'a str,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,
