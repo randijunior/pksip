@@ -1,10 +1,16 @@
-use crate::{scanner::Scanner, macros::until_newline, parser::Result};
+use crate::{macros::until_newline, parser::Result, scanner::Scanner, util::is_newline};
 
 use super::SipHeaderParser;
 
 use std::str;
 
 pub struct CallId<'a>(&'a str);
+
+impl<'a> From<&'a str> for CallId<'a> {
+    fn from(value: &'a str) -> Self {
+        Self(value)
+    }
+}
 
 impl<'a> CallId<'a> {
     pub fn id(&self) -> &str {

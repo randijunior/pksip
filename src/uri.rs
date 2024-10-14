@@ -13,7 +13,7 @@ Request-URI: The Request-URI is a SIP or SIPS URI as described in
 */
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserInfo<'a> {
-    pub(crate) name: &'a str,
+    pub(crate) user: &'a str,
     pub(crate) password: Option<&'a str>,
 }
 

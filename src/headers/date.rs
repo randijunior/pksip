@@ -16,3 +16,18 @@ impl<'a> SipHeaderParser<'a> for Date<'a> {
         Ok(Date(date))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+         let src = b"Sat, 13 Nov 2010 23:29:00 GMT\r\n";
+         let mut scanner = Scanner::new(src);
+         let date = Date::parse(&mut scanner).unwrap();
+
+         assert_eq!(scanner.as_ref(), b"\r\n");
+         assert_eq!(date.0, "Sat, 13 Nov 2010 23:29:00 GMT");
+    }
+}

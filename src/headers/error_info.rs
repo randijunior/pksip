@@ -65,3 +65,21 @@ impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
         Ok(ErrorInfo(infos))
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"<sip:not-in-service-recording@atlanta.com>\r\n";
+        let mut scanner = Scanner::new(src);
+        let err_info = ErrorInfo::parse(&mut scanner).unwrap();
+        assert_eq!(scanner.as_ref(), b"\r\n");
+
+        let err = err_info.0.get(0).unwrap();
+        assert_eq!(err.url.scheme, "sip");
+        assert_eq!(err.url.content, "not-in-service-recording@atlanta.com");
+    }
+}

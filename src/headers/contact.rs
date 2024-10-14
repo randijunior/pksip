@@ -73,7 +73,7 @@ mod tests {
 
         assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::NameAddr(addr), q, expires, param }) => {
             assert_eq!(addr.display, Some("Mr. Watson"));
-            assert_eq!(addr.uri.user, Some(UserInfo { name: "watson", password: None }));
+            assert_eq!(addr.uri.user, Some(UserInfo { user: "watson", password: None }));
             assert_eq!(addr.uri.host, HostPort::DomainName { host: "worcester.bell-telephone.com", port: None });
             assert_eq!(addr.uri.scheme, Scheme::Sip);
             assert_eq!(q, Some(0.7));
@@ -99,7 +99,7 @@ mod tests {
         let mut scanner = Scanner::new(src);
         let contact = Contact::parse(&mut scanner);
         assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
-            assert_eq!(uri.user, Some(UserInfo { name: "caller", password: None }));
+            assert_eq!(uri.user, Some(UserInfo { user: "caller", password: None }));
             assert_eq!(uri.host, HostPort::DomainName { host: "u1.example.com", port: None });
             assert_eq!(uri.scheme, Scheme::Sip);
         });
@@ -139,7 +139,7 @@ mod tests {
                 port: None
             });
             assert_eq!(uri.scheme, Scheme::Sip);
-            assert_eq!(uri.user, Some(UserInfo { name: "thks.ashwin", password: Some("pass") }));
+            assert_eq!(uri.user, Some(UserInfo { user: "thks.ashwin", password: Some("pass") }));
         });
     }
 }

@@ -30,3 +30,19 @@ impl<'a> SipHeaderParser<'a> for CSeq<'a> {
         Ok(CSeq { cseq, method })
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse() {
+        let src = b"4711 INVITE\r\n";
+        let mut scanner = Scanner::new(src);
+        let c_length = CSeq::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(c_length.method, SipMethod::Invite);
+        assert_eq!(c_length.cseq, 4711);
+    }
+}

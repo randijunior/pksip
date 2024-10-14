@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::SipHeaderParser;
-
+#[derive(Debug, PartialEq)]
 pub struct MimeVersion(f32);
 
 impl<'a> SipHeaderParser<'a> for MimeVersion {
@@ -19,5 +19,19 @@ impl<'a> SipHeaderParser<'a> for MimeVersion {
             Ok(expires) => Ok(MimeVersion(expires)),
             Err(_) => return sip_parse_error!("invalid MIME-Version!"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"1.0";
+        let mut scanner = Scanner::new(src);
+        let mime_version = MimeVersion::parse(&mut scanner).unwrap();
+
+        assert_eq!(mime_version, MimeVersion(1.0));
     }
 }

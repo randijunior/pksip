@@ -7,7 +7,7 @@ use crate::{
 use super::SipHeaderParser;
 
 use std::str;
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct MaxForwards(u32);
 
 impl<'a> SipHeaderParser<'a> for MaxForwards {
@@ -19,5 +19,19 @@ impl<'a> SipHeaderParser<'a> for MaxForwards {
             Ok(digits) => Ok(MaxForwards(digits)),
             Err(_) => sip_parse_error!("invalid Max Fowards"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse() {
+        let src = b"6\r\n";
+        let mut scanner = Scanner::new(src);
+        let c_length = MaxForwards::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(c_length, MaxForwards(6))
     }
 }

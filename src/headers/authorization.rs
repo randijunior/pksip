@@ -9,17 +9,17 @@ use super::SipHeaderParser;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct DigestCredential<'a> {
-    realm: Option<&'a str>,
-    username: Option<&'a str>,
-    nonce: Option<&'a str>,
-    uri: Option<&'a str>,
-    response: Option<&'a str>,
-    algorithm: Option<&'a str>,
-    cnonce: Option<&'a str>,
-    opaque: Option<&'a str>,
-    qop: Option<&'a str>,
-    nc: Option<&'a str>,
-    param: Params<'a>,
+    pub realm: Option<&'a str>,
+    pub username: Option<&'a str>,
+    pub nonce: Option<&'a str>,
+    pub uri: Option<&'a str>,
+    pub response: Option<&'a str>,
+    pub algorithm: Option<&'a str>,
+    pub cnonce: Option<&'a str>,
+    pub opaque: Option<&'a str>,
+    pub qop: Option<&'a str>,
+    pub nc: Option<&'a str>,
+    pub param: Params<'a>,
 }
 
 impl<'a> DigestCredential<'a> {

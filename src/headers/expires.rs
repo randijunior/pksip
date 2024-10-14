@@ -21,3 +21,17 @@ impl<'a> SipHeaderParser<'a> for Expires {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"5\r\n";
+        let mut scanner = Scanner::new(src);
+        let expires = Expires::parse(&mut scanner).unwrap();
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(expires.0, 5);
+    }
+}

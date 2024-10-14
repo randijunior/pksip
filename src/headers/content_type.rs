@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::{parse_param, read_while},
     parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use super::{
@@ -37,11 +37,35 @@ impl<'a> SipHeaderParser<'a> for ContentType<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use crate::uri::Params;
+
     use super::*;
 
     #[test]
     fn test_parse() {
         let src = b"application/sdp\r\n";
         let mut scanner = Scanner::new(src);
+        let c_type = ContentType::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(c_type.0.mimetype.mtype, "application");
+        assert_eq!(c_type.0.mimetype.subtype, "sdp");
+
+        let src = b"text/html; charset=ISO-8859-4\r\n";
+        let mut scanner = Scanner::new(src);
+        let c_type = ContentType::parse(&mut scanner).unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(c_type.0.mimetype.mtype, "text");
+        assert_eq!(c_type.0.mimetype.subtype, "html");
+        assert_eq!(
+            c_type.0.param,
+            Some(Params::from(HashMap::from([(
+                "charset",
+                Some("ISO-8859-4")
+            )])))
+        );
     }
 }

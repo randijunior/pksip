@@ -94,13 +94,11 @@ use www_authenticate::WWWAuthenticate;
 use crate::{
     scanner::Scanner,
     macros::{
-        parse_auth_param, read_until_byte, read_while, sip_parse_error, space, until_newline,
+        parse_auth_param, read_until_byte, read_while, sip_parse_error, space,
     },
     parser::{is_token, Result},
     uri::Params,
 };
-
-pub struct OptionTag<'a>(&'a str);
 
 pub(crate) fn parse_generic_param<'a>(
     scanner: &mut Scanner<'a>,

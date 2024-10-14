@@ -167,9 +167,9 @@ impl<'a> SipParser<'a> {
             return Ok(None);
         }
         let bytes = read_while!(scanner, is_user);
-        let name = str::from_utf8(bytes)?;
+        let user = str::from_utf8(bytes)?;
         let mut user = UserInfo {
-            name,
+            user,
             password: None,
         };
 
@@ -904,7 +904,7 @@ mod tests {
                 uri: Uri {
                     scheme: Scheme::Sip,
                     user: Some(UserInfo {
-                        name: "1000b3",
+                        user: "1000b3",
                         password: None
                     }),
                     host: HostPort::IpAddr {
