@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::SipHeaderParser;
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct Timestamp<'a> {
     time: &'a str,
     delay: Option<&'a str>,
@@ -28,4 +28,20 @@ impl<'a> SipHeaderParser<'a> for Timestamp<'a> {
         };
         Ok(Timestamp { time, delay })
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"54\r\n";
+        let mut scanner = Scanner::new(src);
+        let timestamp = Timestamp::parse(&mut scanner);
+        let timestamp = timestamp.unwrap();
+
+        assert_eq!(timestamp, Timestamp { delay: None, time: "54" });
+    }
+     
 }

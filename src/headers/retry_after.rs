@@ -2,14 +2,14 @@ use core::str;
 use std::u32;
 
 use crate::{
-    scanner::Scanner,
-    macros::{digits, parse_param, read_until_byte, sip_parse_error},
+    macros::{digits, parse_param, read_until_byte, sip_parse_error, space},
     parser::Result,
+    scanner::Scanner,
     uri::Params,
 };
 
 use super::SipHeaderParser;
-
+#[derive(Debug)]
 pub struct RetryAfter<'a> {
     seconds: u32,
     param: Option<Params<'a>>,
@@ -23,6 +23,7 @@ impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
         let digits = digits!(scanner);
         let digits = unsafe { str::from_utf8_unchecked(digits) };
         let digits = digits.parse::<u32>();
+        space!(scanner);
         let mut comment: Option<_> = None;
 
         match digits {
@@ -47,5 +48,36 @@ impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
             }
             Err(_) => todo!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"18000;duration=3600\r\n";
+        let mut scanner = Scanner::new(src);
+        let retry_after = RetryAfter::parse(&mut scanner);
+        let retry_after = retry_after.unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(retry_after.seconds, 18000);
+        assert_eq!(
+            retry_after.param,
+            Some(Params::from(HashMap::from([("duration", Some("3600"))])))
+        );
+
+        let src = b"120 (I'm in a meeting)\r\n";
+        let mut scanner = Scanner::new(src);
+        let retry_after = RetryAfter::parse(&mut scanner);
+        let retry_after = retry_after.unwrap();
+
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(retry_after.seconds, 120);
+        assert_eq!(retry_after.comment, Some("I'm in a meeting"));
     }
 }

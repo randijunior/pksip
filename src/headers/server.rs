@@ -3,7 +3,7 @@ use core::str;
 use crate::{scanner::Scanner, macros::until_newline, parser::Result};
 
 use super::SipHeaderParser;
-
+#[derive(Debug)]
 pub struct Server<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Server<'a> {
@@ -14,5 +14,21 @@ impl<'a> SipHeaderParser<'a> for Server<'a> {
         let val = str::from_utf8(val)?;
 
         Ok(Server(val))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+         let src = b"HomeServer v2\r\n";
+         let mut scanner = Scanner::new(src);
+         let server = Server::parse(&mut scanner);
+         let server = server.unwrap();
+
+         assert_eq!(scanner.as_ref(), b"\r\n");
+         assert_eq!(server.0, "HomeServer v2");
     }
 }
