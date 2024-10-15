@@ -1,104 +1,111 @@
-pub mod accept;
-pub mod accept_encoding;
-pub mod accept_language;
-pub mod alert_info;
-pub mod allow;
-pub mod authentication_info;
-pub mod authorization;
-pub mod call_id;
-pub mod call_info;
-pub mod contact;
-pub mod content_disposition;
-pub mod content_encoding;
-pub mod content_language;
-pub mod content_length;
-pub mod content_type;
-pub mod cseq;
-pub mod date;
-pub mod error_info;
-pub mod expires;
-pub mod from;
-pub mod in_reply_to;
-pub mod max_fowards;
-pub mod mime_version;
-pub mod min_expires;
-pub mod organization;
-pub mod priority;
-pub mod proxy_authenticate;
-pub mod proxy_authorization;
-pub mod proxy_require;
-pub mod record_route;
-pub mod reply_to;
-pub mod require;
-pub mod retry_after;
-pub mod route;
-pub mod server;
-pub mod subject;
-pub mod supported;
-pub mod timestamp;
-pub mod to;
-pub mod unsupported;
-pub mod user_agent;
-pub mod via;
-pub mod warning;
-pub mod www_authenticate;
-
+use core::{call_id::CallId, cseq::CSeq, max_fowards::MaxForwards, to::To};
 use std::str;
 
-use accept::Accept;
-use accept_encoding::AcceptEncoding;
-use accept_language::AcceptLanguage;
-use alert_info::AlertInfo;
-use allow::Allow;
-use authentication_info::AuthenticationInfo;
-use authorization::{Authorization, Credential, DigestCredential};
-pub use call_id::CallId;
-use call_info::CallInfo;
-use contact::Contact;
-use content_disposition::ContentDisposition;
-use content_encoding::ContentEncoding;
-use content_language::ContentLanguage;
-use content_length::ContentLength;
-use content_type::ContentType;
-use cseq::CSeq;
-use date::Date;
-use error_info::ErrorInfo;
-use expires::Expires;
-pub use from::From;
-use in_reply_to::InReplyTo;
-use max_fowards::MaxForwards;
-use mime_version::MimeVersion;
-use min_expires::MinExpires;
-use organization::Organization;
-use priority::Priority;
-use proxy_authenticate::{Challenge, DigestChallenge, ProxyAuthenticate};
-use proxy_authorization::ProxyAuthorization;
-use proxy_require::ProxyRequire;
-use record_route::RecordRoute;
-use reply_to::ReplyTo;
-use require::Require;
-use retry_after::RetryAfter;
-use route::Route;
-use server::Server;
-use subject::Subject;
-use supported::Supported;
-use timestamp::Timestamp;
-pub use to::To;
-use unsupported::Unsupported;
-use user_agent::UserAgent;
-pub use via::Via;
-use warning::Warning;
-use www_authenticate::WWWAuthenticate;
+pub mod auth;
+pub mod capability;
+pub mod control;
+pub mod core;
+pub mod info;
+pub mod routing;
+pub mod session;
 
+use auth::{
+    authentication_info::AuthenticationInfo,
+    authorization::{Authorization, Credential, DigestCredential},
+    proxy_authenticate::{Challenge, DigestChallenge, ProxyAuthenticate},
+    proxy_authorization::ProxyAuthorization,
+    www_authenticate::WWWAuthenticate,
+};
+use capability::{
+    accept_encoding::AcceptEncoding, accept_language::AcceptLanguage, proxy_require::ProxyRequire,
+    require::Require, supported::Supported, unsupported::Unsupported,
+};
+use control::{
+    allow::Allow, expires::Expires, min_expires::MinExpires, reply_to::ReplyTo,
+    retry_after::RetryAfter, timestamp::Timestamp,
+};
+use info::{
+    alert_info::AlertInfo, call_info::CallInfo, date::Date, error_info::ErrorInfo,
+    in_reply_to::InReplyTo, organization::Organization, priority::Priority, server::Server,
+    subject::Subject, user_agent::UserAgent, warning::Warning,
+};
+use routing::{contact::Contact, record_route::RecordRoute, route::Route, via::Via};
+use session::{
+    accept::Accept, content_disposition::ContentDisposition, content_encoding::ContentEncoding,
+    content_language::ContentLanguage, content_length::ContentLength, content_type::ContentType,
+    mime_version::MimeVersion,
+};
+
+use core::from::From;
 
 use crate::{
-    scanner::Scanner,
-    macros::{
-        parse_auth_param, read_until_byte, read_while, sip_parse_error, space,
-    },
+    macros::{parse_auth_param, read_until_byte, read_while, sip_parse_error, space},
     parser::{is_token, Result},
+    scanner::Scanner,
     uri::Params,
 };
+
+// Headers, as defined in RFC3261.
+pub enum Header<'a> {
+    Accept(Accept<'a>),
+    AcceptEncoding(AcceptEncoding<'a>),
+    AcceptLanguage(AcceptLanguage<'a>),
+    AlertInfo(AlertInfo<'a>),
+    Allow(Allow<'a>),
+    AuthenticationInfo(AuthenticationInfo<'a>),
+    Authorization(Authorization<'a>),
+    CallId(CallId<'a>),
+    CallInfo(CallInfo<'a>),
+    Contact(Contact<'a>),
+    ContentDisposition(ContentDisposition<'a>),
+    ContentEncoding(ContentEncoding<'a>),
+    ContentLanguage(ContentLanguage<'a>),
+    ContentLength(ContentLength),
+    ContentType(ContentType<'a>),
+    CSeq(CSeq<'a>),
+    Date(Date<'a>),
+    ErrorInfo(ErrorInfo<'a>),
+    Expires(Expires),
+    From(From<'a>),
+    InReplyTo(InReplyTo<'a>),
+    MaxForwards(MaxForwards),
+    MimeVersion(MimeVersion),
+    MinExpires(MinExpires),
+    Organization(Organization<'a>),
+    Priority(Priority<'a>),
+    ProxyAuthenticate(ProxyAuthenticate<'a>),
+    ProxyAuthorization(ProxyAuthorization<'a>),
+    ProxyRequire(ProxyRequire<'a>),
+    RecordRoute(RecordRoute<'a>),
+    ReplyTo(ReplyTo<'a>),
+    Require(Require<'a>),
+    RetryAfter(RetryAfter<'a>),
+    Route(Route<'a>),
+    Server(Server<'a>),
+    Subject(Subject<'a>),
+    Supported(Supported<'a>),
+    Timestamp(Timestamp<'a>),
+    To(To<'a>),
+    Unsupported(Unsupported<'a>),
+    UserAgent(UserAgent<'a>),
+    Via(Via<'a>),
+    Warning(Warning<'a>),
+    WWWAuthenticate(WWWAuthenticate<'a>),
+    Other { name: &'a str, value: &'a str },
+}
+
+pub struct SipHeaders<'a> {
+    pub(crate) hdrs: Vec<Header<'a>>,
+}
+
+impl<'a> SipHeaders<'a> {
+    pub fn new() -> Self {
+        Self { hdrs: Vec::new() }
+    }
+    pub fn push_header(&mut self, hdr: Header<'a>) {
+        self.hdrs.push(hdr);
+    }
+}
 
 pub(crate) fn parse_generic_param<'a>(
     scanner: &mut Scanner<'a>,
@@ -225,66 +232,4 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
             }
         }
     }
-}
-
-pub struct SipHeaders<'a> {
-    pub(crate) hdrs: Vec<Header<'a>>,
-}
-
-impl<'a> SipHeaders<'a> {
-    pub fn new() -> Self {
-        Self { hdrs: Vec::new() }
-    }
-    pub fn push_header(&mut self, hdr: Header<'a>) {
-        self.hdrs.push(hdr);
-    }
-}
-
-// Headers, as defined in RFC3261.
-pub enum Header<'a> {
-    Accept(Accept<'a>),
-    AcceptEncoding(AcceptEncoding<'a>),
-    AcceptLanguage(AcceptLanguage<'a>),
-    AlertInfo(AlertInfo<'a>),
-    Allow(Allow<'a>),
-    AuthenticationInfo(AuthenticationInfo<'a>),
-    Authorization(Authorization<'a>),
-    CallId(CallId<'a>),
-    CallInfo(CallInfo<'a>),
-    Contact(Contact<'a>),
-    ContentDisposition(ContentDisposition<'a>),
-    ContentEncoding(ContentEncoding<'a>),
-    ContentLanguage(ContentLanguage<'a>),
-    ContentLength(ContentLength),
-    ContentType(ContentType<'a>),
-    CSeq(CSeq<'a>),
-    Date(Date<'a>),
-    ErrorInfo(ErrorInfo<'a>),
-    Expires(Expires),
-    From(From<'a>),
-    InReplyTo(InReplyTo<'a>),
-    MaxForwards(MaxForwards),
-    MimeVersion(MimeVersion),
-    MinExpires(MinExpires),
-    Organization(Organization<'a>),
-    Priority(Priority<'a>),
-    ProxyAuthenticate(ProxyAuthenticate<'a>),
-    ProxyAuthorization(ProxyAuthorization<'a>),
-    ProxyRequire(ProxyRequire<'a>),
-    RecordRoute(RecordRoute<'a>),
-    ReplyTo(ReplyTo<'a>),
-    Require(Require<'a>),
-    RetryAfter(RetryAfter<'a>),
-    Route(Route<'a>),
-    Server(Server<'a>),
-    Subject(Subject<'a>),
-    Supported(Supported<'a>),
-    Timestamp(Timestamp<'a>),
-    To(To<'a>),
-    Unsupported(Unsupported<'a>),
-    UserAgent(UserAgent<'a>),
-    Via(Via<'a>),
-    Warning(Warning<'a>),
-    WWWAuthenticate(WWWAuthenticate<'a>),
-    Other { name: &'a str, value: &'a str },
 }

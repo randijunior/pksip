@@ -1,47 +1,47 @@
-use crate::headers::accept::Accept;
-use crate::headers::accept_encoding::AcceptEncoding;
-use crate::headers::accept_language::AcceptLanguage;
-use crate::headers::alert_info::AlertInfo;
-use crate::headers::allow::Allow;
-use crate::headers::authentication_info::AuthenticationInfo;
-use crate::headers::authorization::Authorization;
-use crate::headers::call_id::CallId;
-use crate::headers::contact::Contact;
-use crate::headers::content_disposition::ContentDisposition;
-use crate::headers::content_encoding::ContentEncoding;
-use crate::headers::content_length::ContentLength;
-use crate::headers::content_type::ContentType;
-use crate::headers::cseq::CSeq;
-use crate::headers::date::Date;
-use crate::headers::error_info::ErrorInfo;
-use crate::headers::expires::Expires;
-use crate::headers::in_reply_to::InReplyTo;
-use crate::headers::max_fowards::MaxForwards;
-use crate::headers::mime_version::MimeVersion;
-use crate::headers::min_expires::MinExpires;
-use crate::headers::organization::Organization;
-use crate::headers::priority::Priority;
-use crate::headers::proxy_authenticate::ProxyAuthenticate;
-use crate::headers::proxy_authorization::ProxyAuthorization;
-use crate::headers::proxy_require::ProxyRequire;
-use crate::headers::record_route::RecordRoute;
-use crate::headers::reply_to::ReplyTo;
-use crate::headers::require::Require;
-use crate::headers::retry_after::RetryAfter;
-use crate::headers::route::Route;
-use crate::headers::server::Server;
-use crate::headers::subject::Subject;
-use crate::headers::supported::Supported;
-use crate::headers::timestamp::Timestamp;
-use crate::headers::to::To;
-use crate::headers::unsupported::Unsupported;
-use crate::headers::user_agent::UserAgent;
-use crate::headers::via::Via;
-use crate::headers::warning::Warning;
-use crate::headers::www_authenticate::WWWAuthenticate;
-use crate::headers::{self, SipHeaderParser};
+use crate::headers::auth::authentication_info::AuthenticationInfo;
+use crate::headers::auth::authorization::Authorization;
+use crate::headers::auth::proxy_authenticate::ProxyAuthenticate;
+use crate::headers::auth::proxy_authorization::ProxyAuthorization;
+use crate::headers::auth::www_authenticate::WWWAuthenticate;
+use crate::headers::capability::accept_encoding::AcceptEncoding;
+use crate::headers::capability::accept_language::AcceptLanguage;
+use crate::headers::capability::proxy_require::ProxyRequire;
+use crate::headers::capability::require::Require;
+use crate::headers::capability::supported::Supported;
+use crate::headers::capability::unsupported::Unsupported;
+use crate::headers::control::allow::Allow;
+use crate::headers::control::expires::Expires;
+use crate::headers::control::min_expires::MinExpires;
+use crate::headers::control::reply_to::ReplyTo;
+use crate::headers::control::retry_after::RetryAfter;
+use crate::headers::control::timestamp::Timestamp;
+use crate::headers::core::call_id::CallId;
+use crate::headers::core::cseq::CSeq;
+use crate::headers::core::max_fowards::MaxForwards;
+use crate::headers::core::to::To;
+use crate::headers::info::alert_info::AlertInfo;
+use crate::headers::info::date::Date;
+use crate::headers::info::error_info::ErrorInfo;
+use crate::headers::info::in_reply_to::InReplyTo;
+use crate::headers::info::organization::Organization;
+use crate::headers::info::priority::Priority;
+use crate::headers::info::server::Server;
+use crate::headers::info::subject::Subject;
+use crate::headers::info::user_agent::UserAgent;
+use crate::headers::info::warning::Warning;
+use crate::headers::routing::contact::Contact;
+use crate::headers::routing::record_route::RecordRoute;
+use crate::headers::routing::route::Route;
+use crate::headers::routing::via::Via;
+use crate::headers::session::accept::Accept;
+use crate::headers::session::content_disposition::ContentDisposition;
+use crate::headers::session::content_encoding::ContentEncoding;
+use crate::headers::session::content_length::ContentLength;
+use crate::headers::session::content_type::ContentType;
+use crate::headers::session::mime_version::MimeVersion;
+use crate::headers::SipHeaderParser;
 
-use crate::{scanner::Scanner, headers::Header};
+use crate::{headers::Header, scanner::Scanner};
 
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
@@ -50,9 +50,9 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::str::Utf8Error;
 
-use crate::scanner::ScannerError;
-use crate::headers::via::ViaParams;
+use crate::headers::routing::via::ViaParams;
 use crate::headers::SipHeaders;
+use crate::scanner::ScannerError;
 
 use crate::macros::b_map;
 use crate::macros::digits;
@@ -147,7 +147,10 @@ impl<'a> SipParser<'a> {
             SCHEME_SIP => Ok(Scheme::Sip),
             SCHEME_SIPS => Ok(Scheme::Sips),
             // Unsupported URI scheme
-            unsupported => sip_parse_error!(format!("Unsupported URI scheme: {}", String::from_utf8_lossy(unsupported))),
+            unsupported => sip_parse_error!(format!(
+                "Unsupported URI scheme: {}",
+                String::from_utf8_lossy(unsupported)
+            )),
         }
     }
 
@@ -542,8 +545,8 @@ impl<'a> SipParser<'a> {
                     let max_fowards = MaxForwards::parse(scanner)?;
                     headers.push_header(Header::MaxForwards(max_fowards))
                 }
-                from if headers::From::match_name(from) => {
-                    let from = headers::From::parse(scanner)?;
+                from if crate::headers::core::from::From::match_name(from) => {
+                    let from = crate::headers::core::from::From::parse(scanner)?;
                     headers.push_header(Header::From(from))
                 }
                 to if To::match_name(to) => {
@@ -788,7 +791,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
 
 #[derive(Debug, PartialEq)]
 pub struct SipParserError {
-   pub message: String,
+    pub message: String,
 }
 
 impl SipParserError {
