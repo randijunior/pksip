@@ -16,7 +16,7 @@ pub struct To<'a> {
 
 impl<'a> SipHeaderParser<'a> for To<'a> {
     const NAME: &'static [u8] = b"To";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"f");
+    const SHORT_NAME: Option<&'static [u8]> = Some(b"t");
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let uri = SipParser::parse_sip_uri(scanner)?;

@@ -1,10 +1,10 @@
-use core::{call_id::CallId, cseq::CSeq, max_fowards::MaxForwards, to::To};
+use common::{call_id::CallId, cseq::CSeq, max_fowards::MaxForwards, to::To};
 use std::str;
 
 pub mod auth;
 pub mod capability;
 pub mod control;
-pub mod core;
+pub mod common;
 pub mod info;
 pub mod routing;
 pub mod session;
@@ -36,7 +36,7 @@ use session::{
     mime_version::MimeVersion,
 };
 
-use core::from::From;
+use common::from::From;
 
 use crate::{
     macros::{parse_auth_param, read_until_byte, read_while, sip_parse_error, space},

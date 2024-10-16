@@ -15,10 +15,10 @@ use crate::headers::control::min_expires::MinExpires;
 use crate::headers::control::reply_to::ReplyTo;
 use crate::headers::control::retry_after::RetryAfter;
 use crate::headers::control::timestamp::Timestamp;
-use crate::headers::core::call_id::CallId;
-use crate::headers::core::cseq::CSeq;
-use crate::headers::core::max_fowards::MaxForwards;
-use crate::headers::core::to::To;
+use crate::headers::common::call_id::CallId;
+use crate::headers::common::cseq::CSeq;
+use crate::headers::common::max_fowards::MaxForwards;
+use crate::headers::common::to::To;
 use crate::headers::info::alert_info::AlertInfo;
 use crate::headers::info::date::Date;
 use crate::headers::info::error_info::ErrorInfo;
@@ -507,7 +507,7 @@ impl<'a> SipParser<'a> {
         let tag = peek_while!(scanner, is_alphabetic);
         let next = scanner.src.get(tag.len() + 1);
 
-        next.is_some_and(|next| (next == &b'/' || is_space(*next)) && tag == SIP)
+        !next.is_some_and(|next| (next == &b'/' || is_space(*next)) && tag == SIP)
     }
 
     fn parse_headers(&mut self, headers: &mut SipHeaders<'a>) -> Result<()> {
@@ -545,8 +545,8 @@ impl<'a> SipParser<'a> {
                     let max_fowards = MaxForwards::parse(scanner)?;
                     headers.push_header(Header::MaxForwards(max_fowards))
                 }
-                from if crate::headers::core::from::From::match_name(from) => {
-                    let from = crate::headers::core::from::From::parse(scanner)?;
+                from if crate::headers::common::from::From::match_name(from) => {
+                    let from = crate::headers::common::from::From::parse(scanner)?;
                     headers.push_header(Header::From(from))
                 }
                 to if To::match_name(to) => {
