@@ -21,14 +21,14 @@ use crate::headers::SipHeaderParser;
 */
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct DigestChallenge<'a> {
-    realm: Option<&'a str>,
-    domain: Option<&'a str>,
-    nonce: Option<&'a str>,
-    opaque: Option<&'a str>,
-    stale: Option<&'a str>,
-    algorithm: Option<&'a str>,
-    qop: Option<&'a str>,
-    param: Params<'a>,
+    pub realm: Option<&'a str>,
+    pub domain: Option<&'a str>,
+    pub nonce: Option<&'a str>,
+    pub opaque: Option<&'a str>,
+    pub stale: Option<&'a str>,
+    pub algorithm: Option<&'a str>,
+    pub qop: Option<&'a str>,
+    pub param: Params<'a>,
 }
 
 impl<'a> DigestChallenge<'a> {
@@ -94,6 +94,7 @@ mod tests {
         let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest(digest) => {
+            assert_eq!(digest.realm, Some("atlanta.com"));
             assert_eq!(digest.algorithm, Some("MD5"));
             assert_eq!(digest.domain, Some("sip:ss1.carrier.com"));
             assert_eq!(digest.qop, Some("auth"));

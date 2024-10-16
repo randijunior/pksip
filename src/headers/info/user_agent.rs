@@ -16,3 +16,20 @@ impl<'a> SipHeaderParser<'a> for UserAgent<'a> {
         Ok(UserAgent(val))
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+         let src = b"Softphone Beta1.5\r\n";
+         let mut scanner = Scanner::new(src);
+         let ua = UserAgent::parse(&mut scanner);
+         let ua = ua.unwrap();
+
+         assert_eq!(scanner.as_ref(), b"\r\n");
+         assert_eq!(ua.0, "Softphone Beta1.5");
+    }
+}

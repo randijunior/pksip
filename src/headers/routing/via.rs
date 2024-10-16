@@ -21,10 +21,10 @@ ttl               =  1*3DIGIT ; 0 to 255
 
 use crate::headers::SipHeaderParser;
 use crate::{
-    scanner::Scanner,
     macros::{read_until_byte, sip_parse_error, space},
     msg::Transport,
     parser::{Result, SipParser},
+    scanner::Scanner,
     uri::{HostPort, Params},
 };
 use std::str;
@@ -72,6 +72,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     const SHORT_NAME: Option<&'static [u8]> = Some(b"v");
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        //@TODO: handle LWS
         SipParser::parse_sip_version(scanner)?;
 
         if scanner.next() != Some(&b'/') {
@@ -101,5 +102,49 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
             others_params,
             comment,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr};
+
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"SIP/2.0/UDP bobspc.biloxi.com:5060;received=192.0.2.4\r\n";
+        let mut scanner = Scanner::new(src);
+        let via = Via::parse(&mut scanner);
+        let via = via.unwrap();
+
+        assert_eq!(via.transport, Transport::UDP);
+        assert_eq!(
+            via.sent_by,
+            HostPort::DomainName {
+                host: "bobspc.biloxi.com",
+                port: Some(5060)
+            }
+        );
+        let params = via.params.unwrap();
+        assert_eq!(params.received, Some("192.0.2.4"));
+
+        let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
+        ;branch=z9hG4bK77asjd\r\n";
+        let mut scanner = Scanner::new(src);
+        let via = Via::parse(&mut scanner);
+        let via = via.unwrap();
+
+        assert_eq!(via.transport, Transport::UDP);
+        assert_eq!(
+            via.sent_by,
+            HostPort::IpAddr {
+                host: IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)),
+                port: Some(5060)
+            }
+        );
+        let params = via.params.unwrap();
+        assert_eq!(params.received, Some("192.0.2.207"));
+        assert_eq!(params.branch, Some("z9hG4bK77asjd"));
     }
 }

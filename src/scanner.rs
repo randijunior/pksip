@@ -185,7 +185,9 @@ mod tests {
 
         assert_eq!(scanner.peek(), Some(&b'H'));
         assert_eq!(scanner.peek_n(6), Some("Hello,".as_bytes()));
-        assert_eq!(scanner.peek_while(is_alphabetic), Range { start: 0, end: 5 });
+
+        let range = scanner.peek_while(is_alphabetic);
+        assert_eq!(&src[range], "Hello".as_bytes());
     }
 
     #[test]
@@ -193,8 +195,14 @@ mod tests {
         let src = "This is an test!".as_bytes();
         let mut scanner = Scanner::new(src);
 
-        assert_eq!(scanner.read_tag(b"This"), Ok(Range { start: 0, end: 4 }));
-        assert_eq!(scanner.read_tag(b" is"), Ok(Range { start: 4, end: 7 }));
+        let range = scanner.read_tag(b"This");
+        let range = range.unwrap();
+        assert_eq!(&src[range], "This".as_bytes());
+
+        let range = scanner.read_tag(b" is");
+        let range = range.unwrap();
+        assert_eq!(&src[range], " is".as_bytes());
+
         assert_eq!(
             scanner.read_tag(b"not exist!"),
             Err(ScannerError {
@@ -204,10 +212,11 @@ mod tests {
                 src: src
             })
         );
-        assert_eq!(
-            scanner.read_tag(b" an test!"),
-            Ok(Range { start: 7, end: 16 })
-        );
+
+        let range = scanner.read_tag(b" an test!");
+        let range = range.unwrap();
+        assert_eq!(&src[range], " an test!".as_bytes());
+
         assert_eq!(
             scanner.read_tag(b"end!"),
             Err(ScannerError {
@@ -224,25 +233,26 @@ mod tests {
         let src = "Input to\r\nread".as_bytes();
         let mut scanner = Scanner::new(src);
 
-        assert_eq!(
-            scanner.read_while(|b| b == b'I'),
-            Range { start: 0, end: 1 }
-        );
-        assert_eq!(
-            scanner.read_while(is_alphabetic),
-            Range { start: 1, end: 5 }
-        );
-        assert_eq!(scanner.read_while(is_space), Range { start: 5, end: 6 });
+        let range = scanner.read_while(|b| b == b'I');
+        assert_eq!(&src[range], "I".as_bytes());
+
+        let range = scanner.read_while(is_alphabetic);
+        assert_eq!(&src[range], "nput".as_bytes());
+
+        let range = scanner.read_while(is_space);
+        assert_eq!(&src[range], " ".as_bytes());
+
         assert_eq!(scanner.read_if(is_alphabetic), Ok(Some(&b't')));
         assert_eq!(scanner.read_if_eq(b'o'), Ok(Some(&b'o')));
-        assert_eq!(
-            scanner.read_while(is_newline),
-            Range { start: 8, end: 10 }
-        );
+
+        let range = scanner.read_while(is_newline);
+        assert_eq!(&src[range], "\r\n".as_bytes());
 
         assert_eq!(scanner.line, 2);
         assert_eq!(scanner.col, 1);
 
-        assert_eq!(scanner.read_n(4), Ok(Range { start: 10, end: 14 }));
+        let range = scanner.read_n(4);
+        let range = range.unwrap();
+        assert_eq!(&src[range], "read".as_bytes());
     }
 }

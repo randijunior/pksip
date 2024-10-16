@@ -131,6 +131,47 @@ b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
 
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
+#[inline(always)]
+pub(crate) fn is_host(b: u8) -> bool {
+    HOST_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_user(b: u8) -> bool {
+    USER_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_pass(b: u8) -> bool {
+    PASS_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_param(b: u8) -> bool {
+    PARAM_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_hdr(b: u8) -> bool {
+    HDR_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_via_param(b: u8) -> bool {
+    VIA_PARAM_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_uri(b: u8) -> bool {
+    GENERIC_URI_SPEC_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_token(b: u8) -> bool {
+    TOKEN_SPEC_MAP[b as usize]
+}
+
+
 pub struct SipParser<'a> {
     scanner: Scanner<'a>,
 }
@@ -424,6 +465,7 @@ impl<'a> SipParser<'a> {
     pub(crate) fn parse_via_params(
         scanner: &mut Scanner<'a>,
     ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
+        space!(scanner);
         if scanner.peek() != Some(&b';') {
             return Ok((None, None));
         }
@@ -458,6 +500,7 @@ impl<'a> SipParser<'a> {
                     others.set(name, Some(value));
                 }
             }
+            space!(scanner);
         }
 
         let others = if others.is_empty() {
@@ -727,45 +770,7 @@ impl<'a> SipParser<'a> {
         Ok(())
     }
 }
-#[inline(always)]
-pub(crate) fn is_host(b: u8) -> bool {
-    HOST_SPEC_MAP[b as usize]
-}
 
-#[inline(always)]
-fn is_user(b: u8) -> bool {
-    USER_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_pass(b: u8) -> bool {
-    PASS_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_param(b: u8) -> bool {
-    PARAM_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_hdr(b: u8) -> bool {
-    HDR_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_via_param(b: u8) -> bool {
-    VIA_PARAM_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_uri_content(b: u8) -> bool {
-    GENERIC_URI_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_token(b: u8) -> bool {
-    TOKEN_SPEC_MAP[b as usize]
-}
 
 pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
     let mut parser = SipParser::new(buff);

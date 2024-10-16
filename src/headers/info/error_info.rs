@@ -3,7 +3,7 @@ use core::str;
 use crate::{
     scanner::Scanner,
     macros::{parse_param, read_while, sip_parse_error, space},
-    parser::{is_token, is_uri_content, Param, Result},
+    parser::{is_token, is_uri, Param, Result},
     uri::Params,
 };
 
@@ -30,7 +30,7 @@ impl<'a> ErrorUri<'a> {
         let Some(&b':') = scanner.next() else {
             return sip_parse_error!("Invalid uri!");
         };
-        let content = read_while!(scanner, is_uri_content);
+        let content = read_while!(scanner, is_uri);
         let content = unsafe { str::from_utf8_unchecked(content) };
         // must be an '>'
         let Some(&b'>') = scanner.next() else {
