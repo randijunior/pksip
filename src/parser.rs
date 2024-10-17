@@ -11,6 +11,7 @@ use crate::headers::capability::supported::Supported;
 use crate::headers::capability::unsupported::Unsupported;
 use crate::headers::common::call_id::CallId;
 use crate::headers::common::cseq::CSeq;
+use crate::headers::common::from;
 use crate::headers::common::max_fowards::MaxForwards;
 use crate::headers::common::to::To;
 use crate::headers::control::allow::Allow;
@@ -54,7 +55,6 @@ use crate::headers::routing::via::ViaParams;
 use crate::headers::SipHeaders;
 use crate::scanner::ScannerError;
 
-use crate::macros::b_map;
 use crate::macros::digits;
 use crate::macros::find;
 use crate::macros::newline;
@@ -65,6 +65,7 @@ use crate::macros::sip_parse_error;
 use crate::macros::space;
 use crate::macros::until_newline;
 use crate::macros::{alpha, parse_param};
+use crate::macros::{b_map, remaing};
 
 use crate::msg::SipMethod;
 use crate::msg::SipMsg;
@@ -84,7 +85,8 @@ use crate::util::{is_alphabetic, is_newline};
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
-const ALPHA_NUM: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const ALPHA_NUM: &[u8] =
+    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 const UNRESERVED: &[u8] = b"-_.!~*'()%";
 const ESCAPED: &[u8] = b"%";
@@ -241,7 +243,9 @@ impl<'a> SipParser {
         Ok((tag, params))
     }
 
-    pub(crate) fn parse_sip_uri(scanner: &mut Scanner<'a>) -> Result<SipUri<'a>> {
+    pub(crate) fn parse_sip_uri(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<SipUri<'a>> {
         space!(scanner);
         let peeked = scanner.peek();
 
@@ -279,7 +283,12 @@ impl<'a> SipParser {
                 Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
             }
             // SipUri
-            Some(_) if matches!(scanner.peek_n(3), Some(SCHEME_SIP) | Some(SCHEME_SIPS)) => {
+            Some(_)
+                if matches!(
+                    scanner.peek_n(3),
+                    Some(SCHEME_SIP) | Some(SCHEME_SIPS)
+                ) =>
+            {
                 let uri = Self::parse_uri(scanner, false)?;
                 Ok(SipUri::Uri(uri))
             }
@@ -311,7 +320,9 @@ impl<'a> SipParser {
         }
     }
 
-    pub(crate) fn parse_host(scanner: &mut Scanner<'a>) -> Result<HostPort<'a>> {
+    pub(crate) fn parse_host(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<HostPort<'a>> {
         if let Ok(Some(_)) = scanner.read_if(|b| b == b'[') {
             // the '[' and ']' characters are removed from the host
             let host = read_until_byte!(scanner, b']');
@@ -399,7 +410,10 @@ impl<'a> SipParser {
         }
     }
 
-    fn parse_uri(scanner: &mut Scanner<'a>, parse_params: bool) -> Result<Uri<'a>> {
+    fn parse_uri(
+        scanner: &mut Scanner<'a>,
+        parse_params: bool,
+    ) -> Result<Uri<'a>> {
         let scheme = Self::parse_scheme(scanner)?;
         // take ':'
         scanner.next();
@@ -480,9 +494,13 @@ impl<'a> SipParser {
                 RPORT_PARAM => {
                     if !value.is_empty() {
                         match value.parse::<u16>() {
-                            Ok(port) if is_valid_port(port) => params.set_rport(port),
+                            Ok(port) if is_valid_port(port) => {
+                                params.set_rport(port)
+                            }
                             Ok(_) | Err(_) => {
-                                return sip_parse_error!("Via param rport is invalid!")
+                                return sip_parse_error!(
+                                    "Via param rport is invalid!"
+                                )
                             }
                         }
                     }
@@ -519,7 +537,9 @@ impl<'a> SipParser {
         Ok(StatusLine::new(status_code, rp))
     }
 
-    fn parse_request_line(scanner: &mut Scanner<'a>) -> Result<RequestLine<'a>> {
+    pub fn parse_request_line(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<RequestLine<'a>> {
         let b_method = alpha!(scanner);
         let method = SipMethod::from(b_method);
 
@@ -538,10 +558,16 @@ impl<'a> SipParser {
         let tag = peek_while!(scanner, is_alphabetic);
         let next = scanner.src.get(tag.len());
 
-        next.is_some_and(|next| tag == SIP && (next == &b'/' || is_space(*next)))
+        next.is_some_and(|next| {
+            tag == SIP && (next == &b'/' || is_space(*next))
+        })
     }
 
-    fn parse_headers(scanner: &mut Scanner<'a>, headers: &mut SipHeaders<'a>) -> Result<()> {
+    fn parse_headers(
+        scanner: &mut Scanner<'a>,
+        headers: &mut SipHeaders<'a>,
+    ) -> Result<bool> {
+        let mut has_body = false;
         'headers: loop {
             let name = read_while!(scanner, is_token);
 
@@ -575,8 +601,8 @@ impl<'a> SipParser {
                     let max_fowards = MaxForwards::parse(scanner)?;
                     headers.push_header(Header::MaxForwards(max_fowards))
                 }
-                from if crate::headers::common::from::From::match_name(from) => {
-                    let from = crate::headers::common::from::From::parse(scanner)?;
+                from if from::From::match_name(from) => {
+                    let from = from::From::parse(scanner)?;
                     headers.push_header(Header::From(from))
                 }
                 to if To::match_name(to) => {
@@ -639,13 +665,22 @@ impl<'a> SipParser {
                     let priority = Priority::parse(scanner)?;
                     headers.push_header(Header::Priority(priority))
                 }
-                proxy_authenticate if ProxyAuthenticate::match_name(proxy_authenticate) => {
+                proxy_authenticate
+                    if ProxyAuthenticate::match_name(proxy_authenticate) =>
+                {
                     let proxy_authenticate = ProxyAuthenticate::parse(scanner)?;
-                    headers.push_header(Header::ProxyAuthenticate(proxy_authenticate))
+                    headers.push_header(Header::ProxyAuthenticate(
+                        proxy_authenticate,
+                    ))
                 }
-                proxy_authorization if ProxyAuthorization::match_name(proxy_authorization) => {
-                    let proxy_authorization = ProxyAuthorization::parse(scanner)?;
-                    headers.push_header(Header::ProxyAuthorization(proxy_authorization))
+                proxy_authorization
+                    if ProxyAuthorization::match_name(proxy_authorization) =>
+                {
+                    let proxy_authorization =
+                        ProxyAuthorization::parse(scanner)?;
+                    headers.push_header(Header::ProxyAuthorization(
+                        proxy_authorization,
+                    ))
                 }
                 proxy_require if ProxyRequire::match_name(proxy_require) => {
                     let proxy_require = ProxyRequire::parse(scanner)?;
@@ -659,26 +694,37 @@ impl<'a> SipParser {
                     let content_length = ContentLength::parse(scanner)?;
                     headers.push_header(Header::ContentLength(content_length))
                 }
-                content_encoding if ContentEncoding::match_name(content_encoding) => {
+                content_encoding
+                    if ContentEncoding::match_name(content_encoding) =>
+                {
                     let content_encoding = ContentEncoding::parse(scanner)?;
-                    headers.push_header(Header::ContentEncoding(content_encoding))
+                    headers
+                        .push_header(Header::ContentEncoding(content_encoding))
                 }
                 content_type if ContentType::match_name(content_type) => {
                     let content_type = ContentType::parse(scanner)?;
+                    has_body = true;
                     headers.push_header(Header::ContentType(content_type))
                 }
-                content_disposition if ContentDisposition::match_name(content_disposition) => {
-                    let content_disposition = ContentDisposition::parse(scanner)?;
-                    headers.push_header(Header::ContentDisposition(content_disposition))
+                content_disposition
+                    if ContentDisposition::match_name(content_disposition) =>
+                {
+                    let content_disposition =
+                        ContentDisposition::parse(scanner)?;
+                    headers.push_header(Header::ContentDisposition(
+                        content_disposition,
+                    ))
                 }
-                record_route if RecordRoute::match_name(record_route) => 'rr: loop {
-                    let record_route = RecordRoute::parse(scanner)?;
-                    headers.push_header(Header::RecordRoute(record_route));
-                    let Some(&b',') = scanner.peek() else {
-                        break 'rr;
-                    };
-                    scanner.next();
-                },
+                record_route if RecordRoute::match_name(record_route) => {
+                    'rr: loop {
+                        let record_route = RecordRoute::parse(scanner)?;
+                        headers.push_header(Header::RecordRoute(record_route));
+                        let Some(&b',') = scanner.peek() else {
+                            break 'rr;
+                        };
+                        scanner.next();
+                    }
+                }
                 require if Require::match_name(require) => {
                     let require = Require::parse(scanner)?;
                     headers.push_header(Header::Require(require))
@@ -691,17 +737,23 @@ impl<'a> SipParser {
                     let organization = Organization::parse(scanner)?;
                     headers.push_header(Header::Organization(organization))
                 }
-                accept_encoding if AcceptEncoding::match_name(accept_encoding) => {
+                accept_encoding
+                    if AcceptEncoding::match_name(accept_encoding) =>
+                {
                     let accept_encoding = AcceptEncoding::parse(scanner)?;
-                    headers.push_header(Header::AcceptEncoding(accept_encoding));
+                    headers
+                        .push_header(Header::AcceptEncoding(accept_encoding));
                 }
                 accept if Accept::match_name(accept) => {
                     let accept = Accept::parse(scanner)?;
                     headers.push_header(Header::Accept(accept));
                 }
-                accept_language if AcceptLanguage::match_name(accept_language) => {
+                accept_language
+                    if AcceptLanguage::match_name(accept_language) =>
+                {
                     let accept_language = AcceptLanguage::parse(scanner)?;
-                    headers.push_header(Header::AcceptLanguage(accept_language));
+                    headers
+                        .push_header(Header::AcceptLanguage(accept_language));
                 }
                 alert_info if AlertInfo::match_name(alert_info) => {
                     let alert_info = AlertInfo::parse(scanner)?;
@@ -731,9 +783,12 @@ impl<'a> SipParser {
                     let unsupported = Unsupported::parse(scanner)?;
                     headers.push_header(Header::Unsupported(unsupported));
                 }
-                www_authenticate if WWWAuthenticate::match_name(www_authenticate) => {
+                www_authenticate
+                    if WWWAuthenticate::match_name(www_authenticate) =>
+                {
                     let www_authenticate = WWWAuthenticate::parse(scanner)?;
-                    headers.push_header(Header::WWWAuthenticate(www_authenticate));
+                    headers
+                        .push_header(Header::WWWAuthenticate(www_authenticate));
                 }
                 warning if Warning::match_name(warning) => {
                     let warning = Warning::parse(scanner)?;
@@ -754,7 +809,7 @@ impl<'a> SipParser {
             break 'headers;
         }
 
-        Ok(())
+        Ok(has_body)
     }
 
     pub fn parse(buff: &'a [u8]) -> Result<SipMsg<'a>> {
@@ -764,19 +819,29 @@ impl<'a> SipParser {
             let req_line = Self::parse_request_line(&mut scanner)?;
             let mut headers = SipHeaders::new();
 
-            Self::parse_headers(&mut scanner, &mut headers)?;
-            let remaing = &buff[scanner.idx()..];
+            let has_body = Self::parse_headers(&mut scanner, &mut headers)?;
+            let body = if has_body {
+                Some(remaing!(scanner))
+            } else {
+                None
+            };
 
-            SipMsg::Request(SipRequest::new(req_line, headers, remaing))
+            SipMsg::Request(SipRequest::new(req_line, headers, body))
         } else {
             let status_line = Self::parse_status_line(&mut scanner)?;
             let mut headers = SipHeaders::new();
 
-            Self::parse_headers(&mut scanner, &mut headers)?;
-            let remaing = &buff[scanner.idx()..];
+            let has_body = Self::parse_headers(&mut scanner, &mut headers)?;
+            let body = if has_body {
+                Some(remaing!(scanner))
+            } else {
+                None
+            };
 
-            SipMsg::Response(SipResponse::new(status_line, headers, remaing))
+            SipMsg::Response(SipResponse::new(status_line, headers, body))
         };
+
+        assert!(scanner.is_eof());
 
         Ok(msg)
     }
@@ -830,13 +895,12 @@ impl<'a> From<ScannerError<'a>> for SipParserError {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::Transport;
-
     use super::*;
 
     #[test]
-    fn test_parse_status_line() {
-        let msg = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
+    fn test_parse_register() {
+        let msg = SipParser::parse(
+            b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
         Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
         Max-Forwards: 70\r\n\
         To: Bob <sip:bob@biloxi.com>\r\n\
@@ -845,45 +909,40 @@ mod tests {
         CSeq: 1826 REGISTER\r\n\
         Contact: <sip:bob@192.0.2.4>\r\n\
         Expires: 7200\r\n\
-        Content-Length: 0\r\n\r\n";
-        let msg = SipParser::parse(msg).unwrap();
+        Content-Length: 0\r\n\r\n",
+        )
+        .unwrap();
+
+        assert_matches!(&msg, SipMsg::Request(req) => {
+            assert_eq!(req.request_line(), &RequestLine::from_bytes(b"REGISTER sip:registrar.biloxi.com SIP/2.0").unwrap());
+        });
+
         let headers = msg.headers();
-
-        assert!(headers.len() == 9);
-
-        let via = headers.find_via_hdr();
-        let via = via.unwrap();
-        assert_eq!(via.transport, Transport::UDP);
-        assert_eq!(
-            via.sent_by,
-            HostPort::DomainName {
-                host: "bobspc.biloxi.com",
-                port: Some(5060)
-            }
-        );
-        let params = via.params.as_ref();
-        assert_eq!(params.unwrap().branch(), Some("z9hG4bKnashds7"));
+        assert_eq!(headers, &SipHeaders::with_headers(vec![
+            Header::Via(Via::from_bytes(b"SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7").unwrap()),
+            Header::MaxForwards(MaxForwards::from_bytes(b"70").unwrap()),
+            Header::To(To::from_bytes(b"Bob <sip:bob@biloxi.com>").unwrap()),
+            Header::From(from::From::from_bytes(b"Bob <sip:bob@biloxi.com>;tag=456248").unwrap()),
+            Header::CallId(CallId::from_bytes(b"843817637684230@998sdasdh09").unwrap()),
+            Header::CSeq(CSeq::from_bytes(b"1826 REGISTER").unwrap()),
+            Header::Contact(Contact::from_bytes(b"<sip:bob@192.0.2.4>").unwrap()),
+            Header::Expires(Expires::from_bytes(b"7200").unwrap()),
+            Header::ContentLength(ContentLength::from_bytes(b"0").unwrap())
+        ]));
+        assert_eq!(msg.body(), None);
     }
 
     #[test]
     #[ignore]
     fn status_line() {
-        let msg = "REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
-        Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
-        Max-Forwards: 70\r\n\
-        To: Bob <sip:bob@biloxi.com>\r\n\
-        From: Bob <sip:bob@biloxi.com>;tag=456248\r\n\
-        Call-ID: 843817637684230@998sdasdh09\r\n\
-        CSeq: 1826 REGISTER\r\n\
-        Contact: <sip:bob@192.0.2.4>\r\n\
-        Expires: 7200\r\n\
-        Content-Length: 0\r\n\r\n"
-            .as_bytes();
+        let sc_ok = SipStatusCode::Ok;
+        let msg = "SIP/2.0 200 OK\r\n".as_bytes();
         let size_of_msg = msg.len();
         let mut counter = 0;
         let now = std::time::Instant::now();
         loop {
-            assert!(SipParser::parse(msg).is_ok());
+            let mut scanner = Scanner::new(msg);
+            assert!(SipParser::parse_status_line(&mut scanner).is_ok(),);
             counter += 1;
             if now.elapsed().as_secs() == 1 {
                 break;

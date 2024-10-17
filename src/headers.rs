@@ -17,35 +17,43 @@ use auth::{
     www_authenticate::WWWAuthenticate,
 };
 use capability::{
-    accept_encoding::AcceptEncoding, accept_language::AcceptLanguage, proxy_require::ProxyRequire,
-    require::Require, supported::Supported, unsupported::Unsupported,
+    accept_encoding::AcceptEncoding, accept_language::AcceptLanguage,
+    proxy_require::ProxyRequire, require::Require, supported::Supported,
+    unsupported::Unsupported,
 };
 use control::{
     allow::Allow, expires::Expires, min_expires::MinExpires, reply_to::ReplyTo,
     retry_after::RetryAfter, timestamp::Timestamp,
 };
 use info::{
-    alert_info::AlertInfo, call_info::CallInfo, date::Date, error_info::ErrorInfo,
-    in_reply_to::InReplyTo, organization::Organization, priority::Priority, server::Server,
-    subject::Subject, user_agent::UserAgent, warning::Warning,
+    alert_info::AlertInfo, call_info::CallInfo, date::Date,
+    error_info::ErrorInfo, in_reply_to::InReplyTo, organization::Organization,
+    priority::Priority, server::Server, subject::Subject,
+    user_agent::UserAgent, warning::Warning,
 };
-use routing::{contact::Contact, record_route::RecordRoute, route::Route, via::Via};
+use routing::{
+    contact::Contact, record_route::RecordRoute, route::Route, via::Via,
+};
 use session::{
-    accept::Accept, content_disposition::ContentDisposition, content_encoding::ContentEncoding,
-    content_language::ContentLanguage, content_length::ContentLength, content_type::ContentType,
+    accept::Accept, content_disposition::ContentDisposition,
+    content_encoding::ContentEncoding, content_language::ContentLanguage,
+    content_length::ContentLength, content_type::ContentType,
     mime_version::MimeVersion,
 };
 
 use common::from::From;
 
 use crate::{
-    macros::{parse_auth_param, read_until_byte, read_while, sip_parse_error, space},
+    macros::{
+        parse_auth_param, read_until_byte, read_while, sip_parse_error, space,
+    },
     parser::{is_token, Result},
     scanner::Scanner,
     uri::Params,
 };
 
 // Headers, as defined in RFC3261.
+#[derive(Debug, PartialEq)]
 pub enum Header<'a> {
     Accept(Accept<'a>),
     AcceptEncoding(AcceptEncoding<'a>),
@@ -146,11 +154,16 @@ impl<'a> Header<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SipHeaders<'a>(Vec<Header<'a>>);
 
 impl<'a> SipHeaders<'a> {
     pub fn new() -> Self {
         Self(Vec::new())
+    }
+
+    pub fn with_headers(headers: Vec<Header<'a>>) -> Self {
+        Self(headers)
     }
     pub fn push_header(&mut self, hdr: Header<'a>) {
         self.0.push(hdr);
@@ -209,6 +222,12 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self>;
 
+    fn from_bytes(src: &'a [u8]) -> Result<Self> {
+        let mut scanner = Scanner::new(src);
+
+        Self::parse(&mut scanner)
+    }
+
     #[inline]
     fn match_name(name: &[u8]) -> bool {
         name.eq_ignore_ascii_case(Self::NAME)
@@ -231,7 +250,9 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         None
     }
 
-    fn parse_auth_credential(scanner: &mut Scanner<'a>) -> Result<Credential<'a>> {
+    fn parse_auth_credential(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<Credential<'a>> {
         let scheme = match scanner.peek() {
             Some(b'"') => {
                 scanner.next();
@@ -246,7 +267,9 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         };
 
         match scheme {
-            b"Digest" => Ok(Credential::Digest(DigestCredential::parse(scanner)?)),
+            b"Digest" => {
+                Ok(Credential::Digest(DigestCredential::parse(scanner)?))
+            }
             other => {
                 space!(scanner);
                 let other = std::str::from_utf8(other)?;
@@ -272,7 +295,9 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         }
     }
 
-    fn parse_auth_challenge(scanner: &mut Scanner<'a>) -> Result<Challenge<'a>> {
+    fn parse_auth_challenge(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<Challenge<'a>> {
         let scheme = match scanner.peek() {
             Some(b'"') => {
                 scanner.next();
@@ -287,7 +312,9 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         };
 
         match scheme {
-            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(scanner)?)),
+            b"Digest" => {
+                Ok(Challenge::Digest(DigestChallenge::parse(scanner)?))
+            }
             other => {
                 space!(scanner);
                 let other = std::str::from_utf8(other)?;

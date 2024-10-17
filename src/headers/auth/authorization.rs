@@ -7,7 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct DigestCredential<'a> {
     pub realm: Option<&'a str>,
     pub username: Option<&'a str>,
@@ -56,7 +56,7 @@ impl<'a> DigestCredential<'a> {
         Ok(digest)
     }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Credential<'a> {
     Digest(DigestCredential<'a>),
     Other { scheme: &'a str, param: Params<'a> },
@@ -92,7 +92,7 @@ other-response    =  auth-scheme LWS auth-param
 auth-scheme       =  token
 
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Authorization<'a>(Credential<'a>);
 
 impl<'a> Authorization<'a> {

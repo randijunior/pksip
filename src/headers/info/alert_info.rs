@@ -5,7 +5,8 @@ use crate::{
     uri::Params,
     util::is_newline,
 };
-#[derive(Debug, PartialEq)]
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,
@@ -24,7 +25,8 @@ impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
         let Some(&b'<') = scanner.next() else {
             return sip_parse_error!("Invalid alert info!");
         };
-        let url = read_while!(scanner, |b| !matches!(b, b'>' | b';') && !is_newline(b));
+        let url = read_while!(scanner, |b| !matches!(b, b'>' | b';')
+            && !is_newline(b));
         let url = str::from_utf8(url)?;
         // must be an '>'
         let Some(&b'>') = scanner.next() else {
@@ -52,7 +54,8 @@ mod tests {
         assert_eq!(alert_info.url, "http://www.example.com/sounds/moo.wav");
         assert_eq!(alert_info.params, None);
 
-        let src = b"<http://example.com/ringtones/premium.wav>;purpose=ringtone\r\n";
+        let src =
+            b"<http://example.com/ringtones/premium.wav>;purpose=ringtone\r\n";
         let mut scanner = Scanner::new(src);
         let alert_info = AlertInfo::parse(&mut scanner).unwrap();
 

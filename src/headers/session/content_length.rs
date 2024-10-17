@@ -1,12 +1,13 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::{digits, sip_parse_error},
     parser::Result,
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentLength(u32);
 

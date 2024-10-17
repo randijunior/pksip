@@ -1,19 +1,21 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::{parse_param, read_while, sip_parse_error, space},
     parser::{is_token, is_uri, Param, Result},
+    scanner::Scanner,
     uri::Params,
 };
 
 use crate::headers::SipHeaderParser;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct GenericUri<'a> {
     scheme: &'a str,
     content: &'a str,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct ErrorUri<'a> {
     url: GenericUri<'a>,
     params: Option<Params<'a>>,
@@ -44,7 +46,7 @@ impl<'a> ErrorUri<'a> {
         })
     }
 }
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 
 impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
@@ -65,7 +67,6 @@ impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
         Ok(ErrorInfo(infos))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

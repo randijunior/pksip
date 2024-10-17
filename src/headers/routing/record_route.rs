@@ -7,7 +7,8 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct RecordRoute<'a> {
     addr: NameAddr<'a>,
     param: Option<Params<'a>>,

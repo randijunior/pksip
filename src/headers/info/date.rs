@@ -1,9 +1,10 @@
-use crate::{scanner::Scanner, macros::until_newline, parser::Result};
+use crate::{macros::until_newline, parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeaderParser;
 
 use std::str;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Date<'a> {
@@ -23,11 +24,11 @@ mod tests {
 
     #[test]
     fn test_parse() {
-         let src = b"Sat, 13 Nov 2010 23:29:00 GMT\r\n";
-         let mut scanner = Scanner::new(src);
-         let date = Date::parse(&mut scanner).unwrap();
+        let src = b"Sat, 13 Nov 2010 23:29:00 GMT\r\n";
+        let mut scanner = Scanner::new(src);
+        let date = Date::parse(&mut scanner).unwrap();
 
-         assert_eq!(scanner.as_ref(), b"\r\n");
-         assert_eq!(date.0, "Sat, 13 Nov 2010 23:29:00 GMT");
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(date.0, "Sat, 13 Nov 2010 23:29:00 GMT");
     }
 }

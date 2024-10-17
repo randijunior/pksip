@@ -8,7 +8,7 @@ macro_rules! digits {
     ($scanner:ident) => {{
         let range = $scanner.read_while(crate::util::is_digit);
 
-        &$scanner.src[range]
+        unsafe { $scanner.src.get_unchecked(range) }
     }};
 }
 
@@ -16,7 +16,7 @@ macro_rules! read_while {
     ($scanner:expr, $func:expr) => {{
         let range = $scanner.read_while($func);
 
-        &$scanner.src[range]
+        unsafe { $scanner.src.get_unchecked(range) }
     }};
 }
 
@@ -24,7 +24,7 @@ macro_rules! read_until_byte {
     ($scanner:expr, $byte:expr) => {{
         let range = $scanner.read_while(|b| b != $byte);
 
-        &$scanner.src[range]
+        unsafe { $scanner.src.get_unchecked(range) }
     }};
 }
 
@@ -32,7 +32,15 @@ macro_rules! find {
     ($scanner:expr, $tag:expr) => {{
         let range = $scanner.read_tag($tag)?;
 
-        &$scanner.src[range]
+        unsafe { $scanner.src.get_unchecked(range) }
+    }};
+}
+
+macro_rules! remaing {
+    ($scanner:ident) => {{
+        let range = $scanner.read_n($scanner.len() - $scanner.idx())?;
+
+        unsafe { $scanner.src.get_unchecked(range) }
     }};
 }
 
@@ -40,7 +48,7 @@ macro_rules! until_newline {
     ($scanner:ident) => {{
         let range = $scanner.read_while(|b| !crate::util::is_newline(b));
 
-        &$scanner.src[range]
+        unsafe { $scanner.src.get_unchecked(range) }
     }};
 }
 
@@ -48,7 +56,7 @@ macro_rules! peek_while {
     ($scanner:expr, $func:expr) => {{
         let range = $scanner.peek_while($func);
 
-        (&$scanner.src[range])
+        (unsafe { $scanner.src.get_unchecked(range) })
     }};
 }
 
@@ -62,7 +70,7 @@ macro_rules! alpha {
     ($scanner:ident) => {{
         let range = $scanner.read_while(crate::util::is_alphabetic);
 
-        &$scanner.src[range]
+        unsafe { $scanner.src.get_unchecked(range) }
     }};
 }
 
@@ -147,3 +155,4 @@ pub(crate) use read_while;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
 pub(crate) use until_newline;
+pub(crate) use remaing;

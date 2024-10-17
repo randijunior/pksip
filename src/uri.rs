@@ -48,7 +48,6 @@ pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, Option<&'a str>>,
 }
 
-
 impl<'a> From<HashMap<&'a str, Option<&'a str>>> for Params<'a> {
     fn from(value: HashMap<&'a str, Option<&'a str>>) -> Self {
         Self { inner: value }
@@ -62,7 +61,11 @@ impl<'a> Params<'a> {
         }
     }
 
-    pub fn set(&mut self, k: &'a str, v: Option<&'a str>) -> Option<Option<&str>> {
+    pub fn set(
+        &mut self,
+        k: &'a str,
+        v: Option<&'a str>,
+    ) -> Option<Option<&str>> {
         self.inner.insert(k, v)
     }
 

@@ -1,13 +1,15 @@
 use crate::{
-    scanner::Scanner,
     macros::{alpha, digits, sip_parse_error, space},
     msg::SipMethod,
     parser::Result,
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
 
 use std::str;
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct CSeq<'a> {
     cseq: i32,
     method: SipMethod<'a>,
@@ -30,7 +32,6 @@ impl<'a> SipHeaderParser<'a> for CSeq<'a> {
         Ok(CSeq { cseq, method })
     }
 }
-
 
 #[cfg(test)]
 mod tests {

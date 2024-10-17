@@ -39,15 +39,21 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    #[inline]
     pub fn idx(&self) -> usize {
         self.idx
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     pub fn peek(&self) -> Option<&u8> {
         if self.finished {
             return None;
         }
-        Some(&self.src[self.idx])
+        Some(unsafe { self.src.get_unchecked(self.idx) })
     }
 
     #[inline]
@@ -133,7 +139,7 @@ impl<'a> Scanner<'a> {
 
     #[inline(always)]
     pub fn advance(&mut self) -> &'a u8 {
-        let byte = &self.src[self.idx];
+        let byte = unsafe { self.src.get_unchecked(self.idx) };
         if byte == &b'\n' {
             self.col = 1;
             self.line += 1;
@@ -157,7 +163,9 @@ impl<'a> Scanner<'a> {
 
 impl<'a> AsRef<[u8]> for Scanner<'a> {
     fn as_ref(&self) -> &[u8] {
-        &self.src[self.idx..]
+        unsafe { 
+            self.src.get_unchecked(self.idx..self.len)
+        }
     }
 }
 

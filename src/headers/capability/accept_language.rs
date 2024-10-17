@@ -1,14 +1,14 @@
 use crate::{
-    scanner::Scanner,
     macros::{parse_param, read_while, space},
     parser::{Param, Result, Q_PARAM},
+    scanner::Scanner,
     uri::Params,
     util::is_alphabetic,
 };
 
 use crate::headers::SipHeaderParser;
 use std::str;
-
+#[derive(Debug, PartialEq)]
 pub struct Language<'a> {
     language: &'a str,
     q: Option<f32>,
@@ -18,7 +18,8 @@ pub struct Language<'a> {
 impl<'a> Language<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         space!(scanner);
-        let is_lang = |byte: u8| byte == b'*' || byte == b'-' || is_alphabetic(byte);
+        let is_lang =
+            |byte: u8| byte == b'*' || byte == b'-' || is_alphabetic(byte);
         let language = read_while!(scanner, is_lang);
         let language = unsafe { str::from_utf8_unchecked(language) };
         let mut q: Option<f32> = None;
@@ -34,6 +35,8 @@ impl<'a> Language<'a> {
         Ok(Language { language, q, param })
     }
 }
+
+#[derive(Debug, PartialEq)]
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {
@@ -89,7 +92,7 @@ mod tests {
         let mut scanner = Scanner::new(src);
         let accept_language = AcceptLanguage::parse(&mut scanner).unwrap();
 
-        assert!(accept_language.len() ==3);
+        assert!(accept_language.len() == 3);
         assert_eq!(scanner.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
@@ -107,7 +110,6 @@ mod tests {
         assert_eq!(lang.q, Some(0.7));
         assert_eq!(lang.param, None);
 
-
         let src = b"*\r\n";
         let mut scanner = Scanner::new(src);
         let accept_language = AcceptLanguage::parse(&mut scanner).unwrap();
@@ -119,6 +121,5 @@ mod tests {
         assert_eq!(lang.language, "*");
         assert_eq!(lang.q, None);
         assert_eq!(lang.param, None);
-
     }
 }

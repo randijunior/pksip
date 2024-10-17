@@ -1,12 +1,13 @@
 use crate::{
-    scanner::Scanner,
     macros::parse_param,
     parser::{Result, SipParser},
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct ReplyTo<'a> {
     uri: SipUri<'a>,
     param: Option<Params<'a>>,
@@ -41,6 +42,5 @@ mod tests {
             assert_eq!(addr.uri.user, Some(crate::uri::UserInfo { user: "bob", password: None }));
             assert_eq!(addr.uri.host, HostPort::DomainName { host: "biloxi.com", port: None });
         });
-
     }
 }

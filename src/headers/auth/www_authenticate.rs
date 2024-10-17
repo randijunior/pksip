@@ -2,6 +2,7 @@ use crate::{headers::SipHeaderParser, parser::Result, scanner::Scanner};
 
 use super::proxy_authenticate::Challenge;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct WWWAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeaderParser<'a> for WWWAuthenticate<'a> {

@@ -1,13 +1,14 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::{read_while, space},
     parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentEncoding<'a>(Vec<&'a str>);
 
 impl<'a> ContentEncoding<'a> {
@@ -60,7 +61,7 @@ mod tests {
         let src = b"gzip, deflate\r\n";
         let mut scanner = Scanner::new(src);
         let c_enconding = ContentEncoding::parse(&mut scanner).unwrap();
-        
+
         assert!(c_enconding.len() == 2);
         assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(c_enconding.get(0), Some("gzip"));

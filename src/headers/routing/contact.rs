@@ -6,7 +6,8 @@ use crate::{
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq)]
 pub enum Contact<'a> {
     Star,
     Uri {
@@ -87,7 +88,8 @@ mod tests {
 
         assert_matches!(contact, Ok(Contact::Star));
 
-        let src = b"\"Mr. Watson\" <mailto:watson@bell-telephone.com> ;q=0.1\r\n";
+        let src =
+            b"\"Mr. Watson\" <mailto:watson@bell-telephone.com> ;q=0.1\r\n";
         let mut scanner = Scanner::new(src);
         let contact = Contact::parse(&mut scanner);
         assert_matches!(contact, Err(err) => {

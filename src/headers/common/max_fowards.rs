@@ -1,7 +1,7 @@
 use crate::{
-    scanner::Scanner,
     macros::{digits, sip_parse_error},
     parser::Result,
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;

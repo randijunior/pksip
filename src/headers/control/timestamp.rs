@@ -1,13 +1,14 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::read_while,
     parser::Result,
+    scanner::Scanner,
     util::{is_float, is_newline},
 };
 
 use crate::headers::SipHeaderParser;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Timestamp<'a> {
     time: &'a str,
@@ -41,7 +42,12 @@ mod tests {
         let timestamp = Timestamp::parse(&mut scanner);
         let timestamp = timestamp.unwrap();
 
-        assert_eq!(timestamp, Timestamp { delay: None, time: "54" });
+        assert_eq!(
+            timestamp,
+            Timestamp {
+                delay: None,
+                time: "54"
+            }
+        );
     }
-     
 }

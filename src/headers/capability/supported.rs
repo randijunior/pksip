@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::{read_while, space},
     parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;

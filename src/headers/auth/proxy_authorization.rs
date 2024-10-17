@@ -1,8 +1,9 @@
 use crate::{headers::SipHeaderParser, parser::Result, scanner::Scanner};
 
 use super::authorization::Credential;
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProxyAuthorization<'a>(Credential<'a>);
+
 impl<'a> SipHeaderParser<'a> for ProxyAuthorization<'a> {
     const NAME: &'static [u8] = b"Proxy-Authorization";
 

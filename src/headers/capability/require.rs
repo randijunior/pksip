@@ -2,7 +2,8 @@ use core::str;
 
 use crate::{
     macros::{read_while, space},
-    parser::{is_token, Result}, scanner::Scanner,
+    parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -29,7 +30,6 @@ impl<'a> SipHeaderParser<'a> for Require<'a> {
         Ok(Require(tags))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

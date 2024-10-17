@@ -7,6 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Warning<'a> {
     code: u32,
     host: &'a str,
@@ -16,7 +17,9 @@ pub struct Warning<'a> {
 impl<'a> SipHeaderParser<'a> for Warning<'a> {
     const NAME: &'static [u8] = b"Warning";
 
-    fn parse(scanner: &mut crate::scanner::Scanner<'a>) -> crate::parser::Result<Self> {
+    fn parse(
+        scanner: &mut crate::scanner::Scanner<'a>,
+    ) -> crate::parser::Result<Self> {
         let code = digits!(scanner);
         let code = unsafe { str::from_utf8_unchecked(code) };
         if let Ok(code) = code.parse::<u32>() {

@@ -1,9 +1,11 @@
-use crate::{macros::until_newline, parser::Result, scanner::Scanner, util::is_newline};
+use crate::{
+    macros::until_newline, parser::Result, scanner::Scanner, util::is_newline,
+};
 
 use crate::headers::SipHeaderParser;
 
 use std::str;
-
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct CallId<'a>(&'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {
@@ -36,10 +38,10 @@ mod tests {
 
     #[test]
     fn test_parse() {
-         let src = b"bs9ki9iqbee8k5kal8mpqb\r\n";
-         let mut scanner = Scanner::new(src);
-         let cid = CallId::parse(&mut scanner).unwrap();
+        let src = b"bs9ki9iqbee8k5kal8mpqb\r\n";
+        let mut scanner = Scanner::new(src);
+        let cid = CallId::parse(&mut scanner).unwrap();
 
-         assert_eq!(cid.id(), "bs9ki9iqbee8k5kal8mpqb");
+        assert_eq!(cid.id(), "bs9ki9iqbee8k5kal8mpqb");
     }
 }

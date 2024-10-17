@@ -1,12 +1,13 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::read_while,
     parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Priority<'a>(&'a str);
 
@@ -20,7 +21,6 @@ impl<'a> SipHeaderParser<'a> for Priority<'a> {
         Ok(Priority(priority))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

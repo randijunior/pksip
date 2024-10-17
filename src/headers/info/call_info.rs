@@ -16,12 +16,12 @@ info        =  LAQUOT absoluteURI RAQUOT *( SEMI info-param)
 info-param  =  ( "purpose" EQUAL ( "icon" / "info"
                / "card" / token ) ) / generic-param
 */
+#[derive(Debug, PartialEq, Eq)]
 pub struct CallInfo<'a> {
     url: &'a str,
     purpose: Option<&'a str>,
     params: Option<Params<'a>>,
 }
-
 
 impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
     const NAME: &'static [u8] = b"Call-Info";
@@ -32,7 +32,8 @@ impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
         let Some(&b'<') = scanner.next() else {
             return sip_parse_error!("Invalid call info!");
         };
-        let url = read_while!(scanner, |b| !matches!(b, b'>' | b';') && !is_newline(b));
+        let url = read_while!(scanner, |b| !matches!(b, b'>' | b';')
+            && !is_newline(b));
         let url = str::from_utf8(url)?;
         // must be an '>'
         let Some(&b'>') = scanner.next() else {
@@ -71,13 +72,11 @@ mod tests {
         assert_eq!(info.url, "http://wwww.example.com/alice/photo.jpg");
         assert_eq!(info.purpose, Some("icon"));
 
-
         let src = b"<http://www.example.com/alice/> ;purpose=info\r\n";
         let mut scanner = Scanner::new(src);
         let info = CallInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(info.url, "http://www.example.com/alice/");
         assert_eq!(info.purpose, Some("info"));
-
     }
 }

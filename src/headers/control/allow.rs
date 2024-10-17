@@ -1,7 +1,12 @@
-use crate::{macros::{alpha, space}, msg::SipMethod, parser::Result, scanner::Scanner};
+use crate::{
+    macros::{alpha, space},
+    msg::SipMethod,
+    parser::Result,
+    scanner::Scanner,
+};
 
 use crate::headers::SipHeaderParser;
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct Allow<'a>(Vec<SipMethod<'a>>);
 
 impl<'a> Allow<'a> {

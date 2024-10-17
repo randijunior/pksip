@@ -1,7 +1,9 @@
 use core::str;
 
 use crate::{
-    macros::{parse_param, read_until_byte, read_while, sip_parse_error, space},
+    macros::{
+        parse_param, read_until_byte, read_while, sip_parse_error, space,
+    },
     parser::Result,
     scanner::Scanner,
     uri::Params,
@@ -20,7 +22,7 @@ pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
 impl<'a> Accept<'a> {
@@ -39,13 +41,16 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Accept<'a>> {
         let mut mtypes: Vec<MediaType<'a>> = Vec::new();
         loop {
-            let is_next_newline = scanner.peek().is_some_and(|&c| is_newline(c));
+            let is_next_newline =
+                scanner.peek().is_some_and(|&c| is_newline(c));
             if scanner.is_eof() || is_next_newline {
                 break;
             }
             let mtype = read_until_byte!(scanner, b'/');
             scanner.next();
-            let subtype = read_while!(scanner, |c: u8| c != b',' && !is_newline(c) && c != b';');
+            let subtype = read_while!(scanner, |c: u8| c != b','
+                && !is_newline(c)
+                && c != b';');
 
             let param = parse_param!(scanner, |param| Some(param));
             let media_type = MediaType {
@@ -71,7 +76,8 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let src = b"application/sdp;level=1, application/x-private, text/html\r\n";
+        let src =
+            b"application/sdp;level=1, application/x-private, text/html\r\n";
         let mut scanner = Scanner::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 

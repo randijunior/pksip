@@ -1,13 +1,13 @@
 use crate::{
-    scanner::Scanner,
     parser::{Result, SipParser},
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
 use crate::headers::SipHeaderParser;
 
 use std::str;
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,
@@ -25,7 +25,6 @@ impl<'a> SipHeaderParser<'a> for To<'a> {
         Ok(To { tag, uri, params })
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -1,11 +1,13 @@
 use core::str;
 
 use crate::{
-    headers::SipHeaderParser, macros::{parse_param, read_while}, parser::{is_token, Result}, scanner::Scanner
+    headers::SipHeaderParser,
+    macros::{parse_param, read_while},
+    parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use super::accept::{MediaType, MimeType};
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentType<'a>(MediaType<'a>);

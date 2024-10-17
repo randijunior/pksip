@@ -1,7 +1,7 @@
 use crate::{
-    scanner::Scanner,
     macros::{parse_auth_param, read_while, space},
     parser::{is_token, Result},
+    scanner::Scanner,
     uri::Params,
 };
 
@@ -62,12 +62,12 @@ impl<'a> DigestChallenge<'a> {
         Ok(digest)
     }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Challenge<'a> {
     Digest(DigestChallenge<'a>),
     Other { scheme: &'a str, param: Params<'a> },
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthenticate<'a> {

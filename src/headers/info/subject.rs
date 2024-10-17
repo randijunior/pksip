@@ -1,9 +1,10 @@
 use core::str;
 
-use crate::{scanner::Scanner, macros::until_newline, parser::Result};
+use crate::{macros::until_newline, parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Subject<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Subject<'a> {

@@ -1,13 +1,13 @@
 use crate::{
-    scanner::Scanner,
     macros::{parse_param, sip_parse_error},
     parser::{Result, SipParser},
+    scanner::Scanner,
     uri::{NameAddr, Params, SipUri},
 };
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Route<'a> {
     pub(crate) addr: NameAddr<'a>,
     pub(crate) param: Option<Params<'a>>,
@@ -19,16 +19,12 @@ impl<'a> SipHeaderParser<'a> for Route<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(scanner)? {
             let param = parse_param!(scanner, |param| Some(param));
-            Ok(Route {
-                addr,
-                param,
-            })
+            Ok(Route { addr, param })
         } else {
             sip_parse_error!("Invalid Route Header!")
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

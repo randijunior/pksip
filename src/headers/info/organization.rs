@@ -1,8 +1,9 @@
 use core::str;
 
-use crate::{scanner::Scanner, macros::until_newline, parser::Result};
+use crate::{macros::until_newline, parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeaderParser;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Organization<'a>(&'a str);
 

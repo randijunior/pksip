@@ -1,13 +1,14 @@
 use core::str;
 
 use crate::{
-    scanner::Scanner,
     macros::{read_while, space},
     parser::{is_token, Result},
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
 
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Unsupported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Unsupported<'a> {

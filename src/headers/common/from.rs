@@ -1,6 +1,6 @@
 use crate::{
-    scanner::Scanner,
     parser::{Result, SipParser},
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
@@ -69,6 +69,5 @@ mod tests {
             assert_eq!(addr.uri.scheme, Scheme::Sip);
             assert_eq!(tag, Some("hyh8"));
         });
-
     }
 }

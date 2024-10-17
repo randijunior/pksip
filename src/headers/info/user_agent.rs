@@ -1,9 +1,10 @@
 use core::str;
 
-use crate::{scanner::Scanner, macros::until_newline, parser::Result};
+use crate::{macros::until_newline, parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeaderParser;
 
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct UserAgent<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for UserAgent<'a> {
@@ -17,19 +18,18 @@ impl<'a> SipHeaderParser<'a> for UserAgent<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_parse() {
-         let src = b"Softphone Beta1.5\r\n";
-         let mut scanner = Scanner::new(src);
-         let ua = UserAgent::parse(&mut scanner);
-         let ua = ua.unwrap();
+        let src = b"Softphone Beta1.5\r\n";
+        let mut scanner = Scanner::new(src);
+        let ua = UserAgent::parse(&mut scanner);
+        let ua = ua.unwrap();
 
-         assert_eq!(scanner.as_ref(), b"\r\n");
-         assert_eq!(ua.0, "Softphone Beta1.5");
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(ua.0, "Softphone Beta1.5");
     }
 }

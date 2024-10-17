@@ -1,9 +1,10 @@
 use core::str;
 
-use crate::{scanner::Scanner, macros::until_newline, parser::Result};
+use crate::{macros::until_newline, parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Server<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Server<'a> {
@@ -23,12 +24,12 @@ mod tests {
 
     #[test]
     fn test_parse() {
-         let src = b"HomeServer v2\r\n";
-         let mut scanner = Scanner::new(src);
-         let server = Server::parse(&mut scanner);
-         let server = server.unwrap();
+        let src = b"HomeServer v2\r\n";
+        let mut scanner = Scanner::new(src);
+        let server = Server::parse(&mut scanner);
+        let server = server.unwrap();
 
-         assert_eq!(scanner.as_ref(), b"\r\n");
-         assert_eq!(server.0, "HomeServer v2");
+        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(server.0, "HomeServer v2");
     }
 }

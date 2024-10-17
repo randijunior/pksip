@@ -8,6 +8,7 @@ use crate::{
     util::is_newline,
 };
 
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 
 impl<'a> SipHeaderParser<'a> for InReplyTo<'a> {

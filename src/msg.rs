@@ -1,32 +1,43 @@
-use crate::{headers::SipHeaders, uri::Uri};
+use crate::{headers::SipHeaders, parser::{SipParser, SipParserError}, scanner::Scanner, uri::Uri};
 
 use std::str;
-
+#[derive(Debug)]
 pub struct SipRequest<'a> {
     req_line: RequestLine<'a>,
     headers: SipHeaders<'a>,
-    body: &'a [u8],
+    body: Option<&'a [u8]>,
 }
 
 impl<'a> SipRequest<'a> {
-    pub fn new(req_line: RequestLine<'a>, headers: SipHeaders<'a>, body: &'a [u8]) -> Self {
+    pub fn new(
+        req_line: RequestLine<'a>,
+        headers: SipHeaders<'a>,
+        body: Option<&'a [u8]>,
+    ) -> Self {
         Self {
             body,
             req_line,
             headers,
         }
     }
-}
 
+    pub fn request_line(&self) -> &RequestLine {
+        &self.req_line
+    }
+}
+#[derive(Debug)]
 pub struct SipResponse<'a> {
     st_line: StatusLine<'a>,
     headers: SipHeaders<'a>,
-    body: &'a [u8],
+    body: Option<&'a [u8]>,
 }
 
-
 impl<'a> SipResponse<'a> {
-    pub fn new(st_line: StatusLine<'a>, headers: SipHeaders<'a>, body: &'a [u8]) -> Self {
+    pub fn new(
+        st_line: StatusLine<'a>,
+        headers: SipHeaders<'a>,
+        body: Option<&'a [u8]>,
+    ) -> Self {
         Self {
             body,
             st_line,
@@ -36,6 +47,7 @@ impl<'a> SipResponse<'a> {
 }
 
 /// This struct represent SIP Message
+#[derive(Debug)]
 pub enum SipMsg<'a> {
     Request(SipRequest<'a>),
     Response(SipResponse<'a>),
@@ -46,6 +58,13 @@ impl<'a> SipMsg<'a> {
         match self {
             SipMsg::Request(sip_request) => &sip_request.headers,
             SipMsg::Response(sip_response) => &sip_response.headers,
+        }
+    }
+
+    pub fn body(&self) -> Option<&'a [u8]> {
+        match self {
+            SipMsg::Request(sip_request) => sip_request.body,
+            SipMsg::Response(sip_response) => sip_response.body,
         }
     }
 }
@@ -72,6 +91,14 @@ impl<'sl> StatusLine<'sl> {
 pub struct RequestLine<'a> {
     pub(crate) method: SipMethod<'a>,
     pub(crate) uri: Uri<'a>,
+}
+
+impl<'a> RequestLine<'a> {
+    pub fn from_bytes(src: &[u8]) -> Result<RequestLine, SipParserError> {
+        let mut scanner = Scanner::new(src);
+
+        SipParser::parse_request_line(&mut scanner)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
