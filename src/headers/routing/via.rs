@@ -55,6 +55,10 @@ impl<'a> ViaParams<'a> {
     pub fn set_rport(&mut self, rport: u16) {
         self.rport = Some(rport);
     }
+
+    pub fn branch(&self) -> Option<&'a str> {
+        self.branch
+    }
 }
 
 // SIP Via Header

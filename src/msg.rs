@@ -8,16 +8,46 @@ pub struct SipRequest<'a> {
     body: &'a [u8],
 }
 
+impl<'a> SipRequest<'a> {
+    pub fn new(req_line: RequestLine<'a>, headers: SipHeaders<'a>, body: &'a [u8]) -> Self {
+        Self {
+            body,
+            req_line,
+            headers,
+        }
+    }
+}
+
 pub struct SipResponse<'a> {
-    req_line: StatusLine<'a>,
+    st_line: StatusLine<'a>,
     headers: SipHeaders<'a>,
     body: &'a [u8],
+}
+
+
+impl<'a> SipResponse<'a> {
+    pub fn new(st_line: StatusLine<'a>, headers: SipHeaders<'a>, body: &'a [u8]) -> Self {
+        Self {
+            body,
+            st_line,
+            headers,
+        }
+    }
 }
 
 /// This struct represent SIP Message
 pub enum SipMsg<'a> {
     Request(SipRequest<'a>),
     Response(SipResponse<'a>),
+}
+
+impl<'a> SipMsg<'a> {
+    pub fn headers(&self) -> &SipHeaders<'a> {
+        match self {
+            SipMsg::Request(sip_request) => &sip_request.headers,
+            SipMsg::Response(sip_response) => &sip_response.headers,
+        }
+    }
 }
 
 /// This struct represent SIP status line

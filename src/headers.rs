@@ -3,8 +3,8 @@ use std::str;
 
 pub mod auth;
 pub mod capability;
-pub mod control;
 pub mod common;
+pub mod control;
 pub mod info;
 pub mod routing;
 pub mod session;
@@ -94,16 +94,92 @@ pub enum Header<'a> {
     Other { name: &'a str, value: &'a str },
 }
 
-pub struct SipHeaders<'a> {
-    pub(crate) hdrs: Vec<Header<'a>>,
+impl<'a> Header<'a> {
+    fn name(&self) -> &[u8] {
+        match self {
+            Header::Accept(_) => Accept::NAME,
+            Header::AcceptEncoding(_) => AcceptEncoding::NAME,
+            Header::AcceptLanguage(_) => AcceptLanguage::NAME,
+            Header::AlertInfo(_) => AlertInfo::NAME,
+            Header::Allow(_) => Allow::NAME,
+            Header::AuthenticationInfo(_) => AuthenticationInfo::NAME,
+            Header::Authorization(_) => Authorization::NAME,
+            Header::CallId(_) => CallId::NAME,
+            Header::CallInfo(_) => CallInfo::NAME,
+            Header::Contact(_) => Contact::NAME,
+            Header::ContentDisposition(_) => ContentDisposition::NAME,
+            Header::ContentEncoding(_) => ContentEncoding::NAME,
+            Header::ContentLanguage(_) => ContentLanguage::NAME,
+            Header::ContentLength(_) => ContentLength::NAME,
+            Header::ContentType(_) => ContentType::NAME,
+            Header::CSeq(_) => CSeq::NAME,
+            Header::Date(_) => Date::NAME,
+            Header::ErrorInfo(_) => ErrorInfo::NAME,
+            Header::Expires(_) => Expires::NAME,
+            Header::From(_) => From::NAME,
+            Header::InReplyTo(_) => InReplyTo::NAME,
+            Header::MaxForwards(_) => MaxForwards::NAME,
+            Header::MimeVersion(_n) => MimeVersion::NAME,
+            Header::MinExpires(_) => MinExpires::NAME,
+            Header::Organization(_) => Organization::NAME,
+            Header::Priority(_) => Priority::NAME,
+            Header::ProxyAuthenticate(_) => ProxyAuthenticate::NAME,
+            Header::ProxyAuthorization(_) => ProxyAuthorization::NAME,
+            Header::ProxyRequire(_) => ProxyRequire::NAME,
+            Header::RecordRoute(_) => RecordRoute::NAME,
+            Header::ReplyTo(_) => ReplyTo::NAME,
+            Header::Require(_) => Require::NAME,
+            Header::RetryAfter(_) => RetryAfter::NAME,
+            Header::Route(_) => Route::NAME,
+            Header::Server(_) => Server::NAME,
+            Header::Subject(_) => Subject::NAME,
+            Header::Supported(_) => Supported::NAME,
+            Header::Timestamp(_) => Timestamp::NAME,
+            Header::To(_) => To::NAME,
+            Header::Unsupported(_) => Unsupported::NAME,
+            Header::UserAgent(_) => UserAgent::NAME,
+            Header::Via(_) => Via::NAME,
+            Header::Warning(_) => todo!(),
+            Header::WWWAuthenticate(_) => WWWAuthenticate::NAME,
+            Header::Other { name, .. } => name.as_bytes(),
+        }
+    }
 }
+
+pub struct SipHeaders<'a>(Vec<Header<'a>>);
 
 impl<'a> SipHeaders<'a> {
     pub fn new() -> Self {
-        Self { hdrs: Vec::new() }
+        Self(Vec::new())
     }
     pub fn push_header(&mut self, hdr: Header<'a>) {
-        self.hdrs.push(hdr);
+        self.0.push(hdr);
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn find_via_hdr(&self) -> Option<&Via<'a>> {
+        self.0.iter().find_map(|v| {
+            if let Header::Via(via) = v {
+                Some(via)
+            } else {
+                None
+            }
+        })
+    }
+    pub fn find_content_length_hdr(&self) -> Option<&ContentLength> {
+        self.0.iter().find_map(|v| {
+            if let Header::ContentLength(c_len) = v {
+                Some(c_len)
+            } else {
+                None
+            }
+        })
+    }
+    pub fn find_by_name(&self, name: &[u8]) -> Option<&Header<'a>> {
+        self.0.iter().find(|v| v.name() == name)
     }
 }
 
@@ -137,6 +213,10 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
     fn match_name(name: &[u8]) -> bool {
         name.eq_ignore_ascii_case(Self::NAME)
             || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
+    }
+
+    fn name(&self) -> &'static [u8] {
+        self.name()
     }
 
     fn parse_q_value(param: Option<&str>) -> Option<f32> {

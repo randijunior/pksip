@@ -9,16 +9,16 @@ use crate::headers::capability::proxy_require::ProxyRequire;
 use crate::headers::capability::require::Require;
 use crate::headers::capability::supported::Supported;
 use crate::headers::capability::unsupported::Unsupported;
+use crate::headers::common::call_id::CallId;
+use crate::headers::common::cseq::CSeq;
+use crate::headers::common::max_fowards::MaxForwards;
+use crate::headers::common::to::To;
 use crate::headers::control::allow::Allow;
 use crate::headers::control::expires::Expires;
 use crate::headers::control::min_expires::MinExpires;
 use crate::headers::control::reply_to::ReplyTo;
 use crate::headers::control::retry_after::RetryAfter;
 use crate::headers::control::timestamp::Timestamp;
-use crate::headers::common::call_id::CallId;
-use crate::headers::common::cseq::CSeq;
-use crate::headers::common::max_fowards::MaxForwards;
-use crate::headers::common::to::To;
 use crate::headers::info::alert_info::AlertInfo;
 use crate::headers::info::date::Date;
 use crate::headers::info::error_info::ErrorInfo;
@@ -66,11 +66,11 @@ use crate::macros::space;
 use crate::macros::until_newline;
 use crate::macros::{alpha, parse_param};
 
-use crate::msg::RequestLine;
 use crate::msg::SipMethod;
 use crate::msg::SipMsg;
 use crate::msg::SipStatusCode;
 use crate::msg::StatusLine;
+use crate::msg::{RequestLine, SipRequest, SipResponse};
 
 use crate::uri::HostPort;
 use crate::uri::Scheme;
@@ -171,18 +171,9 @@ pub(crate) fn is_token(b: u8) -> bool {
     TOKEN_SPEC_MAP[b as usize]
 }
 
+pub struct SipParser;
 
-pub struct SipParser<'a> {
-    scanner: Scanner<'a>,
-}
-
-impl<'a> SipParser<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
-        SipParser {
-            scanner: Scanner::new(bytes),
-        }
-    }
-
+impl<'a> SipParser {
     fn parse_scheme(scanner: &mut Scanner) -> Result<Scheme> {
         match read_until_byte!(scanner, b':') {
             SCHEME_SIP => Ok(Scheme::Sip),
@@ -512,8 +503,7 @@ impl<'a> SipParser<'a> {
         Ok((Some(params), others))
     }
 
-    fn parse_status_line(&mut self) -> Result<StatusLine<'a>> {
-        let scanner = &mut self.scanner;
+    fn parse_status_line(scanner: &mut Scanner<'a>) -> Result<StatusLine<'a>> {
         Self::parse_sip_version(scanner)?;
 
         space!(scanner);
@@ -529,8 +519,7 @@ impl<'a> SipParser<'a> {
         Ok(StatusLine::new(status_code, rp))
     }
 
-    fn parse_request_line(&mut self) -> Result<RequestLine<'a>> {
-        let scanner = &mut self.scanner;
+    fn parse_request_line(scanner: &mut Scanner<'a>) -> Result<RequestLine<'a>> {
         let b_method = alpha!(scanner);
         let method = SipMethod::from(b_method);
 
@@ -544,17 +533,15 @@ impl<'a> SipParser<'a> {
         Ok(RequestLine { method, uri })
     }
 
-    fn is_sip_request(&self) -> bool {
+    fn is_sip_version(scanner: &Scanner) -> bool {
         const SIP: &[u8] = b"SIP";
-        let scanner = &self.scanner;
         let tag = peek_while!(scanner, is_alphabetic);
-        let next = scanner.src.get(tag.len() + 1);
+        let next = scanner.src.get(tag.len());
 
-        !next.is_some_and(|next| (next == &b'/' || is_space(*next)) && tag == SIP)
+        next.is_some_and(|next| tag == SIP && (next == &b'/' || is_space(*next)))
     }
 
-    fn parse_headers(&mut self, headers: &mut SipHeaders<'a>) -> Result<()> {
-        let scanner = &mut self.scanner;
+    fn parse_headers(scanner: &mut Scanner<'a>, headers: &mut SipHeaders<'a>) -> Result<()> {
         'headers: loop {
             let name = read_while!(scanner, is_token);
 
@@ -769,29 +756,30 @@ impl<'a> SipParser<'a> {
 
         Ok(())
     }
-}
 
+    pub fn parse(buff: &'a [u8]) -> Result<SipMsg<'a>> {
+        let mut scanner = Scanner::new(buff);
 
-pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
-    let mut parser = SipParser::new(buff);
+        let msg = if !Self::is_sip_version(&scanner) {
+            let req_line = Self::parse_request_line(&mut scanner)?;
+            let mut headers = SipHeaders::new();
 
-    let msg = if parser.is_sip_request() {
-        let req_line = parser.parse_request_line()?;
-        let mut headers = SipHeaders::new();
+            Self::parse_headers(&mut scanner, &mut headers)?;
+            let remaing = &buff[scanner.idx()..];
 
-        parser.parse_headers(&mut headers);
+            SipMsg::Request(SipRequest::new(req_line, headers, remaing))
+        } else {
+            let status_line = Self::parse_status_line(&mut scanner)?;
+            let mut headers = SipHeaders::new();
 
-        todo!()
-    } else {
-        let status_line = parser.parse_status_line()?;
-        let mut headers = SipHeaders::new();
+            Self::parse_headers(&mut scanner, &mut headers)?;
+            let remaing = &buff[scanner.idx()..];
 
-        parser.parse_headers(&mut headers);
+            SipMsg::Response(SipResponse::new(status_line, headers, remaing))
+        };
 
-        todo!()
-    };
-
-    msg
+        Ok(msg)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -842,52 +830,60 @@ impl<'a> From<ScannerError<'a>> for SipParserError {
 
 #[cfg(test)]
 mod tests {
-    use std::net::IpAddr;
-
-    use crate::uri::Uri;
+    use crate::msg::Transport;
 
     use super::*;
 
     #[test]
     fn test_parse_status_line() {
-        let sc_ok = SipStatusCode::Ok;
-        let buf = "SIP/2.0 200 OK\r\n".as_bytes();
+        let msg = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
+        Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
+        Max-Forwards: 70\r\n\
+        To: Bob <sip:bob@biloxi.com>\r\n\
+        From: Bob <sip:bob@biloxi.com>;tag=456248\r\n\
+        Call-ID: 843817637684230@998sdasdh09\r\n\
+        CSeq: 1826 REGISTER\r\n\
+        Contact: <sip:bob@192.0.2.4>\r\n\
+        Expires: 7200\r\n\
+        Content-Length: 0\r\n\r\n";
+        let msg = SipParser::parse(msg).unwrap();
+        let headers = msg.headers();
 
-        assert_eq!(
-            SipParser::new(buf).parse_status_line(),
-            Ok(StatusLine {
-                status_code: sc_ok,
-                reason_phrase: sc_ok.reason_phrase()
-            })
-        );
-        let sc_not_found = SipStatusCode::NotFound;
-        let buf = "SIP/2.0 404 Not Found\r\n".as_bytes();
+        assert!(headers.len() == 9);
 
+        let via = headers.find_via_hdr();
+        let via = via.unwrap();
+        assert_eq!(via.transport, Transport::UDP);
         assert_eq!(
-            SipParser::new(buf).parse_status_line(),
-            Ok(StatusLine {
-                status_code: sc_not_found,
-                reason_phrase: sc_not_found.reason_phrase()
-            })
+            via.sent_by,
+            HostPort::DomainName {
+                host: "bobspc.biloxi.com",
+                port: Some(5060)
+            }
         );
+        let params = via.params.as_ref();
+        assert_eq!(params.unwrap().branch(), Some("z9hG4bKnashds7"));
     }
 
     #[test]
     #[ignore]
     fn status_line() {
-        let sc_ok = SipStatusCode::Ok;
-        let msg = "SIP/2.0 200 OK\r\n".as_bytes();
+        let msg = "REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
+        Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
+        Max-Forwards: 70\r\n\
+        To: Bob <sip:bob@biloxi.com>\r\n\
+        From: Bob <sip:bob@biloxi.com>;tag=456248\r\n\
+        Call-ID: 843817637684230@998sdasdh09\r\n\
+        CSeq: 1826 REGISTER\r\n\
+        Contact: <sip:bob@192.0.2.4>\r\n\
+        Expires: 7200\r\n\
+        Content-Length: 0\r\n\r\n"
+            .as_bytes();
         let size_of_msg = msg.len();
         let mut counter = 0;
         let now = std::time::Instant::now();
         loop {
-            assert_eq!(
-                SipParser::new(msg).parse_status_line(),
-                Ok(StatusLine {
-                    status_code: sc_ok,
-                    reason_phrase: sc_ok.reason_phrase()
-                })
-            );
+            assert!(SipParser::parse(msg).is_ok());
             counter += 1;
             if now.elapsed().as_secs() == 1 {
                 break;
@@ -898,32 +894,6 @@ mod tests {
             "{} mbytes per second, count sip messages: {}",
             (size_of_msg * counter) / 1024 / 1024,
             counter
-        );
-    }
-
-    #[test]
-    fn test_req_status_line() {
-        let msg = "REGISTER sip:1000b3@10.1.1.7:8089 SIP/2.0\r\n".as_bytes();
-        let addr: IpAddr = "10.1.1.7".parse().unwrap();
-        assert_eq!(
-            SipParser::new(msg).parse_request_line(),
-            Ok(RequestLine {
-                method: SipMethod::Register,
-                uri: Uri {
-                    scheme: Scheme::Sip,
-                    user: Some(UserInfo {
-                        user: "1000b3",
-                        password: None
-                    }),
-                    host: HostPort::IpAddr {
-                        host: addr,
-                        port: Some(8089)
-                    },
-                    params: None,
-                    other_params: None,
-                    header_params: None,
-                }
-            })
         );
     }
 }

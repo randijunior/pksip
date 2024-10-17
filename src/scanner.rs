@@ -39,6 +39,10 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    pub fn idx(&self) -> usize {
+        self.idx
+    }
+
     pub fn peek(&self) -> Option<&u8> {
         if self.finished {
             return None;
