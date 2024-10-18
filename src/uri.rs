@@ -7,7 +7,7 @@ use std::{
 use crate::{
     macros::{b_map, digits, read_until_byte, read_while, sip_parse_error, space},
     parser::{
-        is_token, SipParser, SipParserError, ALPHA_NUM, ESCAPED, HOST, PASS, UNRESERVED, USER_UNRESERVED
+        is_token, SipParserError, ALPHA_NUM, ESCAPED, HOST, PASS, UNRESERVED, USER_UNRESERVED
     },
     scanner::Scanner, util::is_valid_port,
 };
@@ -35,12 +35,6 @@ const TRANSPORT_PARAM: &str = "transport";
 const TTL_PARAM: &str = "ttl";
 const LR_PARAM: &str = "lr";
 const MADDR_PARAM: &str = "maddr";
-const BRANCH_PARAM: &str = "branch";
-const RPORT_PARAM: &str = "rport";
-const RECEIVED_PARAM: &str = "received";
-const TAG_PARAM: &str = "tag";
-const Q_PARAM: &str = "q";
-const EXPIRES_PARAM: &str = "expires";
 
 
 #[inline(always)]
