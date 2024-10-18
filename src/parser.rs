@@ -53,8 +53,7 @@ use std::str::Utf8Error;
 use crate::headers::SipHeaders;
 use crate::scanner::ScannerError;
 
-use crate::macros::alpha;
-use crate::macros::digits;
+
 use crate::macros::find;
 use crate::macros::newline;
 use crate::macros::peek_while;
@@ -64,20 +63,18 @@ use crate::macros::space;
 use crate::macros::until_newline;
 use crate::macros::{b_map, remaing};
 
-use crate::msg::SipMethod;
 use crate::msg::SipMsg;
-use crate::msg::SipStatusCode;
 use crate::msg::StatusLine;
 use crate::msg::{RequestLine, SipRequest, SipResponse};
 
-use crate::uri::Uri;
 use crate::util::is_alphabetic;
 use crate::util::is_space;
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
-pub(crate) const ALPHA_NUM: &[u8] =
-    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+pub(crate) const ALPHA_NUM: &[u8] = b"abcdefghijklmnopqrstuvwxyz\
+                                    ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                                    0123456789";
 
 pub(crate) const UNRESERVED: &[u8] = b"-_.!~*'()%";
 pub(crate) const ESCAPED: &[u8] = b"%";
@@ -87,23 +84,24 @@ pub(crate) const PASS: &[u8] = b"&=+$,";
 pub(crate) const HOST: &[u8] = b"_-.";
 pub(crate) const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 
-pub(crate) const TAG_PARAM: &str = "tag";
-pub(crate) const Q_PARAM: &str = "q";
-pub(crate) const EXPIRES_PARAM: &str = "expires";
 
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
-b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
+
 
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
-#[inline(always)]
-pub(crate) fn is_uri(b: &u8) -> bool {
-    GENERIC_URI_SPEC_MAP[*b as usize]
-}
 
 #[inline(always)]
 pub(crate) fn is_token(b: &u8) -> bool {
     TOKEN_SPEC_MAP[*b as usize]
+}
+
+#[inline]
+pub(crate) fn read_token_utf8<'a>(scanner: &mut Scanner<'a>) -> &'a str {
+    let token = read_while!(scanner, is_token);
+
+    // SAFETY: is_token ensures that the bytes are valid utf-8
+    unsafe { str::from_utf8_unchecked(token) }
 }
 
 pub(crate) fn parse_sip_version_2_0<'a>(
@@ -112,40 +110,6 @@ pub(crate) fn parse_sip_version_2_0<'a>(
     let _v = find!(scanner, SIPV2);
 
     Ok(())
-}
-
-pub(crate) fn parse_status_line<'a>(
-    scanner: &mut Scanner<'a>,
-) -> Result<StatusLine<'a>> {
-    parse_sip_version_2_0(scanner)?;
-
-    space!(scanner);
-    let digits = digits!(scanner);
-    space!(scanner);
-
-    let status_code = SipStatusCode::from(digits);
-    let bytes = until_newline!(scanner);
-
-    let rp = str::from_utf8(bytes)?;
-
-    newline!(scanner);
-    Ok(StatusLine::new(status_code, rp))
-}
-
-pub(crate) fn parse_request_line<'a>(
-    scanner: &mut Scanner<'a>,
-) -> Result<RequestLine<'a>> {
-    let b_method = alpha!(scanner);
-    let method = SipMethod::from(b_method);
-
-    space!(scanner);
-    let uri = Uri::parse(scanner, true)?;
-    space!(scanner);
-
-    parse_sip_version_2_0(scanner)?;
-    newline!(scanner);
-
-    Ok(RequestLine { method, uri })
 }
 
 fn is_sip_version(scanner: &Scanner) -> bool {
@@ -159,17 +123,17 @@ fn is_sip_version(scanner: &Scanner) -> bool {
 fn parse_headers<'a>(
     scanner: &mut Scanner<'a>,
     headers: &mut SipHeaders<'a>,
-) -> Result<bool> {
+) -> Result<Option<&'a [u8]>> {
     let mut has_body = false;
     'headers: loop {
-        let name = read_while!(scanner, is_token);
+        let name = read_token_utf8(scanner);
 
         if scanner.next() != Some(&b':') {
             return sip_parse_error!("Invalid sip Header!");
         }
         space!(scanner);
 
-        match name {
+        match name.as_bytes() {
             error_info if ErrorInfo::match_name(error_info) => {
                 let error_info = ErrorInfo::parse(scanner)?;
                 headers.push_header(Header::ErrorInfo(error_info))
@@ -377,7 +341,6 @@ fn parse_headers<'a>(
                 headers.push_header(Header::Warning(warning));
             }
             _ => {
-                let name = unsafe { str::from_utf8_unchecked(name) };
                 let value = until_newline!(scanner);
                 let value = str::from_utf8(value)?;
 
@@ -391,7 +354,20 @@ fn parse_headers<'a>(
         break 'headers;
     }
 
-    Ok(has_body)
+    Ok(if has_body {
+        Some(remaing!(scanner))
+    } else {
+        None
+    })
+}
+
+fn parse_headers_and_body<'a>(
+    scanner: &mut Scanner<'a>,
+) -> Result<(SipHeaders<'a>, Option<&'a [u8]>)> {
+    let mut headers = SipHeaders::new();
+    let body = parse_headers(scanner, &mut headers)?;
+
+    Ok((headers, body))
 }
 
 /// Parse a buff of bytes into sip message
@@ -399,32 +375,18 @@ pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
     let mut scanner = Scanner::new(buff);
 
     let msg = if !is_sip_version(&scanner) {
-        let req_line = parse_request_line(&mut scanner)?;
-        let mut headers = SipHeaders::new();
+        let req_line = RequestLine::parse(&mut scanner)?;
+        let (headers, body) = parse_headers_and_body(&mut scanner)?;
+        let request = SipRequest::new(req_line, headers, body);
 
-        let has_body = parse_headers(&mut scanner, &mut headers)?;
-        let body = if has_body {
-            Some(remaing!(scanner))
-        } else {
-            None
-        };
-
-        SipMsg::Request(SipRequest::new(req_line, headers, body))
+        SipMsg::Request(request)
     } else {
-        let status_line = parse_status_line(&mut scanner)?;
-        let mut headers = SipHeaders::new();
+        let status_line = StatusLine::parse(&mut scanner)?;
+        let (headers, body) = parse_headers_and_body(&mut scanner)?;
+        let response = SipResponse::new(status_line, headers, body);
 
-        let has_body = parse_headers(&mut scanner, &mut headers)?;
-        let body = if has_body {
-            Some(remaing!(scanner))
-        } else {
-            None
-        };
-
-        SipMsg::Response(SipResponse::new(status_line, headers, body))
+        SipMsg::Response(response)
     };
-
-    assert!(scanner.is_eof());
 
     Ok(msg)
 }
@@ -480,7 +442,7 @@ impl<'a> From<ScannerError<'a>> for SipParserError {
 
 #[cfg(test)]
 mod tests {
-    use crate::uri::{HostPort, Scheme};
+    use crate::{msg::{SipMethod, SipStatusCode}, uri::{HostPort, Scheme}};
 
     use super::*;
 
@@ -494,8 +456,8 @@ mod tests {
 
         let mut sip_headers = SipHeaders::new();
         let mut scanner = Scanner::new(headers);
-        let parsed = parse_headers(&mut scanner, &mut sip_headers);
-        assert_eq!(parsed.unwrap(), false);
+        let body = parse_headers(&mut scanner, &mut sip_headers);
+        assert_eq!(body.unwrap(), None);
 
         let mut iter = sip_headers.iter();
         assert_eq!(
@@ -522,7 +484,7 @@ mod tests {
     fn test_parse_req_line() {
         let req_line = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n";
         let mut scanner = Scanner::new(req_line);
-        let parsed = parse_request_line(&mut scanner);
+        let parsed = RequestLine::parse(&mut scanner);
         let parsed = parsed.unwrap();
 
         assert_matches!(parsed, RequestLine { method, uri } => {
@@ -537,7 +499,7 @@ mod tests {
     fn status_line() {
         let msg = b"SIP/2.0 200 OK\r\n";
         let mut scanner = Scanner::new(msg);
-        let parsed = parse_status_line(&mut scanner);
+        let parsed = StatusLine::parse(&mut scanner);
         let parsed = parsed.unwrap();
 
         assert_matches!(parsed, StatusLine { status_code, reason_phrase } => {

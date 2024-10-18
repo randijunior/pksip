@@ -1,6 +1,7 @@
 use crate::{
     headers::SipHeaders,
-    parser::{parse_request_line, SipParserError},
+    macros::{alpha, newline, space},
+    parser::{parse_sip_version_2_0, SipParserError},
     scanner::Scanner,
     uri::Uri,
 };
@@ -14,10 +15,26 @@ pub struct RequestLine<'a> {
 }
 
 impl<'a> RequestLine<'a> {
-    pub fn from_bytes(src: &[u8]) -> Result<RequestLine, SipParserError> {
+    pub fn from_bytes(src: &'a [u8]) -> Result<Self, SipParserError> {
         let mut scanner = Scanner::new(src);
 
-        parse_request_line(&mut scanner)
+        Self::parse(&mut scanner)
+    }
+
+    pub(crate) fn parse(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<Self, SipParserError> {
+        let method = alpha!(scanner);
+        let method = SipMethod::from(method);
+
+        space!(scanner);
+        let uri = Uri::parse(scanner, true)?;
+        space!(scanner);
+
+        parse_sip_version_2_0(scanner)?;
+        newline!(scanner);
+
+        Ok(RequestLine { method, uri })
     }
 }
 

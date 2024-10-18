@@ -2,9 +2,9 @@ use core::str;
 
 use crate::{
     macros::{parse_param, read_while, sip_parse_error, space},
-    parser::{is_token, is_uri, Param, Result},
+    parser::{is_token, Param, Result},
     scanner::Scanner,
-    uri::Params,
+    uri::{is_uri, Params},
 };
 
 use crate::headers::SipHeaderParser;

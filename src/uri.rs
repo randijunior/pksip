@@ -14,8 +14,7 @@ use crate::{
         b_map, digits, read_until_byte, read_while, sip_parse_error, space,
     },
     parser::{
-        is_token, SipParserError, ALPHA_NUM, ESCAPED, HOST, PASS, UNRESERVED,
-        USER_UNRESERVED,
+        is_token, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS, UNRESERVED, USER_UNRESERVED
     },
     scanner::Scanner,
     util::is_valid_port,
@@ -43,12 +42,17 @@ b_map!(PARAM_SPEC_MAP => b"[]/:&+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 // "[]/?:+$"  "-_.!~*'()" "%"
 b_map!(HDR_SPEC_MAP => b"[]/?:+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 
+b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
+
 const USER_PARAM: &str = "user";
 const METHOD_PARAM: &str = "method";
 const TRANSPORT_PARAM: &str = "transport";
 const TTL_PARAM: &str = "ttl";
 const LR_PARAM: &str = "lr";
 const MADDR_PARAM: &str = "maddr";
+
+const SCHEME_SIP: &[u8] = b"sip";
+const SCHEME_SIPS: &[u8] = b"sips";
 
 #[inline(always)]
 fn is_user(b: &u8) -> bool {
@@ -75,8 +79,10 @@ pub(crate) fn is_host(b: &u8) -> bool {
     HOST_SPEC_MAP[*b as usize]
 }
 
-const SCHEME_SIP: &[u8] = b"sip";
-const SCHEME_SIPS: &[u8] = b"sips";
+#[inline(always)]
+pub(crate) fn is_uri(b: &u8) -> bool {
+    GENERIC_URI_SPEC_MAP[*b as usize]
+}
 
 /*
 Request-URI: The Request-URI is a SIP or SIPS URI as described in

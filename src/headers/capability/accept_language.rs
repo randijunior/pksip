@@ -1,6 +1,7 @@
 use crate::{
+    headers::Q_PARAM,
     macros::{parse_param, read_while, space},
-    parser::{Param, Result, Q_PARAM},
+    parser::{Param, Result},
     scanner::Scanner,
     uri::Params,
     util::is_alphabetic,

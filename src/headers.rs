@@ -52,6 +52,10 @@ use crate::{
     uri::Params,
 };
 
+const TAG_PARAM: &str = "tag";
+const Q_PARAM: &str = "q";
+const EXPIRES_PARAM: &str = "expires";
+
 // Headers, as defined in RFC3261.
 #[derive(Debug, PartialEq)]
 pub enum Header<'a> {

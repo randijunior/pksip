@@ -1,6 +1,7 @@
 use crate::{
+    headers::TAG_PARAM,
     macros::parse_param,
-    parser::{Param, Result, TAG_PARAM},
+    parser::{Param, Result},
     scanner::Scanner,
     uri::Params,
 };
