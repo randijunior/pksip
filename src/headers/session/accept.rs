@@ -42,15 +42,15 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
         let mut mtypes: Vec<MediaType<'a>> = Vec::new();
         loop {
             let is_next_newline =
-                scanner.peek().is_some_and(|&c| is_newline(c));
+                scanner.peek().is_some_and(|c| is_newline(c));
             if scanner.is_eof() || is_next_newline {
                 break;
             }
-            let mtype = read_until_byte!(scanner, b'/');
+            let mtype = read_until_byte!(scanner, &b'/');
             scanner.next();
-            let subtype = read_while!(scanner, |c: u8| c != b','
+            let subtype = read_while!(scanner, |c| c != &b','
                 && !is_newline(c)
-                && c != b';');
+                && c != &b';');
 
             let param = parse_param!(scanner, |param| Some(param));
             let media_type = MediaType {
@@ -61,7 +61,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                 param,
             };
             mtypes.push(media_type);
-            scanner.read_if_eq(b',')?;
+            scanner.read_if_eq(&b',')?;
             space!(scanner);
         }
 

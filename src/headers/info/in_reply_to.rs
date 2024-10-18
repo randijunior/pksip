@@ -16,14 +16,14 @@ impl<'a> SipHeaderParser<'a> for InReplyTo<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let mut ids: Vec<CallId<'a>> = Vec::new();
-        let id = read_while!(scanner, |b| b != b',' && !is_newline(b));
+        let id = read_while!(scanner, |b| b != &b',' && !is_newline(b));
         let id = str::from_utf8(id)?;
         ids.push(CallId::from(id));
 
         while let Some(b',') = scanner.peek() {
             scanner.next();
             space!(scanner);
-            let id = read_while!(scanner, |b| b != b',' && !is_newline(b));
+            let id = read_while!(scanner, |b| b != &b',' && !is_newline(b));
             let id = str::from_utf8(id)?;
             ids.push(CallId::from(id));
             space!(scanner);

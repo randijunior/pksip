@@ -42,7 +42,7 @@ impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
         }
 
         parse!();
-        while let Some(b',') = scanner.peek() {
+        while let Some(&b',') = scanner.peek() {
             scanner.next();
             parse!();
         }

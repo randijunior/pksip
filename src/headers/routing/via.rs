@@ -41,8 +41,8 @@ const RPORT_PARAM: &str = "rport";
 const RECEIVED_PARAM: &str = "received";
 
 #[inline(always)]
-fn is_via_param(b: u8) -> bool {
-    VIA_PARAM_SPEC_MAP[b as usize]
+fn is_via_param(b: &u8) -> bool {
+    VIA_PARAM_SPEC_MAP[*b as usize]
 }
 
 #[derive(Debug, PartialEq, Eq, Default)]
@@ -154,7 +154,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
         if scanner.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let bytes = read_until_byte!(scanner, b' ');
+        let bytes = read_until_byte!(scanner, &b' ');
         let transport = Transport::from(bytes);
 
         space!(scanner);
@@ -164,7 +164,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
 
         let comment = if scanner.peek() == Some(&b'(') {
             scanner.next();
-            let comment = read_until_byte!(scanner, b')');
+            let comment = read_until_byte!(scanner, &b')');
             scanner.next();
             Some(str::from_utf8(comment)?)
         } else {

@@ -106,13 +106,13 @@ b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
 #[inline(always)]
-pub(crate) fn is_uri(b: u8) -> bool {
-    GENERIC_URI_SPEC_MAP[b as usize]
+pub(crate) fn is_uri(b: &u8) -> bool {
+    GENERIC_URI_SPEC_MAP[*b as usize]
 }
 
 #[inline(always)]
-pub(crate) fn is_token(b: u8) -> bool {
-    TOKEN_SPEC_MAP[b as usize]
+pub(crate) fn is_token(b: &u8) -> bool {
+    TOKEN_SPEC_MAP[*b as usize]
 }
 
 pub struct SipParser;
@@ -200,7 +200,7 @@ impl<'a> SipParser {
         let next = scanner.src.get(tag.len());
 
         next.is_some_and(|next| {
-            tag == SIP && (next == &b'/' || is_space(*next))
+            tag == SIP && (next == &b'/' || is_space(next))
         })
     }
 

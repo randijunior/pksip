@@ -62,7 +62,7 @@ impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         space!(scanner);
 
-        if scanner.peek().is_some_and(|&b| is_newline(b)) {
+        if scanner.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }
         let mut codings: Vec<Coding> = Vec::new();

@@ -19,7 +19,7 @@ impl<'a> Language<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         space!(scanner);
         let is_lang =
-            |byte: u8| byte == b'*' || byte == b'-' || is_alphabetic(byte);
+            |byte: &u8| byte == &b'*' || byte == &b'-' || is_alphabetic(byte);
         let language = read_while!(scanner, is_lang);
         let language = unsafe { str::from_utf8_unchecked(language) };
         let mut q: Option<f32> = None;

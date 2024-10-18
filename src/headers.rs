@@ -261,7 +261,7 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         let scheme = match scanner.peek() {
             Some(b'"') => {
                 scanner.next();
-                let value = read_until_byte!(scanner, b'"');
+                let value = read_until_byte!(scanner, &b'"');
                 scanner.next();
                 value
             }
@@ -306,7 +306,7 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
         let scheme = match scanner.peek() {
             Some(b'"') => {
                 scanner.next();
-                let value = read_until_byte!(scanner, b'"');
+                let value = read_until_byte!(scanner, &b'"');
                 scanner.next();
                 value
             }

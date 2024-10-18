@@ -38,28 +38,28 @@ const MADDR_PARAM: &str = "maddr";
 
 
 #[inline(always)]
-fn is_user(b: u8) -> bool {
-    USER_SPEC_MAP[b as usize]
+fn is_user(b: &u8) -> bool {
+    USER_SPEC_MAP[*b as usize]
 }
 
 #[inline(always)]
-fn is_pass(b: u8) -> bool {
-    PASS_SPEC_MAP[b as usize]
+fn is_pass(b: &u8) -> bool {
+    PASS_SPEC_MAP[*b as usize]
 }
 
 #[inline(always)]
-fn is_param(b: u8) -> bool {
-    PARAM_SPEC_MAP[b as usize]
+fn is_param(b: &u8) -> bool {
+    PARAM_SPEC_MAP[*b as usize]
 }
 
 #[inline(always)]
-fn is_hdr(b: u8) -> bool {
-    HDR_SPEC_MAP[b as usize]
+fn is_hdr(b: &u8) -> bool {
+    HDR_SPEC_MAP[*b as usize]
 }
 
 #[inline(always)]
-pub(crate) fn is_host(b: u8) -> bool {
-    HOST_SPEC_MAP[b as usize]
+pub(crate) fn is_host(b: &u8) -> bool {
+    HOST_SPEC_MAP[*b as usize]
 }
 
 const SCHEME_SIP: &[u8] = b"sip";
@@ -122,7 +122,7 @@ pub enum HostPort<'a> {
 
 impl<'a> HostPort<'a> {
     fn parse_port(scanner: &mut Scanner) -> Result<Option<u16>, SipParserError> {
-        if let Ok(Some(_)) = scanner.read_if(|b| b == b':') {
+        if let Ok(Some(_)) = scanner.read_if(|b| b == &b':') {
             let digits = digits!(scanner);
             let digits = unsafe { str::from_utf8_unchecked(digits) };
             match digits.parse::<u16>() {
@@ -138,9 +138,9 @@ impl<'a> HostPort<'a> {
     pub(crate) fn parse(
         scanner: &mut Scanner<'a>,
     ) -> Result<HostPort<'a>, SipParserError> {
-        if let Ok(Some(_)) = scanner.read_if(|b| b == b'[') {
+        if let Ok(Some(_)) = scanner.read_if(|b| b == &b'[') {
             // the '[' and ']' characters are removed from the host
-            let host = read_until_byte!(scanner, b']');
+            let host = read_until_byte!(scanner, &b']');
             let host = str::from_utf8(host)?;
             scanner.next();
             return if let Ok(host) = host.parse() {
@@ -153,7 +153,7 @@ impl<'a> HostPort<'a> {
                 sip_parse_error!("scannerError parsing Ipv6 HostPort!")
             };
         }
-        let host = read_while!(scanner, |b| HOST_SPEC_MAP[b as usize]);
+        let host = read_while!(scanner,is_host);
         let host = unsafe { str::from_utf8_unchecked(host) };
         if let Ok(addr) = IpAddr::from_str(host) {
             Ok(HostPort::IpAddr {
@@ -177,7 +177,7 @@ pub enum Scheme {
 
 impl Scheme {
     pub (crate) fn parse(scanner: &mut Scanner) -> Result<Self, SipParserError> {
-        match read_until_byte!(scanner, b':') {
+        match read_until_byte!(scanner, &b':') {
             SCHEME_SIP => Ok(Scheme::Sip),
             SCHEME_SIPS => Ok(Scheme::Sips),
             // Unsupported URI scheme
@@ -284,7 +284,7 @@ impl<'a> SipUri<'a> {
             // Nameaddr with quoted display name
             Some(b'"') => {
                 scanner.next();
-                let display = read_until_byte!(scanner, b'"');
+                let display = read_until_byte!(scanner, &b'"');
                 scanner.next();
                 let display = str::from_utf8(display)?;
 

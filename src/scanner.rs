@@ -8,6 +8,8 @@ pub enum ErrorKind {
     Tag,
     /// End of file reached.
     Eof,
+
+    OutOfInput,
 }
 
 #[derive(Debug, PartialEq)]
@@ -17,6 +19,10 @@ pub struct ScannerError<'a> {
     pub(crate) col: usize,
     pub(crate) src: &'a [u8],
 }
+
+/// A struct that scans through a byte slice, tracking its position in terms of
+/// index, line, and column, and providing methods for reading and peeking
+/// through the byte slice. This is useful for parsing or lexing.
 #[derive(Debug)]
 pub(crate) struct Scanner<'a> {
     pub(crate) src: &'a [u8],
@@ -28,6 +34,7 @@ pub(crate) struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
+    /// Creates a new `Scanner` with the given byte slice.
     pub fn new(src: &'a [u8]) -> Self {
         Scanner {
             src,
@@ -39,59 +46,76 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// The current index of the scanner in the byte slice
     #[inline]
     pub fn idx(&self) -> usize {
         self.idx
     }
 
+    /// The total length of the byte slice
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
-    pub fn peek(&self) -> Option<&u8> {
-        if self.finished {
-            return None;
-        }
-        Some(unsafe { self.src.get_unchecked(self.idx) })
-    }
-
+    /// Checks if the scanner has reached the end of the byte slice.
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.finished
     }
 
-    pub fn read_n(&mut self, n: usize) -> ScannerResult<Range<usize>> {
-        let start = self.idx;
-        for _ in 0..n {
-            if let None = self.next() {
-                return self.error(ErrorKind::Eof);
-            }
+    /// Peeks at the next byte in the byte slice without advancing the scanner.
+    pub fn peek(&self) -> Option<&u8> {
+        if self.finished {
+            return None;
         }
-        let end = self.idx;
-        Ok(start..end)
+        Some(&self.src[self.idx])
     }
 
+    /// Reads the next `n` bytes and returns the range of indices if successful.
+    ///  If there aren't enough bytes left, it returns an `OutOfInput` error.
+    pub fn read_n(&mut self, n: usize) -> ScannerResult<Range<usize>> {
+        if self.idx + n > self.len {
+            return self.error(ErrorKind::OutOfInput);
+        }
+        let start = self.idx;
+        for _ in 0..n {
+            self.next();
+        }
+        let end = self.idx;
+
+        Ok(Range { start, end })
+    }
+
+    /// Peeks at the next `n` bytes without advancing the scanner.
     pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
         self.as_ref().get(..n)
     }
 
+    /// Peeks while a condition `func` holds true for each byte, and returns the range of matching bytes.
     pub fn peek_while<F>(&self, func: F) -> Range<usize>
     where
-        F: Fn(u8) -> bool,
+        F: Fn(&u8) -> bool,
     {
-        let mut end = self.idx;
-        let iter = self.as_ref().iter().take_while(|&&b| func(b));
+        let start = self.idx;
+        let mut end = start;
+        let iter = self.as_ref().iter();
+        let iter = iter.take_while(|&b| func(b));
+
         for _ in iter {
             end += 1;
         }
-        self.idx..end
+
+        Range { start, end }
     }
 
+    /// Reads bytes while they match the specified tag. Returns the range of matched bytes,
+    /// or an error if the tag doesn't match.
     pub fn read_tag(&mut self, tag: &[u8]) -> ScannerResult<Range<usize>> {
         let start = self.idx;
-        for &expected in tag {
-            let Some(&byte) = self.peek() else {
+
+        for expected in tag {
+            let Some(byte) = self.peek() else {
                 return self.error(ErrorKind::Eof);
             };
             if byte != expected {
@@ -99,44 +123,50 @@ impl<'a> Scanner<'a> {
             }
             self.next();
         }
+
         let end = self.idx;
-        Ok(start..end)
+
+        Ok(Range { start, end })
     }
 
+    /// Reads bytes while a condition `func` holds true, returning the range of matching bytes.
     pub fn read_while<F>(&mut self, func: F) -> Range<usize>
     where
-        F: Fn(u8) -> bool,
+        F: Fn(&u8) -> bool,
     {
         let start = self.idx;
         let mut next = self.read_if(&func);
+
         while let Ok(Some(_)) = next {
             next = self.read_if(&func);
         }
         let end = self.idx;
 
-        start..end
+        Range { start, end }
     }
 
-    pub fn read_if_eq(&mut self, expected: u8) -> ScannerResult<Option<&u8>> {
+    /// Reads a byte if it matches the specified expected value.
+    pub fn read_if_eq(&mut self, expected: &u8) -> ScannerResult<Option<&u8>> {
         self.read_if(|b| b == expected)
     }
 
+    /// Reads a byte if the provided function returns true, otherwise returns None.
     pub fn read_if<F>(&mut self, func: F) -> ScannerResult<Option<&u8>>
     where
-        F: FnOnce(u8) -> bool,
+        F: FnOnce(&u8) -> bool,
     {
-        match self.peek() {
-            Some(&b) => {
-                if func(b) {
-                    Ok(self.next())
-                } else {
-                    Ok(None)
-                }
+        if let Some(b) = self.peek() {
+            if func(b) {
+                Ok(self.next())
+            } else {
+                Ok(None)
             }
-            None => self.error(ErrorKind::Eof),
+        } else {
+            self.error(ErrorKind::Eof)
         }
     }
 
+    /// Advances the scanner to the next byte, updating the position (line and column).
     #[inline(always)]
     pub fn advance(&mut self) -> &'a u8 {
         let byte = &self.src[self.idx];
@@ -151,7 +181,7 @@ impl<'a> Scanner<'a> {
         byte
     }
 
-    pub fn error<T>(&self, kind: ErrorKind) -> Result<T, ScannerError> {
+    fn error<T>(&self, kind: ErrorKind) -> Result<T, ScannerError> {
         Err(ScannerError {
             kind,
             line: self.line,
@@ -243,7 +273,7 @@ mod tests {
         let src = "Input to\r\nread".as_bytes();
         let mut scanner = Scanner::new(src);
 
-        let range = scanner.read_while(|b| b == b'I');
+        let range = scanner.read_while(|b| b == &b'I');
         assert_eq!(&src[range], "I".as_bytes());
 
         let range = scanner.read_while(is_alphabetic);
@@ -253,7 +283,7 @@ mod tests {
         assert_eq!(&src[range], " ".as_bytes());
 
         assert_eq!(scanner.read_if(is_alphabetic), Ok(Some(&b't')));
-        assert_eq!(scanner.read_if_eq(b'o'), Ok(Some(&b'o')));
+        assert_eq!(scanner.read_if_eq(&b'o'), Ok(Some(&b'o')));
 
         let range = scanner.read_while(is_newline);
         assert_eq!(&src[range], "\r\n".as_bytes());

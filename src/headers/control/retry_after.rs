@@ -35,7 +35,7 @@ impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
                 }
                 if let Some(b'(') = peeked {
                     scanner.next();
-                    let bytes = read_until_byte!(scanner, b')');
+                    let bytes = read_until_byte!(scanner, &b')');
                     scanner.next();
                     comment = Some(str::from_utf8(bytes)?);
                 }

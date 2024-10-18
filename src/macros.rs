@@ -118,9 +118,9 @@ macro_rules! parse_auth_param {
         if $scanner.peek() == Some(&b'=') {
             $scanner.next();
             match $scanner.peek() {
-                Some(b'"') => {
+                Some(&b'"') => {
                     $scanner.next();
-                    let value = crate::macros::read_until_byte!($scanner, b'"');
+                    let value = crate::macros::read_until_byte!($scanner, &b'"');
                     $scanner.next();
                     Some((std::str::from_utf8(value)?))
                 }

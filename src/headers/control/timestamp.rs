@@ -21,7 +21,7 @@ impl<'a> SipHeaderParser<'a> for Timestamp<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let time = read_while!(scanner, is_float);
         let time = unsafe { str::from_utf8_unchecked(time) };
-        let delay = if scanner.peek().is_some_and(|&b| !is_newline(b)) {
+        let delay = if scanner.peek().is_some_and(|b| !is_newline(b)) {
             let delay = read_while!(scanner, is_float);
             Some(unsafe { str::from_utf8_unchecked(delay) })
         } else {
