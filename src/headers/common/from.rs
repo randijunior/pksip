@@ -1,5 +1,5 @@
 use crate::{
-    parser::{Result, SipParser},
+    parser::{self, Result},
     scanner::Scanner,
     uri::{Params, SipUri},
 };
@@ -19,8 +19,8 @@ impl<'a> SipHeaderParser<'a> for From<'a> {
     const SHORT_NAME: Option<&'static [u8]> = Some(b"f");
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let uri = SipParser::parse_sip_uri(scanner)?;
-        let (tag, other_params) = SipParser::parse_fromto_param(scanner)?;
+        let uri = SipUri::parse(scanner)?;
+        let (tag, other_params) = super::parse_fromto_param(scanner)?;
 
         Ok(From {
             tag,

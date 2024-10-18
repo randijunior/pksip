@@ -1,6 +1,6 @@
 use crate::{
     headers::SipHeaders,
-    parser::{SipParser, SipParserError},
+    parser::{parse_request_line, SipParserError},
     scanner::Scanner,
     uri::Uri,
 };
@@ -17,7 +17,7 @@ impl<'a> RequestLine<'a> {
     pub fn from_bytes(src: &[u8]) -> Result<RequestLine, SipParserError> {
         let mut scanner = Scanner::new(src);
 
-        SipParser::parse_request_line(&mut scanner)
+        parse_request_line(&mut scanner)
     }
 }
 

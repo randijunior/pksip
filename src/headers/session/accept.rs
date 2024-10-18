@@ -41,8 +41,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Accept<'a>> {
         let mut mtypes: Vec<MediaType<'a>> = Vec::new();
         loop {
-            let is_next_newline =
-                scanner.peek().is_some_and(|c| is_newline(c));
+            let is_next_newline = scanner.peek().is_some_and(|c| is_newline(c));
             if scanner.is_eof() || is_next_newline {
                 break;
             }

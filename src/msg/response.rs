@@ -1,6 +1,6 @@
 use crate::{
     headers::SipHeaders,
-    parser::{SipParser, SipParserError},
+    parser::{parse_status_line, SipParserError},
     scanner::Scanner,
 };
 
@@ -28,7 +28,7 @@ impl<'a> StatusLine<'a> {
     pub fn from_bytes(src: &[u8]) -> Result<StatusLine, SipParserError> {
         let mut scanner = Scanner::new(src);
 
-        SipParser::parse_status_line(&mut scanner)
+        parse_status_line(&mut scanner)
     }
 }
 

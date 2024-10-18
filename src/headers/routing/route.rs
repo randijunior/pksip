@@ -1,6 +1,6 @@
 use crate::{
     macros::{parse_param, sip_parse_error},
-    parser::{Result, SipParser},
+    parser::{self, Result},
     scanner::Scanner,
     uri::{NameAddr, Params, SipUri},
 };
@@ -17,7 +17,7 @@ impl<'a> SipHeaderParser<'a> for Route<'a> {
     const NAME: &'static [u8] = b"Route";
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(scanner)? {
+        if let SipUri::NameAddr(addr) = SipUri::parse(scanner)? {
             let param = parse_param!(scanner, |param| Some(param));
             Ok(Route { addr, param })
         } else {

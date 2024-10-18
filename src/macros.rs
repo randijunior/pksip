@@ -120,7 +120,8 @@ macro_rules! parse_auth_param {
             match $scanner.peek() {
                 Some(&b'"') => {
                     $scanner.next();
-                    let value = crate::macros::read_until_byte!($scanner, &b'"');
+                    let value =
+                        crate::macros::read_until_byte!($scanner, &b'"');
                     $scanner.next();
                     Some((std::str::from_utf8(value)?))
                 }
@@ -152,7 +153,7 @@ pub(crate) use parse_param;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;
 pub(crate) use read_while;
+pub(crate) use remaing;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
 pub(crate) use until_newline;
-pub(crate) use remaing;

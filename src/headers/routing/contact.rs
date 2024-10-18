@@ -1,6 +1,6 @@
 use crate::{
     macros::parse_param,
-    parser::{Param, Result, SipParser, EXPIRES_PARAM, Q_PARAM},
+    parser::{self, Param, Result, EXPIRES_PARAM, Q_PARAM},
     scanner::Scanner,
     uri::{Params, SipUri},
 };
@@ -27,7 +27,7 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
             scanner.next();
             return Ok(Contact::Star);
         }
-        let uri = SipParser::parse_sip_uri(scanner)?;
+        let uri = SipUri::parse(scanner)?;
         let mut q: Option<f32> = None;
         let mut expires: Option<u32> = None;
         let param = parse_param!(scanner, |param: Param<'a>| {

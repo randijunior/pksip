@@ -7,7 +7,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentDisposition<'a> {
     disp_type: &'a str,

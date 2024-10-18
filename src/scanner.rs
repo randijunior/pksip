@@ -92,7 +92,7 @@ impl<'a> Scanner<'a> {
         self.as_ref().get(..n)
     }
 
-    /// Peeks while a condition `func` holds true for each byte, 
+    /// Peeks while a condition `func` holds true for each byte,
     /// and returns the range of matching bytes.
     pub(crate) fn peek_while<F>(&self, func: F) -> Range<usize>
     where
@@ -112,7 +112,10 @@ impl<'a> Scanner<'a> {
 
     /// Reads bytes while they match the specified tag. Returns the range of matched bytes,
     /// or an error if the tag doesn't match.
-    pub(crate) fn read_tag(&mut self, tag: &[u8]) -> ScannerResult<Range<usize>> {
+    pub(crate) fn read_tag(
+        &mut self,
+        tag: &[u8],
+    ) -> ScannerResult<Range<usize>> {
         let start = self.idx;
 
         for expected in tag {
@@ -130,7 +133,7 @@ impl<'a> Scanner<'a> {
         Ok(Range { start, end })
     }
 
-    /// Reads bytes while a condition `func` holds true, 
+    /// Reads bytes while a condition `func` holds true,
     /// returning the range of matching bytes.
     pub(crate) fn read_while<F>(&mut self, func: F) -> Range<usize>
     where
@@ -148,7 +151,10 @@ impl<'a> Scanner<'a> {
     }
 
     /// Reads a byte if it matches the specified expected value.
-    pub(crate) fn read_if_eq(&mut self, expected: &u8) -> ScannerResult<Option<&u8>> {
+    pub(crate) fn read_if_eq(
+        &mut self,
+        expected: &u8,
+    ) -> ScannerResult<Option<&u8>> {
         self.read_if(|b| b == expected)
     }
 

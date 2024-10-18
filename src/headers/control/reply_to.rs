@@ -1,6 +1,6 @@
 use crate::{
     macros::parse_param,
-    parser::{Result, SipParser},
+    parser::{self, Result},
     scanner::Scanner,
     uri::{Params, SipUri},
 };
@@ -17,7 +17,7 @@ impl<'a> SipHeaderParser<'a> for ReplyTo<'a> {
     const NAME: &'static [u8] = b"Reply-To";
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let uri = SipParser::parse_sip_uri(scanner)?;
+        let uri = SipUri::parse(scanner)?;
         let param = parse_param!(scanner, |param| Some(param));
 
         Ok(ReplyTo { uri, param })

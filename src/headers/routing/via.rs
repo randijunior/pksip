@@ -26,7 +26,7 @@ use crate::util::is_valid_port;
 use crate::{
     macros::{read_until_byte, sip_parse_error, space},
     msg::Transport,
-    parser::{Result, SipParser},
+    parser::{self, Result},
     scanner::Scanner,
     uri::{HostPort, Params},
 };
@@ -141,6 +141,12 @@ impl<'a> Via<'a> {
 
         Ok((Some(params), others))
     }
+
+    pub fn from_bytes(src: &'a [u8]) -> Result<Self> {
+        let mut scanner = Scanner::new(src);
+
+        Self::parse(&mut scanner)
+    }
 }
 
 impl<'a> SipHeaderParser<'a> for Via<'a> {
@@ -149,7 +155,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         //@TODO: handle LWS
-        SipParser::parse_sip_version(scanner)?;
+        parser::parse_sip_version_2_0(scanner)?;
 
         if scanner.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");

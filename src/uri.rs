@@ -6,21 +6,25 @@ use std::{
 
 pub(crate) use host::HostPort;
 pub(crate) use params::{Params, UriParams};
-pub(crate) use user::UserInfo;
 pub(crate) use scheme::Scheme;
+pub(crate) use user::UserInfo;
 
 use crate::{
-    macros::{b_map, digits, read_until_byte, read_while, sip_parse_error, space},
-    parser::{
-        is_token, SipParserError, ALPHA_NUM, ESCAPED, HOST, PASS, UNRESERVED, USER_UNRESERVED
+    macros::{
+        b_map, digits, read_until_byte, read_while, sip_parse_error, space,
     },
-    scanner::Scanner, util::is_valid_port,
+    parser::{
+        is_token, SipParserError, ALPHA_NUM, ESCAPED, HOST, PASS, UNRESERVED,
+        USER_UNRESERVED,
+    },
+    scanner::Scanner,
+    util::is_valid_port,
 };
 
 mod host;
-mod user;
-mod scheme;
 mod params;
+mod scheme;
+mod user;
 
 // A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
 // For reading user part on sip uri.
@@ -45,7 +49,6 @@ const TRANSPORT_PARAM: &str = "transport";
 const TTL_PARAM: &str = "ttl";
 const LR_PARAM: &str = "lr";
 const MADDR_PARAM: &str = "maddr";
-
 
 #[inline(always)]
 fn is_user(b: &u8) -> bool {
@@ -208,7 +211,8 @@ impl<'a> SipUri<'a> {
 impl<'a> Uri<'a> {
     fn parse_uri_param(
         scanner: &mut Scanner<'a>,
-    ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>), SipParserError> {
+    ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>), SipParserError>
+    {
         if scanner.peek() == Some(&b';') {
             let mut others = Params::new();
             let mut uri_params = UriParams::default();

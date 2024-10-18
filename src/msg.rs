@@ -3,10 +3,8 @@ pub(crate) use response::*;
 
 use crate::headers::SipHeaders;
 
-
 mod request;
 mod response;
-
 
 use std::str;
 
@@ -32,7 +30,6 @@ impl<'a> SipMsg<'a> {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SipMethod<'a> {

@@ -1,12 +1,11 @@
 use crate::{
     macros::{parse_param, sip_parse_error},
-    parser::{Result, SipParser},
+    parser::{self, Result},
     scanner::Scanner,
     uri::{NameAddr, Params, SipUri},
 };
 
 use crate::headers::SipHeaderParser;
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RecordRoute<'a> {
@@ -18,7 +17,7 @@ impl<'a> SipHeaderParser<'a> for RecordRoute<'a> {
     const NAME: &'static [u8] = b"Record-Route";
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        if let SipUri::NameAddr(addr) = SipParser::parse_sip_uri(scanner)? {
+        if let SipUri::NameAddr(addr) = SipUri::parse(scanner)? {
             let param = parse_param!(scanner, |param| Some(param));
             Ok(RecordRoute { addr, param })
         } else {
