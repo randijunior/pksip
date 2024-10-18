@@ -4,6 +4,11 @@ use std::{
     str::{self, FromStr},
 };
 
+pub(crate) use host::HostPort;
+pub(crate) use params::{Params, UriParams};
+pub(crate) use user::UserInfo;
+pub(crate) use scheme::Scheme;
+
 use crate::{
     macros::{b_map, digits, read_until_byte, read_while, sip_parse_error, space},
     parser::{
@@ -11,6 +16,11 @@ use crate::{
     },
     scanner::Scanner, util::is_valid_port,
 };
+
+mod host;
+mod user;
+mod scheme;
+mod params;
 
 // A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
 // For reading user part on sip uri.
@@ -72,122 +82,6 @@ Request-URI: The Request-URI is a SIP or SIPS URI as described in
            The Request-URI MUST NOT contain unescaped spaces or control
            characters and MUST NOT be enclosed in "<>".
 */
-#[derive(Debug, PartialEq, Eq)]
-pub struct UserInfo<'a> {
-    pub(crate) user: &'a str,
-    pub(crate) password: Option<&'a str>,
-}
-
-impl<'a> UserInfo<'a> {
-    fn has_user(scanner: &Scanner) -> bool {
-        let mut matched = None;
-        for &byte in scanner.as_ref().iter() {
-            if matches!(byte, b'@' | b' ' | b'\n' | b'>') {
-                matched = Some(byte);
-                break;
-            }
-        }
-        matched == Some(b'@')
-    }
-
-    pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<Option<Self>, SipParserError> {
-        if !Self::has_user(scanner) {
-            return Ok(None);
-        }
-        let bytes = read_while!(scanner, is_user);
-        let user = str::from_utf8(bytes)?;
-        let mut user = UserInfo {
-            user,
-            password: None,
-        };
-
-        if scanner.next() == Some(&b':') {
-            let bytes = read_while!(scanner, is_pass);
-            let bytes = str::from_utf8(bytes)?;
-            scanner.next();
-            user.password = Some(bytes);
-        }
-
-        Ok(Some(user))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum HostPort<'a> {
-    DomainName { host: &'a str, port: Option<u16> },
-    IpAddr { host: IpAddr, port: Option<u16> },
-}
-
-impl<'a> HostPort<'a> {
-    fn parse_port(scanner: &mut Scanner) -> Result<Option<u16>, SipParserError> {
-        if let Ok(Some(_)) = scanner.read_if(|b| b == &b':') {
-            let digits = digits!(scanner);
-            let digits = unsafe { str::from_utf8_unchecked(digits) };
-            match digits.parse::<u16>() {
-                Ok(port) if is_valid_port(port) => Ok(Some(port)),
-                Ok(_) | Err(_) => {
-                    sip_parse_error!("Sip Uri Port is invalid!")
-                }
-            }
-        } else {
-            Ok(None)
-        }
-    }
-    pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<HostPort<'a>, SipParserError> {
-        if let Ok(Some(_)) = scanner.read_if(|b| b == &b'[') {
-            // the '[' and ']' characters are removed from the host
-            let host = read_until_byte!(scanner, &b']');
-            let host = str::from_utf8(host)?;
-            scanner.next();
-            return if let Ok(host) = host.parse() {
-                scanner.next();
-                Ok(HostPort::IpAddr {
-                    host: IpAddr::V6(host),
-                    port: Self::parse_port(scanner)?,
-                })
-            } else {
-                sip_parse_error!("scannerError parsing Ipv6 HostPort!")
-            };
-        }
-        let host = read_while!(scanner,is_host);
-        let host = unsafe { str::from_utf8_unchecked(host) };
-        if let Ok(addr) = IpAddr::from_str(host) {
-            Ok(HostPort::IpAddr {
-                host: addr,
-                port: Self::parse_port(scanner)?,
-            })
-        } else {
-            Ok(HostPort::DomainName {
-                host,
-                port: Self::parse_port(scanner)?,
-            })
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Scheme {
-    Sip,
-    Sips,
-}
-
-impl Scheme {
-    pub (crate) fn parse(scanner: &mut Scanner) -> Result<Self, SipParserError> {
-        match read_until_byte!(scanner, &b':') {
-            SCHEME_SIP => Ok(Scheme::Sip),
-            SCHEME_SIPS => Ok(Scheme::Sips),
-            // Unsupported URI scheme
-            unsupported => sip_parse_error!(format!(
-                "Unsupported URI scheme: {}",
-                String::from_utf8_lossy(unsupported)
-            )),
-        }
-    }
-}
 
 // scheme
 // user optional
@@ -202,47 +96,6 @@ impl Scheme {
 // int ttl_param optional
 // int lr_param optional
 // str maddr_param optional
-
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct Params<'a> {
-    pub(crate) inner: HashMap<&'a str, Option<&'a str>>,
-}
-
-impl<'a> From<HashMap<&'a str, Option<&'a str>>> for Params<'a> {
-    fn from(value: HashMap<&'a str, Option<&'a str>>) -> Self {
-        Self { inner: value }
-    }
-}
-
-impl<'a> Params<'a> {
-    pub fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
-    }
-
-    pub fn set(
-        &mut self,
-        k: &'a str,
-        v: Option<&'a str>,
-    ) -> Option<Option<&str>> {
-        self.inner.insert(k, v)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct UriParams<'a> {
-    pub(crate) user: Option<&'a str>,
-    pub(crate) method: Option<&'a str>,
-    pub(crate) transport: Option<&'a str>,
-    pub(crate) ttl: Option<&'a str>,
-    pub(crate) lr: Option<&'a str>,
-    pub(crate) maddr: Option<&'a str>,
-}
 
 // struct sip_param/other_param other parameters group together
 // struct sip_param/header_param optional

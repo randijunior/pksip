@@ -47,11 +47,8 @@ use crate::{headers::Header, scanner::Scanner};
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
 use core::str;
-use std::net::IpAddr;
-use std::str::FromStr;
 use std::str::Utf8Error;
 
-use crate::headers::routing::via::ViaParams;
 use crate::headers::SipHeaders;
 use crate::scanner::ScannerError;
 
@@ -59,7 +56,6 @@ use crate::macros::digits;
 use crate::macros::find;
 use crate::macros::newline;
 use crate::macros::peek_while;
-use crate::macros::read_until_byte;
 use crate::macros::read_while;
 use crate::macros::sip_parse_error;
 use crate::macros::space;

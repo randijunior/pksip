@@ -74,7 +74,7 @@ impl<'a> Scanner<'a> {
 
     /// Reads the next `n` bytes and returns the range of indices if successful.
     ///  If there aren't enough bytes left, it returns an `OutOfInput` error.
-    pub fn read_n(&mut self, n: usize) -> ScannerResult<Range<usize>> {
+    pub(crate) fn read_n(&mut self, n: usize) -> ScannerResult<Range<usize>> {
         if self.idx + n > self.len {
             return self.error(ErrorKind::OutOfInput);
         }
@@ -88,12 +88,13 @@ impl<'a> Scanner<'a> {
     }
 
     /// Peeks at the next `n` bytes without advancing the scanner.
-    pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
+    pub(crate) fn peek_n(&self, n: usize) -> Option<&[u8]> {
         self.as_ref().get(..n)
     }
 
-    /// Peeks while a condition `func` holds true for each byte, and returns the range of matching bytes.
-    pub fn peek_while<F>(&self, func: F) -> Range<usize>
+    /// Peeks while a condition `func` holds true for each byte, 
+    /// and returns the range of matching bytes.
+    pub(crate) fn peek_while<F>(&self, func: F) -> Range<usize>
     where
         F: Fn(&u8) -> bool,
     {
@@ -111,7 +112,7 @@ impl<'a> Scanner<'a> {
 
     /// Reads bytes while they match the specified tag. Returns the range of matched bytes,
     /// or an error if the tag doesn't match.
-    pub fn read_tag(&mut self, tag: &[u8]) -> ScannerResult<Range<usize>> {
+    pub(crate) fn read_tag(&mut self, tag: &[u8]) -> ScannerResult<Range<usize>> {
         let start = self.idx;
 
         for expected in tag {
@@ -129,8 +130,9 @@ impl<'a> Scanner<'a> {
         Ok(Range { start, end })
     }
 
-    /// Reads bytes while a condition `func` holds true, returning the range of matching bytes.
-    pub fn read_while<F>(&mut self, func: F) -> Range<usize>
+    /// Reads bytes while a condition `func` holds true, 
+    /// returning the range of matching bytes.
+    pub(crate) fn read_while<F>(&mut self, func: F) -> Range<usize>
     where
         F: Fn(&u8) -> bool,
     {
@@ -146,12 +148,12 @@ impl<'a> Scanner<'a> {
     }
 
     /// Reads a byte if it matches the specified expected value.
-    pub fn read_if_eq(&mut self, expected: &u8) -> ScannerResult<Option<&u8>> {
+    pub(crate) fn read_if_eq(&mut self, expected: &u8) -> ScannerResult<Option<&u8>> {
         self.read_if(|b| b == expected)
     }
 
     /// Reads a byte if the provided function returns true, otherwise returns None.
-    pub fn read_if<F>(&mut self, func: F) -> ScannerResult<Option<&u8>>
+    pub(crate) fn read_if<F>(&mut self, func: F) -> ScannerResult<Option<&u8>>
     where
         F: FnOnce(&u8) -> bool,
     {
@@ -168,7 +170,7 @@ impl<'a> Scanner<'a> {
 
     /// Advances the scanner to the next byte, updating the position (line and column).
     #[inline(always)]
-    pub fn advance(&mut self) -> &'a u8 {
+    fn advance(&mut self) -> &'a u8 {
         let byte = &self.src[self.idx];
         if byte == &b'\n' {
             self.col = 1;
