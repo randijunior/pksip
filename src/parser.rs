@@ -76,92 +76,34 @@ use crate::msg::{RequestLine, SipRequest, SipResponse};
 use crate::uri::HostPort;
 use crate::uri::Scheme;
 use crate::uri::Uri;
-use crate::uri::UriParams;
-use crate::uri::UserInfo;
 use crate::uri::{NameAddr, Params, SipUri};
 use crate::util::is_space;
-use crate::util::is_valid_port;
-use crate::util::{is_alphabetic, is_newline};
+use crate::util::is_alphabetic;
 
 const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
-const ALPHA_NUM: &[u8] =
+pub(crate) const ALPHA_NUM: &[u8] =
     b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-const UNRESERVED: &[u8] = b"-_.!~*'()%";
-const ESCAPED: &[u8] = b"%";
-const USER_UNRESERVED: &[u8] = b"&=+$,;?/";
-const TOKEN: &[u8] = b"-.!%*_`'~+";
-const PASS: &[u8] = b"&=+$,";
-const HOST: &[u8] = b"_-.";
-const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 
-pub(crate) const USER_PARAM: &str = "user";
-pub(crate) const METHOD_PARAM: &str = "method";
-pub(crate) const TRANSPORT_PARAM: &str = "transport";
-pub(crate) const TTL_PARAM: &str = "ttl";
-pub(crate) const LR_PARAM: &str = "lr";
-pub(crate) const MADDR_PARAM: &str = "maddr";
-pub(crate) const BRANCH_PARAM: &str = "branch";
-pub(crate) const RPORT_PARAM: &str = "rport";
-pub(crate) const RECEIVED_PARAM: &str = "received";
+pub(crate) const UNRESERVED: &[u8] = b"-_.!~*'()%";
+pub(crate) const ESCAPED: &[u8] = b"%";
+pub(crate) const USER_UNRESERVED: &[u8] = b"&=+$,;?/";
+pub(crate) const TOKEN: &[u8] = b"-.!%*_`'~+";
+pub(crate) const PASS: &[u8] = b"&=+$,";
+pub(crate) const HOST: &[u8] = b"_-.";
+pub(crate) const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
+
 pub(crate) const TAG_PARAM: &str = "tag";
 pub(crate) const Q_PARAM: &str = "q";
 pub(crate) const EXPIRES_PARAM: &str = "expires";
 
-pub(crate) const SCHEME_SIP: &[u8] = b"sip";
-pub(crate) const SCHEME_SIPS: &[u8] = b"sips";
-
-// A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
-// For reading user part on sip uri.
-b_map!(USER_SPEC_MAP => ALPHA_NUM, UNRESERVED, USER_UNRESERVED, ESCAPED);
-// A-Z a-z 0-9 -_.!~*'() &=+$,%
-// For reading password part on sip uri.
-b_map!(PASS_SPEC_MAP => ALPHA_NUM, UNRESERVED, ESCAPED, PASS);
-// A-Z a-z 0-9 -_.
-b_map!(HOST_SPEC_MAP => ALPHA_NUM, HOST);
-// "[]/:&+$"  "-_.!~*'()" "%"
-b_map!(PARAM_SPEC_MAP => b"[]/:&+$", ALPHA_NUM, UNRESERVED, ESCAPED);
-// "[]/?:+$"  "-_.!~*'()" "%"
-b_map!(HDR_SPEC_MAP => b"[]/?:+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
-
-b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 
 b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
 
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
-
-#[inline(always)]
-pub(crate) fn is_host(b: u8) -> bool {
-    HOST_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_user(b: u8) -> bool {
-    USER_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_pass(b: u8) -> bool {
-    PASS_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_param(b: u8) -> bool {
-    PARAM_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_hdr(b: u8) -> bool {
-    HDR_SPEC_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_via_param(b: u8) -> bool {
-    VIA_PARAM_SPEC_MAP[b as usize]
-}
 
 #[inline(always)]
 pub(crate) fn is_uri(b: u8) -> bool {
@@ -176,50 +118,6 @@ pub(crate) fn is_token(b: u8) -> bool {
 pub struct SipParser;
 
 impl<'a> SipParser {
-    fn parse_scheme(scanner: &mut Scanner) -> Result<Scheme> {
-        match read_until_byte!(scanner, b':') {
-            SCHEME_SIP => Ok(Scheme::Sip),
-            SCHEME_SIPS => Ok(Scheme::Sips),
-            // Unsupported URI scheme
-            unsupported => sip_parse_error!(format!(
-                "Unsupported URI scheme: {}",
-                String::from_utf8_lossy(unsupported)
-            )),
-        }
-    }
-
-    fn has_user(scanner: &Scanner) -> bool {
-        let mut matched = None;
-        for &byte in scanner.as_ref().iter() {
-            if matches!(byte, b'@' | b' ' | b'\n' | b'>') {
-                matched = Some(byte);
-                break;
-            }
-        }
-        matched == Some(b'@')
-    }
-
-    fn parse_user(scanner: &mut Scanner<'a>) -> Result<Option<UserInfo<'a>>> {
-        if !Self::has_user(scanner) {
-            return Ok(None);
-        }
-        let bytes = read_while!(scanner, is_user);
-        let user = str::from_utf8(bytes)?;
-        let mut user = UserInfo {
-            user,
-            password: None,
-        };
-
-        if scanner.next() == Some(&b':') {
-            let bytes = read_while!(scanner, is_pass);
-            let bytes = str::from_utf8(bytes)?;
-            scanner.next();
-            user.password = Some(bytes);
-        }
-
-        Ok(Some(user))
-    }
-
     pub(crate) fn parse_sip_version(scanner: &mut Scanner<'a>) -> Result<()> {
         let _version = find!(scanner, SIPV2);
 
@@ -246,282 +144,25 @@ impl<'a> SipParser {
     pub(crate) fn parse_sip_uri(
         scanner: &mut Scanner<'a>,
     ) -> Result<SipUri<'a>> {
-        space!(scanner);
-        let peeked = scanner.peek();
-
-        match peeked {
-            // Nameaddr with quoted display name
-            Some(b'"') => {
-                scanner.next();
-                let display = read_until_byte!(scanner, b'"');
-                scanner.next();
-                let display = str::from_utf8(display)?;
-
-                space!(scanner);
-
-                // must be an '<'
-                let Some(&b'<') = scanner.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-                let uri = Self::parse_uri(scanner, true)?;
-                // must be an '>'
-                let Some(&b'>') = scanner.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-
-                Ok(SipUri::NameAddr(NameAddr {
-                    display: Some(display),
-                    uri,
-                }))
-            }
-            // NameAddr without display name
-            Some(&b'<') => {
-                scanner.next();
-                let uri = Self::parse_uri(scanner, true)?;
-                scanner.next();
-
-                Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
-            }
-            // SipUri
-            Some(_)
-                if matches!(
-                    scanner.peek_n(3),
-                    Some(SCHEME_SIP) | Some(SCHEME_SIPS)
-                ) =>
-            {
-                let uri = Self::parse_uri(scanner, false)?;
-                Ok(SipUri::Uri(uri))
-            }
-            // Nameaddr with unquoted display name
-            Some(_) => {
-                let display = read_while!(scanner, is_token);
-                let display = unsafe { str::from_utf8_unchecked(display) };
-
-                space!(scanner);
-
-                // must be an '<'
-                let Some(&b'<') = scanner.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-                let uri = Self::parse_uri(scanner, true)?;
-                // must be an '>'
-                let Some(&b'>') = scanner.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-
-                Ok(SipUri::NameAddr(NameAddr {
-                    display: Some(display),
-                    uri,
-                }))
-            }
-            None => {
-                todo!()
-            }
-        }
+        SipUri::parse(scanner)
     }
 
-    pub(crate) fn parse_host(
+    fn parse_host(
         scanner: &mut Scanner<'a>,
     ) -> Result<HostPort<'a>> {
-        if let Ok(Some(_)) = scanner.read_if(|b| b == b'[') {
-            // the '[' and ']' characters are removed from the host
-            let host = read_until_byte!(scanner, b']');
-            let host = str::from_utf8(host)?;
-            scanner.next();
-            return if let Ok(host) = host.parse() {
-                scanner.next();
-                Ok(HostPort::IpAddr {
-                    host: IpAddr::V6(host),
-                    port: Self::parse_port(scanner)?,
-                })
-            } else {
-                sip_parse_error!("scannerError parsing Ipv6 HostPort!")
-            };
-        }
-        let host = read_while!(scanner, |b| HOST_SPEC_MAP[b as usize]);
-        let host = unsafe { str::from_utf8_unchecked(host) };
-        if let Ok(addr) = IpAddr::from_str(host) {
-            Ok(HostPort::IpAddr {
-                host: addr,
-                port: Self::parse_port(scanner)?,
-            })
-        } else {
-            Ok(HostPort::DomainName {
-                host,
-                port: Self::parse_port(scanner)?,
-            })
-        }
-    }
-
-    fn parse_port(scanner: &mut Scanner) -> Result<Option<u16>> {
-        if let Ok(Some(_)) = scanner.read_if(|b| b == b':') {
-            let digits = digits!(scanner);
-            let digits = unsafe { str::from_utf8_unchecked(digits) };
-            match digits.parse::<u16>() {
-                Ok(port) if is_valid_port(port) => Ok(Some(port)),
-                Ok(_) | Err(_) => {
-                    sip_parse_error!("Sip Uri Port is invalid!")
-                }
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn parse_uri_param(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>)> {
-        if scanner.peek() == Some(&b';') {
-            let mut others = Params::new();
-            let mut uri_params = UriParams::default();
-            while let Some(&b';') = scanner.peek() {
-                scanner.next();
-                let name = read_while!(scanner, is_param);
-                let name = unsafe { str::from_utf8_unchecked(name) };
-                let value = if scanner.peek() == Some(&b'=') {
-                    scanner.next();
-                    let value = read_while!(scanner, is_param);
-                    Some(unsafe { str::from_utf8_unchecked(value) })
-                } else {
-                    None
-                };
-                match name {
-                    USER_PARAM => uri_params.user = value,
-                    METHOD_PARAM => uri_params.method = value,
-                    TRANSPORT_PARAM => uri_params.transport = value,
-                    TTL_PARAM => uri_params.ttl = value,
-                    LR_PARAM => uri_params.lr = value,
-                    MADDR_PARAM => uri_params.maddr = value,
-                    _ => {
-                        others.set(name, value);
-                    }
-                }
-            }
-            let params = Some(uri_params);
-            let others = if others.is_empty() {
-                None
-            } else {
-                Some(others)
-            };
-
-            Ok((params, others))
-        } else {
-            Ok((None, None))
-        }
+        HostPort::parse(scanner)
     }
 
     fn parse_uri(
         scanner: &mut Scanner<'a>,
         parse_params: bool,
     ) -> Result<Uri<'a>> {
-        let scheme = Self::parse_scheme(scanner)?;
-        // take ':'
-        scanner.next();
-
-        let user = Self::parse_user(scanner)?;
-        let host = Self::parse_host(scanner)?;
-
-        if !parse_params {
-            return Ok(Uri {
-                scheme,
-                user,
-                host,
-                params: None,
-                other_params: None,
-                header_params: None,
-            });
-        }
-        let (params, other_params) = Self::parse_uri_param(scanner)?;
-
-        let mut header_params = None;
-        if scanner.peek() == Some(&b'?') {
-            let mut params = Params::new();
-            loop {
-                // take '?' or '&'
-                scanner.next();
-                let name = read_while!(scanner, is_hdr);
-                let name = unsafe { str::from_utf8_unchecked(name) };
-                let value = if scanner.peek() == Some(&b'=') {
-                    scanner.next();
-                    let value = read_while!(scanner, is_hdr);
-                    Some(unsafe { str::from_utf8_unchecked(value) })
-                } else {
-                    None
-                };
-                params.set(name, value);
-                if scanner.peek() != Some(&b'&') {
-                    break;
-                }
-            }
-
-            header_params = Some(params)
-        }
-
-        Ok(Uri {
-            scheme,
-            user,
-            host,
-            params,
-            other_params,
-            header_params,
-        })
+        Uri::parse(scanner, parse_params)
     }
 
-    pub(crate) fn parse_via_params(
+    pub(crate) fn parse_status_line(
         scanner: &mut Scanner<'a>,
-    ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
-        space!(scanner);
-        if scanner.peek() != Some(&b';') {
-            return Ok((None, None));
-        }
-        let mut params = ViaParams::default();
-        let mut others = Params::new();
-        while let Some(&b';') = scanner.peek() {
-            scanner.next();
-            let name = read_while!(scanner, is_via_param);
-            let name = unsafe { str::from_utf8_unchecked(name) };
-            let mut value = "";
-            if let Some(&b'=') = scanner.peek() {
-                scanner.next();
-                let v = read_while!(scanner, is_via_param);
-                value = unsafe { str::from_utf8_unchecked(v) };
-            }
-            match name {
-                BRANCH_PARAM => params.set_branch(value),
-                TTL_PARAM => params.set_ttl(value),
-                MADDR_PARAM => params.set_maddr(value),
-                RECEIVED_PARAM => params.set_received(value),
-                RPORT_PARAM => {
-                    if !value.is_empty() {
-                        match value.parse::<u16>() {
-                            Ok(port) if is_valid_port(port) => {
-                                params.set_rport(port)
-                            }
-                            Ok(_) | Err(_) => {
-                                return sip_parse_error!(
-                                    "Via param rport is invalid!"
-                                )
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    others.set(name, Some(value));
-                }
-            }
-            space!(scanner);
-        }
-
-        let others = if others.is_empty() {
-            None
-        } else {
-            Some(others)
-        };
-
-        Ok((Some(params), others))
-    }
-
-    fn parse_status_line(scanner: &mut Scanner<'a>) -> Result<StatusLine<'a>> {
+    ) -> Result<StatusLine<'a>> {
         Self::parse_sip_version(scanner)?;
 
         space!(scanner);
@@ -537,7 +178,7 @@ impl<'a> SipParser {
         Ok(StatusLine::new(status_code, rp))
     }
 
-    pub fn parse_request_line(
+    pub(crate) fn parse_request_line(
         scanner: &mut Scanner<'a>,
     ) -> Result<RequestLine<'a>> {
         let b_method = alpha!(scanner);
@@ -898,61 +539,51 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_register() {
-        let msg = SipParser::parse(
-            b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
-        Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
-        Max-Forwards: 70\r\n\
-        To: Bob <sip:bob@biloxi.com>\r\n\
-        From: Bob <sip:bob@biloxi.com>;tag=456248\r\n\
+    fn test_parse_headers() {
+        let headers = b"Max-Forwards: 70\r\n\
         Call-ID: 843817637684230@998sdasdh09\r\n\
         CSeq: 1826 REGISTER\r\n\
-        Contact: <sip:bob@192.0.2.4>\r\n\
         Expires: 7200\r\n\
-        Content-Length: 0\r\n\r\n",
-        )
-        .unwrap();
+        Content-Length: 0\r\n\r\n";
+        let mut sip_headers = SipHeaders::new();
+        let mut scanner = Scanner::new(headers);
+        let parsed = SipParser::parse_headers(&mut scanner, &mut sip_headers);
+        assert_eq!(parsed.unwrap(), false);
 
-        assert_matches!(&msg, SipMsg::Request(req) => {
-            assert_eq!(req.request_line(), &RequestLine::from_bytes(b"REGISTER sip:registrar.biloxi.com SIP/2.0").unwrap());
-        });
-
-        let headers = msg.headers();
-        assert_eq!(headers, &SipHeaders::with_headers(vec![
-            Header::Via(Via::from_bytes(b"SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7").unwrap()),
-            Header::MaxForwards(MaxForwards::from_bytes(b"70").unwrap()),
-            Header::To(To::from_bytes(b"Bob <sip:bob@biloxi.com>").unwrap()),
-            Header::From(from::From::from_bytes(b"Bob <sip:bob@biloxi.com>;tag=456248").unwrap()),
-            Header::CallId(CallId::from_bytes(b"843817637684230@998sdasdh09").unwrap()),
-            Header::CSeq(CSeq::from_bytes(b"1826 REGISTER").unwrap()),
-            Header::Contact(Contact::from_bytes(b"<sip:bob@192.0.2.4>").unwrap()),
-            Header::Expires(Expires::from_bytes(b"7200").unwrap()),
-            Header::ContentLength(ContentLength::from_bytes(b"0").unwrap())
-        ]));
-        assert_eq!(msg.body(), None);
+        let mut iter = sip_headers.iter();
+        assert_eq!(iter.next().unwrap(), &Header::MaxForwards(MaxForwards::new(70)));
+        assert_eq!(iter.next().unwrap(), &Header::CallId(CallId::new("843817637684230@998sdasdh09")));
+        assert_eq!(iter.next().unwrap(), &Header::CSeq(CSeq::new(1826, SipMethod::Register)));
+        assert_eq!(iter.next().unwrap(), &Header::Expires(Expires::new(7200)));
+        assert_eq!(iter.next().unwrap(), &Header::ContentLength(ContentLength::new(0)));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
-    #[ignore]
-    fn status_line() {
-        let sc_ok = SipStatusCode::Ok;
-        let msg = "SIP/2.0 200 OK\r\n".as_bytes();
-        let size_of_msg = msg.len();
-        let mut counter = 0;
-        let now = std::time::Instant::now();
-        loop {
-            let mut scanner = Scanner::new(msg);
-            assert!(SipParser::parse_status_line(&mut scanner).is_ok(),);
-            counter += 1;
-            if now.elapsed().as_secs() == 1 {
-                break;
-            }
-        }
+    fn test_parse_req_line() {
+        let req_line = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n";
+        let mut scanner = Scanner::new(req_line);
+        let parsed = SipParser::parse_request_line(&mut scanner);
+        let parsed = parsed.unwrap();
 
-        println!(
-            "{} mbytes per second, count sip messages: {}",
-            (size_of_msg * counter) / 1024 / 1024,
-            counter
-        );
+        assert_matches!(parsed, RequestLine { method, uri } => {
+            assert_eq!(method, SipMethod::Register);
+            assert_eq!(uri.scheme, Scheme::Sip);
+            assert_eq!(uri.user, None);
+            assert_eq!(uri.host, HostPort::DomainName { host: "registrar.biloxi.com", port: None });
+        });
+    }
+
+    #[test]
+    fn status_line() {
+        let msg = b"SIP/2.0 200 OK\r\n";
+        let mut scanner = Scanner::new(msg);
+        let parsed = SipParser::parse_status_line(&mut scanner);
+        let parsed = parsed.unwrap();
+
+        assert_matches!(parsed, StatusLine { status_code, reason_phrase } => {
+            assert_eq!(status_code, SipStatusCode::Ok);
+            assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
+        });
     }
 }

@@ -15,6 +15,12 @@ pub struct CSeq<'a> {
     method: SipMethod<'a>,
 }
 
+impl<'a> CSeq<'a> {
+    pub fn new(cseq: i32, method: SipMethod<'a>) -> Self {
+        Self {cseq, method }
+    }
+}
+
 impl<'a> SipHeaderParser<'a> for CSeq<'a> {
     const NAME: &'static [u8] = b"CSeq";
 

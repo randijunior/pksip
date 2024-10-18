@@ -139,7 +139,7 @@ impl<'a> Scanner<'a> {
 
     #[inline(always)]
     pub fn advance(&mut self) -> &'a u8 {
-        let byte = unsafe { self.src.get_unchecked(self.idx) };
+        let byte = &self.src[self.idx];
         if byte == &b'\n' {
             self.col = 1;
             self.line += 1;
@@ -163,9 +163,7 @@ impl<'a> Scanner<'a> {
 
 impl<'a> AsRef<[u8]> for Scanner<'a> {
     fn as_ref(&self) -> &[u8] {
-        unsafe { 
-            self.src.get_unchecked(self.idx..self.len)
-        }
+        &self.src[self.idx..]
     }
 }
 

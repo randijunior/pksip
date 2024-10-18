@@ -20,6 +20,9 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::headers::SipHeaderParser;
+use crate::macros::{b_map, read_while};
+use crate::parser::{ALPHA_NUM, TOKEN};
+use crate::util::is_valid_port;
 use crate::{
     macros::{read_until_byte, sip_parse_error, space},
     msg::Transport,
@@ -28,6 +31,19 @@ use crate::{
     uri::{HostPort, Params},
 };
 use std::str;
+
+b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
+
+const MADDR_PARAM: &str = "maddr";
+const BRANCH_PARAM: &str = "branch";
+const TTL_PARAM: &str = "ttl";
+const RPORT_PARAM: &str = "rport";
+const RECEIVED_PARAM: &str = "received";
+
+#[inline(always)]
+fn is_via_param(b: u8) -> bool {
+    VIA_PARAM_SPEC_MAP[b as usize]
+}
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct ViaParams<'a> {
@@ -71,6 +87,62 @@ pub struct Via<'a> {
     pub(crate) others_params: Option<Params<'a>>,
 }
 
+impl<'a> Via<'a> {
+    pub(crate) fn parse_params(
+        scanner: &mut Scanner<'a>,
+    ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
+        space!(scanner);
+        if scanner.peek() != Some(&b';') {
+            return Ok((None, None));
+        }
+        let mut params = ViaParams::default();
+        let mut others = Params::new();
+        while let Some(&b';') = scanner.peek() {
+            scanner.next();
+            let name = read_while!(scanner, is_via_param);
+            let name = unsafe { str::from_utf8_unchecked(name) };
+            let mut value = "";
+            if let Some(&b'=') = scanner.peek() {
+                scanner.next();
+                let v = read_while!(scanner, is_via_param);
+                value = unsafe { str::from_utf8_unchecked(v) };
+            }
+            match name {
+                BRANCH_PARAM => params.set_branch(value),
+                TTL_PARAM => params.set_ttl(value),
+                MADDR_PARAM => params.set_maddr(value),
+                RECEIVED_PARAM => params.set_received(value),
+                RPORT_PARAM => {
+                    if !value.is_empty() {
+                        match value.parse::<u16>() {
+                            Ok(port) if is_valid_port(port) => {
+                                params.set_rport(port)
+                            }
+                            Ok(_) | Err(_) => {
+                                return sip_parse_error!(
+                                    "Via param rport is invalid!"
+                                )
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    others.set(name, Some(value));
+                }
+            }
+            space!(scanner);
+        }
+
+        let others = if others.is_empty() {
+            None
+        } else {
+            Some(others)
+        };
+
+        Ok((Some(params), others))
+    }
+}
+
 impl<'a> SipHeaderParser<'a> for Via<'a> {
     const NAME: &'static [u8] = b"Via";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"v");
@@ -87,8 +159,8 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
 
         space!(scanner);
 
-        let sent_by = SipParser::parse_host(scanner)?;
-        let (params, others_params) = SipParser::parse_via_params(scanner)?;
+        let sent_by = HostPort::parse(scanner)?;
+        let (params, others_params) = Self::parse_params(scanner)?;
 
         let comment = if scanner.peek() == Some(&b'(') {
             scanner.next();

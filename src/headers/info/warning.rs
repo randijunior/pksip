@@ -1,8 +1,7 @@
 use core::str;
 
 use crate::{
-    macros::{digits, read_until_byte, read_while, sip_parse_error, space},
-    parser::is_host,
+    macros::{digits, read_until_byte, read_while, sip_parse_error, space}, uri::is_host,
 };
 
 use crate::headers::SipHeaderParser;

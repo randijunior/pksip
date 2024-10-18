@@ -11,6 +11,12 @@ use crate::headers::SipHeaderParser;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Expires(i32);
 
+impl Expires {
+    pub fn new(expires: i32) -> Self {
+        Self(expires)
+    }
+}
+
 impl<'a> SipHeaderParser<'a> for Expires {
     const NAME: &'static [u8] = b"Expires";
 

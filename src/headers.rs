@@ -165,6 +165,11 @@ impl<'a> SipHeaders<'a> {
     pub fn with_headers(headers: Vec<Header<'a>>) -> Self {
         Self(headers)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
+        self.0.iter()
+    }
+
     pub fn push_header(&mut self, hdr: Header<'a>) {
         self.0.push(hdr);
     }

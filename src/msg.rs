@@ -87,6 +87,14 @@ impl<'sl> StatusLine<'sl> {
     }
 }
 
+impl<'a> StatusLine<'a> {
+    pub fn from_bytes(src: &[u8]) -> Result<StatusLine, SipParserError> {
+        let mut scanner = Scanner::new(src);
+
+        SipParser::parse_status_line(&mut scanner)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
     pub(crate) method: SipMethod<'a>,

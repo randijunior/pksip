@@ -10,6 +10,15 @@ use std::str;
 #[derive(Debug, PartialEq, Eq)]
 pub struct MaxForwards(u32);
 
+impl MaxForwards {
+    pub fn new(m_fowards: u32) -> Self {
+        Self(m_fowards)
+    }
+    pub fn max_fowards(&self) -> u32 {
+        self.0
+    }
+}
+
 impl<'a> SipHeaderParser<'a> for MaxForwards {
     const NAME: &'static [u8] = b"Max-Forwards";
 

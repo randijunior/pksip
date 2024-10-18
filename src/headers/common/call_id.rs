@@ -10,11 +10,14 @@ pub struct CallId<'a>(&'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {
     fn from(value: &'a str) -> Self {
-        Self(value)
+        Self::new(value)
     }
 }
 
 impl<'a> CallId<'a> {
+    pub fn new(id: &'a str) -> Self {
+        Self(id)
+    }
     pub fn id(&self) -> &str {
         self.0
     }

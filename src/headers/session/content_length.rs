@@ -11,6 +11,12 @@ use crate::headers::SipHeaderParser;
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentLength(u32);
 
+impl ContentLength {
+    pub fn new(c_len: u32) -> Self {
+        Self(c_len)
+    }
+}
+
 impl<'a> SipHeaderParser<'a> for ContentLength {
     const NAME: &'static [u8] = b"Content-Length";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"l");
