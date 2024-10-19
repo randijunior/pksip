@@ -56,16 +56,10 @@ const TAG_PARAM: &str = "tag";
 const Q_PARAM: &str = "q";
 const EXPIRES_PARAM: &str = "expires";
 
-fn parse_q_value(param: Option<&str>) -> Option<f32> {
-    if let Some(q_param) = param {
-        if let Ok(value) = q_param.parse::<f32>() {
-            if (0.0..=1.0).contains(&value) {
-                return Some(value);
-            }
-        }
-        return None;
-    }
-    None
+fn parse_q(param: Option<&str>) -> Option<f32> {
+    param
+        .and_then(|q| q.parse().ok())
+        .filter(|&value| (0.0..=1.0).contains(&value))
 }
 
 // Headers, as defined in RFC3261.
@@ -147,7 +141,8 @@ impl<'a> SipHeaders<'a> {
     }
 
     pub fn find_header<T>(&self) -> Option<&T>
-    where Header<'a>: AsHeader<T>,
+    where
+        Header<'a>: AsHeader<T>,
     {
         self.0.iter().find_map(|hdr| hdr.as_header())
     }

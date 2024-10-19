@@ -31,7 +31,7 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
             let (name, value) = param;
             match name {
                 Q_PARAM => {
-                    q = headers::parse_q_value(value);
+                    q = headers::parse_q(value);
                     None
                 }
                 EXPIRES_PARAM => {

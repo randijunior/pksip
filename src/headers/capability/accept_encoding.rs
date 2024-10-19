@@ -27,7 +27,7 @@ impl<'a> Coding<'a> {
         let param = parse_param!(scanner, |param: Param<'a>| {
             let (name, value) = param;
             if name == Q_PARAM {
-                q = headers::parse_q_value(value);
+                q = headers::parse_q(value);
                 return None;
             }
             Some(param)
