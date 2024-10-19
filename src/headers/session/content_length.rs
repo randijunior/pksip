@@ -1,9 +1,7 @@
 use core::str;
 
 use crate::{
-    macros::{digits, sip_parse_error},
-    parser::Result,
-    scanner::Scanner,
+    headers::{AsHeader, Header}, macros::{digits, sip_parse_error}, parser::Result, scanner::Scanner
 };
 
 use crate::headers::SipHeaderParser;
@@ -28,6 +26,16 @@ impl<'a> SipHeaderParser<'a> for ContentLength {
             Ok(ContentLength(cl))
         } else {
             sip_parse_error!("invalid content length")
+        }
+    }
+}
+
+impl<'a> AsHeader<ContentLength> for Header<'a> {
+    fn as_header(&self) -> Option<&ContentLength> {
+        if let Header::ContentLength(c) = self {
+            Some(c)
+        } else {
+            None
         }
     }
 }

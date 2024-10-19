@@ -1,7 +1,7 @@
 use std::str;
 
 use crate::{
-    headers::Q_PARAM,
+    headers::{self, Q_PARAM},
     macros::{parse_param, read_while, space},
     parser::{is_token, Param, Result},
     scanner::Scanner,
@@ -27,7 +27,7 @@ impl<'a> Coding<'a> {
         let param = parse_param!(scanner, |param: Param<'a>| {
             let (name, value) = param;
             if name == Q_PARAM {
-                q = AcceptEncoding::parse_q_value(value);
+                q = headers::parse_q_value(value);
                 return None;
             }
             Some(param)

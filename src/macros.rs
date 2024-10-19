@@ -97,7 +97,21 @@ macro_rules! parse_param {
         if let Some(&b';') = $scanner.peek() {
             let mut params = crate::uri::Params::new();
             while let Some(&b';') = $scanner.peek() {
-                let param = crate::headers::parse_generic_param($scanner)?;
+                // take ';' character
+                $scanner.next();
+                let param = {
+                    crate::macros::space!($scanner);
+                    let name = crate::parser::read_token_utf8($scanner);
+
+                    let value = if $scanner.peek() == Some(&b'=') {
+                        $scanner.next();
+                        Some(crate::parser::read_token_utf8($scanner))
+                    } else {
+                        None
+                    };
+
+                    (name, value)
+                };
                 if let Some(param) = $func(param) {
                     params.set(param.0, param.1);
                 }

@@ -1,5 +1,5 @@
 use crate::{
-    headers::{EXPIRES_PARAM, Q_PARAM}, macros::parse_param, parser::{Param, Result}, scanner::Scanner, uri::{Params, SipUri}
+    headers::{self, EXPIRES_PARAM, Q_PARAM}, macros::parse_param, parser::{Param, Result}, scanner::Scanner, uri::{Params, SipUri}
 };
 
 use crate::headers::SipHeaderParser;
@@ -31,7 +31,7 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
             let (name, value) = param;
             match name {
                 Q_PARAM => {
-                    q = Contact::parse_q_value(value);
+                    q = headers::parse_q_value(value);
                     None
                 }
                 EXPIRES_PARAM => {
