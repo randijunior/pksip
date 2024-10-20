@@ -1,7 +1,7 @@
 use crate::{
     headers::{self, Q_PARAM},
     macros::{parse_param, read_while, space},
-    parser::{Param, Result},
+    parser::Result,
     scanner::Scanner,
     uri::Params,
     util::is_alphabetic,
@@ -24,7 +24,7 @@ impl<'a> Language<'a> {
         let language = read_while!(scanner, is_lang);
         let language = unsafe { str::from_utf8_unchecked(language) };
         let mut q: Option<f32> = None;
-        let param = parse_param!(scanner, |param: Param<'a>| {
+        let param = parse_param!(scanner, |param| {
             let (name, value) = param;
             if name == Q_PARAM {
                 q = headers::parse_q(value);

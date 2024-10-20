@@ -1,8 +1,5 @@
 use crate::{
-    macros::parse_param,
-    parser::{self, Result},
-    scanner::Scanner,
-    uri::{Params, SipUri},
+    macros::parse_param, parser::{self, Result}, scanner::Scanner, uri::{Params, SipUri}
 };
 
 use crate::headers::SipHeaderParser;

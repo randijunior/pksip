@@ -88,9 +88,6 @@ pub(crate) const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
 
 
-pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
-
-
 #[inline(always)]
 pub(crate) fn is_token(b: &u8) -> bool {
     TOKEN_SPEC_MAP[*b as usize]

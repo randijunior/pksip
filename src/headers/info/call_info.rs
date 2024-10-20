@@ -1,6 +1,6 @@
 use crate::{
     macros::{parse_param, read_while, sip_parse_error, space},
-    parser::{Param, Result},
+    parser::Result,
     scanner::Scanner,
     uri::Params,
     util::is_newline,
@@ -40,7 +40,7 @@ impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
             return sip_parse_error!("Invalid call info!");
         };
         space!(scanner);
-        let params = parse_param!(scanner, |param: Param<'a>| {
+        let params = parse_param!(scanner, |param| {
             let (name, value) = param;
             if name == "purpose" {
                 purpose = value;

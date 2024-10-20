@@ -47,7 +47,7 @@ use crate::{
     macros::{
         parse_auth_param, read_until_byte, read_while, sip_parse_error, space,
     },
-    parser::{is_token, Result},
+    parser::{self, is_token, Result},
     scanner::Scanner,
     uri::Params,
 };
@@ -60,6 +60,23 @@ fn parse_q(param: Option<&str>) -> Option<f32> {
     param
         .and_then(|q| q.parse().ok())
         .filter(|&value| (0.0..=1.0).contains(&value))
+}
+
+fn parse_param_name_and_value<'a>(
+    scanner: &mut Scanner<'a>,
+) -> Result<(&'a str, Option<&'a str>)> {
+    space!(scanner);
+    let name = parser::read_token_utf8(scanner);
+
+    let value = if scanner.peek() == Some(&b'=') {
+        scanner.next();
+        let value = parser::read_token_utf8(scanner);
+        Some(value)
+    } else {
+        None
+    };
+
+    Ok((name, value))
 }
 
 // Headers, as defined in RFC3261.

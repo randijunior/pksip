@@ -2,8 +2,8 @@ use std::str;
 
 use crate::{
     headers::{self, Q_PARAM},
-    macros::{parse_param, read_while, space},
-    parser::{is_token, Param, Result},
+    macros::{parse_param,space},
+    parser::{self, Result},
     scanner::Scanner,
     uri::Params,
     util::is_newline,
@@ -13,7 +13,7 @@ use crate::headers::SipHeaderParser;
 
 #[derive(Debug, PartialEq)]
 pub struct Coding<'a> {
-    content_coding: &'a str,
+    coding: &'a str,
     q: Option<f32>,
     param: Option<Params<'a>>,
 }
@@ -21,10 +21,9 @@ pub struct Coding<'a> {
 impl<'a> Coding<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         space!(scanner);
-        let coding = read_while!(scanner, is_token);
-        let content_coding = unsafe { str::from_utf8_unchecked(coding) };
+        let coding = parser::read_token_utf8(scanner);
         let mut q = None;
-        let param = parse_param!(scanner, |param: Param<'a>| {
+        let param = parse_param!(scanner, |param| {
             let (name, value) = param;
             if name == Q_PARAM {
                 q = headers::parse_q(value);
@@ -33,7 +32,7 @@ impl<'a> Coding<'a> {
             Some(param)
         });
         Ok(Coding {
-            content_coding,
+            coding,
             q,
             param,
         })
@@ -94,12 +93,12 @@ mod tests {
         assert_eq!(scanner.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
-        assert_eq!(coding.content_coding, "compress");
+        assert_eq!(coding.coding, "compress");
         assert_eq!(coding.q, None);
         assert_eq!(coding.param, None);
 
         let coding = accept_encoding.get(1).unwrap();
-        assert_eq!(coding.content_coding, "gzip");
+        assert_eq!(coding.coding, "gzip");
         assert_eq!(coding.q, None);
         assert_eq!(coding.param, None);
 
@@ -109,7 +108,7 @@ mod tests {
         assert_eq!(scanner.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
-        assert_eq!(coding.content_coding, "*");
+        assert_eq!(coding.coding, "*");
         assert_eq!(coding.q, None);
         assert_eq!(coding.param, None);
 
@@ -121,17 +120,17 @@ mod tests {
         assert_eq!(scanner.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
-        assert_eq!(coding.content_coding, "gzip");
+        assert_eq!(coding.coding, "gzip");
         assert_eq!(coding.q, Some(1.0));
         assert_eq!(coding.param, None);
 
         let coding = accept_encoding.get(1).unwrap();
-        assert_eq!(coding.content_coding, "identity");
+        assert_eq!(coding.coding, "identity");
         assert_eq!(coding.q, Some(0.5));
         assert_eq!(coding.param, None);
 
         let coding = accept_encoding.get(2).unwrap();
-        assert_eq!(coding.content_coding, "*");
+        assert_eq!(coding.coding, "*");
         assert_eq!(coding.q, Some(0.0));
         assert_eq!(coding.param, None);
     }
