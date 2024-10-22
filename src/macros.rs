@@ -38,7 +38,7 @@ macro_rules! tag {
 
 macro_rules! remaing {
     ($scanner:ident) => {{
-        let range = $scanner.read_n($scanner.len() - $scanner.idx())?;
+        let range = $scanner.read_while(|_| true);
 
         &$scanner.src[range]
     }};

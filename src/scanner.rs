@@ -46,13 +46,13 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    /// The current index of the scanner in the byte slice
+    /// The current index of the scanner
     #[inline]
     pub fn idx(&self) -> usize {
         self.idx
     }
 
-    /// The total length of the byte slice
+    /// The total length
     #[inline]
     pub fn len(&self) -> usize {
         self.len
@@ -70,21 +70,6 @@ impl<'a> Scanner<'a> {
             return None;
         }
         Some(&self.src[self.idx])
-    }
-
-    /// Reads the next `n` bytes and returns the range of indices if successful.
-    ///  If there aren't enough bytes left, it returns an `OutOfInput` error.
-    pub(crate) fn read_n(&mut self, n: usize) -> ScannerResult<Range<usize>> {
-        if self.idx + n > self.len {
-            return self.error(ErrorKind::OutOfInput);
-        }
-        let start = self.idx;
-        for _ in 0..n {
-            self.next();
-        }
-        let end = self.idx;
-
-        Ok(Range { start, end })
     }
 
     /// Peeks at the next `n` bytes without advancing the scanner.
@@ -299,8 +284,5 @@ mod tests {
         assert_eq!(scanner.line, 2);
         assert_eq!(scanner.col, 1);
 
-        let range = scanner.read_n(4);
-        let range = range.unwrap();
-        assert_eq!(&src[range], "read".as_bytes());
     }
 }
