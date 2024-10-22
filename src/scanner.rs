@@ -66,9 +66,10 @@ impl<'a> Scanner<'a> {
 
     /// Peeks at the next byte in the byte slice without advancing the scanner.
     pub fn peek(&self) -> Option<&u8> {
-        if self.finished {
+        if self.is_eof() {
             return None;
         }
+
         Some(&self.src[self.idx])
     }
 
@@ -84,13 +85,9 @@ impl<'a> Scanner<'a> {
         F: Fn(&u8) -> bool,
     {
         let start = self.idx;
-        let mut end = start;
         let iter = self.as_ref().iter();
         let iter = iter.take_while(|&b| func(b));
-
-        for _ in iter {
-            end += 1;
-        }
+        let end = start + iter.count();
 
         Range { start, end }
     }
@@ -103,11 +100,13 @@ impl<'a> Scanner<'a> {
     ) -> ScannerResult<Range<usize>> {
         let start = self.idx;
 
-        for expected in tag {
-            let Some(byte) = self.peek() else {
+        for b in tag {
+            // Take next byte
+            let Some(a) = self.peek() else {
                 return self.error(ErrorKind::Eof);
             };
-            if byte != expected {
+            // and compare
+            if a != b {
                 return self.error(ErrorKind::Tag);
             }
             self.next();
@@ -148,15 +147,14 @@ impl<'a> Scanner<'a> {
     where
         F: FnOnce(&u8) -> bool,
     {
-        if let Some(b) = self.peek() {
-            if func(b) {
-                Ok(self.next())
-            } else {
-                Ok(None)
-            }
-        } else {
-            self.error(ErrorKind::Eof)
+        let Some(b) = self.peek() else {
+            return self.error(ErrorKind::Eof);
+        };
+        if !func(b) {
+            return Ok(None);
         }
+
+        Ok(self.next())
     }
 
     /// Advances the scanner to the next byte, updating the position (line and column).
@@ -283,6 +281,5 @@ mod tests {
 
         assert_eq!(scanner.line, 2);
         assert_eq!(scanner.col, 1);
-
     }
 }
