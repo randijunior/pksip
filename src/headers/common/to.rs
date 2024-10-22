@@ -1,5 +1,9 @@
 use crate::{
-    headers::TAG_PARAM, macros::parse_header_param, parser::Result, scanner::Scanner, uri::{Params, SipUri}
+    headers::TAG_PARAM,
+    macros::parse_header_param,
+    parser::Result,
+    scanner::Scanner,
+    uri::{Params, SipUri},
 };
 
 use crate::headers::SipHeaderParser;

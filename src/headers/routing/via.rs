@@ -141,7 +141,6 @@ impl<'a> Via<'a> {
 
         Ok((Some(params), others))
     }
-
 }
 
 impl<'a> SipHeaderParser<'a> for Via<'a> {
@@ -181,7 +180,6 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
         })
     }
 }
-
 
 impl<'a> AsHeader<Via<'a>> for Header<'a> {
     fn as_header(&self) -> Option<&Via<'a>> {

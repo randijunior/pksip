@@ -2,7 +2,9 @@ use core::str;
 use std::u32;
 
 use crate::{
-    macros::{digits, parse_header_param, read_until_byte, sip_parse_error, space},
+    macros::{
+        digits, parse_header_param, read_until_byte, sip_parse_error, space,
+    },
     parser::Result,
     scanner::Scanner,
     uri::Params,

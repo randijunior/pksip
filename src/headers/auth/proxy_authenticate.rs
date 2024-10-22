@@ -1,6 +1,6 @@
 use crate::{
     macros::{parse_auth_param, read_while, space},
-    parser::{is_token, Result},
+    parser::{self, is_token, Result},
     scanner::Scanner,
     uri::Params,
 };
@@ -36,19 +36,16 @@ impl<'a> DigestChallenge<'a> {
         let mut digest = Self::default();
         loop {
             space!(scanner);
-            match read_while!(scanner, is_token) {
-                b"realm" => digest.realm = parse_auth_param!(scanner),
-                b"nonce" => digest.nonce = parse_auth_param!(scanner),
-                b"domain" => digest.domain = parse_auth_param!(scanner),
-                b"algorithm" => digest.algorithm = parse_auth_param!(scanner),
-                b"opaque" => digest.opaque = parse_auth_param!(scanner),
-                b"qop" => digest.qop = parse_auth_param!(scanner),
-                b"stale" => digest.stale = parse_auth_param!(scanner),
+            match parser::parse_token(scanner) {
+                "realm" => digest.realm = parse_auth_param!(scanner),
+                "nonce" => digest.nonce = parse_auth_param!(scanner),
+                "domain" => digest.domain = parse_auth_param!(scanner),
+                "algorithm" => digest.algorithm = parse_auth_param!(scanner),
+                "opaque" => digest.opaque = parse_auth_param!(scanner),
+                "qop" => digest.qop = parse_auth_param!(scanner),
+                "stale" => digest.stale = parse_auth_param!(scanner),
                 other => {
-                    digest.param.set(
-                        unsafe { std::str::from_utf8_unchecked(other) },
-                        parse_auth_param!(scanner),
-                    );
+                    digest.param.set(other, parse_auth_param!(scanner));
                 }
             };
 

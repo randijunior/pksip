@@ -1,48 +1,4 @@
-use crate::headers::auth::authentication_info::AuthenticationInfo;
-use crate::headers::auth::authorization::Authorization;
-use crate::headers::auth::proxy_authenticate::ProxyAuthenticate;
-use crate::headers::auth::proxy_authorization::ProxyAuthorization;
-use crate::headers::auth::www_authenticate::WWWAuthenticate;
-use crate::headers::capability::accept_encoding::AcceptEncoding;
-use crate::headers::capability::accept_language::AcceptLanguage;
-use crate::headers::capability::proxy_require::ProxyRequire;
-use crate::headers::capability::require::Require;
-use crate::headers::capability::supported::Supported;
-use crate::headers::capability::unsupported::Unsupported;
-use crate::headers::common::call_id::CallId;
-use crate::headers::common::cseq::CSeq;
-use crate::headers::common::from;
-use crate::headers::common::max_fowards::MaxForwards;
-use crate::headers::common::to::To;
-use crate::headers::control::allow::Allow;
-use crate::headers::control::expires::Expires;
-use crate::headers::control::min_expires::MinExpires;
-use crate::headers::control::reply_to::ReplyTo;
-use crate::headers::control::retry_after::RetryAfter;
-use crate::headers::control::timestamp::Timestamp;
-use crate::headers::info::alert_info::AlertInfo;
-use crate::headers::info::date::Date;
-use crate::headers::info::error_info::ErrorInfo;
-use crate::headers::info::in_reply_to::InReplyTo;
-use crate::headers::info::organization::Organization;
-use crate::headers::info::priority::Priority;
-use crate::headers::info::server::Server;
-use crate::headers::info::subject::Subject;
-use crate::headers::info::user_agent::UserAgent;
-use crate::headers::info::warning::Warning;
-use crate::headers::routing::contact::Contact;
-use crate::headers::routing::record_route::RecordRoute;
-use crate::headers::routing::route::Route;
-use crate::headers::routing::via::Via;
-use crate::headers::session::accept::Accept;
-use crate::headers::session::content_disposition::ContentDisposition;
-use crate::headers::session::content_encoding::ContentEncoding;
-use crate::headers::session::content_length::ContentLength;
-use crate::headers::session::content_type::ContentType;
-use crate::headers::session::mime_version::MimeVersion;
-use crate::headers::SipHeaderParser;
-
-use crate::{headers::Header, scanner::Scanner};
+use crate::scanner::Scanner;
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
@@ -53,13 +9,9 @@ use std::str::Utf8Error;
 use crate::headers::Headers;
 use crate::scanner::ScannerError;
 
-use crate::macros::newline;
+use crate::macros::b_map;
 use crate::macros::peek_while;
 use crate::macros::read_while;
-use crate::macros::sip_parse_error;
-use crate::macros::space;
-use crate::macros::until_newline;
-use crate::macros::{b_map, remaing};
 
 use crate::msg::SipMsg;
 use crate::msg::StatusLine;
@@ -90,13 +42,21 @@ pub(crate) fn is_token(b: &u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn read_token_utf8<'a>(scanner: &mut Scanner<'a>) -> &'a str {
-    let token = read_while!(scanner, is_token);
+pub(crate) fn parse_slice_utf8<'a>(
+    scanner: &mut Scanner<'a>,
+    func: impl Fn(&u8) -> bool,
+) -> &'a str {
+    let slc = read_while!(scanner, func);
 
-    // SAFETY: is_token ensures that the bytes are valid utf-8
-    unsafe { str::from_utf8_unchecked(token) }
+    // SAFETY: caller must ensures that func valid that bytes are valid utf-8
+    unsafe { str::from_utf8_unchecked(slc) }
 }
 
+#[inline]
+pub(crate) fn parse_token<'a>(scanner: &mut Scanner<'a>) -> &'a str {
+    // is_token ensures that is valid utf-8
+    parse_slice_utf8(scanner, is_token)
+}
 
 fn is_sip_version(scanner: &Scanner) -> bool {
     const SIP: &[u8] = b"SIP";
@@ -106,247 +66,11 @@ fn is_sip_version(scanner: &Scanner) -> bool {
     next.is_some_and(|next| tag == SIP && (next == &b'/' || is_space(next)))
 }
 
-fn parse_headers<'a>(
-    scanner: &mut Scanner<'a>,
-    headers: &mut Headers<'a>,
-) -> Result<Option<&'a [u8]>> {
-    let mut has_body = false;
-    'headers: loop {
-        let name = read_token_utf8(scanner);
-
-        if scanner.next() != Some(&b':') {
-            return sip_parse_error!("Invalid sip Header!");
-        }
-        space!(scanner);
-
-        match name.as_bytes() {
-            error_info if ErrorInfo::match_name(error_info) => {
-                let error_info = ErrorInfo::parse(scanner)?;
-                headers.push(Header::ErrorInfo(error_info))
-            }
-            route if Route::match_name(route) => 'route: loop {
-                let route = Route::parse(scanner)?;
-                headers.push(Header::Route(route));
-                let Some(&b',') = scanner.peek() else {
-                    break 'route;
-                };
-                scanner.next();
-            },
-            via if Via::match_name(via) => 'via: loop {
-                let via = Via::parse(scanner)?;
-                headers.push(Header::Via(via));
-                let Some(&b',') = scanner.peek() else {
-                    break 'via;
-                };
-                scanner.next();
-            },
-            max_fowards if MaxForwards::match_name(max_fowards) => {
-                let max_fowards = MaxForwards::parse(scanner)?;
-                headers.push(Header::MaxForwards(max_fowards))
-            }
-            from if from::From::match_name(from) => {
-                let from = from::From::parse(scanner)?;
-                headers.push(Header::From(from))
-            }
-            to if To::match_name(to) => {
-                let to = To::parse(scanner)?;
-                headers.push(Header::To(to))
-            }
-            cid if CallId::match_name(cid) => {
-                let call_id = CallId::parse(scanner)?;
-                headers.push(Header::CallId(call_id))
-            }
-            cseq if CSeq::match_name(cseq) => {
-                let cseq = CSeq::parse(scanner)?;
-                headers.push(Header::CSeq(cseq))
-            }
-            auth if Authorization::match_name(auth) => {
-                let auth = Authorization::parse(scanner)?;
-                headers.push(Header::Authorization(auth))
-            }
-            contact if Contact::match_name(contact) => 'contact: loop {
-                let contact = Contact::parse(scanner)?;
-                headers.push(Header::Contact(contact));
-                let Some(&b',') = scanner.peek() else {
-                    break 'contact;
-                };
-                scanner.next();
-            },
-            expires if Expires::match_name(expires) => {
-                let expires = Expires::parse(scanner)?;
-                headers.push(Header::Expires(expires));
-            }
-            in_reply_to if InReplyTo::match_name(in_reply_to) => {
-                let in_reply_to = InReplyTo::parse(scanner)?;
-                headers.push(Header::InReplyTo(in_reply_to));
-            }
-            mime_version if MimeVersion::match_name(mime_version) => {
-                let mime_version = MimeVersion::parse(scanner)?;
-                headers.push(Header::MimeVersion(mime_version));
-            }
-            min_expires if MinExpires::match_name(min_expires) => {
-                let min_expires = MinExpires::parse(scanner)?;
-                headers.push(Header::MinExpires(min_expires));
-            }
-            user_agent if UserAgent::match_name(user_agent) => {
-                let user_agent = UserAgent::parse(scanner)?;
-                headers.push(Header::UserAgent(user_agent))
-            }
-            date if Date::match_name(date) => {
-                let date = Date::parse(scanner)?;
-                headers.push(Header::Date(date))
-            }
-            server if Server::match_name(server) => {
-                let server = Server::parse(scanner)?;
-                headers.push(Header::Server(server))
-            }
-            subject if Subject::match_name(subject) => {
-                let subject = Subject::parse(scanner)?;
-                headers.push(Header::Subject(subject))
-            }
-            priority if Priority::match_name(priority) => {
-                let priority = Priority::parse(scanner)?;
-                headers.push(Header::Priority(priority))
-            }
-            proxy_authenticate
-                if ProxyAuthenticate::match_name(proxy_authenticate) =>
-            {
-                let proxy_authenticate = ProxyAuthenticate::parse(scanner)?;
-                headers.push(Header::ProxyAuthenticate(proxy_authenticate))
-            }
-            proxy_authorization
-                if ProxyAuthorization::match_name(proxy_authorization) =>
-            {
-                let proxy_authorization = ProxyAuthorization::parse(scanner)?;
-                headers.push(Header::ProxyAuthorization(proxy_authorization))
-            }
-            proxy_require if ProxyRequire::match_name(proxy_require) => {
-                let proxy_require = ProxyRequire::parse(scanner)?;
-                headers.push(Header::ProxyRequire(proxy_require))
-            }
-            reply_to if ReplyTo::match_name(reply_to) => {
-                let reply_to = ReplyTo::parse(scanner)?;
-                headers.push(Header::ReplyTo(reply_to))
-            }
-            content_length if ContentLength::match_name(content_length) => {
-                let content_length = ContentLength::parse(scanner)?;
-                headers.push(Header::ContentLength(content_length))
-            }
-            content_encoding
-                if ContentEncoding::match_name(content_encoding) =>
-            {
-                let content_encoding = ContentEncoding::parse(scanner)?;
-                headers.push(Header::ContentEncoding(content_encoding))
-            }
-            content_type if ContentType::match_name(content_type) => {
-                let content_type = ContentType::parse(scanner)?;
-                has_body = true;
-                headers.push(Header::ContentType(content_type))
-            }
-            content_disposition
-                if ContentDisposition::match_name(content_disposition) =>
-            {
-                let content_disposition = ContentDisposition::parse(scanner)?;
-                headers.push(Header::ContentDisposition(content_disposition))
-            }
-            record_route if RecordRoute::match_name(record_route) => {
-                'rr: loop {
-                    let record_route = RecordRoute::parse(scanner)?;
-                    headers.push(Header::RecordRoute(record_route));
-                    let Some(&b',') = scanner.peek() else {
-                        break 'rr;
-                    };
-                    scanner.next();
-                }
-            }
-            require if Require::match_name(require) => {
-                let require = Require::parse(scanner)?;
-                headers.push(Header::Require(require))
-            }
-            retry_after if RetryAfter::match_name(retry_after) => {
-                let retry_after = RetryAfter::parse(scanner)?;
-                headers.push(Header::RetryAfter(retry_after))
-            }
-            organization if Organization::match_name(organization) => {
-                let organization = Organization::parse(scanner)?;
-                headers.push(Header::Organization(organization))
-            }
-            accept_encoding if AcceptEncoding::match_name(accept_encoding) => {
-                let accept_encoding = AcceptEncoding::parse(scanner)?;
-                headers.push(Header::AcceptEncoding(accept_encoding));
-            }
-            accept if Accept::match_name(accept) => {
-                let accept = Accept::parse(scanner)?;
-                headers.push(Header::Accept(accept));
-            }
-            accept_language if AcceptLanguage::match_name(accept_language) => {
-                let accept_language = AcceptLanguage::parse(scanner)?;
-                headers.push(Header::AcceptLanguage(accept_language));
-            }
-            alert_info if AlertInfo::match_name(alert_info) => {
-                let alert_info = AlertInfo::parse(scanner)?;
-                headers.push(Header::AlertInfo(alert_info));
-            }
-            allow if Allow::match_name(allow) => {
-                let allow = Allow::parse(scanner)?;
-                headers.push(Header::Allow(allow));
-            }
-            auth_info if AuthenticationInfo::match_name(auth_info) => {
-                let auth_info = AuthenticationInfo::parse(scanner)?;
-                headers.push(Header::AuthenticationInfo(auth_info));
-            }
-            supported if Supported::match_name(supported) => {
-                let supported = Supported::parse(scanner)?;
-                headers.push(Header::Supported(supported));
-            }
-            timestamp if Timestamp::match_name(timestamp) => {
-                let timestamp = Timestamp::parse(scanner)?;
-                headers.push(Header::Timestamp(timestamp));
-            }
-            user_agent if UserAgent::match_name(user_agent) => {
-                let user_agent = UserAgent::parse(scanner)?;
-                headers.push(Header::UserAgent(user_agent));
-            }
-            unsupported if Unsupported::match_name(unsupported) => {
-                let unsupported = Unsupported::parse(scanner)?;
-                headers.push(Header::Unsupported(unsupported));
-            }
-            www_authenticate
-                if WWWAuthenticate::match_name(www_authenticate) =>
-            {
-                let www_authenticate = WWWAuthenticate::parse(scanner)?;
-                headers.push(Header::WWWAuthenticate(www_authenticate));
-            }
-            warning if Warning::match_name(warning) => {
-                let warning = Warning::parse(scanner)?;
-                headers.push(Header::Warning(warning));
-            }
-            _ => {
-                let value = until_newline!(scanner);
-                let value = str::from_utf8(value)?;
-
-                headers.push(Header::Other { name, value });
-            }
-        };
-        newline!(scanner);
-        if !scanner.is_eof() {
-            continue;
-        }
-        break 'headers;
-    }
-
-    Ok(if has_body {
-        Some(remaing!(scanner))
-    } else {
-        None
-    })
-}
-
 fn parse_headers_and_body<'a>(
     scanner: &mut Scanner<'a>,
 ) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
     let mut headers = Headers::new();
-    let body = parse_headers(scanner, &mut headers)?;
+    let body = headers.parse_headers(scanner)?;
 
     Ok((headers, body))
 }
@@ -424,6 +148,12 @@ impl<'a> From<ScannerError<'a>> for SipParserError {
 #[cfg(test)]
 mod tests {
     use crate::{
+        headers::{
+            common::{call_id::CallId, cseq::CSeq, max_fowards::MaxForwards},
+            control::expires::Expires,
+            session::content_length::ContentLength,
+            Header,
+        },
         msg::{SipMethod, SipStatusCode},
         uri::{HostPort, Scheme},
     };
@@ -437,10 +167,9 @@ mod tests {
         CSeq: 1826 REGISTER\r\n\
         Expires: 7200\r\n\
         Content-Length: 0\r\n\r\n";
-
-        let mut sip_headers = Headers::new();
         let mut scanner = Scanner::new(headers);
-        let body = parse_headers(&mut scanner, &mut sip_headers);
+        let mut sip_headers = Headers::new();
+        let body = sip_headers.parse_headers(&mut scanner);
         assert_eq!(body.unwrap(), None);
 
         let mut iter = sip_headers.iter();

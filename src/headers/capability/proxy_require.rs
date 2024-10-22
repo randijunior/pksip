@@ -1,8 +1,8 @@
 use core::str;
 
 use crate::{
-    macros::{read_while, space},
-    parser::{is_token, Result},
+    macros::space,
+    parser::{self, Result},
     scanner::Scanner,
 };
 
@@ -14,15 +14,13 @@ impl<'a> SipHeaderParser<'a> for ProxyRequire<'a> {
     const NAME: &'static [u8] = b"Proxy-Require";
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let tag = read_while!(scanner, is_token);
-        let tag = unsafe { str::from_utf8_unchecked(tag) };
+        let tag = parser::parse_token(scanner);
         let mut tags = vec![tag];
 
         while let Some(b',') = scanner.peek() {
             scanner.next();
             space!(scanner);
-            let tag = read_while!(scanner, is_token);
-            let tag = unsafe { str::from_utf8_unchecked(tag) };
+            let tag = parser::parse_token(scanner);
             tags.push(tag);
             space!(scanner);
         }

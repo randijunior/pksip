@@ -1,7 +1,10 @@
 use core::str;
 
 use crate::{
-    headers::{AsHeader, Header}, macros::{digits, sip_parse_error}, parser::Result, scanner::Scanner
+    headers::{AsHeader, Header},
+    macros::{digits, sip_parse_error},
+    parser::Result,
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;

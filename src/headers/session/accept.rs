@@ -1,9 +1,7 @@
 use core::str;
 
 use crate::{
-    macros::{
-        parse_header_param, read_until_byte, read_while, space
-    },
+    macros::{parse_header_param, read_until_byte, read_while, space},
     parser::Result,
     scanner::Scanner,
     uri::Params,

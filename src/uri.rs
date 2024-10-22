@@ -14,7 +14,8 @@ use crate::{
         b_map, digits, read_until_byte, read_while, sip_parse_error, space,
     },
     parser::{
-        is_token, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS, UNRESERVED, USER_UNRESERVED
+        self, is_token, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST,
+        PASS, UNRESERVED, USER_UNRESERVED,
     },
     scanner::Scanner,
     util::is_valid_port,
@@ -187,8 +188,7 @@ impl<'a> SipUri<'a> {
             }
             // Nameaddr with unquoted display name
             Some(_) => {
-                let display = read_while!(scanner, is_token);
-                let display = unsafe { str::from_utf8_unchecked(display) };
+                let display = parser::parse_token(scanner);
 
                 space!(scanner);
 
@@ -224,12 +224,11 @@ impl<'a> Uri<'a> {
             let mut uri_params = UriParams::default();
             while let Some(&b';') = scanner.peek() {
                 scanner.next();
-                let name = read_while!(scanner, is_param);
-                let name = unsafe { str::from_utf8_unchecked(name) };
+                let name = parser::parse_token(scanner);
                 let value = if scanner.peek() == Some(&b'=') {
                     scanner.next();
-                    let value = read_while!(scanner, is_param);
-                    Some(unsafe { str::from_utf8_unchecked(value) })
+                    let value = parser::parse_slice_utf8(scanner, is_param);
+                    Some(value)
                 } else {
                     None
                 };
@@ -287,12 +286,11 @@ impl<'a> Uri<'a> {
             loop {
                 // take '?' or '&'
                 scanner.next();
-                let name = read_while!(scanner, is_hdr);
-                let name = unsafe { str::from_utf8_unchecked(name) };
+                let name = parser::parse_slice_utf8(scanner, is_hdr);
                 let value = if scanner.peek() == Some(&b'=') {
                     scanner.next();
-                    let value = read_while!(scanner, is_hdr);
-                    Some(unsafe { str::from_utf8_unchecked(value) })
+                    let value = parser::parse_slice_utf8(scanner, is_hdr);
+                    Some(value)
                 } else {
                     None
                 };

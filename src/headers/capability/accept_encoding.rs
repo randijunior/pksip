@@ -3,7 +3,7 @@ use std::str;
 use crate::{
     headers::{self, Q_PARAM},
     macros::{parse_header_param, space},
-    parser::{self, Result},
+    parser::{self, is_token, Result},
     scanner::Scanner,
     uri::Params,
     util::is_newline,
@@ -21,16 +21,12 @@ pub struct Coding<'a> {
 impl<'a> Coding<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         space!(scanner);
-        let coding = parser::read_token_utf8(scanner);
+        let coding = parser::parse_token(scanner);
         let mut q_param = None;
         let param = parse_header_param!(scanner, Q_PARAM = q_param);
         let q = q_param.and_then(|q| headers::parse_q(Some(q)));
 
-        Ok(Coding {
-            coding,
-            q,
-            param,
-        })
+        Ok(Coding { coding, q, param })
     }
 }
 

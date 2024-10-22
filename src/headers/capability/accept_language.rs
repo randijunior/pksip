@@ -1,7 +1,7 @@
 use crate::{
     headers::{self, Q_PARAM},
     macros::{parse_header_param, read_while, space},
-    parser::Result,
+    parser::{self, Result},
     scanner::Scanner,
     uri::Params,
     util::is_alphabetic,
@@ -21,10 +21,7 @@ impl<'a> Language<'a> {
         space!(scanner);
         let is_lang =
             |byte: &u8| byte == &b'*' || byte == &b'-' || is_alphabetic(byte);
-        let language = read_while!(scanner, is_lang);
-
-        // SAFETY: is_lang ensures that the bytes are valid utf-8
-        let language = unsafe { str::from_utf8_unchecked(language) };
+        let language = parser::parse_slice_utf8(scanner, is_lang);
         let mut q_param = None;
         let param = parse_header_param!(scanner, Q_PARAM = q_param);
         let q = q_param.and_then(|q| headers::parse_q(Some(q)));
