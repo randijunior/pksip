@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{
     macros::{
-        parse_param, read_until_byte, read_while, sip_parse_error, space,
+        parse_header_param, read_until_byte, read_while, space
     },
     parser::Result,
     scanner::Scanner,
@@ -51,7 +51,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                 && !is_newline(c)
                 && c != &b';');
 
-            let param = parse_param!(scanner, |param| Some(param));
+            let param = parse_header_param!(scanner);
             let media_type = MediaType {
                 mimetype: MimeType {
                     mtype: str::from_utf8(mtype)?,

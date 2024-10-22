@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
-    headers::SipHeaders,
-    macros::{digits, newline, space, until_newline},
-    parser::{self, SipParserError},
+    headers::Headers,
+    macros::{digits, newline, space, tag, until_newline},
+    parser::{SipParserError, SIPV2},
     scanner::Scanner,
 };
 
@@ -37,7 +37,7 @@ impl<'a> StatusLine<'a> {
     pub(crate) fn parse(
         scanner: &mut Scanner<'a>,
     ) -> Result<StatusLine<'a>, SipParserError> {
-        parser::parse_sip_version_2_0(scanner)?;
+        let _v = tag!(scanner, SIPV2);
 
         space!(scanner);
         let digits = digits!(scanner);
@@ -57,14 +57,14 @@ impl<'a> StatusLine<'a> {
 #[derive(Debug)]
 pub struct SipResponse<'a> {
     pub(crate) st_line: StatusLine<'a>,
-    pub(crate) headers: SipHeaders<'a>,
+    pub(crate) headers: Headers<'a>,
     pub(crate) body: Option<&'a [u8]>,
 }
 
 impl<'a> SipResponse<'a> {
     pub fn new(
         st_line: StatusLine<'a>,
-        headers: SipHeaders<'a>,
+        headers: Headers<'a>,
         body: Option<&'a [u8]>,
     ) -> Self {
         Self {

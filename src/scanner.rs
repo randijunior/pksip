@@ -24,7 +24,7 @@ pub struct ScannerError<'a> {
 /// index, line, and column, and providing methods for reading and peeking
 /// through the byte slice. This is useful for parsing or lexing.
 #[derive(Debug)]
-pub(crate) struct Scanner<'a> {
+pub struct Scanner<'a> {
     pub(crate) src: &'a [u8],
     finished: bool,
     len: usize,

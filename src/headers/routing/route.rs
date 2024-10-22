@@ -1,6 +1,6 @@
 use crate::{
-    macros::{parse_param, sip_parse_error},
-    parser::{self, Result},
+    macros::{parse_header_param, sip_parse_error},
+    parser::Result,
     scanner::Scanner,
     uri::{NameAddr, Params, SipUri},
 };
@@ -18,7 +18,7 @@ impl<'a> SipHeaderParser<'a> for Route<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipUri::parse(scanner)? {
-            let param = parse_param!(scanner, |param| Some(param));
+            let param = parse_header_param!(scanner);
             Ok(Route { addr, param })
         } else {
             sip_parse_error!("Invalid Route Header!")

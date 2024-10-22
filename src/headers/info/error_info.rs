@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    macros::{parse_param, read_while, sip_parse_error, space},
+    macros::{parse_header_param, read_while, sip_parse_error, space},
     parser::{is_token, Result},
     scanner::Scanner,
     uri::{is_uri, Params},
@@ -38,7 +38,7 @@ impl<'a> ErrorUri<'a> {
         let Some(&b'>') = scanner.next() else {
             return sip_parse_error!("Invalid uri!");
         };
-        let params = parse_param!(scanner, |param| Some(param));
+        let params = parse_header_param!(scanner);
 
         Ok(ErrorUri {
             url: GenericUri { scheme, content },

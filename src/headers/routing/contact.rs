@@ -1,5 +1,5 @@
 use crate::{
-    headers::{self, EXPIRES_PARAM, Q_PARAM}, macros::parse_param, parser::Result, scanner::Scanner, uri::{Params, SipUri}
+    headers::{self, EXPIRES_PARAM, Q_PARAM}, macros::parse_header_param, parser::Result, scanner::Scanner, uri::{Params, SipUri}
 };
 
 use crate::headers::SipHeaderParser;
@@ -25,25 +25,11 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
             return Ok(Contact::Star);
         }
         let uri = SipUri::parse(scanner)?;
-        let mut q: Option<f32> = None;
-        let mut expires: Option<u32> = None;
-        let param = parse_param!(scanner, |param| {
-            let (name, value) = param;
-            match name {
-                Q_PARAM => {
-                    q = headers::parse_q(value);
-                    None
-                }
-                EXPIRES_PARAM => {
-                    if let Some(expires_param) = value {
-                        expires = expires_param.parse().ok();
-                        return None;
-                    }
-                    return Some(param);
-                }
-                _ => Some(param),
-            }
-        });
+        let mut q = None;
+        let mut expires = None;
+        let param = parse_header_param!(scanner, Q_PARAM = q, EXPIRES_PARAM = expires);
+        let q = q.and_then(|q| headers::parse_q(Some(q)));
+        let expires = expires.and_then(|expires| expires.parse().ok());
 
         Ok(Contact::Uri {
             uri,

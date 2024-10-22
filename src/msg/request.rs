@@ -1,7 +1,7 @@
 use crate::{
-    headers::SipHeaders,
-    macros::{alpha, newline, space},
-    parser::{parse_sip_version_2_0, SipParserError},
+    headers::Headers,
+    macros::{alpha, newline, space, tag},
+    parser::{SipParserError, SIPV2},
     scanner::Scanner,
     uri::Uri,
 };
@@ -31,7 +31,7 @@ impl<'a> RequestLine<'a> {
         let uri = Uri::parse(scanner, true)?;
         space!(scanner);
 
-        parse_sip_version_2_0(scanner)?;
+        let _v = tag!(scanner, SIPV2);
         newline!(scanner);
 
         Ok(RequestLine { method, uri })
@@ -41,14 +41,14 @@ impl<'a> RequestLine<'a> {
 #[derive(Debug)]
 pub struct SipRequest<'a> {
     pub(crate) req_line: RequestLine<'a>,
-    pub(crate) headers: SipHeaders<'a>,
+    pub(crate) headers: Headers<'a>,
     pub(crate) body: Option<&'a [u8]>,
 }
 
 impl<'a> SipRequest<'a> {
     pub fn new(
         req_line: RequestLine<'a>,
-        headers: SipHeaders<'a>,
+        headers: Headers<'a>,
         body: Option<&'a [u8]>,
     ) -> Self {
         Self {

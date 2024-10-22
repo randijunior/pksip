@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{
     headers::SipHeaderParser,
-    macros::{parse_param, read_while},
+    macros::{parse_header_param, read_while},
     parser::{is_token, Result},
     scanner::Scanner,
 };
@@ -22,7 +22,7 @@ impl<'a> SipHeaderParser<'a> for ContentType<'a> {
         scanner.next();
         let sub = read_while!(scanner, is_token);
         let sub = unsafe { str::from_utf8_unchecked(sub) };
-        let param = parse_param!(scanner, |param| Some(param));
+        let param = parse_header_param!(scanner);
 
         Ok(ContentType(MediaType {
             mimetype: MimeType {

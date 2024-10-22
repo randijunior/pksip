@@ -1,5 +1,5 @@
 use crate::{
-    macros::parse_param, parser::{self, Result}, scanner::Scanner, uri::{Params, SipUri}
+    macros::parse_header_param, parser::Result, scanner::Scanner, uri::{Params, SipUri}
 };
 
 use crate::headers::SipHeaderParser;
@@ -15,7 +15,7 @@ impl<'a> SipHeaderParser<'a> for ReplyTo<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let uri = SipUri::parse(scanner)?;
-        let param = parse_param!(scanner, |param| Some(param));
+        let param = parse_header_param!(scanner);
 
         Ok(ReplyTo { uri, param })
     }

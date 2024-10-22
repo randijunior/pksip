@@ -28,7 +28,7 @@ macro_rules! read_until_byte {
     }};
 }
 
-macro_rules! find {
+macro_rules! tag {
     ($scanner:expr, $tag:expr) => {{
         let range = $scanner.read_tag($tag)?;
 
@@ -91,28 +91,39 @@ macro_rules! b_map {
     };
 }
 
-macro_rules! parse_param {
-    ($scanner:ident, $func:expr) => {{
-        crate::macros::space!($scanner);
-        if let Some(&b';') = $scanner.peek() {
-            let mut params = crate::uri::Params::new();
-            while let Some(&b';') = $scanner.peek() {
-                // take ';' character
-                $scanner.next();
-                let param = crate::headers::parse_param_name_and_value($scanner)?;
-                if let Some(param) = $func(param) {
+macro_rules! parse_header_param {
+    ($scanner:ident) => (
+        parse_header_param!($scanner,)
+    );
+
+    ($scanner:ident, $($name:ident = $var:expr),*) => (
+         {
+            crate::macros::space!($scanner);
+            if let Some(&b';') = $scanner.peek() {
+                let mut params = crate::uri::Params::new();
+                while let Some(&b';') = $scanner.peek() {
+                    // take ';' character
+                    $scanner.next();
+                    let param = crate::headers::parse_param($scanner);
+                    $(
+                        if param.0 == $name {
+                            $var = param.1;
+                            continue;
+                        }
+                    )*
                     params.set(param.0, param.1);
                 }
-            }
-            if params.is_empty() {
-                None
+                if params.is_empty() {
+                    None
+                } else {
+                    Some(params)
+                }
             } else {
-                Some(params)
+                None
             }
-        } else {
-            None
-        }
-    }};
+
+         }
+    );
 }
 
 macro_rules! parse_auth_param {
@@ -148,14 +159,14 @@ macro_rules! sip_parse_error {
 pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;
-pub(crate) use find;
 pub(crate) use newline;
 pub(crate) use parse_auth_param;
-pub(crate) use parse_param;
+pub(crate) use parse_header_param;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;
 pub(crate) use read_while;
 pub(crate) use remaing;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
+pub(crate) use tag;
 pub(crate) use until_newline;

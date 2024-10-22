@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     headers::{self, Q_PARAM},
-    macros::{parse_param,space},
+    macros::{parse_header_param, space},
     parser::{self, Result},
     scanner::Scanner,
     uri::Params,
@@ -11,7 +11,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Coding<'a> {
     coding: &'a str,
     q: Option<f32>,
@@ -22,15 +22,10 @@ impl<'a> Coding<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         space!(scanner);
         let coding = parser::read_token_utf8(scanner);
-        let mut q = None;
-        let param = parse_param!(scanner, |param| {
-            let (name, value) = param;
-            if name == Q_PARAM {
-                q = headers::parse_q(value);
-                return None;
-            }
-            Some(param)
-        });
+        let mut q_param = None;
+        let param = parse_header_param!(scanner, Q_PARAM = q_param);
+        let q = q_param.and_then(|q| headers::parse_q(Some(q)));
+
         Ok(Coding {
             coding,
             q,

@@ -1,7 +1,7 @@
 pub(crate) use request::*;
 pub(crate) use response::*;
 
-use crate::headers::SipHeaders;
+use crate::headers::Headers;
 
 mod request;
 mod response;
@@ -16,7 +16,7 @@ pub enum SipMsg<'a> {
 }
 
 impl<'a> SipMsg<'a> {
-    pub fn headers(&self) -> &SipHeaders<'a> {
+    pub fn headers(&self) -> &Headers<'a> {
         match self {
             SipMsg::Request(sip_request) => &sip_request.headers,
             SipMsg::Response(sip_response) => &sip_response.headers,

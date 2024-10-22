@@ -1,5 +1,5 @@
 use crate::{
-    macros::{parse_param, read_while, space},
+    macros::{parse_header_param, read_while, space},
     parser::{is_token, Result},
     scanner::Scanner,
     uri::Params,
@@ -20,7 +20,7 @@ impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
         let disp_type = read_while!(scanner, is_token);
         let disp_type = unsafe { std::str::from_utf8_unchecked(disp_type) };
         space!(scanner);
-        let params = parse_param!(scanner, |param| Some(param));
+        let params = parse_header_param!(scanner);
 
         Ok(ContentDisposition { disp_type, params })
     }

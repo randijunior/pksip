@@ -56,30 +56,45 @@ const TAG_PARAM: &str = "tag";
 const Q_PARAM: &str = "q";
 const EXPIRES_PARAM: &str = "expires";
 
-fn parse_q(param: Option<&str>) -> Option<f32> {
-    param
-        .and_then(|q| q.parse().ok())
-        .filter(|&value| (0.0..=1.0).contains(&value))
+#[derive(Debug, PartialEq)]
+pub struct Headers<'a>(Vec<Header<'a>>);
+
+impl<'a> Headers<'a> {
+    /// Create a new empty collection of headers
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn find<T>(&self) -> Option<&T>
+    where
+        Header<'a>: AsHeader<T>,
+    {
+        self.0.iter().find_map(|hdr| hdr.as_header())
+    }
+
+    /// Returns an iterator over headers
+    pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
+        self.0.iter()
+    }
+
+    /// Appends an header
+    pub fn push(&mut self, hdr: Header<'a>) {
+        self.0.push(hdr);
+    }
+
+    /// Returns the number of headers in the collection
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
-fn parse_param_name_and_value<'a>(
-    scanner: &mut Scanner<'a>,
-) -> Result<(&'a str, Option<&'a str>)> {
-    space!(scanner);
-    let name = parser::read_token_utf8(scanner);
-
-    let value = if scanner.peek() == Some(&b'=') {
-        scanner.next();
-        let value = parser::read_token_utf8(scanner);
-        Some(value)
-    } else {
-        None
-    };
-
-    Ok((name, value))
+impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
+    fn from(headers: Vec<Header<'a>>) -> Self {
+        Self(headers)
+    }
 }
 
-// Headers, as defined in RFC3261.
+// SIP headers, as defined in RFC3261.
 #[derive(Debug, PartialEq)]
 pub enum Header<'a> {
     Accept(Accept<'a>),
@@ -133,39 +148,8 @@ pub trait AsHeader<T> {
     fn as_header(&self) -> Option<&T>;
 }
 
-#[derive(Debug, PartialEq)]
-pub struct SipHeaders<'a>(Vec<Header<'a>>);
 
-impl<'a> SipHeaders<'a> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn with_headers(headers: Vec<Header<'a>>) -> Self {
-        Self(headers)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
-        self.0.iter()
-    }
-
-    pub fn push_header(&mut self, hdr: Header<'a>) {
-        self.0.push(hdr);
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn find_header<T>(&self) -> Option<&T>
-    where
-        Header<'a>: AsHeader<T>,
-    {
-        self.0.iter().find_map(|hdr| hdr.as_header())
-    }
-}
-
-pub(crate) trait SipHeaderParser<'a>: Sized {
+pub trait SipHeaderParser<'a>: Sized {
     const NAME: &'static [u8];
     const SHORT_NAME: Option<&'static [u8]> = None;
 
@@ -272,4 +256,27 @@ pub(crate) trait SipHeaderParser<'a>: Sized {
             }
         }
     }
+}
+
+fn parse_q(param: Option<&str>) -> Option<f32> {
+    param
+        .and_then(|q| q.parse().ok())
+        .filter(|&value| (0.0..=1.0).contains(&value))
+}
+
+fn parse_param<'a>(
+    scanner: &mut Scanner<'a>,
+) -> (&'a str, Option<&'a str>) {
+    space!(scanner);
+    let name = parser::read_token_utf8(scanner);
+
+    let value = if scanner.peek() == Some(&b'=') {
+        scanner.next();
+        let value = parser::read_token_utf8(scanner);
+        Some(value)
+    } else {
+        None
+    };
+
+    (name, value)
 }

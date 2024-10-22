@@ -1,5 +1,5 @@
 use crate::{
-    macros::{parse_param, read_while, sip_parse_error, space},
+    macros::{parse_header_param, read_while, sip_parse_error, space},
     parser::Result,
     scanner::Scanner,
     uri::Params,
@@ -9,6 +9,7 @@ use crate::{
 use crate::headers::SipHeaderParser;
 
 use std::str;
+const PURPOSE: &'static str = "purpose";
 
 /*
 Call-Info   =  "Call-Info" HCOLON info *(COMMA info)
@@ -40,14 +41,7 @@ impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
             return sip_parse_error!("Invalid call info!");
         };
         space!(scanner);
-        let params = parse_param!(scanner, |param| {
-            let (name, value) = param;
-            if name == "purpose" {
-                purpose = value;
-                return None;
-            }
-            Some(param)
-        });
+        let params = parse_header_param!(scanner, PURPOSE = purpose);
 
         Ok(CallInfo {
             url,

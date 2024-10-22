@@ -1,6 +1,6 @@
 use crate::{
     headers::{self, Q_PARAM},
-    macros::{parse_param, read_while, space},
+    macros::{parse_header_param, read_while, space},
     parser::Result,
     scanner::Scanner,
     uri::Params,
@@ -22,16 +22,12 @@ impl<'a> Language<'a> {
         let is_lang =
             |byte: &u8| byte == &b'*' || byte == &b'-' || is_alphabetic(byte);
         let language = read_while!(scanner, is_lang);
+
+        // SAFETY: is_lang ensures that the bytes are valid utf-8
         let language = unsafe { str::from_utf8_unchecked(language) };
-        let mut q: Option<f32> = None;
-        let param = parse_param!(scanner, |param| {
-            let (name, value) = param;
-            if name == Q_PARAM {
-                q = headers::parse_q(value);
-                return None;
-            }
-            Some(param)
-        });
+        let mut q_param = None;
+        let param = parse_header_param!(scanner, Q_PARAM = q_param);
+        let q = q_param.and_then(|q| headers::parse_q(Some(q)));
 
         Ok(Language { language, q, param })
     }
