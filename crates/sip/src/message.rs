@@ -1,32 +1,40 @@
+//! SIP Message types
+//!
+//! The module provide the [`SipMessage`] enum that can be 
+//! an [`SipMessage::Request`] or [`SipMessage::Response`] and represents an sip message.
+
+
+
+use headers::Headers;
 pub(crate) use request::*;
 pub(crate) use response::*;
 
-use crate::headers::Headers;
 
+pub mod headers;
 mod request;
 mod response;
 
 use std::str;
 
-/// This struct represent SIP Message
+
 #[derive(Debug)]
-pub enum SipMsg<'a> {
+pub enum SipMessage<'a> {
     Request(SipRequest<'a>),
     Response(SipResponse<'a>),
 }
 
-impl<'a> SipMsg<'a> {
+impl<'a> SipMessage<'a> {
     pub fn headers(&self) -> &Headers<'a> {
         match self {
-            SipMsg::Request(sip_request) => &sip_request.headers,
-            SipMsg::Response(sip_response) => &sip_response.headers,
+            SipMessage::Request(sip_request) => &sip_request.headers,
+            SipMessage::Response(sip_response) => &sip_response.headers,
         }
     }
 
     pub fn body(&self) -> Option<&'a [u8]> {
         match self {
-            SipMsg::Request(sip_request) => sip_request.body,
-            SipMsg::Response(sip_response) => sip_response.body,
+            SipMessage::Request(sip_request) => sip_request.body,
+            SipMessage::Response(sip_response) => sip_response.body,
         }
     }
 }

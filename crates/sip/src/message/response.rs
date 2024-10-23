@@ -1,15 +1,14 @@
 use core::str;
 
 use crate::{
-    headers::Headers,
     macros::{digits, newline, space, until_newline},
     parser::{self, SipParserError},
     scanner::Scanner,
 };
 
-use super::SipStatusCode;
+use super::{headers::Headers, SipStatusCode};
 
-/// This struct represent SIP status line
+/// Represents an SIP Status-Line
 #[derive(Debug, PartialEq, Eq)]
 pub struct StatusLine<'sl> {
     // Status Code

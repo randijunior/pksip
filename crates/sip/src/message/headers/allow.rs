@@ -1,6 +1,6 @@
 use crate::{
     macros::{alpha, space},
-    msg::SipMethod,
+    message::SipMethod,
     parser::Result,
     scanner::Scanner,
 };

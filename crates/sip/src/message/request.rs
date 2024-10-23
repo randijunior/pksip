@@ -1,13 +1,18 @@
+//! SIP Request Types
+//! 
+//! The module provide the [`SipRequest`]
+
 use crate::{
-    headers::Headers,
     macros::{alpha, newline, space},
     parser::{self, SipParserError},
     scanner::Scanner,
     uri::Uri,
 };
 
-use super::SipMethod;
+use super::{headers::Headers, SipMethod};
 
+
+/// Represents an SIP Request-Line
 #[derive(Debug, PartialEq, Eq)]
 pub struct RequestLine<'a> {
     pub(crate) method: SipMethod<'a>,

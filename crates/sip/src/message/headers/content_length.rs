@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    headers::{AsHeader, Header},
+    headers::Header,
     macros::{digits, sip_parse_error},
     parser::Result,
     scanner::Scanner,
@@ -33,15 +33,6 @@ impl<'a> SipHeaderParser<'a> for ContentLength {
     }
 }
 
-impl<'a> AsHeader<ContentLength> for Header<'a> {
-    fn as_header(&self) -> Option<&ContentLength> {
-        if let Header::ContentLength(c) = self {
-            Some(c)
-        } else {
-            None
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

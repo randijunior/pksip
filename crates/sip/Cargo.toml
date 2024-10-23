@@ -1,0 +1,10 @@
+[package]
+name = "sip"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+
+[dev-dependencies]
+assert_matches = "1.5"

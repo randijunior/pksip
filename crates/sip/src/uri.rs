@@ -1,8 +1,7 @@
-use std::{
-    collections::HashMap,
-    net::IpAddr,
-    str::{self, FromStr},
-};
+//! Uri that appear in sip request and responses
+//!
+
+use std::str::{self};
 
 pub(crate) use host::HostPort;
 pub(crate) use params::{Params, UriParams};
@@ -11,14 +10,13 @@ pub(crate) use user::UserInfo;
 
 use crate::{
     macros::{
-        b_map, digits, read_until_byte, read_while, sip_parse_error, space,
+        b_map, read_until_byte,sip_parse_error, space,
     },
     parser::{
-        self, is_token, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST,
+        self, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST,
         PASS, UNRESERVED, USER_UNRESERVED,
     },
     scanner::Scanner,
-    util::is_valid_port,
 };
 
 mod host;

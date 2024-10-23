@@ -1,47 +1,99 @@
-use common::{call_id::CallId, cseq::CSeq, max_fowards::MaxForwards, to::To};
+//! SIP Headers types
+//!
+//! The module provide the [`Headers`] struct that contains an list of [`Header`]
+//! and a can be used to manipulating SIP headers.
+
 use std::str;
 
-pub mod auth;
-pub mod capability;
-pub mod common;
-pub mod control;
-pub mod info;
-pub mod routing;
-pub mod session;
+pub mod accept;
+pub mod accept_encoding;
+pub mod accept_language;
+pub mod alert_info;
+pub mod allow;
+pub mod authentication_info;
+pub mod authorization;
+pub mod call_id;
+pub mod call_info;
+pub mod contact;
+pub mod content_disposition;
+pub mod content_encoding;
+pub mod content_language;
+pub mod content_length;
+pub mod content_type;
+pub mod cseq;
+pub mod date;
+pub mod error_info;
+pub mod expires;
+pub mod from;
+pub mod in_reply_to;
+pub mod max_fowards;
+pub mod mime_version;
+pub mod min_expires;
+pub mod organization;
+pub mod priority;
+pub mod proxy_authenticate;
+pub mod proxy_authorization;
+pub mod proxy_require;
+pub mod record_route;
+pub mod reply_to;
+pub mod require;
+pub mod retry_after;
+pub mod route;
+pub mod server;
+pub mod subject;
+pub mod supported;
+pub mod timestamp;
+pub mod to;
+pub mod unsupported;
+pub mod user_agent;
+pub mod via;
+pub mod warning;
+pub mod www_authenticate;
 
-use auth::{
-    authentication_info::AuthenticationInfo,
-    authorization::{Authorization, Credential, DigestCredential},
-    proxy_authenticate::{Challenge, DigestChallenge, ProxyAuthenticate},
-    proxy_authorization::ProxyAuthorization,
-    www_authenticate::WWWAuthenticate,
-};
-use capability::{
-    accept_encoding::AcceptEncoding, accept_language::AcceptLanguage,
-    proxy_require::ProxyRequire, require::Require, supported::Supported,
-    unsupported::Unsupported,
-};
-use control::{
-    allow::Allow, expires::Expires, min_expires::MinExpires, reply_to::ReplyTo,
-    retry_after::RetryAfter, timestamp::Timestamp,
-};
-use info::{
-    alert_info::AlertInfo, call_info::CallInfo, date::Date,
-    error_info::ErrorInfo, in_reply_to::InReplyTo, organization::Organization,
-    priority::Priority, server::Server, subject::Subject,
-    user_agent::UserAgent, warning::Warning,
-};
-use routing::{
-    contact::Contact, record_route::RecordRoute, route::Route, via::Via,
-};
-use session::{
-    accept::Accept, content_disposition::ContentDisposition,
-    content_encoding::ContentEncoding, content_language::ContentLanguage,
-    content_length::ContentLength, content_type::ContentType,
-    mime_version::MimeVersion,
-};
-
-use common::from::From;
+pub use accept::Accept;
+pub use accept_encoding::AcceptEncoding;
+pub use accept_language::AcceptLanguage;
+pub use alert_info::AlertInfo;
+pub use allow::Allow;
+pub use authentication_info::AuthenticationInfo;
+pub use authorization::{Authorization, Credential, DigestCredential};
+pub use call_id::CallId;
+pub use call_info::CallInfo;
+pub use contact::Contact;
+pub use content_disposition::ContentDisposition;
+pub use content_encoding::ContentEncoding;
+pub use content_language::ContentLanguage;
+pub use content_length::ContentLength;
+pub use content_type::ContentType;
+pub use cseq::CSeq;
+pub use date::Date;
+pub use error_info::ErrorInfo;
+pub use expires::Expires;
+pub use from::From;
+pub use in_reply_to::InReplyTo;
+pub use max_fowards::MaxForwards;
+pub use mime_version::MimeVersion;
+pub use min_expires::MinExpires;
+pub use organization::Organization;
+pub use priority::Priority;
+pub use proxy_authenticate::{Challenge, DigestChallenge, ProxyAuthenticate};
+pub use proxy_authorization::ProxyAuthorization;
+pub use proxy_require::ProxyRequire;
+pub use record_route::RecordRoute;
+pub use reply_to::ReplyTo;
+pub use require::Require;
+pub use retry_after::RetryAfter;
+pub use route::Route;
+pub use server::Server;
+pub use subject::Subject;
+pub use supported::Supported;
+pub use timestamp::Timestamp;
+pub use to::To;
+pub use unsupported::Unsupported;
+pub use user_agent::UserAgent;
+pub use via::Via;
+pub use warning::Warning;
+pub use www_authenticate::WWWAuthenticate;
 
 use crate::{
     macros::{
@@ -53,27 +105,122 @@ use crate::{
     uri::Params,
 };
 
+/// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
+
+/// The q parameterthat is used normaly in [`Contact`], [`AcceptEncoding`]
+/// and [`AcceptLanguage`] headers.
 const Q_PARAM: &str = "q";
+
+/// The expires parameter that is used normaly in [`Contact`] headers.
 const EXPIRES_PARAM: &str = "expires";
 
+
+fn parse_q(param: Option<&str>) -> Option<f32> {
+    param
+        .and_then(|q| q.parse().ok())
+        .filter(|&value| (0.0..=1.0).contains(&value))
+}
+
+fn parse_param<'a>(scanner: &mut Scanner<'a>) -> (&'a str, Option<&'a str>) {
+    space!(scanner);
+    let name = parser::parse_token(scanner);
+
+    let value = if scanner.peek() == Some(&b'=') {
+        scanner.next();
+        let value = parser::parse_token(scanner);
+        Some(value)
+    } else {
+        None
+    };
+
+    (name, value)
+}
+
+
+/// A set of SIP Headers
+///
+/// A wrapper over Vec<[`Header`]>
+///
+/// # Examples
+/// ```rust
+/// # use sip::headers::Headers;
+/// # use sip::headers::Header;
+/// # use sip::headers::ContentLength;
+/// let mut headers = Headers::new();
+/// headers.push(Header::ContentLength(ContentLength::new(10)));
+///
+/// assert_eq!(headers.len(), 1);
+/// assert_eq!(
+///     headers.get(0),
+///     Some(&Header::ContentLength(ContentLength::new(10)))
+/// );
+///
+/// ```
 #[derive(Debug, PartialEq)]
 pub struct Headers<'a>(Vec<Header<'a>>);
 
 impl<'a> Headers<'a> {
     /// Create a new empty collection of headers
+    ///
+    /// # Examples
+    /// ```
+    /// # use sip::headers::Headers;
+    /// let mut headers = Headers::new();
+    /// ```
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    pub fn find<T>(&self) -> Option<&T>
+    /// Applies function to the headers and return the first no-none result
+    /// 
+    /// # Examples
+    /// ```rust
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
+    /// let mut headers = Headers::from(vec![
+    ///     Header::Expires(Expires::new(10))
+    /// ]);
+    ///
+    /// let expires = headers.find_map(|h| if let Header::Expires(expires) = h {
+    ///        Some(expires)
+    ///    } else {
+    ///        None
+    ///    });
+    ///
+    /// assert!(expires.is_some());
+    /// assert_eq!(expires, Some(&Expires::new(10)));
+    ///
+    pub fn find_map<'b, T: 'a, F>(&'b self, f: F) -> Option<&T>
     where
-        Header<'a>: AsHeader<T>,
+        F: Fn(&'b Header) -> Option<&'a T>,
     {
-        self.0.iter().find_map(|hdr| hdr.as_header())
+        self.0.iter().find_map(f)
     }
 
     /// Returns an iterator over headers
+    /// 
+    /// # Example
+    /// ```rust
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
+    /// # use sip::headers::MaxForwards;
+    /// let mut headers = Headers::from(vec![
+    ///     Header::Expires(Expires::new(10)),
+    ///     Header::MaxForwards(MaxForwards::new(70))
+    /// ]);
+    /// 
+    /// let mut iter = headers.iter();
+    /// assert_eq!(
+    ///     iter.next().unwrap(),
+    ///     &Header::Expires(Expires::new(10))
+    /// );
+    /// assert_eq!(
+    ///     iter.next().unwrap(),
+    ///     &Header::MaxForwards(MaxForwards::new(70))
+    /// );
     pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
         self.0.iter()
     }
@@ -83,11 +230,22 @@ impl<'a> Headers<'a> {
         self.0.push(hdr);
     }
 
+    /// Returns true if the collection contains the header specified
+    pub fn contains(&self, hdr: &Header<'a>) -> bool {
+        self.0.contains(hdr)
+    }
+
     /// Returns the number of headers in the collection
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Get an reference to an header at the index specified
+    pub fn get(&self, index: usize) -> Option<&Header> {
+        self.0.get(index)
+    }
+
+    /// Parse all the sip headers in the message
     pub fn parse_headers(
         &mut self,
         scanner: &mut Scanner<'a>,
@@ -387,9 +545,6 @@ pub enum Header<'a> {
     Other { name: &'a str, value: &'a str },
 }
 
-pub trait AsHeader<T> {
-    fn as_header(&self) -> Option<&T>;
-}
 
 pub trait SipHeaderParser<'a>: Sized {
     const NAME: &'static [u8];
@@ -495,25 +650,4 @@ pub trait SipHeaderParser<'a>: Sized {
             }
         }
     }
-}
-
-fn parse_q(param: Option<&str>) -> Option<f32> {
-    param
-        .and_then(|q| q.parse().ok())
-        .filter(|&value| (0.0..=1.0).contains(&value))
-}
-
-fn parse_param<'a>(scanner: &mut Scanner<'a>) -> (&'a str, Option<&'a str>) {
-    space!(scanner);
-    let name = parser::parse_token(scanner);
-
-    let value = if scanner.peek() == Some(&b'=') {
-        scanner.next();
-        let value = parser::parse_token(scanner);
-        Some(value)
-    } else {
-        None
-    };
-
-    (name, value)
 }

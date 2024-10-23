@@ -16,9 +16,7 @@ pub struct ScannerError<'a> {
     pub(crate) src: &'a [u8],
 }
 
-/// A struct that scans through a byte slice, tracking its position in terms of
-/// index, line, and column, and providing methods for reading and peeking
-/// through the byte slice. This is useful for parsing or lexing.
+
 #[derive(Debug)]
 pub struct Scanner<'a> {
     pub(crate) src: &'a [u8],
@@ -30,7 +28,6 @@ pub struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-    /// Creates a new `Scanner` with the given byte slice.
     pub fn new(src: &'a [u8]) -> Self {
         Scanner {
             src,
@@ -42,25 +39,25 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    /// The current index of the scanner
+    
     #[inline]
     pub fn idx(&self) -> usize {
         self.idx
     }
 
-    /// The total length
+    
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Checks if the scanner has reached the end of the byte slice.
+    
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.finished
     }
 
-    /// Peeks at the next byte in the byte slice without advancing the scanner.
+    
     pub fn peek(&self) -> Option<&u8> {
         if self.is_eof() {
             return None;
@@ -69,13 +66,12 @@ impl<'a> Scanner<'a> {
         Some(&self.src[self.idx])
     }
 
-    /// Peeks at the next `n` bytes without advancing the scanner.
+    
     pub(crate) fn peek_n(&self, n: usize) -> Option<&[u8]> {
         self.as_ref().get(..n)
     }
 
-    /// Peeks while a condition `func` holds true for each byte,
-    /// and returns the range of matching bytes.
+
     pub(crate) fn peek_while<F>(&self, func: F) -> Range<usize>
     where
         F: Fn(&u8) -> bool,
@@ -88,24 +84,23 @@ impl<'a> Scanner<'a> {
         Range { start, end }
     }
 
-    /// Reads bytes while a condition `func` holds true,
-    /// returning the range of matching bytes.
+
     pub(crate) fn read_while<F>(&mut self, func: F) -> Range<usize>
     where
         F: Fn(&u8) -> bool,
     {
         let start = self.idx;
-        let mut next = self.read_if(&func);
+        let mut b = self.read_if(&func);
 
-        while let Ok(Some(_)) = next {
-            next = self.read_if(&func);
+        while let Ok(Some(_)) = b {
+            b = self.read_if(&func);
         }
         let end = self.idx;
 
         Range { start, end }
     }
 
-    /// Reads a byte if the provided function returns true, otherwise returns None.
+    
     pub(crate) fn read_if<F>(&mut self, func: F) -> Result<Option<&u8>>
     where
         F: FnOnce(&u8) -> bool,
@@ -120,7 +115,7 @@ impl<'a> Scanner<'a> {
         Ok(self.next())
     }
 
-    /// Advances the scanner to the next byte, updating the position (line and column).
+    
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
         let byte = &self.src[self.idx];

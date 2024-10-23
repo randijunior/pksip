@@ -1,3 +1,5 @@
+//! SIP Parser
+
 use crate::macros::sip_parse_error;
 use crate::scanner::Scanner;
 
@@ -7,16 +9,16 @@ pub type Result<T> = std::result::Result<T, SipParserError>;
 use core::str;
 use std::str::Utf8Error;
 
-use crate::headers::Headers;
+use crate::message::headers::Headers;
 use crate::scanner::ScannerError;
 
 use crate::macros::b_map;
 use crate::macros::peek_while;
 use crate::macros::read_while;
 
-use crate::msg::SipMsg;
-use crate::msg::StatusLine;
-use crate::msg::{RequestLine, SipRequest, SipResponse};
+use crate::message::SipMessage;
+use crate::message::StatusLine;
+use crate::message::{RequestLine, SipRequest, SipResponse};
 
 use crate::util::is_alphabetic;
 use crate::util::is_space;
@@ -90,7 +92,7 @@ fn parse_headers_and_body<'a>(
 }
 
 /// Parse a buff of bytes into sip message
-pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
+pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
     let mut scanner = Scanner::new(buff);
 
     let msg = if !is_sip_version(&scanner) {
@@ -98,13 +100,13 @@ pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMsg<'a>> {
         let (headers, body) = parse_headers_and_body(&mut scanner)?;
         let request = SipRequest::new(req_line, headers, body);
 
-        SipMsg::Request(request)
+        SipMessage::Request(request)
     } else {
         let status_line = StatusLine::parse(&mut scanner)?;
         let (headers, body) = parse_headers_and_body(&mut scanner)?;
         let response = SipResponse::new(status_line, headers, body);
 
-        SipMsg::Response(response)
+        SipMessage::Response(response)
     };
 
     Ok(msg)
@@ -162,13 +164,13 @@ impl<'a> From<ScannerError<'a>> for SipParserError {
 #[cfg(test)]
 mod tests {
     use crate::{
-        headers::{
-            common::{call_id::CallId, cseq::CSeq, max_fowards::MaxForwards},
-            control::expires::Expires,
-            session::content_length::ContentLength,
+        message::headers::{
+            call_id::CallId, cseq::CSeq, max_fowards::MaxForwards,
+            expires::Expires,
+            content_length::ContentLength,
             Header,
         },
-        msg::{SipMethod, SipStatusCode},
+        message::{SipMethod, SipStatusCode},
         uri::{HostPort, Scheme},
     };
 

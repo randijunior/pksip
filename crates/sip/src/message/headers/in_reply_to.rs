@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    headers::{common::call_id::CallId, SipHeaderParser},
+    headers::{call_id::CallId, SipHeaderParser},
     macros::{read_while, space},
     parser::Result,
     scanner::Scanner,

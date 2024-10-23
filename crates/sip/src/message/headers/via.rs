@@ -19,13 +19,13 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
-use crate::headers::{AsHeader, Header, SipHeaderParser};
+use crate::headers::SipHeaderParser;
 use crate::macros::{b_map, read_while};
 use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
     macros::{read_until_byte, sip_parse_error, space},
-    msg::Transport,
+    message::Transport,
     parser::Result,
     scanner::Scanner,
     uri::{HostPort, Params},
@@ -181,15 +181,6 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     }
 }
 
-impl<'a> AsHeader<Via<'a>> for Header<'a> {
-    fn as_header(&self) -> Option<&Via<'a>> {
-        if let Header::Via(via) = self {
-            Some(via)
-        } else {
-            None
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

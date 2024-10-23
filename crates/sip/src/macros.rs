@@ -96,7 +96,7 @@ macro_rules! parse_header_param {
                 while let Some(&b';') = $scanner.peek() {
                     // take ';' character
                     $scanner.next();
-                    let param = crate::headers::parse_param($scanner);
+                    let param = crate::message::headers::parse_param($scanner);
                     $(
                         if param.0 == $name {
                             $var = param.1;
