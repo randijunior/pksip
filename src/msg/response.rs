@@ -2,8 +2,8 @@ use core::str;
 
 use crate::{
     headers::Headers,
-    macros::{digits, newline, space, tag, until_newline},
-    parser::{SipParserError, SIPV2},
+    macros::{digits, newline, space, until_newline},
+    parser::{self, SipParserError},
     scanner::Scanner,
 };
 
@@ -37,7 +37,7 @@ impl<'a> StatusLine<'a> {
     pub(crate) fn parse(
         scanner: &mut Scanner<'a>,
     ) -> Result<StatusLine<'a>, SipParserError> {
-        let _v = tag!(scanner, SIPV2);
+        parser::parse_sip_v2(scanner)?;
 
         space!(scanner);
         let digits = digits!(scanner);

@@ -58,7 +58,7 @@ impl<'a> SipHeaderParser<'a> for Accept<'a> {
                 param,
             };
             mtypes.push(media_type);
-            scanner.read_if_eq(&b',')?;
+            scanner.read_if(|b| b == &b',')?;
             space!(scanner);
         }
 

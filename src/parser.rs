@@ -1,3 +1,4 @@
+use crate::macros::sip_parse_error;
 use crate::scanner::Scanner;
 
 /// Result for sip parser
@@ -56,6 +57,19 @@ pub(crate) fn parse_slice_utf8<'a>(
 pub(crate) fn parse_token<'a>(scanner: &mut Scanner<'a>) -> &'a str {
     // is_token ensures that is valid utf-8
     parse_slice_utf8(scanner, is_token)
+}
+
+pub(crate) fn parse_sip_v2(scanner: &mut Scanner) -> Result<()> {
+    for b in SIPV2 {
+        let Some(byte) = scanner.peek() else {
+            return sip_parse_error!("eof!");
+        };
+        if byte != b {
+            return sip_parse_error!("Sip Version Invalid");
+        }
+        scanner.next();
+    }
+    Ok(())
 }
 
 fn is_sip_version(scanner: &Scanner) -> bool {
@@ -206,6 +220,13 @@ mod tests {
             assert_eq!(uri.user, None);
             assert_eq!(uri.host, HostPort::DomainName { host: "registrar.biloxi.com", port: None });
         });
+    }
+
+    #[test]
+    fn test_parse_sip_version_2_0() {
+        let src = b"SIP/2.0";
+        let mut scanner = Scanner::new(src);
+        parse_sip_v2(&mut scanner).unwrap();
     }
 
     #[test]

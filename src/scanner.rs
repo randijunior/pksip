@@ -1,15 +1,11 @@
-use std::ops::Range;
+use std::{ops::Range, result};
 
-type ScannerResult<'a, T> = std::result::Result<T, ScannerError<'a>>;
+type Result<'a, T> = std::result::Result<T, ScannerError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
-    /// The tag did not match the expected value.
-    Tag,
     /// End of file reached.
     Eof,
-
-    OutOfInput,
 }
 
 #[derive(Debug, PartialEq)]
@@ -92,31 +88,6 @@ impl<'a> Scanner<'a> {
         Range { start, end }
     }
 
-    /// Reads bytes while they match the specified tag. Returns the range of matched bytes,
-    /// or an error if the tag doesn't match.
-    pub(crate) fn read_tag(
-        &mut self,
-        tag: &[u8],
-    ) -> ScannerResult<Range<usize>> {
-        let start = self.idx;
-
-        for b in tag {
-            // Take next byte
-            let Some(a) = self.peek() else {
-                return self.error(ErrorKind::Eof);
-            };
-            // and compare
-            if a != b {
-                return self.error(ErrorKind::Tag);
-            }
-            self.next();
-        }
-
-        let end = self.idx;
-
-        Ok(Range { start, end })
-    }
-
     /// Reads bytes while a condition `func` holds true,
     /// returning the range of matching bytes.
     pub(crate) fn read_while<F>(&mut self, func: F) -> Range<usize>
@@ -134,16 +105,8 @@ impl<'a> Scanner<'a> {
         Range { start, end }
     }
 
-    /// Reads a byte if it matches the specified expected value.
-    pub(crate) fn read_if_eq(
-        &mut self,
-        expected: &u8,
-    ) -> ScannerResult<Option<&u8>> {
-        self.read_if(|b| b == expected)
-    }
-
     /// Reads a byte if the provided function returns true, otherwise returns None.
-    pub(crate) fn read_if<F>(&mut self, func: F) -> ScannerResult<Option<&u8>>
+    pub(crate) fn read_if<F>(&mut self, func: F) -> Result<Option<&u8>>
     where
         F: FnOnce(&u8) -> bool,
     {
@@ -172,7 +135,7 @@ impl<'a> Scanner<'a> {
         byte
     }
 
-    fn error<T>(&self, kind: ErrorKind) -> Result<T, ScannerError> {
+    fn error<T>(&self, kind: ErrorKind) -> result::Result<T, ScannerError> {
         Err(ScannerError {
             kind,
             line: self.line,
@@ -222,44 +185,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tag() {
-        let src = "This is an test!".as_bytes();
-        let mut scanner = Scanner::new(src);
-
-        let range = scanner.read_tag(b"This");
-        let range = range.unwrap();
-        assert_eq!(&src[range], "This".as_bytes());
-
-        let range = scanner.read_tag(b" is");
-        let range = range.unwrap();
-        assert_eq!(&src[range], " is".as_bytes());
-
-        assert_eq!(
-            scanner.read_tag(b"not exist!"),
-            Err(ScannerError {
-                kind: ErrorKind::Tag,
-                line: 1,
-                col: 8,
-                src: src
-            })
-        );
-
-        let range = scanner.read_tag(b" an test!");
-        let range = range.unwrap();
-        assert_eq!(&src[range], " an test!".as_bytes());
-
-        assert_eq!(
-            scanner.read_tag(b"end!"),
-            Err(ScannerError {
-                kind: ErrorKind::Eof,
-                line: 1,
-                col: 17,
-                src: src
-            })
-        );
-    }
-
-    #[test]
     fn test_read() {
         let src = "Input to\r\nread".as_bytes();
         let mut scanner = Scanner::new(src);
@@ -274,7 +199,7 @@ mod tests {
         assert_eq!(&src[range], " ".as_bytes());
 
         assert_eq!(scanner.read_if(is_alphabetic), Ok(Some(&b't')));
-        assert_eq!(scanner.read_if_eq(&b'o'), Ok(Some(&b'o')));
+        assert_eq!(scanner.next(), Some(&b'o'));
 
         let range = scanner.read_while(is_newline);
         assert_eq!(&src[range], "\r\n".as_bytes());

@@ -20,8 +20,8 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::headers::{AsHeader, Header, SipHeaderParser};
-use crate::macros::{b_map, read_while, tag};
-use crate::parser::{ALPHA_NUM, SIPV2, TOKEN};
+use crate::macros::{b_map, read_while};
+use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
     macros::{read_until_byte, sip_parse_error, space},
@@ -149,7 +149,7 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         //@TODO: handle LWS
-        let _v = tag!(scanner, SIPV2);
+        parser::parse_sip_v2(scanner)?;
 
         if scanner.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");

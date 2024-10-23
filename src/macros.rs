@@ -28,14 +28,6 @@ macro_rules! read_until_byte {
     }};
 }
 
-macro_rules! tag {
-    ($scanner:expr, $tag:expr) => {{
-        let range = $scanner.read_tag($tag)?;
-
-        &$scanner.src[range]
-    }};
-}
-
 macro_rules! remaing {
     ($scanner:ident) => {{
         let range = $scanner.read_while(|_| true);
@@ -168,5 +160,4 @@ pub(crate) use read_while;
 pub(crate) use remaing;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
-pub(crate) use tag;
 pub(crate) use until_newline;

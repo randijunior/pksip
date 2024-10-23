@@ -1,7 +1,7 @@
 use crate::{
     headers::Headers,
-    macros::{alpha, newline, space, tag},
-    parser::{SipParserError, SIPV2},
+    macros::{alpha, newline, space},
+    parser::{self, SipParserError},
     scanner::Scanner,
     uri::Uri,
 };
@@ -31,7 +31,7 @@ impl<'a> RequestLine<'a> {
         let uri = Uri::parse(scanner, true)?;
         space!(scanner);
 
-        let _v = tag!(scanner, SIPV2);
+        parser::parse_sip_v2(scanner)?;
         newline!(scanner);
 
         Ok(RequestLine { method, uri })
