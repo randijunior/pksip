@@ -223,7 +223,21 @@ impl<'a> Headers<'a> {
         self.0.iter()
     }
 
-    /// Appends an header
+    /// Push an new header
+    /// 
+    /// # Example
+    /// ```
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
+    /// let mut headers = Headers::new();
+    /// 
+    /// headers.push(Header::Expires(Expires::new(10)))
+    ///
+    /// assert_eq!(
+    ///     headers.get(0),
+    ///     Some(&Header::Expires(Expires::new(10)))
+    /// );
     pub fn push(&mut self, hdr: Header<'a>) {
         self.0.push(hdr);
     }
