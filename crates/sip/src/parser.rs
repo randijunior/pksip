@@ -1,7 +1,7 @@
 //! SIP Parser
 
+use crate::bytes::Bytes;
 use crate::macros::sip_parse_error;
-use crate::scanner::Scanner;
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
@@ -9,8 +9,8 @@ pub type Result<T> = std::result::Result<T, SipParserError>;
 use core::str;
 use std::str::Utf8Error;
 
+use crate::bytes::BytesError;
 use crate::message::headers::Headers;
-use crate::scanner::ScannerError;
 
 use crate::macros::b_map;
 use crate::macros::peek_while;
@@ -21,7 +21,6 @@ use crate::message::StatusLine;
 use crate::message::{RequestLine, SipRequest, SipResponse};
 
 use crate::util::is_alphabetic;
-use crate::util::is_space;
 
 pub(crate) const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
@@ -46,64 +45,62 @@ pub(crate) fn is_token(b: &u8) -> bool {
 
 #[inline]
 pub(crate) fn parse_slice_utf8<'a>(
-    scanner: &mut Scanner<'a>,
+    bytes: &mut Bytes<'a>,
     func: impl Fn(&u8) -> bool,
 ) -> &'a str {
-    let slc = read_while!(scanner, func);
+    let slc = read_while!(bytes, func);
 
     // SAFETY: caller must ensures that func valid that bytes are valid utf-8
     unsafe { str::from_utf8_unchecked(slc) }
 }
 
 #[inline]
-pub(crate) fn parse_token<'a>(scanner: &mut Scanner<'a>) -> &'a str {
+pub(crate) fn parse_token<'a>(bytes: &mut Bytes<'a>) -> &'a str {
     // is_token ensures that is valid utf-8
-    parse_slice_utf8(scanner, is_token)
+    parse_slice_utf8(bytes, is_token)
 }
 
-pub(crate) fn parse_sip_v2(scanner: &mut Scanner) -> Result<()> {
-    for b in SIPV2 {
-        let Some(byte) = scanner.peek() else {
-            return sip_parse_error!("eof!");
-        };
-        if byte != b {
-            return sip_parse_error!("Sip Version Invalid");
+pub(crate) fn parse_sip_v2(bytes: &mut Bytes) -> Result<()> {
+    match bytes.peek_n(7) {
+        Some(SIPV2) => {
+            bytes.nth(6);
+
+            Ok(())
         }
-        scanner.next();
+        _ => sip_parse_error!("Sip Version Invalid"),
     }
-    Ok(())
 }
 
-fn is_sip_version(scanner: &Scanner) -> bool {
+fn is_sip_version(bytes: &Bytes) -> bool {
     const SIP: &[u8] = b"SIP";
-    let tag = peek_while!(scanner, is_alphabetic);
-    let next = scanner.src.get(tag.len());
+    let tag = peek_while!(bytes, is_alphabetic);
+    let next = bytes.src.get(tag.len());
 
-    next.is_some_and(|next| tag == SIP && (next == &b'/' || is_space(next)))
+    next.is_some_and(|next| tag == SIP && next == &b'/')
 }
 
 fn parse_headers_and_body<'a>(
-    scanner: &mut Scanner<'a>,
+    bytes: &mut Bytes<'a>,
 ) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
     let mut headers = Headers::new();
-    let body = headers.parse_headers(scanner)?;
+    let body = headers.parse_headers(bytes)?;
 
     Ok((headers, body))
 }
 
 /// Parse a buff of bytes into sip message
 pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
-    let mut scanner = Scanner::new(buff);
+    let mut bytes = Bytes::new(buff);
 
-    let msg = if !is_sip_version(&scanner) {
-        let req_line = RequestLine::parse(&mut scanner)?;
-        let (headers, body) = parse_headers_and_body(&mut scanner)?;
+    let msg = if !is_sip_version(&bytes) {
+        let req_line = RequestLine::parse(&mut bytes)?;
+        let (headers, body) = parse_headers_and_body(&mut bytes)?;
         let request = SipRequest::new(req_line, headers, body);
 
         SipMessage::Request(request)
     } else {
-        let status_line = StatusLine::parse(&mut scanner)?;
-        let (headers, body) = parse_headers_and_body(&mut scanner)?;
+        let status_line = StatusLine::parse(&mut bytes)?;
+        let (headers, body) = parse_headers_and_body(&mut bytes)?;
         let response = SipResponse::new(status_line, headers, body);
 
         SipMessage::Response(response)
@@ -146,8 +143,8 @@ impl From<Utf8Error> for SipParserError {
     }
 }
 
-impl<'a> From<ScannerError<'a>> for SipParserError {
-    fn from(err: ScannerError) -> Self {
+impl<'a> From<BytesError<'a>> for SipParserError {
+    fn from(err: BytesError) -> Self {
         SipParserError {
             message: format!(
                 "Failed to parse at line:{} column:{} kind:{:?}
@@ -165,10 +162,8 @@ impl<'a> From<ScannerError<'a>> for SipParserError {
 mod tests {
     use crate::{
         message::headers::{
-            call_id::CallId, cseq::CSeq, max_fowards::MaxForwards,
-            expires::Expires,
-            content_length::ContentLength,
-            Header,
+            call_id::CallId, content_length::ContentLength, cseq::CSeq,
+            expires::Expires, max_fowards::MaxForwards, Header,
         },
         message::{SipMethod, SipStatusCode},
         uri::{HostPort, Scheme},
@@ -183,9 +178,9 @@ mod tests {
         CSeq: 1826 REGISTER\r\n\
         Expires: 7200\r\n\
         Content-Length: 0\r\n\r\n";
-        let mut scanner = Scanner::new(headers);
+        let mut bytes = Bytes::new(headers);
         let mut sip_headers = Headers::new();
-        let body = sip_headers.parse_headers(&mut scanner);
+        let body = sip_headers.parse_headers(&mut bytes);
         assert_eq!(body.unwrap(), None);
 
         let mut iter = sip_headers.iter();
@@ -212,8 +207,8 @@ mod tests {
     #[test]
     fn test_parse_req_line() {
         let req_line = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n";
-        let mut scanner = Scanner::new(req_line);
-        let parsed = RequestLine::parse(&mut scanner);
+        let mut bytes = Bytes::new(req_line);
+        let parsed = RequestLine::parse(&mut bytes);
         let parsed = parsed.unwrap();
 
         assert_matches!(parsed, RequestLine { method, uri } => {
@@ -227,15 +222,15 @@ mod tests {
     #[test]
     fn test_parse_sip_version_2_0() {
         let src = b"SIP/2.0";
-        let mut scanner = Scanner::new(src);
-        parse_sip_v2(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        parse_sip_v2(&mut bytes).unwrap();
     }
 
     #[test]
     fn status_line() {
         let msg = b"SIP/2.0 200 OK\r\n";
-        let mut scanner = Scanner::new(msg);
-        let parsed = StatusLine::parse(&mut scanner);
+        let mut bytes = Bytes::new(msg);
+        let parsed = StatusLine::parse(&mut bytes);
         let parsed = parsed.unwrap();
 
         assert_matches!(parsed, StatusLine { status_code, reason_phrase } => {

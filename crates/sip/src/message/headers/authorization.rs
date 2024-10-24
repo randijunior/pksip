@@ -1,7 +1,7 @@
 use crate::{
+    bytes::Bytes,
     macros::{parse_auth_param, read_while, space},
     parser::{self, is_token, Result},
-    scanner::Scanner,
     uri::Params,
 };
 
@@ -23,28 +23,28 @@ pub struct DigestCredential<'a> {
 }
 
 impl<'a> DigestCredential<'a> {
-    pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut digest = Self::default();
         loop {
-            space!(scanner);
-            match parser::parse_token(scanner) {
-                "realm" => digest.realm = parse_auth_param!(scanner),
-                "username" => digest.username = parse_auth_param!(scanner),
-                "nonce" => digest.nonce = parse_auth_param!(scanner),
-                "uri" => digest.uri = parse_auth_param!(scanner),
-                "response" => digest.response = parse_auth_param!(scanner),
-                "algorithm" => digest.algorithm = parse_auth_param!(scanner),
-                "cnonce" => digest.cnonce = parse_auth_param!(scanner),
-                "opaque" => digest.opaque = parse_auth_param!(scanner),
-                "qop" => digest.qop = parse_auth_param!(scanner),
-                "nc" => digest.nc = parse_auth_param!(scanner),
+            space!(bytes);
+            match parser::parse_token(bytes) {
+                "realm" => digest.realm = parse_auth_param!(bytes),
+                "username" => digest.username = parse_auth_param!(bytes),
+                "nonce" => digest.nonce = parse_auth_param!(bytes),
+                "uri" => digest.uri = parse_auth_param!(bytes),
+                "response" => digest.response = parse_auth_param!(bytes),
+                "algorithm" => digest.algorithm = parse_auth_param!(bytes),
+                "cnonce" => digest.cnonce = parse_auth_param!(bytes),
+                "opaque" => digest.opaque = parse_auth_param!(bytes),
+                "qop" => digest.qop = parse_auth_param!(bytes),
+                "nc" => digest.nc = parse_auth_param!(bytes),
                 other => {
-                    digest.param.set(other, parse_auth_param!(scanner));
+                    digest.param.set(other, parse_auth_param!(bytes));
                 }
             };
 
-            if let Some(&b',') = scanner.peek() {
-                scanner.next();
+            if let Some(&b',') = bytes.peek() {
+                bytes.next();
             } else {
                 break;
             }
@@ -101,8 +101,8 @@ impl<'a> Authorization<'a> {
 impl<'a> SipHeaderParser<'a> for Authorization<'a> {
     const NAME: &'static [u8] = b"Authorization";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let credential = Self::parse_auth_credential(scanner)?;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let credential = Self::parse_auth_credential(bytes)?;
 
         Ok(Authorization(credential))
     }
@@ -117,10 +117,10 @@ mod tests {
         let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"84a4cc6f3082121f32b42a2187831a9e\",\
         response=\"7587245234b3434cc3412213e5f113a5432\"\r\n";
-        let mut scanner = Scanner::new(src);
-        let auth = Authorization::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let auth = Authorization::parse(&mut bytes).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
         let cred = auth.credential();
         assert_matches!(cred, Credential::Digest(digest_credential) => {
             assert_eq!(digest_credential.username, Some("Alice"));

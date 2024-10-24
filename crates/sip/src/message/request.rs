@@ -1,16 +1,15 @@
 //! SIP Request Types
-//! 
+//!
 //! The module provide the [`SipRequest`]
 
 use crate::{
+    bytes::Bytes,
     macros::{alpha, newline, space},
     parser::{self, SipParserError},
-    scanner::Scanner,
     uri::Uri,
 };
 
 use super::{headers::Headers, SipMethod};
-
 
 /// Represents an SIP Request-Line
 #[derive(Debug, PartialEq, Eq)]
@@ -21,23 +20,21 @@ pub struct RequestLine<'a> {
 
 impl<'a> RequestLine<'a> {
     pub fn from_bytes(src: &'a [u8]) -> Result<Self, SipParserError> {
-        let mut scanner = Scanner::new(src);
+        let mut bytes = Bytes::new(src);
 
-        Self::parse(&mut scanner)
+        Self::parse(&mut bytes)
     }
 
-    pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<Self, SipParserError> {
-        let method = alpha!(scanner);
+    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self, SipParserError> {
+        let method = alpha!(bytes);
         let method = SipMethod::from(method);
 
-        space!(scanner);
-        let uri = Uri::parse(scanner, true)?;
-        space!(scanner);
+        space!(bytes);
+        let uri = Uri::parse(bytes, true)?;
+        space!(bytes);
 
-        parser::parse_sip_v2(scanner)?;
-        newline!(scanner);
+        parser::parse_sip_v2(bytes)?;
+        newline!(bytes);
 
         Ok(RequestLine { method, uri })
     }

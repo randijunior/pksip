@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::{digits, newline, space, until_newline},
     parser::{self, SipParserError},
-    scanner::Scanner,
 };
 
 use super::{headers::Headers, SipStatusCode};
@@ -28,26 +28,26 @@ impl<'sl> StatusLine<'sl> {
 
 impl<'a> StatusLine<'a> {
     pub fn from_bytes(src: &'a [u8]) -> Result<StatusLine, SipParserError> {
-        let mut scanner = Scanner::new(src);
+        let mut bytes = Bytes::new(src);
 
-        Self::parse(&mut scanner)
+        Self::parse(&mut bytes)
     }
 
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        bytes: &mut Bytes<'a>,
     ) -> Result<StatusLine<'a>, SipParserError> {
-        parser::parse_sip_v2(scanner)?;
+        parser::parse_sip_v2(bytes)?;
 
-        space!(scanner);
-        let digits = digits!(scanner);
-        space!(scanner);
+        space!(bytes);
+        let digits = digits!(bytes);
+        space!(bytes);
 
         let status_code = SipStatusCode::from(digits);
-        let bytes = until_newline!(scanner);
+        let b = until_newline!(bytes);
 
-        let rp = str::from_utf8(bytes)?;
+        let rp = str::from_utf8(b)?;
 
-        newline!(scanner);
+        newline!(bytes);
 
         Ok(StatusLine::new(status_code, rp))
     }

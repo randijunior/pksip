@@ -24,10 +24,10 @@ use crate::macros::{b_map, read_while};
 use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
+    bytes::Bytes,
     macros::{read_until_byte, sip_parse_error, space},
     message::Transport,
     parser::Result,
-    scanner::Scanner,
     uri::{HostPort, Params},
 };
 use std::str;
@@ -89,22 +89,22 @@ pub struct Via<'a> {
 
 impl<'a> Via<'a> {
     pub(crate) fn parse_params(
-        scanner: &mut Scanner<'a>,
+        bytes: &mut Bytes<'a>,
     ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
-        space!(scanner);
-        if scanner.peek() != Some(&b';') {
+        space!(bytes);
+        if bytes.peek() != Some(&b';') {
             return Ok((None, None));
         }
         let mut params = ViaParams::default();
         let mut others = Params::new();
-        while let Some(&b';') = scanner.peek() {
-            scanner.next();
-            let name = read_while!(scanner, is_via_param);
+        while let Some(&b';') = bytes.peek() {
+            bytes.next();
+            let name = read_while!(bytes, is_via_param);
             let name = unsafe { str::from_utf8_unchecked(name) };
             let mut value = "";
-            if let Some(&b'=') = scanner.peek() {
-                scanner.next();
-                let v = read_while!(scanner, is_via_param);
+            if let Some(&b'=') = bytes.peek() {
+                bytes.next();
+                let v = read_while!(bytes, is_via_param);
                 value = unsafe { str::from_utf8_unchecked(v) };
             }
             match name {
@@ -130,7 +130,7 @@ impl<'a> Via<'a> {
                     others.set(name, Some(value));
                 }
             }
-            space!(scanner);
+            space!(bytes);
         }
 
         let others = if others.is_empty() {
@@ -147,25 +147,25 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     const NAME: &'static [u8] = b"Via";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"v");
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         //@TODO: handle LWS
-        parser::parse_sip_v2(scanner)?;
+        parser::parse_sip_v2(bytes)?;
 
-        if scanner.next() != Some(&b'/') {
+        if bytes.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let bytes = read_until_byte!(scanner, &b' ');
-        let transport = Transport::from(bytes);
+        let b = read_until_byte!(bytes, &b' ');
+        let transport = Transport::from(b);
 
-        space!(scanner);
+        space!(bytes);
 
-        let sent_by = HostPort::parse(scanner)?;
-        let (params, others_params) = Self::parse_params(scanner)?;
+        let sent_by = HostPort::parse(bytes)?;
+        let (params, others_params) = Self::parse_params(bytes)?;
 
-        let comment = if scanner.peek() == Some(&b'(') {
-            scanner.next();
-            let comment = read_until_byte!(scanner, &b')');
-            scanner.next();
+        let comment = if bytes.peek() == Some(&b'(') {
+            bytes.next();
+            let comment = read_until_byte!(bytes, &b')');
+            bytes.next();
             Some(str::from_utf8(comment)?)
         } else {
             None
@@ -181,7 +181,6 @@ impl<'a> SipHeaderParser<'a> for Via<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
@@ -191,8 +190,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"SIP/2.0/UDP bobspc.biloxi.com:5060;received=192.0.2.4\r\n";
-        let mut scanner = Scanner::new(src);
-        let via = Via::parse(&mut scanner);
+        let mut bytes = Bytes::new(src);
+        let via = Via::parse(&mut bytes);
         let via = via.unwrap();
 
         assert_eq!(via.transport, Transport::UDP);
@@ -208,8 +207,8 @@ mod tests {
 
         let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
-        let mut scanner = Scanner::new(src);
-        let via = Via::parse(&mut scanner);
+        let mut bytes = Bytes::new(src);
+        let via = Via::parse(&mut bytes);
         let via = via.unwrap();
 
         assert_eq!(via.transport, Transport::UDP);

@@ -1,4 +1,4 @@
-use crate::{headers::SipHeaderParser, parser::Result, scanner::Scanner};
+use crate::{bytes::Bytes, headers::SipHeaderParser, parser::Result};
 
 use super::authorization::Credential;
 #[derive(Debug, PartialEq, Eq)]
@@ -7,8 +7,8 @@ pub struct ProxyAuthorization<'a>(Credential<'a>);
 impl<'a> SipHeaderParser<'a> for ProxyAuthorization<'a> {
     const NAME: &'static [u8] = b"Proxy-Authorization";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let credential = Self::parse_auth_credential(scanner)?;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let credential = Self::parse_auth_credential(bytes)?;
 
         Ok(ProxyAuthorization(credential))
     }
@@ -23,8 +23,8 @@ mod tests {
         let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"c60f3082ee1212b402a21831ae\", \
         response=\"245f23415f11432b3434341c022\"\r\n";
-        let mut scanner = Scanner::new(src);
-        let proxy_auth = ProxyAuthorization::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let proxy_auth = ProxyAuthorization::parse(&mut bytes).unwrap();
 
         assert_matches!(proxy_auth.0, Credential::Digest(digest) => {
             assert_eq!(digest.username, Some("Alice"));

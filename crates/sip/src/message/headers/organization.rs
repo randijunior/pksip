@@ -1,6 +1,6 @@
 use core::str;
 
-use crate::{macros::until_newline, parser::Result, scanner::Scanner};
+use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
@@ -10,8 +10,8 @@ pub struct Organization<'a>(&'a str);
 impl<'a> SipHeaderParser<'a> for Organization<'a> {
     const NAME: &'static [u8] = b"Organization";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let organization = until_newline!(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let organization = until_newline!(bytes);
         let organization = str::from_utf8(organization)?;
 
         Ok(Organization(organization))
@@ -25,8 +25,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Boxes by Bob\r\n";
-        let mut scanner = Scanner::new(src);
-        let mime_version = Organization::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let mime_version = Organization::parse(&mut bytes).unwrap();
 
         assert_eq!(mime_version, Organization("Boxes by Bob"));
     }

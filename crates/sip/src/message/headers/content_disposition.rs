@@ -1,7 +1,7 @@
 use crate::{
+    bytes::Bytes,
     macros::{parse_header_param, read_while, space},
     parser::{is_token, Result},
-    scanner::Scanner,
     uri::Params,
 };
 
@@ -16,11 +16,11 @@ pub struct ContentDisposition<'a> {
 impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
     const NAME: &'static [u8] = b"Content-Disposition";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let disp_type = read_while!(scanner, is_token);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let disp_type = read_while!(bytes, is_token);
         let disp_type = unsafe { std::str::from_utf8_unchecked(disp_type) };
-        space!(scanner);
-        let params = parse_header_param!(scanner);
+        space!(bytes);
+        let params = parse_header_param!(bytes);
 
         Ok(ContentDisposition { disp_type, params })
     }
@@ -35,14 +35,14 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"session\r\n";
-        let mut scanner = Scanner::new(src);
-        let disp = ContentDisposition::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let disp = ContentDisposition::parse(&mut bytes).unwrap();
         assert_eq!(disp.disp_type, "session");
         assert_eq!(disp.params, None);
 
         let src = b"session;handling=optional\r\n";
-        let mut scanner = Scanner::new(src);
-        let disp = ContentDisposition::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let disp = ContentDisposition::parse(&mut bytes).unwrap();
         assert_eq!(disp.disp_type, "session");
         assert_eq!(
             disp.params,
@@ -53,8 +53,8 @@ mod tests {
         );
 
         let src = b"attachment; filename=smime.p7s;handling=required\r\n";
-        let mut scanner = Scanner::new(src);
-        let disp = ContentDisposition::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let disp = ContentDisposition::parse(&mut bytes).unwrap();
         assert_eq!(disp.disp_type, "attachment");
         assert_eq!(
             disp.params,

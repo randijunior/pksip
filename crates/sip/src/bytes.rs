@@ -1,6 +1,6 @@
 use std::{ops::Range, result};
 
-type Result<'a, T> = std::result::Result<T, ScannerError<'a>>;
+type Result<'a, T> = std::result::Result<T, BytesError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {
@@ -9,16 +9,15 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ScannerError<'a> {
+pub struct BytesError<'a> {
     pub(crate) kind: ErrorKind,
     pub(crate) line: usize,
     pub(crate) col: usize,
     pub(crate) src: &'a [u8],
 }
 
-
 #[derive(Debug)]
-pub struct Scanner<'a> {
+pub struct Bytes<'a> {
     pub(crate) src: &'a [u8],
     finished: bool,
     len: usize,
@@ -27,9 +26,9 @@ pub struct Scanner<'a> {
     idx: usize,
 }
 
-impl<'a> Scanner<'a> {
+impl<'a> Bytes<'a> {
     pub fn new(src: &'a [u8]) -> Self {
-        Scanner {
+        Bytes {
             src,
             len: src.len(),
             finished: false,
@@ -39,25 +38,21 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    
     #[inline]
     pub fn idx(&self) -> usize {
         self.idx
     }
 
-    
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
-    
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.finished
     }
 
-    
     pub fn peek(&self) -> Option<&u8> {
         if self.is_eof() {
             return None;
@@ -66,11 +61,9 @@ impl<'a> Scanner<'a> {
         Some(&self.src[self.idx])
     }
 
-    
     pub(crate) fn peek_n(&self, n: usize) -> Option<&[u8]> {
         self.as_ref().get(..n)
     }
-
 
     pub(crate) fn peek_while<F>(&self, func: F) -> Range<usize>
     where
@@ -83,7 +76,6 @@ impl<'a> Scanner<'a> {
 
         Range { start, end }
     }
-
 
     pub(crate) fn read_while<F>(&mut self, func: F) -> Range<usize>
     where
@@ -100,7 +92,6 @@ impl<'a> Scanner<'a> {
         Range { start, end }
     }
 
-    
     pub(crate) fn read_if<F>(&mut self, func: F) -> Result<Option<&u8>>
     where
         F: FnOnce(&u8) -> bool,
@@ -115,7 +106,6 @@ impl<'a> Scanner<'a> {
         Ok(self.next())
     }
 
-    
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
         let byte = &self.src[self.idx];
@@ -130,8 +120,8 @@ impl<'a> Scanner<'a> {
         byte
     }
 
-    fn error<T>(&self, kind: ErrorKind) -> result::Result<T, ScannerError> {
-        Err(ScannerError {
+    fn error<T>(&self, kind: ErrorKind) -> result::Result<T, BytesError> {
+        Err(BytesError {
             kind,
             line: self.line,
             col: self.col,
@@ -140,13 +130,13 @@ impl<'a> Scanner<'a> {
     }
 }
 
-impl<'a> AsRef<[u8]> for Scanner<'a> {
+impl<'a> AsRef<[u8]> for Bytes<'a> {
     fn as_ref(&self) -> &[u8] {
         &self.src[self.idx..]
     }
 }
 
-impl<'a> Iterator for Scanner<'a> {
+impl<'a> Iterator for Bytes<'a> {
     type Item = &'a u8;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -170,36 +160,36 @@ mod tests {
     #[test]
     fn test_peek() {
         let src = "Hello, world!".as_bytes();
-        let scanner = Scanner::new(src);
+        let bytes = Bytes::new(src);
 
-        assert_eq!(scanner.peek(), Some(&b'H'));
-        assert_eq!(scanner.peek_n(6), Some("Hello,".as_bytes()));
+        assert_eq!(bytes.peek(), Some(&b'H'));
+        assert_eq!(bytes.peek_n(6), Some("Hello,".as_bytes()));
 
-        let range = scanner.peek_while(is_alphabetic);
+        let range = bytes.peek_while(is_alphabetic);
         assert_eq!(&src[range], "Hello".as_bytes());
     }
 
     #[test]
     fn test_read() {
         let src = "Input to\r\nread".as_bytes();
-        let mut scanner = Scanner::new(src);
+        let mut bytes = Bytes::new(src);
 
-        let range = scanner.read_while(|b| b == &b'I');
+        let range = bytes.read_while(|b| b == &b'I');
         assert_eq!(&src[range], "I".as_bytes());
 
-        let range = scanner.read_while(is_alphabetic);
+        let range = bytes.read_while(is_alphabetic);
         assert_eq!(&src[range], "nput".as_bytes());
 
-        let range = scanner.read_while(is_space);
+        let range = bytes.read_while(is_space);
         assert_eq!(&src[range], " ".as_bytes());
 
-        assert_eq!(scanner.read_if(is_alphabetic), Ok(Some(&b't')));
-        assert_eq!(scanner.next(), Some(&b'o'));
+        assert_eq!(bytes.read_if(is_alphabetic), Ok(Some(&b't')));
+        assert_eq!(bytes.next(), Some(&b'o'));
 
-        let range = scanner.read_while(is_newline);
+        let range = bytes.read_while(is_newline);
         assert_eq!(&src[range], "\r\n".as_bytes());
 
-        assert_eq!(scanner.line, 2);
-        assert_eq!(scanner.col, 1);
+        assert_eq!(bytes.line, 2);
+        assert_eq!(bytes.col, 1);
     }
 }

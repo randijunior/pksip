@@ -1,68 +1,68 @@
 macro_rules! space {
-    ($scanner:ident) => {{
-        $scanner.read_while(crate::util::is_space);
+    ($bytes:ident) => {{
+        $bytes.read_while(crate::util::is_space);
     }};
 }
 
 macro_rules! digits {
-    ($scanner:ident) => {{
-        let range = $scanner.read_while(crate::util::is_digit);
+    ($bytes:ident) => {{
+        let range = $bytes.read_while(crate::util::is_digit);
 
-        &$scanner.src[range]
+        &$bytes.src[range]
     }};
 }
 
 macro_rules! read_while {
-    ($scanner:expr, $func:expr) => {{
-        let range = $scanner.read_while($func);
+    ($bytes:expr, $func:expr) => {{
+        let range = $bytes.read_while($func);
 
-        &$scanner.src[range]
+        &$bytes.src[range]
     }};
 }
 
 macro_rules! read_until_byte {
-    ($scanner:expr, $byte:expr) => {{
-        let range = $scanner.read_while(|b| b != $byte);
+    ($bytes:expr, $byte:expr) => {{
+        let range = $bytes.read_while(|b| b != $byte);
 
-        &$scanner.src[range]
+        &$bytes.src[range]
     }};
 }
 
 macro_rules! remaing {
-    ($scanner:ident) => {{
-        let range = $scanner.read_while(|_| true);
+    ($bytes:ident) => {{
+        let range = $bytes.read_while(|_| true);
 
-        &$scanner.src[range]
+        &$bytes.src[range]
     }};
 }
 
 macro_rules! until_newline {
-    ($scanner:ident) => {{
-        let range = $scanner.read_while(|b| !crate::util::is_newline(b));
+    ($bytes:ident) => {{
+        let range = $bytes.read_while(|b| !crate::util::is_newline(b));
 
-        &$scanner.src[range]
+        &$bytes.src[range]
     }};
 }
 
 macro_rules! peek_while {
-    ($scanner:expr, $func:expr) => {{
-        let range = $scanner.peek_while($func);
+    ($bytes:expr, $func:expr) => {{
+        let range = $bytes.peek_while($func);
 
-        (&$scanner.src[range])
+        (&$bytes.src[range])
     }};
 }
 
 macro_rules! newline {
-    ($scanner:ident) => {{
-        $scanner.read_while(crate::util::is_newline);
+    ($bytes:ident) => {{
+        $bytes.read_while(crate::util::is_newline);
     }};
 }
 
 macro_rules! alpha {
-    ($scanner:ident) => {{
-        let range = $scanner.read_while(crate::util::is_alphabetic);
+    ($bytes:ident) => {{
+        let range = $bytes.read_while(crate::util::is_alphabetic);
 
-        &$scanner.src[range]
+        &$bytes.src[range]
     }};
 }
 
@@ -84,19 +84,19 @@ macro_rules! b_map {
 }
 
 macro_rules! parse_header_param {
-    ($scanner:ident) => (
-        parse_header_param!($scanner,)
+    ($bytes:ident) => (
+        parse_header_param!($bytes,)
     );
 
-    ($scanner:ident, $($name:ident = $var:expr),*) => (
+    ($bytes:ident, $($name:ident = $var:expr),*) => (
          {
-            crate::macros::space!($scanner);
-            if let Some(&b';') = $scanner.peek() {
+            crate::macros::space!($bytes);
+            if let Some(&b';') = $bytes.peek() {
                 let mut params = crate::uri::Params::new();
-                while let Some(&b';') = $scanner.peek() {
+                while let Some(&b';') = $bytes.peek() {
                     // take ';' character
-                    $scanner.next();
-                    let param = crate::message::headers::parse_param($scanner);
+                    $bytes.next();
+                    let param = crate::message::headers::parse_param($bytes);
                     $(
                         if param.0 == $name {
                             $var = param.1;
@@ -119,19 +119,18 @@ macro_rules! parse_header_param {
 }
 
 macro_rules! parse_auth_param {
-    ($scanner: expr) => {{
-        if $scanner.peek() == Some(&b'=') {
-            $scanner.next();
-            match $scanner.peek() {
+    ($bytes: expr) => {{
+        if $bytes.peek() == Some(&b'=') {
+            $bytes.next();
+            match $bytes.peek() {
                 Some(&b'"') => {
-                    $scanner.next();
-                    let value =
-                        crate::macros::read_until_byte!($scanner, &b'"');
-                    $scanner.next();
+                    $bytes.next();
+                    let value = crate::macros::read_until_byte!($bytes, &b'"');
+                    $bytes.next();
                     Some((std::str::from_utf8(value)?))
                 }
                 Some(_) => {
-                    let value = read_while!($scanner, is_token);
+                    let value = read_while!($bytes, is_token);
                     Some(unsafe { std::str::from_utf8_unchecked(value) })
                 }
                 None => None,

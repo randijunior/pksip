@@ -1,8 +1,8 @@
 use crate::{
+    bytes::Bytes,
     macros::{alpha, space},
     message::SipMethod,
     parser::Result,
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -22,18 +22,18 @@ impl<'a> Allow<'a> {
 impl<'a> SipHeaderParser<'a> for Allow<'a> {
     const NAME: &'static [u8] = b"Allow";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut allow: Vec<SipMethod> = Vec::new();
-        let b_method = alpha!(scanner);
+        let b_method = alpha!(bytes);
         let method = SipMethod::from(b_method);
 
         allow.push(method);
 
-        while let Some(b',') = scanner.peek() {
-            scanner.next();
-            space!(scanner);
+        while let Some(b',') = bytes.peek() {
+            bytes.next();
+            space!(bytes);
 
-            let b_method = alpha!(scanner);
+            let b_method = alpha!(bytes);
             let method = SipMethod::from(b_method);
 
             allow.push(method);
@@ -50,10 +50,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"INVITE, ACK, OPTIONS, CANCEL, BYE\r\n";
-        let mut scanner = Scanner::new(src);
-        let allow = Allow::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let allow = Allow::parse(&mut bytes).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         assert_eq!(allow.get(0), Some(&SipMethod::Invite));
         assert_eq!(allow.get(1), Some(&SipMethod::Ack));

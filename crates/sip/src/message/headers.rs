@@ -96,12 +96,12 @@ pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
 use crate::{
+    bytes::Bytes,
     macros::{
         newline, parse_auth_param, read_until_byte, read_while, remaing,
         sip_parse_error, space, until_newline,
     },
     parser::{self, is_token, Result},
-    scanner::Scanner,
     uri::Params,
 };
 
@@ -115,20 +115,19 @@ const Q_PARAM: &str = "q";
 /// The expires parameter that is used normaly in [`Contact`] headers.
 const EXPIRES_PARAM: &str = "expires";
 
-
 fn parse_q(param: Option<&str>) -> Option<f32> {
     param
         .and_then(|q| q.parse().ok())
         .filter(|&value| (0.0..=1.0).contains(&value))
 }
 
-fn parse_param<'a>(scanner: &mut Scanner<'a>) -> (&'a str, Option<&'a str>) {
-    space!(scanner);
-    let name = parser::parse_token(scanner);
+fn parse_param<'a>(bytes: &mut Bytes<'a>) -> (&'a str, Option<&'a str>) {
+    space!(bytes);
+    let name = parser::parse_token(bytes);
 
-    let value = if scanner.peek() == Some(&b'=') {
-        scanner.next();
-        let value = parser::parse_token(scanner);
+    let value = if bytes.peek() == Some(&b'=') {
+        bytes.next();
+        let value = parser::parse_token(bytes);
         Some(value)
     } else {
         None
@@ -136,7 +135,6 @@ fn parse_param<'a>(scanner: &mut Scanner<'a>) -> (&'a str, Option<&'a str>) {
 
     (name, value)
 }
-
 
 /// A set of SIP Headers
 ///
@@ -173,7 +171,7 @@ impl<'a> Headers<'a> {
     }
 
     /// Applies function to the headers and return the first no-none result
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// # use sip::headers::Headers;
@@ -200,7 +198,7 @@ impl<'a> Headers<'a> {
     }
 
     /// Returns an iterator over headers
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// # use sip::headers::Headers;
@@ -211,7 +209,7 @@ impl<'a> Headers<'a> {
     ///     Header::Expires(Expires::new(10)),
     ///     Header::MaxForwards(MaxForwards::new(70))
     /// ]);
-    /// 
+    ///
     /// let mut iter = headers.iter();
     /// assert_eq!(
     ///     iter.next().unwrap(),
@@ -248,241 +246,239 @@ impl<'a> Headers<'a> {
     /// Parse all the sip headers in the message
     pub fn parse_headers(
         &mut self,
-        scanner: &mut Scanner<'a>,
+        bytes: &mut Bytes<'a>,
     ) -> Result<Option<&'a [u8]>> {
         let mut has_body = false;
         'headers: loop {
-            let name = parser::parse_token(scanner);
+            let name = parser::parse_token(bytes);
 
-            if scanner.next() != Some(&b':') {
+            if bytes.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
             }
-            space!(scanner);
+            space!(bytes);
 
             match name.as_bytes() {
                 error_info if ErrorInfo::match_name(error_info) => {
-                    let error_info = ErrorInfo::parse(scanner)?;
+                    let error_info = ErrorInfo::parse(bytes)?;
                     self.push(Header::ErrorInfo(error_info))
                 }
                 route if Route::match_name(route) => 'route: loop {
-                    let route = Route::parse(scanner)?;
+                    let route = Route::parse(bytes)?;
                     self.push(Header::Route(route));
-                    let Some(&b',') = scanner.peek() else {
+                    let Some(&b',') = bytes.peek() else {
                         break 'route;
                     };
-                    scanner.next();
+                    bytes.next();
                 },
                 via if Via::match_name(via) => 'via: loop {
-                    let via = Via::parse(scanner)?;
+                    let via = Via::parse(bytes)?;
                     self.push(Header::Via(via));
-                    let Some(&b',') = scanner.peek() else {
+                    let Some(&b',') = bytes.peek() else {
                         break 'via;
                     };
-                    scanner.next();
+                    bytes.next();
                 },
                 max_fowards if MaxForwards::match_name(max_fowards) => {
-                    let max_fowards = MaxForwards::parse(scanner)?;
+                    let max_fowards = MaxForwards::parse(bytes)?;
                     self.push(Header::MaxForwards(max_fowards))
                 }
                 from if From::match_name(from) => {
-                    let from = From::parse(scanner)?;
+                    let from = From::parse(bytes)?;
                     self.push(Header::From(from))
                 }
                 to if To::match_name(to) => {
-                    let to = To::parse(scanner)?;
+                    let to = To::parse(bytes)?;
                     self.push(Header::To(to))
                 }
                 cid if CallId::match_name(cid) => {
-                    let call_id = CallId::parse(scanner)?;
+                    let call_id = CallId::parse(bytes)?;
                     self.push(Header::CallId(call_id))
                 }
                 cseq if CSeq::match_name(cseq) => {
-                    let cseq = CSeq::parse(scanner)?;
+                    let cseq = CSeq::parse(bytes)?;
                     self.push(Header::CSeq(cseq))
                 }
                 auth if Authorization::match_name(auth) => {
-                    let auth = Authorization::parse(scanner)?;
+                    let auth = Authorization::parse(bytes)?;
                     self.push(Header::Authorization(auth))
                 }
                 contact if Contact::match_name(contact) => 'contact: loop {
-                    let contact = Contact::parse(scanner)?;
+                    let contact = Contact::parse(bytes)?;
                     self.push(Header::Contact(contact));
-                    let Some(&b',') = scanner.peek() else {
+                    let Some(&b',') = bytes.peek() else {
                         break 'contact;
                     };
-                    scanner.next();
+                    bytes.next();
                 },
                 expires if Expires::match_name(expires) => {
-                    let expires = Expires::parse(scanner)?;
+                    let expires = Expires::parse(bytes)?;
                     self.push(Header::Expires(expires));
                 }
                 in_reply_to if InReplyTo::match_name(in_reply_to) => {
-                    let in_reply_to = InReplyTo::parse(scanner)?;
+                    let in_reply_to = InReplyTo::parse(bytes)?;
                     self.push(Header::InReplyTo(in_reply_to));
                 }
                 mime_version if MimeVersion::match_name(mime_version) => {
-                    let mime_version = MimeVersion::parse(scanner)?;
+                    let mime_version = MimeVersion::parse(bytes)?;
                     self.push(Header::MimeVersion(mime_version));
                 }
                 min_expires if MinExpires::match_name(min_expires) => {
-                    let min_expires = MinExpires::parse(scanner)?;
+                    let min_expires = MinExpires::parse(bytes)?;
                     self.push(Header::MinExpires(min_expires));
                 }
                 user_agent if UserAgent::match_name(user_agent) => {
-                    let user_agent = UserAgent::parse(scanner)?;
+                    let user_agent = UserAgent::parse(bytes)?;
                     self.push(Header::UserAgent(user_agent))
                 }
                 date if Date::match_name(date) => {
-                    let date = Date::parse(scanner)?;
+                    let date = Date::parse(bytes)?;
                     self.push(Header::Date(date))
                 }
                 server if Server::match_name(server) => {
-                    let server = Server::parse(scanner)?;
+                    let server = Server::parse(bytes)?;
                     self.push(Header::Server(server))
                 }
                 subject if Subject::match_name(subject) => {
-                    let subject = Subject::parse(scanner)?;
+                    let subject = Subject::parse(bytes)?;
                     self.push(Header::Subject(subject))
                 }
                 priority if Priority::match_name(priority) => {
-                    let priority = Priority::parse(scanner)?;
+                    let priority = Priority::parse(bytes)?;
                     self.push(Header::Priority(priority))
                 }
                 proxy_authenticate
                     if ProxyAuthenticate::match_name(proxy_authenticate) =>
                 {
-                    let proxy_authenticate = ProxyAuthenticate::parse(scanner)?;
+                    let proxy_authenticate = ProxyAuthenticate::parse(bytes)?;
                     self.push(Header::ProxyAuthenticate(proxy_authenticate))
                 }
                 proxy_authorization
                     if ProxyAuthorization::match_name(proxy_authorization) =>
                 {
-                    let proxy_authorization =
-                        ProxyAuthorization::parse(scanner)?;
+                    let proxy_authorization = ProxyAuthorization::parse(bytes)?;
                     self.push(Header::ProxyAuthorization(proxy_authorization))
                 }
                 proxy_require if ProxyRequire::match_name(proxy_require) => {
-                    let proxy_require = ProxyRequire::parse(scanner)?;
+                    let proxy_require = ProxyRequire::parse(bytes)?;
                     self.push(Header::ProxyRequire(proxy_require))
                 }
                 reply_to if ReplyTo::match_name(reply_to) => {
-                    let reply_to = ReplyTo::parse(scanner)?;
+                    let reply_to = ReplyTo::parse(bytes)?;
                     self.push(Header::ReplyTo(reply_to))
                 }
                 content_length if ContentLength::match_name(content_length) => {
-                    let content_length = ContentLength::parse(scanner)?;
+                    let content_length = ContentLength::parse(bytes)?;
                     self.push(Header::ContentLength(content_length))
                 }
                 content_encoding
                     if ContentEncoding::match_name(content_encoding) =>
                 {
-                    let content_encoding = ContentEncoding::parse(scanner)?;
+                    let content_encoding = ContentEncoding::parse(bytes)?;
                     self.push(Header::ContentEncoding(content_encoding))
                 }
                 content_type if ContentType::match_name(content_type) => {
-                    let content_type = ContentType::parse(scanner)?;
+                    let content_type = ContentType::parse(bytes)?;
                     has_body = true;
                     self.push(Header::ContentType(content_type))
                 }
                 content_disposition
                     if ContentDisposition::match_name(content_disposition) =>
                 {
-                    let content_disposition =
-                        ContentDisposition::parse(scanner)?;
+                    let content_disposition = ContentDisposition::parse(bytes)?;
                     self.push(Header::ContentDisposition(content_disposition))
                 }
                 record_route if RecordRoute::match_name(record_route) => {
                     'rr: loop {
-                        let record_route = RecordRoute::parse(scanner)?;
+                        let record_route = RecordRoute::parse(bytes)?;
                         self.push(Header::RecordRoute(record_route));
-                        let Some(&b',') = scanner.peek() else {
+                        let Some(&b',') = bytes.peek() else {
                             break 'rr;
                         };
-                        scanner.next();
+                        bytes.next();
                     }
                 }
                 require if Require::match_name(require) => {
-                    let require = Require::parse(scanner)?;
+                    let require = Require::parse(bytes)?;
                     self.push(Header::Require(require))
                 }
                 retry_after if RetryAfter::match_name(retry_after) => {
-                    let retry_after = RetryAfter::parse(scanner)?;
+                    let retry_after = RetryAfter::parse(bytes)?;
                     self.push(Header::RetryAfter(retry_after))
                 }
                 organization if Organization::match_name(organization) => {
-                    let organization = Organization::parse(scanner)?;
+                    let organization = Organization::parse(bytes)?;
                     self.push(Header::Organization(organization))
                 }
                 accept_encoding
                     if AcceptEncoding::match_name(accept_encoding) =>
                 {
-                    let accept_encoding = AcceptEncoding::parse(scanner)?;
+                    let accept_encoding = AcceptEncoding::parse(bytes)?;
                     self.push(Header::AcceptEncoding(accept_encoding));
                 }
                 accept if Accept::match_name(accept) => {
-                    let accept = Accept::parse(scanner)?;
+                    let accept = Accept::parse(bytes)?;
                     self.push(Header::Accept(accept));
                 }
                 accept_language
                     if AcceptLanguage::match_name(accept_language) =>
                 {
-                    let accept_language = AcceptLanguage::parse(scanner)?;
+                    let accept_language = AcceptLanguage::parse(bytes)?;
                     self.push(Header::AcceptLanguage(accept_language));
                 }
                 alert_info if AlertInfo::match_name(alert_info) => {
-                    let alert_info = AlertInfo::parse(scanner)?;
+                    let alert_info = AlertInfo::parse(bytes)?;
                     self.push(Header::AlertInfo(alert_info));
                 }
                 allow if Allow::match_name(allow) => {
-                    let allow = Allow::parse(scanner)?;
+                    let allow = Allow::parse(bytes)?;
                     self.push(Header::Allow(allow));
                 }
                 auth_info if AuthenticationInfo::match_name(auth_info) => {
-                    let auth_info = AuthenticationInfo::parse(scanner)?;
+                    let auth_info = AuthenticationInfo::parse(bytes)?;
                     self.push(Header::AuthenticationInfo(auth_info));
                 }
                 supported if Supported::match_name(supported) => {
-                    let supported = Supported::parse(scanner)?;
+                    let supported = Supported::parse(bytes)?;
                     self.push(Header::Supported(supported));
                 }
                 timestamp if Timestamp::match_name(timestamp) => {
-                    let timestamp = Timestamp::parse(scanner)?;
+                    let timestamp = Timestamp::parse(bytes)?;
                     self.push(Header::Timestamp(timestamp));
                 }
                 user_agent if UserAgent::match_name(user_agent) => {
-                    let user_agent = UserAgent::parse(scanner)?;
+                    let user_agent = UserAgent::parse(bytes)?;
                     self.push(Header::UserAgent(user_agent));
                 }
                 unsupported if Unsupported::match_name(unsupported) => {
-                    let unsupported = Unsupported::parse(scanner)?;
+                    let unsupported = Unsupported::parse(bytes)?;
                     self.push(Header::Unsupported(unsupported));
                 }
                 www_authenticate
                     if WWWAuthenticate::match_name(www_authenticate) =>
                 {
-                    let www_authenticate = WWWAuthenticate::parse(scanner)?;
+                    let www_authenticate = WWWAuthenticate::parse(bytes)?;
                     self.push(Header::WWWAuthenticate(www_authenticate));
                 }
                 warning if Warning::match_name(warning) => {
-                    let warning = Warning::parse(scanner)?;
+                    let warning = Warning::parse(bytes)?;
                     self.push(Header::Warning(warning));
                 }
                 _ => {
-                    let value = until_newline!(scanner);
+                    let value = until_newline!(bytes);
                     let value = str::from_utf8(value)?;
 
                     self.push(Header::Other { name, value });
                 }
             };
-            newline!(scanner);
-            if !scanner.is_eof() {
+            newline!(bytes);
+            if !bytes.is_eof() {
                 continue;
             }
             break 'headers;
         }
 
         Ok(if has_body {
-            Some(remaing!(scanner))
+            Some(remaing!(bytes))
         } else {
             None
         })
@@ -545,17 +541,16 @@ pub enum Header<'a> {
     Other { name: &'a str, value: &'a str },
 }
 
-
 pub trait SipHeaderParser<'a>: Sized {
     const NAME: &'static [u8];
     const SHORT_NAME: Option<&'static [u8]> = None;
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self>;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self>;
 
     fn from_bytes(src: &'a [u8]) -> Result<Self> {
-        let mut scanner = Scanner::new(src);
+        let mut bytes = Bytes::new(src);
 
-        Self::parse(&mut scanner)
+        Self::parse(&mut bytes)
     }
 
     #[inline]
@@ -564,38 +559,36 @@ pub trait SipHeaderParser<'a>: Sized {
             || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
     }
 
-    fn parse_auth_credential(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<Credential<'a>> {
-        let scheme = match scanner.peek() {
+    fn parse_auth_credential(bytes: &mut Bytes<'a>) -> Result<Credential<'a>> {
+        let scheme = match bytes.peek() {
             Some(b'"') => {
-                scanner.next();
-                let value = read_until_byte!(scanner, &b'"');
-                scanner.next();
+                bytes.next();
+                let value = read_until_byte!(bytes, &b'"');
+                bytes.next();
                 value
             }
             Some(_) => {
-                read_while!(scanner, is_token)
+                read_while!(bytes, is_token)
             }
             None => return sip_parse_error!("eof!"),
         };
 
         match scheme {
             b"Digest" => {
-                Ok(Credential::Digest(DigestCredential::parse(scanner)?))
+                Ok(Credential::Digest(DigestCredential::parse(bytes)?))
             }
             other => {
-                space!(scanner);
+                space!(bytes);
                 let other = std::str::from_utf8(other)?;
-                let name = parser::parse_token(scanner);
-                let val = parse_auth_param!(scanner);
+                let name = parser::parse_token(bytes);
+                let val = parse_auth_param!(bytes);
                 let mut params = Params::new();
                 params.set(name, val);
 
-                while let Some(b',') = scanner.peek() {
-                    space!(scanner);
-                    let name = parser::parse_token(scanner);
-                    let val = parse_auth_param!(scanner);
+                while let Some(b',') = bytes.peek() {
+                    space!(bytes);
+                    let name = parser::parse_token(bytes);
+                    let val = parse_auth_param!(bytes);
                     params.set(name, val);
                 }
 
@@ -607,39 +600,35 @@ pub trait SipHeaderParser<'a>: Sized {
         }
     }
 
-    fn parse_auth_challenge(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<Challenge<'a>> {
-        let scheme = match scanner.peek() {
+    fn parse_auth_challenge(bytes: &mut Bytes<'a>) -> Result<Challenge<'a>> {
+        let scheme = match bytes.peek() {
             Some(b'"') => {
-                scanner.next();
-                let value = read_until_byte!(scanner, &b'"');
-                scanner.next();
+                bytes.next();
+                let value = read_until_byte!(bytes, &b'"');
+                bytes.next();
                 value
             }
             Some(_) => {
-                read_while!(scanner, is_token)
+                read_while!(bytes, is_token)
             }
             None => return sip_parse_error!("eof!"),
         };
 
         match scheme {
-            b"Digest" => {
-                Ok(Challenge::Digest(DigestChallenge::parse(scanner)?))
-            }
+            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(bytes)?)),
             other => {
-                space!(scanner);
+                space!(bytes);
                 let other = std::str::from_utf8(other)?;
-                let name = parser::parse_token(scanner);
-                let val = parse_auth_param!(scanner);
+                let name = parser::parse_token(bytes);
+                let val = parse_auth_param!(bytes);
                 let mut params = Params::new();
                 params.set(name, val);
 
-                while let Some(b',') = scanner.peek() {
-                    space!(scanner);
+                while let Some(b',') = bytes.peek() {
+                    space!(bytes);
 
-                    let name = parser::parse_token(scanner);
-                    let val = parse_auth_param!(scanner);
+                    let name = parser::parse_token(bytes);
+                    let val = parse_auth_param!(bytes);
                     params.set(name, val);
                 }
 

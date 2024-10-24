@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::read_while,
     parser::{is_token, Result},
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -14,8 +14,8 @@ pub struct Priority<'a>(&'a str);
 impl<'a> SipHeaderParser<'a> for Priority<'a> {
     const NAME: &'static [u8] = b"Priority";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let priority = read_while!(scanner, is_token);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let priority = read_while!(bytes, is_token);
         let priority = unsafe { str::from_utf8_unchecked(priority) };
 
         Ok(Priority(priority))
@@ -29,8 +29,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"emergency\r\n";
-        let mut scanner = Scanner::new(src);
-        let priority = Priority::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let priority = Priority::parse(&mut bytes).unwrap();
 
         assert_eq!(priority, Priority("emergency"));
     }

@@ -1,4 +1,4 @@
-use crate::{headers::SipHeaderParser, parser::Result, scanner::Scanner};
+use crate::{bytes::Bytes, headers::SipHeaderParser, parser::Result};
 
 use super::proxy_authenticate::Challenge;
 
@@ -8,8 +8,8 @@ pub struct WWWAuthenticate<'a>(Challenge<'a>);
 impl<'a> SipHeaderParser<'a> for WWWAuthenticate<'a> {
     const NAME: &'static [u8] = b"WWW-Authenticate";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let challenge = Self::parse_auth_challenge(scanner)?;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let challenge = Self::parse_auth_challenge(bytes)?;
 
         Ok(WWWAuthenticate(challenge))
     }
@@ -25,8 +25,8 @@ mod tests {
         domain=\"sip:boxesbybob.com\", qop=\"auth\",\
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\",\
         opaque=\"\", stale=FALSE, algorithm=MD5";
-        let mut scanner = Scanner::new(src);
-        let www_auth = WWWAuthenticate::parse(&mut scanner);
+        let mut bytes = Bytes::new(src);
+        let www_auth = WWWAuthenticate::parse(&mut bytes);
         let www_auth = www_auth.unwrap();
 
         assert_matches!(www_auth.0, Challenge::Digest(digest) => {

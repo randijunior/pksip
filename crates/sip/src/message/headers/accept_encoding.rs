@@ -1,10 +1,10 @@
 use std::str;
 
 use crate::{
+    bytes::Bytes,
     headers::{self, Q_PARAM},
     macros::{parse_header_param, space},
     parser::{self, is_token, Result},
-    scanner::Scanner,
     uri::Params,
     util::is_newline,
 };
@@ -19,11 +19,11 @@ pub struct Coding<'a> {
 }
 
 impl<'a> Coding<'a> {
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        space!(scanner);
-        let coding = parser::parse_token(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        space!(bytes);
+        let coding = parser::parse_token(bytes);
         let mut q_param = None;
-        let param = parse_header_param!(scanner, Q_PARAM = q_param);
+        let param = parse_header_param!(bytes, Q_PARAM = q_param);
         let q = q_param.and_then(|q| headers::parse_q(Some(q)));
 
         Ok(Coding { coding, q, param })
@@ -50,19 +50,19 @@ impl<'a> AcceptEncoding<'a> {
 impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
     const NAME: &'static [u8] = b"Accept-Encoding";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        space!(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        space!(bytes);
 
-        if scanner.peek().is_some_and(|b| is_newline(b)) {
+        if bytes.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }
         let mut codings: Vec<Coding> = Vec::new();
-        let coding = Coding::parse(scanner)?;
+        let coding = Coding::parse(bytes)?;
         codings.push(coding);
 
-        while let Some(b',') = scanner.peek() {
-            scanner.next();
-            let coding = Coding::parse(scanner)?;
+        while let Some(b',') = bytes.peek() {
+            bytes.next();
+            let coding = Coding::parse(bytes)?;
             codings.push(coding);
         }
 
@@ -77,11 +77,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"compress, gzip\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_encoding = AcceptEncoding::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let accept_encoding = AcceptEncoding::parse(&mut bytes).unwrap();
 
         assert!(accept_encoding.len() == 2);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "compress");
@@ -93,10 +93,10 @@ mod tests {
         assert_eq!(coding.q, None);
         assert_eq!(coding.param, None);
 
-        let mut scanner = Scanner::new(b"*\r\n");
-        let accept_encoding = AcceptEncoding::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(b"*\r\n");
+        let accept_encoding = AcceptEncoding::parse(&mut bytes).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "*");
@@ -104,11 +104,11 @@ mod tests {
         assert_eq!(coding.param, None);
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_encoding = AcceptEncoding::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let accept_encoding = AcceptEncoding::parse(&mut bytes).unwrap();
 
         assert!(accept_encoding.len() == 3);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "gzip");

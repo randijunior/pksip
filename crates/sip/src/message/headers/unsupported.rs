@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::{read_while, space},
     parser::{self, is_token, Result},
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -14,15 +14,15 @@ pub struct Unsupported<'a>(Vec<&'a str>);
 impl<'a> SipHeaderParser<'a> for Unsupported<'a> {
     const NAME: &'static [u8] = b"Unsupported";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let tag = parser::parse_token(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let tag = parser::parse_token(bytes);
         let mut tags = vec![tag];
 
-        while let Some(b',') = scanner.peek() {
-            let tag = read_while!(scanner, is_token);
+        while let Some(b',') = bytes.peek() {
+            let tag = read_while!(bytes, is_token);
             let tag = unsafe { str::from_utf8_unchecked(tag) };
             tags.push(tag);
-            space!(scanner);
+            space!(bytes);
         }
 
         Ok(Unsupported(tags))

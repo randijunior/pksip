@@ -9,14 +9,12 @@ pub(crate) use scheme::Scheme;
 pub(crate) use user::UserInfo;
 
 use crate::{
-    macros::{
-        b_map, read_until_byte,sip_parse_error, space,
-    },
+    bytes::Bytes,
+    macros::{b_map, read_until_byte, sip_parse_error, space},
     parser::{
-        self, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST,
-        PASS, UNRESERVED, USER_UNRESERVED,
+        self, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS,
+        UNRESERVED, USER_UNRESERVED,
     },
-    scanner::Scanner,
 };
 
 mod host;
@@ -136,28 +134,28 @@ pub enum SipUri<'a> {
 
 impl<'a> SipUri<'a> {
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        bytes: &mut Bytes<'a>,
     ) -> Result<SipUri<'a>, SipParserError> {
-        space!(scanner);
-        let peeked = scanner.peek();
+        space!(bytes);
+        let peeked = bytes.peek();
 
         match peeked {
             // Nameaddr with quoted display name
             Some(b'"') => {
-                scanner.next();
-                let display = read_until_byte!(scanner, &b'"');
-                scanner.next();
+                bytes.next();
+                let display = read_until_byte!(bytes, &b'"');
+                bytes.next();
                 let display = str::from_utf8(display)?;
 
-                space!(scanner);
+                space!(bytes);
 
                 // must be an '<'
-                let Some(&b'<') = scanner.next() else {
+                let Some(&b'<') = bytes.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
-                let uri = Uri::parse(scanner, true)?;
+                let uri = Uri::parse(bytes, true)?;
                 // must be an '>'
-                let Some(&b'>') = scanner.next() else {
+                let Some(&b'>') = bytes.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
 
@@ -168,35 +166,35 @@ impl<'a> SipUri<'a> {
             }
             // NameAddr without display name
             Some(&b'<') => {
-                scanner.next();
-                let uri = Uri::parse(scanner, true)?;
-                scanner.next();
+                bytes.next();
+                let uri = Uri::parse(bytes, true)?;
+                bytes.next();
 
                 Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
             }
             // SipUri
             Some(_)
                 if matches!(
-                    scanner.peek_n(3),
+                    bytes.peek_n(3),
                     Some(SCHEME_SIP) | Some(SCHEME_SIPS)
                 ) =>
             {
-                let uri = Uri::parse(scanner, false)?;
+                let uri = Uri::parse(bytes, false)?;
                 Ok(SipUri::Uri(uri))
             }
             // Nameaddr with unquoted display name
             Some(_) => {
-                let display = parser::parse_token(scanner);
+                let display = parser::parse_token(bytes);
 
-                space!(scanner);
+                space!(bytes);
 
                 // must be an '<'
-                let Some(&b'<') = scanner.next() else {
+                let Some(&b'<') = bytes.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
-                let uri = Uri::parse(scanner, true)?;
+                let uri = Uri::parse(bytes, true)?;
                 // must be an '>'
-                let Some(&b'>') = scanner.next() else {
+                let Some(&b'>') = bytes.next() else {
                     return sip_parse_error!("Invalid name addr!");
                 };
 
@@ -214,18 +212,18 @@ impl<'a> SipUri<'a> {
 
 impl<'a> Uri<'a> {
     fn parse_uri_param(
-        scanner: &mut Scanner<'a>,
+        bytes: &mut Bytes<'a>,
     ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>), SipParserError>
     {
-        if scanner.peek() == Some(&b';') {
+        if bytes.peek() == Some(&b';') {
             let mut others = Params::new();
             let mut uri_params = UriParams::default();
-            while let Some(&b';') = scanner.peek() {
-                scanner.next();
-                let name = parser::parse_token(scanner);
-                let value = if scanner.peek() == Some(&b'=') {
-                    scanner.next();
-                    let value = parser::parse_slice_utf8(scanner, is_param);
+            while let Some(&b';') = bytes.peek() {
+                bytes.next();
+                let name = parser::parse_token(bytes);
+                let value = if bytes.peek() == Some(&b'=') {
+                    bytes.next();
+                    let value = parser::parse_slice_utf8(bytes, is_param);
                     Some(value)
                 } else {
                     None
@@ -256,15 +254,15 @@ impl<'a> Uri<'a> {
     }
 
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        bytes: &mut Bytes<'a>,
         parse_params: bool,
     ) -> Result<Self, SipParserError> {
-        let scheme = Scheme::parse(scanner)?;
+        let scheme = Scheme::parse(bytes)?;
         // take ':'
-        scanner.next();
+        bytes.next();
 
-        let user = UserInfo::parse(scanner)?;
-        let host = HostPort::parse(scanner)?;
+        let user = UserInfo::parse(bytes)?;
+        let host = HostPort::parse(bytes)?;
 
         if !parse_params {
             return Ok(Uri {
@@ -276,24 +274,24 @@ impl<'a> Uri<'a> {
                 header_params: None,
             });
         }
-        let (params, other_params) = Self::parse_uri_param(scanner)?;
+        let (params, other_params) = Self::parse_uri_param(bytes)?;
 
         let mut header_params = None;
-        if scanner.peek() == Some(&b'?') {
+        if bytes.peek() == Some(&b'?') {
             let mut params = Params::new();
             loop {
                 // take '?' or '&'
-                scanner.next();
-                let name = parser::parse_slice_utf8(scanner, is_hdr);
-                let value = if scanner.peek() == Some(&b'=') {
-                    scanner.next();
-                    let value = parser::parse_slice_utf8(scanner, is_hdr);
+                bytes.next();
+                let name = parser::parse_slice_utf8(bytes, is_hdr);
+                let value = if bytes.peek() == Some(&b'=') {
+                    bytes.next();
+                    let value = parser::parse_slice_utf8(bytes, is_hdr);
                     Some(value)
                 } else {
                     None
                 };
                 params.set(name, value);
-                if scanner.peek() != Some(&b'&') {
+                if bytes.peek() != Some(&b'&') {
                     break;
                 }
             }

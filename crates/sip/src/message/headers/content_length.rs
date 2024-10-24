@@ -1,10 +1,10 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     headers::Header,
     macros::{digits, sip_parse_error},
     parser::Result,
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -22,8 +22,8 @@ impl<'a> SipHeaderParser<'a> for ContentLength {
     const NAME: &'static [u8] = b"Content-Length";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"l");
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let digits = digits!(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let digits = digits!(bytes);
         let digits = unsafe { str::from_utf8_unchecked(digits) };
         if let Ok(cl) = digits.parse() {
             Ok(ContentLength(cl))
@@ -33,17 +33,16 @@ impl<'a> SipHeaderParser<'a> for ContentLength {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn test_parse() {
         let src = b"349\r\n";
-        let mut scanner = Scanner::new(src);
-        let c_length = ContentLength::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let c_length = ContentLength::parse(&mut bytes).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(c_length, ContentLength(349))
     }
 }

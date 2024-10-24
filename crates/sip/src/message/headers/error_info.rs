@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::{parse_header_param, read_while, sip_parse_error, space},
     parser::{is_token, Result},
-    scanner::Scanner,
     uri::{is_uri, Params},
 };
 
@@ -22,23 +22,23 @@ pub struct ErrorUri<'a> {
 }
 
 impl<'a> ErrorUri<'a> {
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         // must be an '<'
-        let Some(&b'<') = scanner.next() else {
+        let Some(&b'<') = bytes.next() else {
             return sip_parse_error!("Invalid uri!");
         };
-        let scheme = read_while!(scanner, is_token);
+        let scheme = read_while!(bytes, is_token);
         let scheme = unsafe { str::from_utf8_unchecked(scheme) };
-        let Some(&b':') = scanner.next() else {
+        let Some(&b':') = bytes.next() else {
             return sip_parse_error!("Invalid uri!");
         };
-        let content = read_while!(scanner, is_uri);
+        let content = read_while!(bytes, is_uri);
         let content = unsafe { str::from_utf8_unchecked(content) };
         // must be an '>'
-        let Some(&b'>') = scanner.next() else {
+        let Some(&b'>') = bytes.next() else {
             return sip_parse_error!("Invalid uri!");
         };
-        let params = parse_header_param!(scanner);
+        let params = parse_header_param!(bytes);
 
         Ok(ErrorUri {
             url: GenericUri { scheme, content },
@@ -52,16 +52,16 @@ pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
     const NAME: &'static [u8] = b"Error-Info";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut infos: Vec<ErrorUri> = Vec::new();
-        let uri = ErrorUri::parse(scanner)?;
+        let uri = ErrorUri::parse(bytes)?;
         infos.push(uri);
 
-        while let Some(b',') = scanner.peek() {
-            scanner.next();
-            let uri = ErrorUri::parse(scanner)?;
+        while let Some(b',') = bytes.peek() {
+            bytes.next();
+            let uri = ErrorUri::parse(bytes)?;
             infos.push(uri);
-            space!(scanner);
+            space!(bytes);
         }
 
         Ok(ErrorInfo(infos))
@@ -75,9 +75,9 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:not-in-service-recording@atlanta.com>\r\n";
-        let mut scanner = Scanner::new(src);
-        let err_info = ErrorInfo::parse(&mut scanner).unwrap();
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        let mut bytes = Bytes::new(src);
+        let err_info = ErrorInfo::parse(&mut bytes).unwrap();
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let err = err_info.0.get(0).unwrap();
         assert_eq!(err.url.scheme, "sip");

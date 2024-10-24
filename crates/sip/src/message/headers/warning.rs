@@ -18,16 +18,16 @@ impl<'a> SipHeaderParser<'a> for Warning<'a> {
     const NAME: &'static [u8] = b"Warning";
 
     fn parse(
-        scanner: &mut crate::scanner::Scanner<'a>,
+        bytes: &mut crate::bytes::Bytes<'a>,
     ) -> crate::parser::Result<Self> {
-        let code = digits!(scanner);
+        let code = digits!(bytes);
         let code = unsafe { str::from_utf8_unchecked(code) };
         if let Ok(code) = code.parse::<u32>() {
-            space!(scanner);
-            let host = read_while!(scanner, is_host);
+            space!(bytes);
+            let host = read_while!(bytes, is_host);
             let host = unsafe { str::from_utf8_unchecked(host) };
-            if let Ok(Some(b'"')) = scanner.read_if(|b| b == &b'"') {
-                let text = read_until_byte!(scanner, &b'"');
+            if let Ok(Some(b'"')) = bytes.read_if(|b| b == &b'"') {
+                let text = read_until_byte!(bytes, &b'"');
                 let text = unsafe { str::from_utf8_unchecked(text) };
 
                 Ok(Warning { code, host, text })

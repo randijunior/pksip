@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::space,
     parser::{self, Result},
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -13,16 +13,16 @@ pub struct Require<'a>(Vec<&'a str>);
 impl<'a> SipHeaderParser<'a> for Require<'a> {
     const NAME: &'static [u8] = b"Require";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let tag = parser::parse_token(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let tag = parser::parse_token(bytes);
         let mut tags = vec![tag];
 
-        while let Some(b',') = scanner.peek() {
-            scanner.next();
-            space!(scanner);
-            let tag = parser::parse_token(scanner);
+        while let Some(b',') = bytes.peek() {
+            bytes.next();
+            space!(bytes);
+            let tag = parser::parse_token(bytes);
             tags.push(tag);
-            space!(scanner);
+            space!(bytes);
         }
 
         Ok(Require(tags))
@@ -36,8 +36,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"100rel\r\n";
-        let mut scanner = Scanner::new(src);
-        let require = Require::parse(&mut scanner);
+        let mut bytes = Bytes::new(src);
+        let require = Require::parse(&mut bytes);
         let require = require.unwrap();
 
         assert_eq!(require, Require(vec!["100rel"]));

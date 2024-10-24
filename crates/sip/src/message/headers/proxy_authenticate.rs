@@ -1,7 +1,7 @@
 use crate::{
+    bytes::Bytes,
     macros::{parse_auth_param, read_while, space},
     parser::{self, is_token, Result},
-    scanner::Scanner,
     uri::Params,
 };
 
@@ -32,25 +32,25 @@ pub struct DigestChallenge<'a> {
 }
 
 impl<'a> DigestChallenge<'a> {
-    pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut digest = Self::default();
         loop {
-            space!(scanner);
-            match parser::parse_token(scanner) {
-                "realm" => digest.realm = parse_auth_param!(scanner),
-                "nonce" => digest.nonce = parse_auth_param!(scanner),
-                "domain" => digest.domain = parse_auth_param!(scanner),
-                "algorithm" => digest.algorithm = parse_auth_param!(scanner),
-                "opaque" => digest.opaque = parse_auth_param!(scanner),
-                "qop" => digest.qop = parse_auth_param!(scanner),
-                "stale" => digest.stale = parse_auth_param!(scanner),
+            space!(bytes);
+            match parser::parse_token(bytes) {
+                "realm" => digest.realm = parse_auth_param!(bytes),
+                "nonce" => digest.nonce = parse_auth_param!(bytes),
+                "domain" => digest.domain = parse_auth_param!(bytes),
+                "algorithm" => digest.algorithm = parse_auth_param!(bytes),
+                "opaque" => digest.opaque = parse_auth_param!(bytes),
+                "qop" => digest.qop = parse_auth_param!(bytes),
+                "stale" => digest.stale = parse_auth_param!(bytes),
                 other => {
-                    digest.param.set(other, parse_auth_param!(scanner));
+                    digest.param.set(other, parse_auth_param!(bytes));
                 }
             };
 
-            if let Some(&b',') = scanner.peek() {
-                scanner.next();
+            if let Some(&b',') = bytes.peek() {
+                bytes.next();
             } else {
                 break;
             }
@@ -70,8 +70,8 @@ pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 impl<'a> SipHeaderParser<'a> for ProxyAuthenticate<'a> {
     const NAME: &'static [u8] = b"Proxy-Authenticate";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let challenge = Self::parse_auth_challenge(scanner)?;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let challenge = Self::parse_auth_challenge(bytes)?;
 
         Ok(ProxyAuthenticate(challenge))
     }
@@ -87,8 +87,8 @@ mod tests {
         domain=\"sip:ss1.carrier.com\", qop=\"auth\", \
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\", \
         opaque=\"\", stale=FALSE, algorithm=MD5\r\n";
-        let mut scanner = Scanner::new(src);
-        let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let proxy_auth = ProxyAuthenticate::parse(&mut bytes).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest(digest) => {
             assert_eq!(digest.realm, Some("atlanta.com"));

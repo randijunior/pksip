@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::read_while,
     parser::Result,
-    scanner::Scanner,
     util::{is_float, is_newline},
 };
 
@@ -18,11 +18,11 @@ pub struct Timestamp<'a> {
 impl<'a> SipHeaderParser<'a> for Timestamp<'a> {
     const NAME: &'static [u8] = b"Timestamp";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let time = read_while!(scanner, is_float);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let time = read_while!(bytes, is_float);
         let time = unsafe { str::from_utf8_unchecked(time) };
-        let delay = if scanner.peek().is_some_and(|b| !is_newline(b)) {
-            let delay = read_while!(scanner, is_float);
+        let delay = if bytes.peek().is_some_and(|b| !is_newline(b)) {
+            let delay = read_while!(bytes, is_float);
             Some(unsafe { str::from_utf8_unchecked(delay) })
         } else {
             None
@@ -38,8 +38,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"54\r\n";
-        let mut scanner = Scanner::new(src);
-        let timestamp = Timestamp::parse(&mut scanner);
+        let mut bytes = Bytes::new(src);
+        let timestamp = Timestamp::parse(&mut bytes);
         let timestamp = timestamp.unwrap();
 
         assert_eq!(

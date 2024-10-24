@@ -1,9 +1,9 @@
 use core::str;
 
 use crate::{
+    bytes::Bytes,
     macros::space,
     parser::{self, Result},
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeaderParser;
@@ -14,16 +14,16 @@ impl<'a> SipHeaderParser<'a> for Supported<'a> {
     const NAME: &'static [u8] = b"Supported";
     const SHORT_NAME: Option<&'static [u8]> = Some(b"k");
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let tag = parser::parse_token(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let tag = parser::parse_token(bytes);
         let mut tags = vec![tag];
 
-        while let Some(b',') = scanner.peek() {
-            scanner.next();
-            space!(scanner);
-            let tag = parser::parse_token(scanner);
+        while let Some(b',') = bytes.peek() {
+            bytes.next();
+            space!(bytes);
+            let tag = parser::parse_token(bytes);
             tags.push(tag);
-            space!(scanner);
+            space!(bytes);
         }
 
         Ok(Supported(tags))
@@ -37,11 +37,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"100rel, other\r\n";
-        let mut scanner = Scanner::new(src);
-        let supported = Supported::parse(&mut scanner);
+        let mut bytes = Bytes::new(src);
+        let supported = Supported::parse(&mut bytes);
         let supported = supported.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(supported, Supported(vec!["100rel", "other"]));
     }
 }

@@ -1,8 +1,8 @@
 use crate::{
+    bytes::Bytes,
     headers::{self, Q_PARAM},
     macros::{parse_header_param, read_while, space},
     parser::{self, Result},
-    scanner::Scanner,
     uri::Params,
     util::is_alphabetic,
 };
@@ -17,13 +17,13 @@ pub struct Language<'a> {
 }
 
 impl<'a> Language<'a> {
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        space!(scanner);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        space!(bytes);
         let is_lang =
             |byte: &u8| byte == &b'*' || byte == &b'-' || is_alphabetic(byte);
-        let language = parser::parse_slice_utf8(scanner, is_lang);
+        let language = parser::parse_slice_utf8(bytes, is_lang);
         let mut q_param = None;
-        let param = parse_header_param!(scanner, Q_PARAM = q_param);
+        let param = parse_header_param!(bytes, Q_PARAM = q_param);
         let q = q_param.and_then(|q| headers::parse_q(Some(q)));
 
         Ok(Language { language, q, param })
@@ -46,18 +46,18 @@ impl<'a> AcceptLanguage<'a> {
 impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
     const NAME: &'static [u8] = b"Accept-Language";
 
-    fn parse(scanner: &mut Scanner<'a>) -> crate::parser::Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> crate::parser::Result<Self> {
         let mut languages: Vec<Language> = Vec::new();
-        space!(scanner);
+        space!(bytes);
 
-        let lang = Language::parse(scanner)?;
+        let lang = Language::parse(bytes)?;
         languages.push(lang);
 
-        while let Some(b',') = scanner.peek() {
-            scanner.next();
-            let lang = Language::parse(scanner)?;
+        while let Some(b',') = bytes.peek() {
+            bytes.next();
+            let lang = Language::parse(bytes)?;
             languages.push(lang);
-            space!(scanner);
+            space!(bytes);
         }
 
         Ok(AcceptLanguage(languages))
@@ -71,11 +71,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"en\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_language = AcceptLanguage::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let accept_language = AcceptLanguage::parse(&mut bytes).unwrap();
 
         assert!(accept_language.len() == 1);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
         assert_eq!(lang.language, "en");
@@ -83,11 +83,11 @@ mod tests {
         assert_eq!(lang.param, None);
 
         let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_language = AcceptLanguage::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let accept_language = AcceptLanguage::parse(&mut bytes).unwrap();
 
         assert!(accept_language.len() == 3);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
         assert_eq!(lang.language, "da");
@@ -105,11 +105,11 @@ mod tests {
         assert_eq!(lang.param, None);
 
         let src = b"*\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_language = AcceptLanguage::parse(&mut scanner).unwrap();
+        let mut bytes = Bytes::new(src);
+        let accept_language = AcceptLanguage::parse(&mut bytes).unwrap();
 
         assert!(accept_language.len() == 1);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(bytes.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
         assert_eq!(lang.language, "*");
