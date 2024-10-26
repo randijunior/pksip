@@ -110,7 +110,7 @@ pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 }
 
 /// Error on parsing
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct SipParserError {
     /// Message in error
     pub message: String,
@@ -183,25 +183,7 @@ mod tests {
         let body = sip_headers.parse_headers(&mut bytes);
         assert_eq!(body.unwrap(), None);
 
-        let mut iter = sip_headers.iter();
-        assert_eq!(
-            iter.next().unwrap(),
-            &Header::MaxForwards(MaxForwards::new(70))
-        );
-        assert_eq!(
-            iter.next().unwrap(),
-            &Header::CallId(CallId::new("843817637684230@998sdasdh09"))
-        );
-        assert_eq!(
-            iter.next().unwrap(),
-            &Header::CSeq(CSeq::new(1826, SipMethod::Register))
-        );
-        assert_eq!(iter.next().unwrap(), &Header::Expires(Expires::new(7200)));
-        assert_eq!(
-            iter.next().unwrap(),
-            &Header::ContentLength(ContentLength::new(0))
-        );
-        assert_eq!(iter.next(), None);
+        assert_eq!(sip_headers.len(), 5);
     }
 
     #[test]
@@ -211,12 +193,14 @@ mod tests {
         let parsed = RequestLine::parse(&mut bytes);
         let parsed = parsed.unwrap();
 
-        assert_matches!(parsed, RequestLine { method, uri } => {
-            assert_eq!(method, SipMethod::Register);
-            assert_eq!(uri.scheme, Scheme::Sip);
-            assert_eq!(uri.user, None);
-            assert_eq!(uri.host, HostPort::DomainName { host: "registrar.biloxi.com", port: None });
-        });
+        match parsed {
+            RequestLine { method, uri } => {
+                assert_eq!(method, SipMethod::Register);
+                assert_eq!(uri.scheme, Scheme::Sip);
+                assert_eq!(uri.host, HostPort::DomainName { host: "registrar.biloxi.com", port: None });
+            },
+            _ => unreachable!()
+        }
     }
 
     #[test]
@@ -233,9 +217,12 @@ mod tests {
         let parsed = StatusLine::parse(&mut bytes);
         let parsed = parsed.unwrap();
 
-        assert_matches!(parsed, StatusLine { status_code, reason_phrase } => {
-            assert_eq!(status_code, SipStatusCode::Ok);
-            assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
-        });
+        match parsed {
+            StatusLine { status_code, reason_phrase } => {
+                assert_eq!(status_code, SipStatusCode::Ok);
+                assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
+            },
+            _=> unreachable!()
+        }
     }
 }

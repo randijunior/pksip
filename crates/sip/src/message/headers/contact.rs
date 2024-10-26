@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq)]
+
 pub enum Contact<'a> {
     Star,
     Uri {
@@ -58,41 +58,46 @@ mod tests {
         let src = b"\"Mr. Watson\" <sip:watson@worcester.bell-telephone.com> \
         ;q=0.7; expires=3600\r\n";
         let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let contact = Contact::parse(&mut bytes).unwrap();
 
-        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::NameAddr(addr), q, expires, param }) => {
-            assert_eq!(addr.display, Some("Mr. Watson"));
-            assert_eq!(addr.uri.user, Some(UserInfo { user: "watson", password: None }));
-            assert_eq!(addr.uri.host, HostPort::DomainName { host: "worcester.bell-telephone.com", port: None });
-            assert_eq!(addr.uri.scheme, Scheme::Sip);
-            assert_eq!(q, Some(0.7));
-            assert_eq!(expires, Some(3600));
-            assert_eq!(param, None);
-        });
-
-        let src = b"*\r\n";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
-
-        assert_matches!(contact, Ok(Contact::Star));
+        match contact {
+            Contact::Uri { uri: SipUri::NameAddr(addr), q, expires, param } => {
+                assert_eq!(addr.display, Some("Mr. Watson"));
+                assert_eq!(addr.uri.user.unwrap().user, "watson");
+                assert_eq!(addr.uri.host, HostPort::DomainName { host: "worcester.bell-telephone.com", port: None });
+                assert_eq!(addr.uri.scheme, Scheme::Sip);
+                assert_eq!(q, Some(0.7));
+                assert_eq!(expires, Some(3600));
+            }
+            _ => unreachable!()
+        };
 
         let src =
             b"\"Mr. Watson\" <mailto:watson@bell-telephone.com> ;q=0.1\r\n";
         let mut bytes = Bytes::new(src);
         let contact = Contact::parse(&mut bytes);
-        assert_matches!(contact, Err(err) => {
-            assert_eq!(err.message, "Unsupported URI scheme: mailto".to_string())
-        });
+
+        match contact {
+            Ok(_) => unreachable!(),
+            Err(err) =>  {
+                assert_eq!(err.message, "Unsupported URI scheme: mailto".to_string())
+            },
+        };
+
         assert_eq!(bytes.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
 
         let src = b"sip:caller@u1.example.com\r\n";
         let mut bytes = Bytes::new(src);
         let contact = Contact::parse(&mut bytes);
-        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
-            assert_eq!(uri.user, Some(UserInfo { user: "caller", password: None }));
-            assert_eq!(uri.host, HostPort::DomainName { host: "u1.example.com", port: None });
-            assert_eq!(uri.scheme, Scheme::Sip);
-        });
+
+        match contact {
+            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
+                assert_eq!(uri.user.unwrap().user, "caller");
+                assert_eq!(uri.host, HostPort::DomainName { host: "u1.example.com", port: None });
+                assert_eq!(uri.scheme, Scheme::Sip);
+            },
+            Err(_) | Ok(_) => unreachable!(),
+        };
     }
 
     #[test]
@@ -100,36 +105,50 @@ mod tests {
         let src = b"sip:192.168.1.1:5060";
         let mut bytes = Bytes::new(src);
         let contact = Contact::parse(&mut bytes);
-        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
-            assert_eq!(uri.host, HostPort::IpAddr {
-                host: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                port: Some(5060)
-            });
-            assert_eq!(uri.scheme, Scheme::Sip);
-        });
+
+        match contact {
+            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
+                assert_eq!(uri.host, HostPort::IpAddr {
+                    host: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                    port: Some(5060)
+                });
+                assert_eq!(uri.scheme, Scheme::Sip);
+            },
+            Err(_) | Ok(_) => unreachable!(),
+        };
+
         let src = b"sips:[2620:0:2ef0:7070:250:60ff:fe03:32b7]";
         let mut bytes = Bytes::new(src);
         let contact = Contact::parse(&mut bytes);
-        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
-            let addr: IpAddr = "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
-            assert_eq!(uri.host, HostPort::IpAddr {
-                host: addr,
-                port: None
-            });
-            assert_eq!(uri.scheme, Scheme::Sips);
-        });
+
+        match contact {
+            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
+                let addr: IpAddr = "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
+                assert_eq!(uri.host, HostPort::IpAddr {
+                    host: addr,
+                    port: None
+                });
+                assert_eq!(uri.scheme, Scheme::Sips);
+            },
+            Err(_) | Ok(_) => unreachable!(),
+        };
 
         let src = b"sip:thks.ashwin:pass@212.123.1.213\r\n";
         let mut bytes = Bytes::new(src);
         let contact = Contact::parse(&mut bytes);
 
-        assert_matches!(contact, Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) => {
-            assert_eq!(uri.host, HostPort::IpAddr {
-                host: IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213)),
-                port: None
-            });
-            assert_eq!(uri.scheme, Scheme::Sip);
-            assert_eq!(uri.user, Some(UserInfo { user: "thks.ashwin", password: Some("pass") }));
-        });
+        match contact {
+            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
+                assert_eq!(uri.host, HostPort::IpAddr {
+                    host: IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213)),
+                    port: None
+                });
+                assert_eq!(uri.scheme, Scheme::Sip);
+                let user = uri.user.unwrap();
+                assert_eq!(user.user, "thks.ashwin");
+                assert_eq!(user.password, Some("pass"));
+            },
+            Err(_) | Ok(_) => unreachable!(),
+        };
     }
 }

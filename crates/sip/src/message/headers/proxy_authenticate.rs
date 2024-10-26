@@ -19,7 +19,7 @@ use crate::headers::SipHeaderParser;
 
 
 */
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Default)]
 pub struct DigestChallenge<'a> {
     pub realm: Option<&'a str>,
     pub domain: Option<&'a str>,
@@ -45,7 +45,7 @@ impl<'a> DigestChallenge<'a> {
                 "qop" => digest.qop = parse_auth_param!(bytes),
                 "stale" => digest.stale = parse_auth_param!(bytes),
                 other => {
-                    digest.param.set(other, parse_auth_param!(bytes));
+                    digest.param.set(other, parse_auth_param!(bytes).unwrap_or(""));
                 }
             };
 
@@ -59,12 +59,12 @@ impl<'a> DigestChallenge<'a> {
         Ok(digest)
     }
 }
-#[derive(Debug, PartialEq, Eq)]
+
 pub enum Challenge<'a> {
     Digest(DigestChallenge<'a>),
     Other { scheme: &'a str, param: Params<'a> },
 }
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthenticate<'a> {
@@ -90,14 +90,17 @@ mod tests {
         let mut bytes = Bytes::new(src);
         let proxy_auth = ProxyAuthenticate::parse(&mut bytes).unwrap();
 
-        assert_matches!(proxy_auth.0, Challenge::Digest(digest) => {
-            assert_eq!(digest.realm, Some("atlanta.com"));
-            assert_eq!(digest.algorithm, Some("MD5"));
-            assert_eq!(digest.domain, Some("sip:ss1.carrier.com"));
-            assert_eq!(digest.qop, Some("auth"));
-            assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
-            assert_eq!(digest.opaque, Some(""));
-            assert_eq!(digest.stale, Some("FALSE"));
-        });
+        match proxy_auth.0 {
+            Challenge::Digest(digest) => {
+                assert_eq!(digest.realm, Some("atlanta.com"));
+                assert_eq!(digest.algorithm, Some("MD5"));
+                assert_eq!(digest.domain, Some("sip:ss1.carrier.com"));
+                assert_eq!(digest.qop, Some("auth"));
+                assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
+                assert_eq!(digest.opaque, Some(""));
+                assert_eq!(digest.stale, Some("FALSE"));
+            },
+            _ => unreachable!()
+        }
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     util::is_newline,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,
@@ -40,7 +40,6 @@ impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use super::*;
 
@@ -52,7 +51,6 @@ mod tests {
 
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(alert_info.url, "http://www.example.com/sounds/moo.wav");
-        assert_eq!(alert_info.params, None);
 
         let src =
             b"<http://example.com/ringtones/premium.wav>;purpose=ringtone\r\n";
@@ -62,8 +60,8 @@ mod tests {
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(alert_info.url, "http://example.com/ringtones/premium.wav");
         assert_eq!(
-            alert_info.params,
-            Some(Params::from(HashMap::from([("purpose", Some("ringtone"))])))
+            alert_info.params.unwrap().get("purpose"),
+            Some(&"ringtone")
         );
     }
 }

@@ -4,7 +4,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Date<'a> {

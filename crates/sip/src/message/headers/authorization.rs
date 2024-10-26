@@ -7,7 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Default)]
 pub struct DigestCredential<'a> {
     pub realm: Option<&'a str>,
     pub username: Option<&'a str>,
@@ -39,7 +39,7 @@ impl<'a> DigestCredential<'a> {
                 "qop" => digest.qop = parse_auth_param!(bytes),
                 "nc" => digest.nc = parse_auth_param!(bytes),
                 other => {
-                    digest.param.set(other, parse_auth_param!(bytes));
+                    digest.param.set(other, parse_auth_param!(bytes).unwrap_or(""));
                 }
             };
 
@@ -53,7 +53,7 @@ impl<'a> DigestCredential<'a> {
         Ok(digest)
     }
 }
-#[derive(Debug, PartialEq, Eq)]
+
 pub enum Credential<'a> {
     Digest(DigestCredential<'a>),
     Other { scheme: &'a str, param: Params<'a> },
@@ -89,7 +89,7 @@ other-response    =  auth-scheme LWS auth-param
 auth-scheme       =  token
 
 */
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Authorization<'a>(Credential<'a>);
 
 impl<'a> Authorization<'a> {
@@ -122,11 +122,20 @@ mod tests {
 
         assert_eq!(bytes.as_ref(), b"\r\n");
         let cred = auth.credential();
-        assert_matches!(cred, Credential::Digest(digest_credential) => {
-            assert_eq!(digest_credential.username, Some("Alice"));
-            assert_eq!(digest_credential.realm, Some("atlanta.com"));
-            assert_eq!(digest_credential.nonce, Some("84a4cc6f3082121f32b42a2187831a9e"));
-            assert_eq!(digest_credential.response, Some("7587245234b3434cc3412213e5f113a5432"));
-        });
+        let digest_credential = match cred {
+            Credential::Digest(digest_credential) => digest_credential,
+            _ => unreachable!("The credential is digest!"),
+        };
+
+        assert_eq!(digest_credential.username, Some("Alice"));
+        assert_eq!(digest_credential.realm, Some("atlanta.com"));
+        assert_eq!(
+            digest_credential.nonce,
+            Some("84a4cc6f3082121f32b42a2187831a9e")
+        );
+        assert_eq!(
+            digest_credential.response,
+            Some("7587245234b3434cc3412213e5f113a5432")
+        );
     }
 }

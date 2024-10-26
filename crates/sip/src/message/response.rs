@@ -9,7 +9,7 @@ use crate::{
 use super::{headers::Headers, SipStatusCode};
 
 /// Represents an SIP Status-Line
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct StatusLine<'sl> {
     // Status Code
     pub(crate) status_code: SipStatusCode,
@@ -53,7 +53,7 @@ impl<'a> StatusLine<'a> {
     }
 }
 
-#[derive(Debug)]
+
 pub struct SipResponse<'a> {
     pub(crate) st_line: StatusLine<'a>,
     pub(crate) headers: Headers<'a>,

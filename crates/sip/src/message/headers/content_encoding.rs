@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ContentEncoding<'a>(Vec<&'a str>);
 
 impl<'a> ContentEncoding<'a> {

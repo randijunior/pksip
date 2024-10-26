@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Default)]
 pub struct Params<'a> {
-    pub(crate) inner: HashMap<&'a str, Option<&'a str>>,
+    pub(crate) inner: HashMap<&'a str, &'a str>,
 }
 
-impl<'a> From<HashMap<&'a str, Option<&'a str>>> for Params<'a> {
-    fn from(value: HashMap<&'a str, Option<&'a str>>) -> Self {
+impl<'a> From<HashMap<&'a str, &'a str>> for Params<'a> {
+    fn from(value: HashMap<&'a str, &'a str>) -> Self {
         Self { inner: value }
     }
 }
@@ -21,9 +21,12 @@ impl<'a> Params<'a> {
     pub fn set(
         &mut self,
         k: &'a str,
-        v: Option<&'a str>,
-    ) -> Option<Option<&str>> {
+        v: &'a str,
+    ) -> Option<&str> {
         self.inner.insert(k, v)
+    }
+    pub fn get(&self, k: &'a str) -> Option<&&str>  {
+        self.inner.get(k)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -31,7 +34,7 @@ impl<'a> Params<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Default)]
 pub struct UriParams<'a> {
     pub(crate) user: Option<&'a str>,
     pub(crate) method: Option<&'a str>,

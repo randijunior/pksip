@@ -9,7 +9,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ContentLanguage<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ContentLanguage<'a> {
@@ -47,13 +47,15 @@ mod tests {
         let c_lang = ContentLanguage::parse(&mut bytes).unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(c_lang, ContentLanguage(vec!["fr"]));
+        assert_eq!(c_lang.0.get(0), Some(&"fr"));
 
         let src = b"fr, en\r\n";
         let mut bytes = Bytes::new(src);
         let c_lang = ContentLanguage::parse(&mut bytes).unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(c_lang, ContentLanguage(vec!["fr", "en"]));
+
+        assert_eq!(c_lang.0.get(0), Some(&"fr"));
+        assert_eq!(c_lang.0.get(1), Some(&"en"));
     }
 }

@@ -7,7 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Warning<'a> {
     code: u32,
     host: &'a str,

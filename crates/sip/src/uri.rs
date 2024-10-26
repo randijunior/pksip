@@ -107,7 +107,7 @@ Request-URI: The Request-URI is a SIP or SIPS URI as described in
 // struct sip_param/header_param optional
 // SIP URI: sip:user:password@host:port;uri-parameters?headers
 // SIPS URI: sips:user:password@host:port;uri-parameters?headers
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
     pub(crate) user: Option<UserInfo<'a>>,
@@ -120,13 +120,13 @@ pub struct Uri<'a> {
 //SIP name-addr, which typically appear in From, To, and Contact header.
 // display optional display part
 // Struct Uri uri
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct NameAddr<'a> {
     pub(crate) display: Option<&'a str>,
     pub(crate) uri: Uri<'a>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub enum SipUri<'a> {
     Uri(Uri<'a>),
     NameAddr(NameAddr<'a>),
@@ -236,7 +236,7 @@ impl<'a> Uri<'a> {
                     LR_PARAM => uri_params.lr = value,
                     MADDR_PARAM => uri_params.maddr = value,
                     _ => {
-                        others.set(name, value);
+                        others.set(name, value.unwrap_or(""));
                     }
                 }
             }
@@ -290,7 +290,7 @@ impl<'a> Uri<'a> {
                 } else {
                     None
                 };
-                params.set(name, value);
+                params.set(name, value.unwrap_or(""));
                 if bytes.peek() != Some(&b'&') {
                     break;
                 }

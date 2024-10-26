@@ -5,7 +5,7 @@ use crate::{
 use crate::headers::SipHeaderParser;
 
 use std::str;
-#[derive(Debug, PartialEq, Eq, Default)]
+
 pub struct CallId<'a>(&'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {

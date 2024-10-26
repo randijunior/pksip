@@ -9,7 +9,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct CSeq<'a> {
     cseq: i32,
     method: SipMethod<'a>,

@@ -12,7 +12,7 @@ use crate::{
 use super::{headers::Headers, SipMethod};
 
 /// Represents an SIP Request-Line
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct RequestLine<'a> {
     pub(crate) method: SipMethod<'a>,
     pub(crate) uri: Uri<'a>,
@@ -40,7 +40,7 @@ impl<'a> RequestLine<'a> {
     }
 }
 
-#[derive(Debug)]
+
 pub struct SipRequest<'a> {
     pub(crate) req_line: RequestLine<'a>,
     pub(crate) headers: Headers<'a>,

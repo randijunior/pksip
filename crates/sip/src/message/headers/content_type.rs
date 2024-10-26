@@ -9,7 +9,7 @@ use crate::{
 
 use super::accept::{MediaType, MimeType};
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeaderParser<'a> for ContentType<'a> {
@@ -36,10 +36,6 @@ impl<'a> SipHeaderParser<'a> for ContentType<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use crate::uri::Params;
-
     use super::*;
 
     #[test]
@@ -60,11 +56,8 @@ mod tests {
         assert_eq!(c_type.0.mimetype.mtype, "text");
         assert_eq!(c_type.0.mimetype.subtype, "html");
         assert_eq!(
-            c_type.0.param,
-            Some(Params::from(HashMap::from([(
-                "charset",
-                Some("ISO-8859-4")
-            )])))
+            c_type.0.param.unwrap().get("charset"),
+            Some(&"ISO-8859-4")
         );
     }
 }

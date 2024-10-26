@@ -12,7 +12,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct RetryAfter<'a> {
     seconds: u32,
     param: Option<Params<'a>>,
@@ -56,7 +56,6 @@ impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use super::*;
 
@@ -70,8 +69,8 @@ mod tests {
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 18000);
         assert_eq!(
-            retry_after.param,
-            Some(Params::from(HashMap::from([("duration", Some("3600"))])))
+            retry_after.param.unwrap().get("duration"),
+            Some(&"3600")
         );
 
         let src = b"120 (I'm in a meeting)\r\n";

@@ -9,7 +9,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 use std::str;
-#[derive(Debug, PartialEq)]
+
 pub struct Language<'a> {
     language: &'a str,
     q: Option<f32>,
@@ -30,7 +30,7 @@ impl<'a> Language<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {
@@ -80,7 +80,6 @@ mod tests {
         let lang = accept_language.get(0).unwrap();
         assert_eq!(lang.language, "en");
         assert_eq!(lang.q, None);
-        assert_eq!(lang.param, None);
 
         let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
         let mut bytes = Bytes::new(src);
@@ -92,17 +91,14 @@ mod tests {
         let lang = accept_language.get(0).unwrap();
         assert_eq!(lang.language, "da");
         assert_eq!(lang.q, None);
-        assert_eq!(lang.param, None);
 
         let lang = accept_language.get(1).unwrap();
         assert_eq!(lang.language, "en-gb");
         assert_eq!(lang.q, Some(0.8));
-        assert_eq!(lang.param, None);
 
         let lang = accept_language.get(2).unwrap();
         assert_eq!(lang.language, "en");
         assert_eq!(lang.q, Some(0.7));
-        assert_eq!(lang.param, None);
 
         let src = b"*\r\n";
         let mut bytes = Bytes::new(src);
@@ -114,6 +110,5 @@ mod tests {
         let lang = accept_language.get(0).unwrap();
         assert_eq!(lang.language, "*");
         assert_eq!(lang.q, None);
-        assert_eq!(lang.param, None);
     }
 }

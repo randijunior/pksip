@@ -9,13 +9,13 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct GenericUri<'a> {
     scheme: &'a str,
     content: &'a str,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ErrorUri<'a> {
     url: GenericUri<'a>,
     params: Option<Params<'a>>,
@@ -46,7 +46,7 @@ impl<'a> ErrorUri<'a> {
         })
     }
 }
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 
 impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {

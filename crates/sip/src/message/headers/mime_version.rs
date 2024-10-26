@@ -33,6 +33,6 @@ mod tests {
         let mut bytes = Bytes::new(src);
         let mime_version = MimeVersion::parse(&mut bytes).unwrap();
 
-        assert_eq!(mime_version, MimeVersion(1.0));
+        assert_eq!(mime_version.0, 1.0);
     }
 }

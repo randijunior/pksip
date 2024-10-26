@@ -8,12 +8,18 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Expires(i32);
 
 impl Expires {
     pub fn new(expires: i32) -> Self {
         Self(expires)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut bytes = Bytes::new(bytes);
+
+        Self::parse(&mut bytes)
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Supported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Supported<'a> {
@@ -42,6 +42,7 @@ mod tests {
         let supported = supported.unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(supported, Supported(vec!["100rel", "other"]));
+        assert_eq!(supported.0.get(0), Some(&"100rel"));
+        assert_eq!(supported.0.get(1), Some(&"other"));
     }
 }

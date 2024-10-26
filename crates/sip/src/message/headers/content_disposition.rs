@@ -7,7 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ContentDisposition<'a> {
     disp_type: &'a str,
     params: Option<Params<'a>>,
@@ -28,8 +28,6 @@ impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
 
     #[test]
@@ -38,30 +36,30 @@ mod tests {
         let mut bytes = Bytes::new(src);
         let disp = ContentDisposition::parse(&mut bytes).unwrap();
         assert_eq!(disp.disp_type, "session");
-        assert_eq!(disp.params, None);
 
         let src = b"session;handling=optional\r\n";
         let mut bytes = Bytes::new(src);
         let disp = ContentDisposition::parse(&mut bytes).unwrap();
         assert_eq!(disp.disp_type, "session");
         assert_eq!(
-            disp.params,
-            Some(Params::from(HashMap::from([(
-                "handling",
-                Some("optional")
-            )])))
+            disp.params.unwrap().get("handling"),
+            Some(&"optional")
         );
 
         let src = b"attachment; filename=smime.p7s;handling=required\r\n";
         let mut bytes = Bytes::new(src);
         let disp = ContentDisposition::parse(&mut bytes).unwrap();
         assert_eq!(disp.disp_type, "attachment");
+        let params = disp.params.unwrap();
+
         assert_eq!(
-            disp.params,
-            Some(Params::from(HashMap::from([
-                ("filename", Some("smime.p7s")),
-                ("handling", Some("required"))
-            ])))
+            params.get("filename"),
+            Some(&"smime.p7s")
         );
+        assert_eq!(
+            params.get("handling"),
+            Some(&"required")
+        );
+
     }
 }

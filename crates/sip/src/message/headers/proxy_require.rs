@@ -7,7 +7,7 @@ use crate::{
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ProxyRequire<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ProxyRequire<'a> {
@@ -40,6 +40,8 @@ mod tests {
         let proxy_require = ProxyRequire::parse(&mut bytes).unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(proxy_require, ProxyRequire(vec!["foo", "bar"]));
+
+        assert_eq!(proxy_require.0.get(0), Some(&"foo"));
+        assert_eq!(proxy_require.0.get(1), Some(&"bar"));
     }
 }

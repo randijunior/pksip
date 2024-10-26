@@ -13,7 +13,7 @@ mod response;
 
 use std::str;
 
-#[derive(Debug)]
+
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),
     Response(SipResponse<'a>),

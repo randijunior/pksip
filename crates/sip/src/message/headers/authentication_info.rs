@@ -8,7 +8,7 @@ use crate::{
 use crate::headers::SipHeaderParser;
 
 use std::str;
-#[derive(Debug, PartialEq, Eq, Default)]
+
 pub struct AuthenticationInfo<'a> {
     nextnonce: Option<&'a str>,
     qop: Option<&'a str>,

@@ -7,7 +7,7 @@ use crate::{
 use crate::headers::SipHeaderParser;
 
 use std::str;
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct MaxForwards(u32);
 
 impl MaxForwards {
@@ -41,6 +41,6 @@ mod tests {
         let c_length = MaxForwards::parse(&mut bytes).unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(c_length, MaxForwards(6))
+        assert_eq!(c_length.0, 6)
     }
 }

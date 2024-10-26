@@ -4,7 +4,7 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Organization<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Organization<'a> {
@@ -26,8 +26,8 @@ mod tests {
     fn test_parse() {
         let src = b"Boxes by Bob\r\n";
         let mut bytes = Bytes::new(src);
-        let mime_version = Organization::parse(&mut bytes).unwrap();
+        let org = Organization::parse(&mut bytes).unwrap();
 
-        assert_eq!(mime_version, Organization("Boxes by Bob"));
+        assert_eq!(org.0, "Boxes by Bob");
     }
 }

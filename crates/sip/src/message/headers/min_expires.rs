@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct MinExpires(u32);
 
 impl<'a> SipHeaderParser<'a> for MinExpires {
@@ -33,6 +33,6 @@ mod tests {
         let mut bytes = Bytes::new(src);
         let mime_version = MinExpires::parse(&mut bytes).unwrap();
 
-        assert_eq!(mime_version, MinExpires(60));
+        assert_eq!(mime_version.0, 60);
     }
 }

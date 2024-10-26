@@ -9,7 +9,7 @@ use crate::{
 use crate::headers::SipHeaderParser;
 
 use std::str;
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,
@@ -31,7 +31,7 @@ impl<'a> SipHeaderParser<'a> for To<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::uri::{HostPort, Scheme, UserInfo};
+    use crate::uri::{HostPort, Scheme};
 
     use super::*;
 
@@ -42,12 +42,15 @@ mod tests {
         let to = To::parse(&mut bytes);
         let to = to.unwrap();
 
-        assert_matches!(to, To { uri: SipUri::NameAddr(addr), tag, .. } => {
-            assert_eq!(addr.uri.scheme, Scheme::Sip);
-            assert_eq!(addr.display, Some("Bob"));
-            assert_eq!(addr.uri.user, Some(UserInfo { user: "bob", password: None}));
-            assert_eq!(addr.uri.host, HostPort::DomainName { host: "biloxi.com", port: None });
-            assert_eq!(tag, Some("a6c85cf"));
-        });
+        match to {
+            To { uri: SipUri::NameAddr(addr), tag, .. } => {
+                assert_eq!(addr.uri.scheme, Scheme::Sip);
+                assert_eq!(addr.display, Some("Bob"));
+                assert_eq!(addr.uri.user.unwrap().user, "bob");
+                assert_eq!(addr.uri.host, HostPort::DomainName { host: "biloxi.com", port: None });
+                assert_eq!(tag, Some("a6c85cf"));
+            },
+            _=> unreachable!()
+        }
     }
 }

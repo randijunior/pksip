@@ -6,7 +6,7 @@ use crate::{
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Allow<'a>(Vec<SipMethod<'a>>);
 
 impl<'a> Allow<'a> {

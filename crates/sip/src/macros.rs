@@ -103,7 +103,7 @@ macro_rules! parse_header_param {
                             continue;
                         }
                     )*
-                    params.set(param.0, param.1);
+                    params.set(param.0, param.1.unwrap_or(""));
                 }
                 if params.is_empty() {
                     None

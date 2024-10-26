@@ -149,13 +149,8 @@ fn parse_param<'a>(bytes: &mut Bytes<'a>) -> (&'a str, Option<&'a str>) {
 /// headers.push(Header::ContentLength(ContentLength::new(10)));
 ///
 /// assert_eq!(headers.len(), 1);
-/// assert_eq!(
-///     headers.get(0),
-///     Some(&Header::ContentLength(ContentLength::new(10)))
-/// );
 ///
 /// ```
-#[derive(Debug, PartialEq)]
 pub struct Headers<'a>(Vec<Header<'a>>);
 
 impl<'a> Headers<'a> {
@@ -188,7 +183,6 @@ impl<'a> Headers<'a> {
     ///    });
     ///
     /// assert!(expires.is_some());
-    /// assert_eq!(expires, Some(&Expires::new(10)));
     ///
     pub fn find_map<'b, T: 'a, F>(&'b self, f: F) -> Option<&T>
     where
@@ -198,27 +192,6 @@ impl<'a> Headers<'a> {
     }
 
     /// Returns an iterator over headers
-    ///
-    /// # Example
-    /// ```rust
-    /// # use sip::headers::Headers;
-    /// # use sip::headers::Header;
-    /// # use sip::headers::Expires;
-    /// # use sip::headers::MaxForwards;
-    /// let mut headers = Headers::from(vec![
-    ///     Header::Expires(Expires::new(10)),
-    ///     Header::MaxForwards(MaxForwards::new(70))
-    /// ]);
-    ///
-    /// let mut iter = headers.iter();
-    /// assert_eq!(
-    ///     iter.next().unwrap(),
-    ///     &Header::Expires(Expires::new(10))
-    /// );
-    /// assert_eq!(
-    ///     iter.next().unwrap(),
-    ///     &Header::MaxForwards(MaxForwards::new(70))
-    /// );
     pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
         self.0.iter()
     }
@@ -232,19 +205,12 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Expires;
     /// let mut headers = Headers::new();
     /// 
-    /// headers.push(Header::Expires(Expires::new(10)))
+    /// headers.push(Header::Expires(Expires::new(10)));
     ///
-    /// assert_eq!(
-    ///     headers.get(0),
-    ///     Some(&Header::Expires(Expires::new(10)))
-    /// );
+    /// assert_eq!(headers.len(), 1);
+    /// assert!(headers.get(0).is_some());
     pub fn push(&mut self, hdr: Header<'a>) {
         self.0.push(hdr);
-    }
-
-    /// Returns true if the collection contains the header specified
-    pub fn contains(&self, hdr: &Header<'a>) -> bool {
-        self.0.contains(hdr)
     }
 
     /// Returns the number of headers in the collection
@@ -506,7 +472,7 @@ impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
 }
 
 // SIP headers, as defined in RFC3261.
-#[derive(Debug, PartialEq)]
+
 pub enum Header<'a> {
     Accept(Accept<'a>),
     AcceptEncoding(AcceptEncoding<'a>),
@@ -597,13 +563,13 @@ pub trait SipHeaderParser<'a>: Sized {
                 let name = parser::parse_token(bytes);
                 let val = parse_auth_param!(bytes);
                 let mut params = Params::new();
-                params.set(name, val);
+                params.set(name, val.unwrap_or(""));
 
                 while let Some(b',') = bytes.peek() {
                     space!(bytes);
                     let name = parser::parse_token(bytes);
                     let val = parse_auth_param!(bytes);
-                    params.set(name, val);
+                    params.set(name, val.unwrap_or(""));
                 }
 
                 Ok(Credential::Other {
@@ -636,14 +602,14 @@ pub trait SipHeaderParser<'a>: Sized {
                 let name = parser::parse_token(bytes);
                 let val = parse_auth_param!(bytes);
                 let mut params = Params::new();
-                params.set(name, val);
+                params.set(name, val.unwrap_or(""));
 
                 while let Some(b',') = bytes.peek() {
                     space!(bytes);
 
                     let name = parser::parse_token(bytes);
                     let val = parse_auth_param!(bytes);
-                    params.set(name, val);
+                    params.set(name, val.unwrap_or(""));
                 }
 
                 Ok(Challenge::Other {

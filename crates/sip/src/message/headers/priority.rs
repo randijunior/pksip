@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Priority<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Priority<'a> {
@@ -32,6 +32,6 @@ mod tests {
         let mut bytes = Bytes::new(src);
         let priority = Priority::parse(&mut bytes).unwrap();
 
-        assert_eq!(priority, Priority("emergency"));
+        assert_eq!(priority.0, "emergency");
     }
 }

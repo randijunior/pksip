@@ -2,14 +2,13 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    headers::Header,
     macros::{digits, sip_parse_error},
     parser::Result,
 };
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct ContentLength(u32);
 
 impl ContentLength {
@@ -43,6 +42,6 @@ mod tests {
         let c_length = ContentLength::parse(&mut bytes).unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(c_length, ContentLength(349))
+        assert_eq!(c_length.0, 349)
     }
 }

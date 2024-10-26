@@ -7,7 +7,7 @@ use crate::{
 };
 
 use crate::headers::SipHeaderParser;
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Require<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Require<'a> {
@@ -40,6 +40,6 @@ mod tests {
         let require = Require::parse(&mut bytes);
         let require = require.unwrap();
 
-        assert_eq!(require, Require(vec!["100rel"]));
+        assert_eq!(require.0.get(0), Some(&"100rel"));
     }
 }

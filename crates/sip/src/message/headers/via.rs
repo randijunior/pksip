@@ -45,7 +45,7 @@ fn is_via_param(b: &u8) -> bool {
     VIA_PARAM_SPEC_MAP[*b as usize]
 }
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Default)]
 pub struct ViaParams<'a> {
     ttl: Option<&'a str>,
     maddr: Option<&'a str>,
@@ -78,7 +78,7 @@ impl<'a> ViaParams<'a> {
 }
 
 // SIP Via Header
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct Via<'a> {
     pub(crate) transport: Transport,
     pub(crate) sent_by: HostPort<'a>,
@@ -127,7 +127,7 @@ impl<'a> Via<'a> {
                     }
                 }
                 _ => {
-                    others.set(name, Some(value));
+                    others.set(name, value);
                 }
             }
             space!(bytes);

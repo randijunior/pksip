@@ -17,7 +17,7 @@ info        =  LAQUOT absoluteURI RAQUOT *( SEMI info-param)
 info-param  =  ( "purpose" EQUAL ( "icon" / "info"
                / "card" / token ) ) / generic-param
 */
-#[derive(Debug, PartialEq, Eq)]
+
 pub struct CallInfo<'a> {
     url: &'a str,
     purpose: Option<&'a str>,
