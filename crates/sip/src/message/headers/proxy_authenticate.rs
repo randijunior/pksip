@@ -1,8 +1,5 @@
 use crate::{
-    bytes::Bytes,
-    macros::{parse_auth_param, read_while, space},
-    parser::{self, is_token, Result},
-    uri::Params,
+    bytes::Bytes, message::auth::challenge::Challenge, parser::Result,
 };
 
 use crate::headers::SipHeaderParser;
@@ -19,59 +16,13 @@ use crate::headers::SipHeaderParser;
 
 
 */
-#[derive(Default)]
-pub struct DigestChallenge<'a> {
-    pub realm: Option<&'a str>,
-    pub domain: Option<&'a str>,
-    pub nonce: Option<&'a str>,
-    pub opaque: Option<&'a str>,
-    pub stale: Option<&'a str>,
-    pub algorithm: Option<&'a str>,
-    pub qop: Option<&'a str>,
-    pub param: Params<'a>,
-}
-
-impl<'a> DigestChallenge<'a> {
-    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let mut digest = Self::default();
-        loop {
-            space!(bytes);
-            match parser::parse_token(bytes) {
-                "realm" => digest.realm = parse_auth_param!(bytes),
-                "nonce" => digest.nonce = parse_auth_param!(bytes),
-                "domain" => digest.domain = parse_auth_param!(bytes),
-                "algorithm" => digest.algorithm = parse_auth_param!(bytes),
-                "opaque" => digest.opaque = parse_auth_param!(bytes),
-                "qop" => digest.qop = parse_auth_param!(bytes),
-                "stale" => digest.stale = parse_auth_param!(bytes),
-                other => {
-                    digest.param.set(other, parse_auth_param!(bytes).unwrap_or(""));
-                }
-            };
-
-            if let Some(&b',') = bytes.peek() {
-                bytes.next();
-            } else {
-                break;
-            }
-        }
-
-        Ok(digest)
-    }
-}
-
-pub enum Challenge<'a> {
-    Digest(DigestChallenge<'a>),
-    Other { scheme: &'a str, param: Params<'a> },
-}
-
 pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthenticate<'a> {
     const NAME: &'static [u8] = b"Proxy-Authenticate";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let challenge = Self::parse_auth_challenge(bytes)?;
+        let challenge = Challenge::parse(bytes)?;
 
         Ok(ProxyAuthenticate(challenge))
     }
@@ -99,8 +50,8 @@ mod tests {
                 assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
                 assert_eq!(digest.opaque, Some(""));
                 assert_eq!(digest.stale, Some("FALSE"));
-            },
-            _ => unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 }

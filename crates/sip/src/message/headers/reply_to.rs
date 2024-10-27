@@ -7,7 +7,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct ReplyTo<'a> {
     uri: SipUri<'a>,
     param: Option<Params<'a>>,
@@ -38,12 +37,21 @@ mod tests {
         let reply_to = reply_to.unwrap();
 
         match reply_to {
-            ReplyTo { uri: SipUri::NameAddr(addr), .. } => {
+            ReplyTo {
+                uri: SipUri::NameAddr(addr),
+                ..
+            } => {
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
                 assert_eq!(addr.uri.user.unwrap().user, "bob");
-                assert_eq!(addr.uri.host, HostPort::DomainName { host: "biloxi.com", port: None });
-            },
-            _ => unreachable!()
+                assert_eq!(
+                    addr.uri.host,
+                    HostPort::DomainName {
+                        host: "biloxi.com",
+                        port: None
+                    }
+                );
+            }
+            _ => unreachable!(),
         }
     }
 }

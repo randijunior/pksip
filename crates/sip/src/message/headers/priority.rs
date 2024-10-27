@@ -8,7 +8,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct Priority<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Priority<'a> {

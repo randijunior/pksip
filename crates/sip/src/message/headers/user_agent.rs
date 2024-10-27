@@ -4,7 +4,6 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct UserAgent<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for UserAgent<'a> {

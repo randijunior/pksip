@@ -30,7 +30,6 @@ impl<'a> Language<'a> {
     }
 }
 
-
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {

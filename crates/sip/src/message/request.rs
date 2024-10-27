@@ -40,7 +40,6 @@ impl<'a> RequestLine<'a> {
     }
 }
 
-
 pub struct SipRequest<'a> {
     pub(crate) req_line: RequestLine<'a>,
     pub(crate) headers: Headers<'a>,

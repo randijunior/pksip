@@ -9,12 +9,10 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct GenericUri<'a> {
     scheme: &'a str,
     content: &'a str,
 }
-
 
 pub struct ErrorUri<'a> {
     url: GenericUri<'a>,

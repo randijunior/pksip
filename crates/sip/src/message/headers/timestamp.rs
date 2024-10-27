@@ -9,7 +9,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct Timestamp<'a> {
     time: &'a str,
     delay: Option<&'a str>,
@@ -42,9 +41,6 @@ mod tests {
         let timestamp = Timestamp::parse(&mut bytes);
         let timestamp = timestamp.unwrap();
 
-        assert_eq!(
-            timestamp.time,
-            "54"
-        );
+        assert_eq!(timestamp.time, "54");
     }
 }

@@ -8,7 +8,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub enum Contact<'a> {
     Star,
     Uri {
@@ -61,15 +60,26 @@ mod tests {
         let contact = Contact::parse(&mut bytes).unwrap();
 
         match contact {
-            Contact::Uri { uri: SipUri::NameAddr(addr), q, expires, param } => {
+            Contact::Uri {
+                uri: SipUri::NameAddr(addr),
+                q,
+                expires,
+                param,
+            } => {
                 assert_eq!(addr.display, Some("Mr. Watson"));
                 assert_eq!(addr.uri.user.unwrap().user, "watson");
-                assert_eq!(addr.uri.host, HostPort::DomainName { host: "worcester.bell-telephone.com", port: None });
+                assert_eq!(
+                    addr.uri.host,
+                    HostPort::DomainName {
+                        host: "worcester.bell-telephone.com",
+                        port: None
+                    }
+                );
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
                 assert_eq!(q, Some(0.7));
                 assert_eq!(expires, Some(3600));
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         let src =
@@ -79,9 +89,12 @@ mod tests {
 
         match contact {
             Ok(_) => unreachable!(),
-            Err(err) =>  {
-                assert_eq!(err.message, "Unsupported URI scheme: mailto".to_string())
-            },
+            Err(err) => {
+                assert_eq!(
+                    err.message,
+                    "Unsupported URI scheme: mailto".to_string()
+                )
+            }
         };
 
         assert_eq!(bytes.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
@@ -91,11 +104,20 @@ mod tests {
         let contact = Contact::parse(&mut bytes);
 
         match contact {
-            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
+            Ok(Contact::Uri {
+                uri: SipUri::Uri(uri),
+                ..
+            }) => {
                 assert_eq!(uri.user.unwrap().user, "caller");
-                assert_eq!(uri.host, HostPort::DomainName { host: "u1.example.com", port: None });
+                assert_eq!(
+                    uri.host,
+                    HostPort::DomainName {
+                        host: "u1.example.com",
+                        port: None
+                    }
+                );
                 assert_eq!(uri.scheme, Scheme::Sip);
-            },
+            }
             Err(_) | Ok(_) => unreachable!(),
         };
     }
@@ -107,13 +129,19 @@ mod tests {
         let contact = Contact::parse(&mut bytes);
 
         match contact {
-            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
-                assert_eq!(uri.host, HostPort::IpAddr {
-                    host: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                    port: Some(5060)
-                });
+            Ok(Contact::Uri {
+                uri: SipUri::Uri(uri),
+                ..
+            }) => {
+                assert_eq!(
+                    uri.host,
+                    HostPort::IpAddr {
+                        host: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                        port: Some(5060)
+                    }
+                );
                 assert_eq!(uri.scheme, Scheme::Sip);
-            },
+            }
             Err(_) | Ok(_) => unreachable!(),
         };
 
@@ -122,14 +150,21 @@ mod tests {
         let contact = Contact::parse(&mut bytes);
 
         match contact {
-            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
-                let addr: IpAddr = "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
-                assert_eq!(uri.host, HostPort::IpAddr {
-                    host: addr,
-                    port: None
-                });
+            Ok(Contact::Uri {
+                uri: SipUri::Uri(uri),
+                ..
+            }) => {
+                let addr: IpAddr =
+                    "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
+                assert_eq!(
+                    uri.host,
+                    HostPort::IpAddr {
+                        host: addr,
+                        port: None
+                    }
+                );
                 assert_eq!(uri.scheme, Scheme::Sips);
-            },
+            }
             Err(_) | Ok(_) => unreachable!(),
         };
 
@@ -138,16 +173,22 @@ mod tests {
         let contact = Contact::parse(&mut bytes);
 
         match contact {
-            Ok(Contact::Uri { uri: SipUri::Uri(uri), .. }) =>  {
-                assert_eq!(uri.host, HostPort::IpAddr {
-                    host: IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213)),
-                    port: None
-                });
+            Ok(Contact::Uri {
+                uri: SipUri::Uri(uri),
+                ..
+            }) => {
+                assert_eq!(
+                    uri.host,
+                    HostPort::IpAddr {
+                        host: IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213)),
+                        port: None
+                    }
+                );
                 assert_eq!(uri.scheme, Scheme::Sip);
                 let user = uri.user.unwrap();
                 assert_eq!(user.user, "thks.ashwin");
                 assert_eq!(user.password, Some("pass"));
-            },
+            }
             Err(_) | Ok(_) => unreachable!(),
         };
     }

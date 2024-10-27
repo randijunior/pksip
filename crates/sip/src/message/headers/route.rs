@@ -7,7 +7,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct Route<'a> {
     pub(crate) addr: NameAddr<'a>,
     pub(crate) param: Option<Params<'a>>,
@@ -44,10 +43,16 @@ mod tests {
             Route { addr, .. } => {
                 assert_eq!(addr.display, None);
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(addr.uri.host, HostPort::DomainName { host: "bigbox3.site3.atlanta.com", port: None });
+                assert_eq!(
+                    addr.uri.host,
+                    HostPort::DomainName {
+                        host: "bigbox3.site3.atlanta.com",
+                        port: None
+                    }
+                );
                 assert!(addr.uri.params.is_some());
-            },
-            _ => unreachable!()
+            }
+            _ => unreachable!(),
         }
 
         let src = b"<sip:server10.biloxi.com;lr>;foo=bar\r\n";
@@ -58,10 +63,16 @@ mod tests {
             Route { addr, param } => {
                 assert_eq!(addr.display, None);
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(addr.uri.host, HostPort::DomainName { host: "server10.biloxi.com", port: None });
-                assert_eq!(param.unwrap().get("foo"),Some(&"bar"));
-            },
-            _ => unreachable!()
+                assert_eq!(
+                    addr.uri.host,
+                    HostPort::DomainName {
+                        host: "server10.biloxi.com",
+                        port: None
+                    }
+                );
+                assert_eq!(param.unwrap().get("foo"), Some(&"bar"));
+            }
+            _ => unreachable!(),
         }
     }
 }

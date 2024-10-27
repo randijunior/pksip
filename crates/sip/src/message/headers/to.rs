@@ -43,14 +43,24 @@ mod tests {
         let to = to.unwrap();
 
         match to {
-            To { uri: SipUri::NameAddr(addr), tag, .. } => {
+            To {
+                uri: SipUri::NameAddr(addr),
+                tag,
+                ..
+            } => {
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
                 assert_eq!(addr.display, Some("Bob"));
                 assert_eq!(addr.uri.user.unwrap().user, "bob");
-                assert_eq!(addr.uri.host, HostPort::DomainName { host: "biloxi.com", port: None });
+                assert_eq!(
+                    addr.uri.host,
+                    HostPort::DomainName {
+                        host: "biloxi.com",
+                        port: None
+                    }
+                );
                 assert_eq!(tag, Some("a6c85cf"));
-            },
-            _=> unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 }

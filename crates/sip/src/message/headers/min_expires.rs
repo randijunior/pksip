@@ -8,7 +8,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct MinExpires(u32);
 
 impl<'a> SipHeaderParser<'a> for MinExpires {

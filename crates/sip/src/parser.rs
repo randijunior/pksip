@@ -197,9 +197,15 @@ mod tests {
             RequestLine { method, uri } => {
                 assert_eq!(method, SipMethod::Register);
                 assert_eq!(uri.scheme, Scheme::Sip);
-                assert_eq!(uri.host, HostPort::DomainName { host: "registrar.biloxi.com", port: None });
-            },
-            _ => unreachable!()
+                assert_eq!(
+                    uri.host,
+                    HostPort::DomainName {
+                        host: "registrar.biloxi.com",
+                        port: None
+                    }
+                );
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -218,11 +224,14 @@ mod tests {
         let parsed = parsed.unwrap();
 
         match parsed {
-            StatusLine { status_code, reason_phrase } => {
+            StatusLine {
+                status_code,
+                reason_phrase,
+            } => {
                 assert_eq!(status_code, SipStatusCode::Ok);
                 assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
-            },
-            _=> unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 }

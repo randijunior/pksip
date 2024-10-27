@@ -3,8 +3,6 @@
 //! The module provide the [`Headers`] struct that contains an list of [`Header`]
 //! and a can be used to manipulating SIP headers.
 
-use std::str;
-
 pub mod accept;
 pub mod accept_encoding;
 pub mod accept_language;
@@ -56,7 +54,7 @@ pub use accept_language::AcceptLanguage;
 pub use alert_info::AlertInfo;
 pub use allow::Allow;
 pub use authentication_info::AuthenticationInfo;
-pub use authorization::{Authorization, Credential, DigestCredential};
+pub use authorization::Authorization;
 pub use call_id::CallId;
 pub use call_info::CallInfo;
 pub use contact::Contact;
@@ -76,7 +74,7 @@ pub use mime_version::MimeVersion;
 pub use min_expires::MinExpires;
 pub use organization::Organization;
 pub use priority::Priority;
-pub use proxy_authenticate::{Challenge, DigestChallenge, ProxyAuthenticate};
+pub use proxy_authenticate::ProxyAuthenticate;
 pub use proxy_authorization::ProxyAuthorization;
 pub use proxy_require::ProxyRequire;
 pub use record_route::RecordRoute;
@@ -95,33 +93,37 @@ pub use via::Via;
 pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
-use crate::{
-    bytes::Bytes,
-    macros::{
-        newline, parse_auth_param, read_until_byte, read_while, remaing,
-        sip_parse_error, space, until_newline,
-    },
-    parser::{self, is_token, Result},
-    uri::Params,
-};
+use std::str;
+
+use crate::bytes::Bytes;
+use crate::macros::newline;
+use crate::macros::remaing;
+use crate::macros::sip_parse_error;
+use crate::macros::space;
+use crate::macros::until_newline;
+use crate::parser::Result;
+use crate::parser::{self};
+
+type Param<'a> = (&'a str, Option<&'a str>);
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
-
 /// The q parameterthat is used normaly in [`Contact`], [`AcceptEncoding`]
 /// and [`AcceptLanguage`] headers.
 const Q_PARAM: &str = "q";
-
 /// The expires parameter that is used normaly in [`Contact`] headers.
 const EXPIRES_PARAM: &str = "expires";
 
+
+// Parse the `q` param used in SIP header
 fn parse_q(param: Option<&str>) -> Option<f32> {
     param
         .and_then(|q| q.parse().ok())
         .filter(|&value| (0.0..=1.0).contains(&value))
 }
 
-fn parse_param<'a>(bytes: &mut Bytes<'a>) -> (&'a str, Option<&'a str>) {
+// Parses a `name=value` parameter in a SIP header.
+fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Param<'a> {
     space!(bytes);
     let name = parser::parse_token(bytes);
 
@@ -136,9 +138,94 @@ fn parse_param<'a>(bytes: &mut Bytes<'a>) -> (&'a str, Option<&'a str>) {
     (name, value)
 }
 
+/// Trait to parse SIP headers
+///
+/// This trait provides methods for header parsing and creation from byte slices
+pub trait SipHeaderParser<'a>: Sized {
+    /// The header name in bytes
+    const NAME: &'static [u8];
+    /// The header short name(if exists) in bytes
+    const SHORT_NAME: Option<&'static [u8]> = None;
+
+    /// Use `bytes` that is a [`Bytes`] instance to parse into this type
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self>;
+
+    /// Get this type from `src`
+    fn from_bytes(src: &'a [u8]) -> Result<Self> {
+        let mut bytes = Bytes::new(src);
+
+        Self::parse(&mut bytes)
+    }
+
+    /// Returns `true` if `name` matches this header [name] or [short name]
+    ///
+    /// [name]: Self::NAME
+    /// [short name]: Self::SHORT_NAME
+    #[inline]
+    fn match_name(name: &[u8]) -> bool {
+        name.eq_ignore_ascii_case(Self::NAME)
+            || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
+    }
+}
+
+// SIP headers, as defined in RFC3261.
+pub enum Header<'a> {
+    Accept(Accept<'a>),
+    AcceptEncoding(AcceptEncoding<'a>),
+    AcceptLanguage(AcceptLanguage<'a>),
+    AlertInfo(AlertInfo<'a>),
+    Allow(Allow<'a>),
+    AuthenticationInfo(AuthenticationInfo<'a>),
+    Authorization(Authorization<'a>),
+    CallId(CallId<'a>),
+    CallInfo(CallInfo<'a>),
+    Contact(Contact<'a>),
+    ContentDisposition(ContentDisposition<'a>),
+    ContentEncoding(ContentEncoding<'a>),
+    ContentLanguage(ContentLanguage<'a>),
+    ContentLength(ContentLength),
+    ContentType(ContentType<'a>),
+    CSeq(CSeq<'a>),
+    Date(Date<'a>),
+    ErrorInfo(ErrorInfo<'a>),
+    Expires(Expires),
+    From(From<'a>),
+    InReplyTo(InReplyTo<'a>),
+    MaxForwards(MaxForwards),
+    MimeVersion(MimeVersion),
+    MinExpires(MinExpires),
+    Organization(Organization<'a>),
+    Priority(Priority<'a>),
+    ProxyAuthenticate(ProxyAuthenticate<'a>),
+    ProxyAuthorization(ProxyAuthorization<'a>),
+    ProxyRequire(ProxyRequire<'a>),
+    RecordRoute(RecordRoute<'a>),
+    ReplyTo(ReplyTo<'a>),
+    Require(Require<'a>),
+    RetryAfter(RetryAfter<'a>),
+    Route(Route<'a>),
+    Server(Server<'a>),
+    Subject(Subject<'a>),
+    Supported(Supported<'a>),
+    Timestamp(Timestamp<'a>),
+    To(To<'a>),
+    Unsupported(Unsupported<'a>),
+    UserAgent(UserAgent<'a>),
+    Via(Via<'a>),
+    Warning(Warning<'a>),
+    WWWAuthenticate(WWWAuthenticate<'a>),
+    Other { name: &'a str, value: &'a str },
+}
+
+impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
+    fn from(headers: Vec<Header<'a>>) -> Self {
+        Self(headers)
+    }
+}
+
 /// A set of SIP Headers
 ///
-/// A wrapper over Vec<[`Header`]>
+/// A wrapper over Vec of headers
 ///
 /// # Examples
 /// ```rust
@@ -197,14 +284,14 @@ impl<'a> Headers<'a> {
     }
 
     /// Push an new header
-    /// 
+    ///
     /// # Example
     /// ```
     /// # use sip::headers::Headers;
     /// # use sip::headers::Header;
     /// # use sip::headers::Expires;
     /// let mut headers = Headers::new();
-    /// 
+    ///
     /// headers.push(Header::Expires(Expires::new(10)));
     ///
     /// assert_eq!(headers.len(), 1);
@@ -462,161 +549,5 @@ impl<'a> Headers<'a> {
         } else {
             None
         })
-    }
-}
-
-impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
-    fn from(headers: Vec<Header<'a>>) -> Self {
-        Self(headers)
-    }
-}
-
-// SIP headers, as defined in RFC3261.
-
-pub enum Header<'a> {
-    Accept(Accept<'a>),
-    AcceptEncoding(AcceptEncoding<'a>),
-    AcceptLanguage(AcceptLanguage<'a>),
-    AlertInfo(AlertInfo<'a>),
-    Allow(Allow<'a>),
-    AuthenticationInfo(AuthenticationInfo<'a>),
-    Authorization(Authorization<'a>),
-    CallId(CallId<'a>),
-    CallInfo(CallInfo<'a>),
-    Contact(Contact<'a>),
-    ContentDisposition(ContentDisposition<'a>),
-    ContentEncoding(ContentEncoding<'a>),
-    ContentLanguage(ContentLanguage<'a>),
-    ContentLength(ContentLength),
-    ContentType(ContentType<'a>),
-    CSeq(CSeq<'a>),
-    Date(Date<'a>),
-    ErrorInfo(ErrorInfo<'a>),
-    Expires(Expires),
-    From(From<'a>),
-    InReplyTo(InReplyTo<'a>),
-    MaxForwards(MaxForwards),
-    MimeVersion(MimeVersion),
-    MinExpires(MinExpires),
-    Organization(Organization<'a>),
-    Priority(Priority<'a>),
-    ProxyAuthenticate(ProxyAuthenticate<'a>),
-    ProxyAuthorization(ProxyAuthorization<'a>),
-    ProxyRequire(ProxyRequire<'a>),
-    RecordRoute(RecordRoute<'a>),
-    ReplyTo(ReplyTo<'a>),
-    Require(Require<'a>),
-    RetryAfter(RetryAfter<'a>),
-    Route(Route<'a>),
-    Server(Server<'a>),
-    Subject(Subject<'a>),
-    Supported(Supported<'a>),
-    Timestamp(Timestamp<'a>),
-    To(To<'a>),
-    Unsupported(Unsupported<'a>),
-    UserAgent(UserAgent<'a>),
-    Via(Via<'a>),
-    Warning(Warning<'a>),
-    WWWAuthenticate(WWWAuthenticate<'a>),
-    Other { name: &'a str, value: &'a str },
-}
-
-pub trait SipHeaderParser<'a>: Sized {
-    const NAME: &'static [u8];
-    const SHORT_NAME: Option<&'static [u8]> = None;
-
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self>;
-
-    fn from_bytes(src: &'a [u8]) -> Result<Self> {
-        let mut bytes = Bytes::new(src);
-
-        Self::parse(&mut bytes)
-    }
-
-    #[inline]
-    fn match_name(name: &[u8]) -> bool {
-        name.eq_ignore_ascii_case(Self::NAME)
-            || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
-    }
-
-    fn parse_auth_credential(bytes: &mut Bytes<'a>) -> Result<Credential<'a>> {
-        let scheme = match bytes.peek() {
-            Some(b'"') => {
-                bytes.next();
-                let value = read_until_byte!(bytes, &b'"');
-                bytes.next();
-                value
-            }
-            Some(_) => {
-                read_while!(bytes, is_token)
-            }
-            None => return sip_parse_error!("eof!"),
-        };
-
-        match scheme {
-            b"Digest" => {
-                Ok(Credential::Digest(DigestCredential::parse(bytes)?))
-            }
-            other => {
-                space!(bytes);
-                let other = std::str::from_utf8(other)?;
-                let name = parser::parse_token(bytes);
-                let val = parse_auth_param!(bytes);
-                let mut params = Params::new();
-                params.set(name, val.unwrap_or(""));
-
-                while let Some(b',') = bytes.peek() {
-                    space!(bytes);
-                    let name = parser::parse_token(bytes);
-                    let val = parse_auth_param!(bytes);
-                    params.set(name, val.unwrap_or(""));
-                }
-
-                Ok(Credential::Other {
-                    scheme: other,
-                    param: params,
-                })
-            }
-        }
-    }
-
-    fn parse_auth_challenge(bytes: &mut Bytes<'a>) -> Result<Challenge<'a>> {
-        let scheme = match bytes.peek() {
-            Some(b'"') => {
-                bytes.next();
-                let value = read_until_byte!(bytes, &b'"');
-                bytes.next();
-                value
-            }
-            Some(_) => {
-                read_while!(bytes, is_token)
-            }
-            None => return sip_parse_error!("eof!"),
-        };
-
-        match scheme {
-            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(bytes)?)),
-            other => {
-                space!(bytes);
-                let other = std::str::from_utf8(other)?;
-                let name = parser::parse_token(bytes);
-                let val = parse_auth_param!(bytes);
-                let mut params = Params::new();
-                params.set(name, val.unwrap_or(""));
-
-                while let Some(b',') = bytes.peek() {
-                    space!(bytes);
-
-                    let name = parser::parse_token(bytes);
-                    let val = parse_auth_param!(bytes);
-                    params.set(name, val.unwrap_or(""));
-                }
-
-                Ok(Challenge::Other {
-                    scheme: other,
-                    param: params,
-                })
-            }
-        }
     }
 }

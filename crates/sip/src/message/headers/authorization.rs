@@ -1,63 +1,6 @@
-use crate::{
-    bytes::Bytes,
-    macros::{parse_auth_param, read_while, space},
-    parser::{self, is_token, Result},
-    uri::Params,
-};
+use crate::{bytes::Bytes, message::auth::digest::Credential, parser::Result};
 
-use crate::headers::SipHeaderParser;
-
-#[derive(Default)]
-pub struct DigestCredential<'a> {
-    pub realm: Option<&'a str>,
-    pub username: Option<&'a str>,
-    pub nonce: Option<&'a str>,
-    pub uri: Option<&'a str>,
-    pub response: Option<&'a str>,
-    pub algorithm: Option<&'a str>,
-    pub cnonce: Option<&'a str>,
-    pub opaque: Option<&'a str>,
-    pub qop: Option<&'a str>,
-    pub nc: Option<&'a str>,
-    pub param: Params<'a>,
-}
-
-impl<'a> DigestCredential<'a> {
-    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let mut digest = Self::default();
-        loop {
-            space!(bytes);
-            match parser::parse_token(bytes) {
-                "realm" => digest.realm = parse_auth_param!(bytes),
-                "username" => digest.username = parse_auth_param!(bytes),
-                "nonce" => digest.nonce = parse_auth_param!(bytes),
-                "uri" => digest.uri = parse_auth_param!(bytes),
-                "response" => digest.response = parse_auth_param!(bytes),
-                "algorithm" => digest.algorithm = parse_auth_param!(bytes),
-                "cnonce" => digest.cnonce = parse_auth_param!(bytes),
-                "opaque" => digest.opaque = parse_auth_param!(bytes),
-                "qop" => digest.qop = parse_auth_param!(bytes),
-                "nc" => digest.nc = parse_auth_param!(bytes),
-                other => {
-                    digest.param.set(other, parse_auth_param!(bytes).unwrap_or(""));
-                }
-            };
-
-            if let Some(&b',') = bytes.peek() {
-                bytes.next();
-            } else {
-                break;
-            }
-        }
-
-        Ok(digest)
-    }
-}
-
-pub enum Credential<'a> {
-    Digest(DigestCredential<'a>),
-    Other { scheme: &'a str, param: Params<'a> },
-}
+use super::SipHeaderParser;
 
 /*
 Authorization     =  "Authorization" HCOLON credentials
@@ -102,7 +45,7 @@ impl<'a> SipHeaderParser<'a> for Authorization<'a> {
     const NAME: &'static [u8] = b"Authorization";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let credential = Self::parse_auth_credential(bytes)?;
+        let credential = Credential::parse(bytes)?;
 
         Ok(Authorization(credential))
     }

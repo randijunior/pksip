@@ -53,7 +53,6 @@ impl<'a> StatusLine<'a> {
     }
 }
 
-
 pub struct SipResponse<'a> {
     pub(crate) st_line: StatusLine<'a>,
     pub(crate) headers: Headers<'a>,

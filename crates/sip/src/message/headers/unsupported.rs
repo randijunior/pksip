@@ -8,7 +8,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct Unsupported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Unsupported<'a> {

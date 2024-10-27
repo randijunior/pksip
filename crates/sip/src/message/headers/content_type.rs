@@ -9,7 +9,6 @@ use crate::{
 
 use super::accept::{MediaType, MimeType};
 
-
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeaderParser<'a> for ContentType<'a> {
@@ -55,9 +54,6 @@ mod tests {
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(c_type.0.mimetype.mtype, "text");
         assert_eq!(c_type.0.mimetype.subtype, "html");
-        assert_eq!(
-            c_type.0.param.unwrap().get("charset"),
-            Some(&"ISO-8859-4")
-        );
+        assert_eq!(c_type.0.param.unwrap().get("charset"), Some(&"ISO-8859-4"));
     }
 }

@@ -130,7 +130,10 @@ macro_rules! parse_auth_param {
                     Some((std::str::from_utf8(value)?))
                 }
                 Some(_) => {
-                    let value = read_while!($bytes, is_token);
+                    let value = crate::macros::read_while!(
+                        $bytes,
+                        crate::parser::is_token
+                    );
                     Some(unsafe { std::str::from_utf8_unchecked(value) })
                 }
                 None => None,

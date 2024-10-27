@@ -8,7 +8,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct ContentLength(u32);
 
 impl ContentLength {

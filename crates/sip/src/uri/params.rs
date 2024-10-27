@@ -18,14 +18,10 @@ impl<'a> Params<'a> {
         }
     }
 
-    pub fn set(
-        &mut self,
-        k: &'a str,
-        v: &'a str,
-    ) -> Option<&str> {
+    pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
         self.inner.insert(k, v)
     }
-    pub fn get(&self, k: &'a str) -> Option<&&str>  {
+    pub fn get(&self, k: &'a str) -> Option<&&str> {
         self.inner.get(k)
     }
 

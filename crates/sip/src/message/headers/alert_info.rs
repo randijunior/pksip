@@ -6,7 +6,6 @@ use crate::{
     util::is_newline,
 };
 
-
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,

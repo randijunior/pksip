@@ -83,10 +83,7 @@ mod tests {
         let mtype = accept.get(0).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");
         assert_eq!(mtype.mimetype.subtype, "sdp");
-        assert_eq!(
-            mtype.param.as_ref().unwrap().get("level"),
-            Some(&"1")
-        );
+        assert_eq!(mtype.param.as_ref().unwrap().get("level"), Some(&"1"));
 
         let mtype = accept.get(1).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");
@@ -125,17 +122,11 @@ mod tests {
         let mtype = accept.get(0).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");
         assert_eq!(mtype.mimetype.subtype, "sdp");
-        assert_eq!(
-            mtype.param.as_ref().unwrap().get("q"),
-            Some(&"0.8")
-        );
+        assert_eq!(mtype.param.as_ref().unwrap().get("q"), Some(&"0.8"));
 
         let mtype = accept.get(1).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");
         assert_eq!(mtype.mimetype.subtype, "simple-message-summary+xml");
-        assert_eq!(
-            mtype.param.as_ref().unwrap().get("q"),
-            Some(&"0.6")
-        );
+        assert_eq!(mtype.param.as_ref().unwrap().get("q"), Some(&"0.6"));
     }
 }

@@ -126,7 +126,6 @@ pub struct NameAddr<'a> {
     pub(crate) uri: Uri<'a>,
 }
 
-
 pub enum SipUri<'a> {
     Uri(Uri<'a>),
     NameAddr(NameAddr<'a>),

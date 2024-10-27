@@ -7,12 +7,12 @@ use headers::Headers;
 pub(crate) use request::*;
 pub(crate) use response::*;
 
+pub(crate) mod auth;
 pub mod headers;
 mod request;
 mod response;
 
 use std::str;
-
 
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),

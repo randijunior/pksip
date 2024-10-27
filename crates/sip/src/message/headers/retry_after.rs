@@ -12,7 +12,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct RetryAfter<'a> {
     seconds: u32,
     param: Option<Params<'a>>,
@@ -68,10 +67,7 @@ mod tests {
 
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 18000);
-        assert_eq!(
-            retry_after.param.unwrap().get("duration"),
-            Some(&"3600")
-        );
+        assert_eq!(retry_after.param.unwrap().get("duration"), Some(&"3600"));
 
         let src = b"120 (I'm in a meeting)\r\n";
         let mut bytes = Bytes::new(src);

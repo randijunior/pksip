@@ -9,7 +9,6 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-
 pub struct ContentLanguage<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ContentLanguage<'a> {

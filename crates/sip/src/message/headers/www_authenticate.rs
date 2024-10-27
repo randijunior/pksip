@@ -1,7 +1,7 @@
-use crate::{bytes::Bytes, headers::SipHeaderParser, parser::Result};
-
-use super::proxy_authenticate::Challenge;
-
+use crate::{
+    bytes::Bytes, headers::SipHeaderParser,
+    message::auth::challenge::Challenge, parser::Result,
+};
 
 pub struct WWWAuthenticate<'a>(Challenge<'a>);
 
@@ -9,7 +9,7 @@ impl<'a> SipHeaderParser<'a> for WWWAuthenticate<'a> {
     const NAME: &'static [u8] = b"WWW-Authenticate";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let challenge = Self::parse_auth_challenge(bytes)?;
+        let challenge = Challenge::parse(bytes)?;
 
         Ok(WWWAuthenticate(challenge))
     }
@@ -38,8 +38,8 @@ mod tests {
                 assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
                 assert_eq!(digest.opaque, Some(""));
                 assert_eq!(digest.stale, Some("FALSE"));
-            },
-            _=> unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 }
