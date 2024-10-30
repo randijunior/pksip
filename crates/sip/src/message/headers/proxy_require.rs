@@ -8,10 +8,11 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicate `proxy-sensitive` features that must be supported by the proxy.
 pub struct ProxyRequire<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ProxyRequire<'a> {
-    const NAME: &'static [u8] = b"Proxy-Require";
+    const NAME: &'static str = "Proxy-Require";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let tag = parser::parse_token(bytes);

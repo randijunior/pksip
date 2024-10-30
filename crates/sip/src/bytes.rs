@@ -82,11 +82,7 @@ impl<'a> Bytes<'a> {
         F: Fn(&u8) -> bool,
     {
         let start = self.idx;
-        let mut b = self.read_if(&func);
-
-        while let Ok(Some(_)) = b {
-            b = self.read_if(&func);
-        }
+        while let Ok(Some(_)) = self.read_if(&func) {}
         let end = self.idx;
 
         Range { start, end }

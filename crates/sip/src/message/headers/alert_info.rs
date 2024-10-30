@@ -6,6 +6,7 @@ use crate::{
     util::is_newline,
 };
 
+/// Specifies an alternative ring tone.
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,
@@ -16,7 +17,7 @@ use crate::headers::SipHeaderParser;
 use std::str;
 
 impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
-    const NAME: &'static [u8] = b"Alert-Info";
+    const NAME: &'static str = "Alert-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         space!(bytes);

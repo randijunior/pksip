@@ -10,6 +10,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Indicates the initiator of the request.
 pub struct From<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,
@@ -17,8 +18,8 @@ pub struct From<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for From<'a> {
-    const NAME: &'static [u8] = b"From";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"f");
+    const NAME: &'static str = "From";
+    const SHORT_NAME: Option<&'static str> = Some("f");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let uri = SipUri::parse(bytes)?;

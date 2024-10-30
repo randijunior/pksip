@@ -8,10 +8,11 @@ use crate::{
     util::is_newline,
 };
 
+/// Enumerates the `Call-IDs` that this call references or returns.
 pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 
 impl<'a> SipHeaderParser<'a> for InReplyTo<'a> {
-    const NAME: &'static [u8] = b"In-Reply-To";
+    const NAME: &'static str = "In-Reply-To";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut ids: Vec<CallId<'a>> = Vec::new();

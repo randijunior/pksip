@@ -9,6 +9,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Ensures order and tracking of SIP transactions within a session.
 pub struct CSeq<'a> {
     cseq: i32,
     method: SipMethod<'a>,
@@ -21,7 +22,7 @@ impl<'a> CSeq<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for CSeq<'a> {
-    const NAME: &'static [u8] = b"CSeq";
+    const NAME: &'static str = "CSeq";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let digits = digits!(bytes);

@@ -4,22 +4,11 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-/*
-    pj_str_t    realm;          /**< Realm for the challenge.   */
-    pjsip_param other_param;    /**< Other parameters.          */
-    pj_str_t    domain;         /**< Domain.                    */
-    pj_str_t    nonce;          /**< Nonce challenge.           */
-    pj_str_t    opaque;         /**< Opaque value.              */
-    int         stale;          /**< Stale parameter.           */
-    pj_str_t    algorithm;      /**< Algorithm parameter.       */
-    pj_str_t    qop;
-
-
-*/
+/// The authentication requirements from a proxy server to a client.
 pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthenticate<'a> {
-    const NAME: &'static [u8] = b"Proxy-Authenticate";
+    const NAME: &'static str = "Proxy-Authenticate";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let challenge = Challenge::parse(bytes)?;

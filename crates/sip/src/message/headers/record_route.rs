@@ -7,13 +7,14 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Keeps proxies in the signaling path for consistent routing and session control.
 pub struct RecordRoute<'a> {
     addr: NameAddr<'a>,
     param: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for RecordRoute<'a> {
-    const NAME: &'static [u8] = b"Record-Route";
+    const NAME: &'static str = "Record-Route";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipUri::parse(bytes)? {

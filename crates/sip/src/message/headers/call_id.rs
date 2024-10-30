@@ -6,6 +6,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Uniquely identifies a particular invitation or all registrations of a particular client.
 pub struct CallId<'a>(&'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {
@@ -24,8 +25,8 @@ impl<'a> CallId<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for CallId<'a> {
-    const NAME: &'static [u8] = b"Call-ID";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"i");
+    const NAME: &'static str = "Call-ID";
+    const SHORT_NAME: Option<&'static str> = Some("i");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let id = until_newline!(bytes);

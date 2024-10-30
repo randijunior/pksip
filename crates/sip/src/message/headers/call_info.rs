@@ -11,13 +11,7 @@ use crate::headers::SipHeaderParser;
 use std::str;
 const PURPOSE: &'static str = "purpose";
 
-/*
-Call-Info   =  "Call-Info" HCOLON info *(COMMA info)
-info        =  LAQUOT absoluteURI RAQUOT *( SEMI info-param)
-info-param  =  ( "purpose" EQUAL ( "icon" / "info"
-               / "card" / token ) ) / generic-param
-*/
-
+/// Provides aditional information aboute the caller or calle.
 pub struct CallInfo<'a> {
     url: &'a str,
     purpose: Option<&'a str>,
@@ -25,7 +19,7 @@ pub struct CallInfo<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
-    const NAME: &'static [u8] = b"Call-Info";
+    const NAME: &'static str = "Call-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut purpose: Option<&'a str> = None;

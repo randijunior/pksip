@@ -9,6 +9,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Provides additional authentication information.
 pub struct AuthenticationInfo<'a> {
     nextnonce: Option<&'a str>,
     qop: Option<&'a str>,
@@ -18,7 +19,7 @@ pub struct AuthenticationInfo<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
-    const NAME: &'static [u8] = b"Authentication-Info";
+    const NAME: &'static str = "Authentication-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut nextnonce: Option<&'a str> = None;

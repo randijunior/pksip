@@ -7,6 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Carry additional information about the status of a response.
 pub struct Warning<'a> {
     code: u32,
     host: &'a str,
@@ -14,7 +15,7 @@ pub struct Warning<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Warning<'a> {
-    const NAME: &'static [u8] = b"Warning";
+    const NAME: &'static str = "Warning";
 
     fn parse(
         bytes: &mut crate::bytes::Bytes<'a>,

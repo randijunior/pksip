@@ -4,10 +4,11 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Reflects the time when the request or response is first sent.
 pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Date<'a> {
-    const NAME: &'static [u8] = b"Date";
+    const NAME: &'static str = "Date";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let date = until_newline!(bytes);

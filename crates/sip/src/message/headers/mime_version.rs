@@ -8,11 +8,12 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicate what version of the `MIME` protocol was used to construct the message.
 #[derive(Debug, PartialEq)]
 pub struct MimeVersion(f32);
 
 impl<'a> SipHeaderParser<'a> for MimeVersion {
-    const NAME: &'static [u8] = b"MIME-Version";
+    const NAME: &'static str = "MIME-Version";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let digits = digits!(bytes);

@@ -4,10 +4,12 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
+/// The name of the organization to which the SIP
+/// element issuing the request or response belongs.
 pub struct Organization<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Organization<'a> {
-    const NAME: &'static [u8] = b"Organization";
+    const NAME: &'static str = "Organization";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let organization = until_newline!(bytes);

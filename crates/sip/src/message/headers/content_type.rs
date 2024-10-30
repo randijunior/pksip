@@ -9,11 +9,13 @@ use crate::{
 
 use super::accept::{MediaType, MimeType};
 
+
+/// Indicates the media type of the `message-body` sent to the recipient.
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeaderParser<'a> for ContentType<'a> {
-    const NAME: &'static [u8] = b"Content-Type";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"c");
+    const NAME: &'static str = "Content-Type";
+    const SHORT_NAME: Option<&'static str> = Some("c");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mtype = read_while!(bytes, is_token);

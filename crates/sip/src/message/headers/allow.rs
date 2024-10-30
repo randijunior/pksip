@@ -7,6 +7,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicates what methods is supported by the `UA`.
 pub struct Allow<'a>(Vec<SipMethod<'a>>);
 
 impl<'a> Allow<'a> {
@@ -20,7 +21,7 @@ impl<'a> Allow<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Allow<'a> {
-    const NAME: &'static [u8] = b"Allow";
+    const NAME: &'static str = "Allow";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut allow: Vec<SipMethod> = Vec::new();

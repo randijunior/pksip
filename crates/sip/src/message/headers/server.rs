@@ -4,10 +4,13 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
+/// Is used by UACs to tell UASs about options
+/// that the UAC expects the UAS to support in order to process the
+/// request.
 pub struct Server<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Server<'a> {
-    const NAME: &'static [u8] = b"Server";
+    const NAME: &'static str = "Server";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let val = until_newline!(bytes);

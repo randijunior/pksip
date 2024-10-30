@@ -7,13 +7,14 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Contains a logical return URI that may be different from the From header field
 pub struct ReplyTo<'a> {
     uri: SipUri<'a>,
     param: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for ReplyTo<'a> {
-    const NAME: &'static [u8] = b"Reply-To";
+    const NAME: &'static str = "Reply-To";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let uri = SipUri::parse(bytes)?;

@@ -8,6 +8,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Specifies the `URI` for the user or `UA` sending the message.
 pub enum Contact<'a> {
     Star,
     Uri {
@@ -19,8 +20,8 @@ pub enum Contact<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Contact<'a> {
-    const NAME: &'static [u8] = b"Contact";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"m");
+    const NAME: &'static str = "Contact";
+    const SHORT_NAME: Option<&'static str> = Some("m");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         if bytes.peek() == Some(&b'*') {

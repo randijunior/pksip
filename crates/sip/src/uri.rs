@@ -308,3 +308,8 @@ impl<'a> Uri<'a> {
         })
     }
 }
+
+pub struct GenericUri<'a> {
+    pub(crate) scheme: &'a str,
+    pub(crate) content: &'a str,
+}

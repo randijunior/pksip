@@ -8,10 +8,11 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicates the urgency of the request as perceived by the client.
 pub struct Priority<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Priority<'a> {
-    const NAME: &'static [u8] = b"Priority";
+    const NAME: &'static str = "Priority";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let priority = read_while!(bytes, is_token);

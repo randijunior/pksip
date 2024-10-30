@@ -8,10 +8,11 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Lists the features not supported by the `UAS`.
 pub struct Unsupported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Unsupported<'a> {
-    const NAME: &'static [u8] = b"Unsupported";
+    const NAME: &'static str = "Unsupported";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let tag = parser::parse_token(bytes);

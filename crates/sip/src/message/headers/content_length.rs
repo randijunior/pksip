@@ -8,6 +8,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicates the size of the `message-body`.
 pub struct ContentLength(u32);
 
 impl ContentLength {
@@ -17,8 +18,8 @@ impl ContentLength {
 }
 
 impl<'a> SipHeaderParser<'a> for ContentLength {
-    const NAME: &'static [u8] = b"Content-Length";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"l");
+    const NAME: &'static str = "Content-Length";
+    const SHORT_NAME: Option<&'static str> = Some("l");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let digits = digits!(bytes);

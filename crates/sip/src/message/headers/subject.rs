@@ -4,11 +4,12 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
+/// Provides a summary or indicates the nature of the call.
 pub struct Subject<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for Subject<'a> {
-    const NAME: &'static [u8] = b"Subject";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"s");
+    const NAME: &'static str = "Subject";
+    const SHORT_NAME: Option<&'static str> = Some("s");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let val = until_newline!(bytes);

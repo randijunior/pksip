@@ -30,6 +30,7 @@ impl<'a> Language<'a> {
     }
 }
 
+/// Specifies the client's language preferences.
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {
@@ -43,7 +44,7 @@ impl<'a> AcceptLanguage<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
-    const NAME: &'static [u8] = b"Accept-Language";
+    const NAME: &'static str = "Accept-Language";
 
     fn parse(bytes: &mut Bytes<'a>) -> crate::parser::Result<Self> {
         let mut languages: Vec<Language> = Vec::new();

@@ -50,25 +50,22 @@ pub(crate) fn parse_slice_utf8<'a>(
 ) -> &'a str {
     let slc = read_while!(bytes, func);
 
-    // SAFETY: caller must ensures that func valid that bytes are valid utf-8
+    // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
     unsafe { str::from_utf8_unchecked(slc) }
 }
 
 #[inline]
 pub(crate) fn parse_token<'a>(bytes: &mut Bytes<'a>) -> &'a str {
-    // is_token ensures that is valid utf-8
+    // is_token ensures that is valid UTF-8
     parse_slice_utf8(bytes, is_token)
 }
 
 pub(crate) fn parse_sip_v2(bytes: &mut Bytes) -> Result<()> {
-    match bytes.peek_n(7) {
-        Some(SIPV2) => {
-            bytes.nth(6);
-
-            Ok(())
-        }
-        _ => sip_parse_error!("Sip Version Invalid"),
+    if let Some(SIPV2) = bytes.peek_n(7) {
+        bytes.nth(6);
+        return Ok(());
     }
+    sip_parse_error!("Sip Version Invalid")
 }
 
 fn is_sip_version(bytes: &Bytes) -> bool {
@@ -83,7 +80,7 @@ fn parse_headers_and_body<'a>(
     bytes: &mut Bytes<'a>,
 ) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
     let mut headers = Headers::new();
-    let body = headers.parse_headers(bytes)?;
+    let body = headers.parse_headers_and_return_body(bytes)?;
 
     Ok((headers, body))
 }
@@ -172,7 +169,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_headers() {
+    fn test_parse_headers_and_return_body() {
         let headers = b"Max-Forwards: 70\r\n\
         Call-ID: 843817637684230@998sdasdh09\r\n\
         CSeq: 1826 REGISTER\r\n\
@@ -180,7 +177,7 @@ mod tests {
         Content-Length: 0\r\n\r\n";
         let mut bytes = Bytes::new(headers);
         let mut sip_headers = Headers::new();
-        let body = sip_headers.parse_headers(&mut bytes);
+        let body = sip_headers.parse_headers_and_return_body(&mut bytes);
         assert_eq!(body.unwrap(), None);
 
         assert_eq!(sip_headers.len(), 5);

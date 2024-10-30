@@ -8,11 +8,12 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Enumerates all the extensions supported by the `UAC` or `UAS`.
 pub struct Supported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Supported<'a> {
-    const NAME: &'static [u8] = b"Supported";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"k");
+    const NAME: &'static str = "Supported";
+    const SHORT_NAME: Option<&'static str> = Some("k");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let tag = parser::parse_token(bytes);

@@ -3,10 +3,11 @@ use crate::{
     parser::Result,
 };
 
+/// Consists of credentials containing the authentication information of the user agent for the proxy.
 pub struct ProxyAuthorization<'a>(Credential<'a>);
 
 impl<'a> SipHeaderParser<'a> for ProxyAuthorization<'a> {
-    const NAME: &'static [u8] = b"Proxy-Authorization";
+    const NAME: &'static str = "Proxy-Authorization";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let credential = Credential::parse(bytes)?;

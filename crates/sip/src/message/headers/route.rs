@@ -7,13 +7,15 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Specify the sequence of proxy servers and other intermediaries
+/// that a SIP message should pass through on its way to the final destination.
 pub struct Route<'a> {
     pub(crate) addr: NameAddr<'a>,
     pub(crate) param: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for Route<'a> {
-    const NAME: &'static [u8] = b"Route";
+    const NAME: &'static str = "Route";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipUri::parse(bytes)? {

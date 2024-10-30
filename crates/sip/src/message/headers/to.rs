@@ -10,6 +10,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Specifies the logical recipient of the request.
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,
@@ -17,8 +18,8 @@ pub struct To<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for To<'a> {
-    const NAME: &'static [u8] = b"To";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"t");
+    const NAME: &'static str = "To";
+    const SHORT_NAME: Option<&'static str> = Some("t");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let uri = SipUri::parse(bytes)?;

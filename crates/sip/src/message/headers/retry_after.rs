@@ -12,6 +12,9 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicate how long the service is expected to be 
+/// unavailable to the requesting client. 
+/// Or when the called party anticipates being available again.
 pub struct RetryAfter<'a> {
     seconds: u32,
     param: Option<Params<'a>>,
@@ -19,7 +22,7 @@ pub struct RetryAfter<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
-    const NAME: &'static [u8] = b"Retry-After";
+    const NAME: &'static str = "Retry-After";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let digits = digits!(bytes);

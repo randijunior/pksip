@@ -10,7 +10,7 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+
 pub struct MimeType<'a> {
     pub mtype: &'a str,
     pub subtype: &'a str,
@@ -21,6 +21,7 @@ pub struct MediaType<'a> {
     pub param: Option<Params<'a>>,
 }
 
+/// Indicates witch media types the client can process.
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
 impl<'a> Accept<'a> {
@@ -34,7 +35,7 @@ impl<'a> Accept<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Accept<'a> {
-    const NAME: &'static [u8] = b"Accept";
+    const NAME: &'static str = "Accept";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Accept<'a>> {
         let mut mtypes: Vec<MediaType<'a>> = Vec::new();

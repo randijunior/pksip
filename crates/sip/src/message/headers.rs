@@ -93,7 +93,7 @@ pub use via::Via;
 pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
-use std::str;
+use core::str;
 
 use crate::bytes::Bytes;
 use crate::macros::newline;
@@ -104,6 +104,7 @@ use crate::macros::until_newline;
 use crate::parser::Result;
 use crate::parser::{self};
 
+/// An Header param
 type Param<'a> = (&'a str, Option<&'a str>);
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
@@ -113,7 +114,6 @@ const TAG_PARAM: &str = "tag";
 const Q_PARAM: &str = "q";
 /// The expires parameter that is used normaly in [`Contact`] headers.
 const EXPIRES_PARAM: &str = "expires";
-
 
 // Parse the `q` param used in SIP header
 fn parse_q(param: Option<&str>) -> Option<f32> {
@@ -138,14 +138,14 @@ fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Param<'a> {
     (name, value)
 }
 
-/// Trait to parse SIP headers
+/// Trait to parse SIP headers.
 ///
-/// This trait provides methods for header parsing and creation from byte slices
+/// This trait provides methods for header parsing and creation from byte slices.
 pub trait SipHeaderParser<'a>: Sized {
     /// The header name in bytes
-    const NAME: &'static [u8];
+    const NAME: &'static str;
     /// The header short name(if exists) in bytes
-    const SHORT_NAME: Option<&'static [u8]> = None;
+    const SHORT_NAME: Option<&'static str> = None;
 
     /// Use `bytes` that is a [`Bytes`] instance to parse into this type
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self>;
@@ -157,63 +157,105 @@ pub trait SipHeaderParser<'a>: Sized {
         Self::parse(&mut bytes)
     }
 
-    /// Returns `true` if `name` matches this header [name] or [short name]
-    ///
-    /// [name]: Self::NAME
-    /// [short name]: Self::SHORT_NAME
+    /// Returns `true` if `name` matches this header `name` or `short_name`
     #[inline]
-    fn match_name(name: &[u8]) -> bool {
-        name.eq_ignore_ascii_case(Self::NAME)
+    fn match_name(name: &str) -> bool {
+        name == Self::NAME
             || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
     }
 }
 
-// SIP headers, as defined in RFC3261.
+/// SIP headers, as defined in RFC3261.
 pub enum Header<'a> {
+    /// `Accept` Header
     Accept(Accept<'a>),
+    /// `Accept-Enconding` Header
     AcceptEncoding(AcceptEncoding<'a>),
+    /// `Accept-Language` Header
     AcceptLanguage(AcceptLanguage<'a>),
+    /// `Alert-Info` Header.
     AlertInfo(AlertInfo<'a>),
+    /// `Allow` Header
     Allow(Allow<'a>),
+    /// `Authentication-Info` Header
     AuthenticationInfo(AuthenticationInfo<'a>),
+    /// `Authorization` Header
     Authorization(Authorization<'a>),
+    /// `Call-ID` Header
     CallId(CallId<'a>),
+    /// `Call-Info` Header
     CallInfo(CallInfo<'a>),
+    /// `Contact` Header
     Contact(Contact<'a>),
+    /// `Content-Disposition` Header
     ContentDisposition(ContentDisposition<'a>),
+    /// `Content-Encoding` Header
     ContentEncoding(ContentEncoding<'a>),
+    /// `Content-Language` Header
     ContentLanguage(ContentLanguage<'a>),
+    /// `Content-Length` Header
     ContentLength(ContentLength),
+    /// `Content-Type` Header
     ContentType(ContentType<'a>),
+    /// `CSeq` Header
     CSeq(CSeq<'a>),
+    /// `Date` Header
     Date(Date<'a>),
+    /// `Error-Info` Header
     ErrorInfo(ErrorInfo<'a>),
+    /// `Expires` Header
     Expires(Expires),
+    /// `From` Header
     From(From<'a>),
+    /// `In-Reply-To` Header
     InReplyTo(InReplyTo<'a>),
+    /// `Max-Fowards` Header
     MaxForwards(MaxForwards),
-    MimeVersion(MimeVersion),
+    /// `Min-Expires` Header
     MinExpires(MinExpires),
+    /// `MIME-Version` Header
+    MimeVersion(MimeVersion),
+    /// `Organization` Header
     Organization(Organization<'a>),
+    /// `Priority` Header
     Priority(Priority<'a>),
+    /// `Proxy-Authenticate` Header
     ProxyAuthenticate(ProxyAuthenticate<'a>),
+    /// `Proxy-Authorization` Header
     ProxyAuthorization(ProxyAuthorization<'a>),
+    /// `Proxy-Require` Header
     ProxyRequire(ProxyRequire<'a>),
-    RecordRoute(RecordRoute<'a>),
-    ReplyTo(ReplyTo<'a>),
-    Require(Require<'a>),
+    /// `Retry-After` Header
     RetryAfter(RetryAfter<'a>),
+    /// `Route` Header
     Route(Route<'a>),
+    /// `Record-Route` Header
+    RecordRoute(RecordRoute<'a>),
+    /// `Reply-To` Header
+    ReplyTo(ReplyTo<'a>),
+    /// `Require` Header
+    Require(Require<'a>),
+    /// `Server` Header
     Server(Server<'a>),
+    /// `Subject` Header
     Subject(Subject<'a>),
+    /// `Supported` Header
     Supported(Supported<'a>),
+    /// `Timestamp` Header
     Timestamp(Timestamp<'a>),
+    /// `To` Header
     To(To<'a>),
+    /// `Unsupported` Header
     Unsupported(Unsupported<'a>),
+    /// `User-Agent` Header
     UserAgent(UserAgent<'a>),
+    /// `Via` Header
     Via(Via<'a>),
+    /// `Warning` Header
     Warning(Warning<'a>),
+    /// `WWW-Authenticate` Header
     WWWAuthenticate(WWWAuthenticate<'a>),
+    /// Other Generic Header
     Other { name: &'a str, value: &'a str },
 }
 
@@ -225,7 +267,7 @@ impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
 
 /// A set of SIP Headers
 ///
-/// A wrapper over Vec of headers
+/// A wrapper over Vec<[`Header`]> that contains the header list
 ///
 /// # Examples
 /// ```rust
@@ -310,8 +352,12 @@ impl<'a> Headers<'a> {
         self.0.get(index)
     }
 
-    /// Parse all the sip headers in the message
-    pub fn parse_headers(
+    /// Parse all the sip headers in the buffer of bytes.
+    ///
+    /// Each parsed header will be pushed into the internal header list. The return value
+    /// will be the body of the message in bytes if the [`Header::ContentType`]
+    /// is found.
+    pub(crate) fn parse_headers_and_return_body(
         &mut self,
         bytes: &mut Bytes<'a>,
     ) -> Result<Option<&'a [u8]>> {
@@ -324,7 +370,7 @@ impl<'a> Headers<'a> {
             }
             space!(bytes);
 
-            match name.as_bytes() {
+            match name {
                 error_info if ErrorInfo::match_name(error_info) => {
                     let error_info = ErrorInfo::parse(bytes)?;
                     self.push(Header::ErrorInfo(error_info))

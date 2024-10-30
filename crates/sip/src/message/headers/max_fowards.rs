@@ -8,6 +8,7 @@ use crate::headers::SipHeaderParser;
 
 use std::str;
 
+/// Limit the number of proxies or gateways that can forward the request.
 pub struct MaxForwards(u32);
 
 impl MaxForwards {
@@ -20,7 +21,7 @@ impl MaxForwards {
 }
 
 impl<'a> SipHeaderParser<'a> for MaxForwards {
-    const NAME: &'static [u8] = b"Max-Forwards";
+    const NAME: &'static str = "Max-Forwards";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let digits = digits!(bytes);

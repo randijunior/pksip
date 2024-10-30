@@ -30,11 +30,7 @@ impl<'a> Coding<'a> {
     }
 }
 
-// Accept-Encoding  =  "Accept-Encoding" HCOLON
-//                     [ encoding *(COMMA encoding) ]
-// encoding         =  codings *(SEMI accept-param)
-// codings          =  content-coding / "*"
-// content-coding   =  token
+/// Indicates what types of content encoding (compression) the client can process.
 #[derive(Default)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
@@ -48,7 +44,7 @@ impl<'a> AcceptEncoding<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
-    const NAME: &'static [u8] = b"Accept-Encoding";
+    const NAME: &'static str = "Accept-Encoding";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         space!(bytes);

@@ -77,8 +77,9 @@ impl<'a> ViaParams<'a> {
     }
 }
 
-// SIP Via Header
 
+/// Indicates the path taken by the request so far and the 
+/// path that should be followed in routing responses.
 pub struct Via<'a> {
     pub(crate) transport: Transport,
     pub(crate) sent_by: HostPort<'a>,
@@ -144,8 +145,8 @@ impl<'a> Via<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for Via<'a> {
-    const NAME: &'static [u8] = b"Via";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"v");
+    const NAME: &'static str = "Via";
+    const SHORT_NAME: Option<&'static str> = Some("v");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         //@TODO: handle LWS

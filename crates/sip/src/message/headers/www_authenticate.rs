@@ -3,10 +3,13 @@ use crate::{
     message::auth::challenge::Challenge, parser::Result,
 };
 
+/// Consists of at least one challenge the 
+/// authentication scheme(s) and parameters applicable
+/// to the `Request-URI`.
 pub struct WWWAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeaderParser<'a> for WWWAuthenticate<'a> {
-    const NAME: &'static [u8] = b"WWW-Authenticate";
+    const NAME: &'static str = "WWW-Authenticate";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let challenge = Challenge::parse(bytes)?;

@@ -9,10 +9,12 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+
+/// Specifies the language of the `message-body` content.
 pub struct ContentLanguage<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for ContentLanguage<'a> {
-    const NAME: &'static [u8] = b"Content-Language";
+    const NAME: &'static str = "Content-Language";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut languages: Vec<&'a str> = Vec::new();

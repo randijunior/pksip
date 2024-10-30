@@ -4,15 +4,11 @@ use crate::{
     bytes::Bytes,
     macros::{parse_header_param, read_while, sip_parse_error, space},
     parser::{is_token, Result},
-    uri::{is_uri, Params},
+    uri::{is_uri, GenericUri, Params},
 };
 
 use crate::headers::SipHeaderParser;
 
-pub struct GenericUri<'a> {
-    scheme: &'a str,
-    content: &'a str,
-}
 
 pub struct ErrorUri<'a> {
     url: GenericUri<'a>,
@@ -45,10 +41,11 @@ impl<'a> ErrorUri<'a> {
     }
 }
 
+/// Provides a pointer to additional information about the error status response.
 pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 
 impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
-    const NAME: &'static [u8] = b"Error-Info";
+    const NAME: &'static str = "Error-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut infos: Vec<ErrorUri> = Vec::new();

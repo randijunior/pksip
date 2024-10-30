@@ -8,10 +8,13 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Is used by `UACs` to tell `UASs` about options that the 
+/// `UAC` expects the `UAS` to support in order to process the
+/// request.
 pub struct Require<'a>(Vec<&'a str>);
 
 impl<'a> SipHeaderParser<'a> for Require<'a> {
-    const NAME: &'static [u8] = b"Require";
+    const NAME: &'static str = "Require";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let tag = parser::parse_token(bytes);

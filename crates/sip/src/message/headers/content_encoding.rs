@@ -8,6 +8,8 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Indicates what decoding mechanisms must be applied to obtain the media-type 
+/// referenced by the Content-Type header field.
 pub struct ContentEncoding<'a>(Vec<&'a str>);
 
 impl<'a> ContentEncoding<'a> {
@@ -21,8 +23,8 @@ impl<'a> ContentEncoding<'a> {
 }
 
 impl<'a> SipHeaderParser<'a> for ContentEncoding<'a> {
-    const NAME: &'static [u8] = b"Content-Encoding";
-    const SHORT_NAME: Option<&'static [u8]> = Some(b"e");
+    const NAME: &'static str = "Content-Encoding";
+    const SHORT_NAME: Option<&'static str> = Some("e");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut codings: Vec<&'a str> = Vec::new();

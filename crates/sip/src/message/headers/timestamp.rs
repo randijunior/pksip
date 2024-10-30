@@ -9,13 +9,14 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Describes when the `UAC` sent the request to the `UAS`.
 pub struct Timestamp<'a> {
     time: &'a str,
     delay: Option<&'a str>,
 }
 
 impl<'a> SipHeaderParser<'a> for Timestamp<'a> {
-    const NAME: &'static [u8] = b"Timestamp";
+    const NAME: &'static str = "Timestamp";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let time = read_while!(bytes, is_float);

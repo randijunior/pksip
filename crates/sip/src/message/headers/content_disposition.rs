@@ -7,13 +7,14 @@ use crate::{
 
 use crate::headers::SipHeaderParser;
 
+/// Describes how the `message-body` is to be interpreted by the `UAC` or `UAS`.
 pub struct ContentDisposition<'a> {
     disp_type: &'a str,
     params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
-    const NAME: &'static [u8] = b"Content-Disposition";
+    const NAME: &'static str = "Content-Disposition";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let disp_type = read_while!(bytes, is_token);

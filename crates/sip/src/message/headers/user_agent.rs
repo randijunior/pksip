@@ -4,10 +4,11 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeaderParser;
 
+/// Contains information about the `UAC` originating the request.
 pub struct UserAgent<'a>(&'a str);
 
 impl<'a> SipHeaderParser<'a> for UserAgent<'a> {
-    const NAME: &'static [u8] = b"User-Agent";
+    const NAME: &'static str = "User-Agent";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let val = until_newline!(bytes);
