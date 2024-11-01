@@ -2,12 +2,12 @@ use core::str;
 
 use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Provides a summary or indicates the nature of the call.
 pub struct Subject<'a>(&'a str);
 
-impl<'a> SipHeaderParser<'a> for Subject<'a> {
+impl<'a> SipHeader<'a> for Subject<'a> {
     const NAME: &'static str = "Subject";
     const SHORT_NAME: Option<&'static str> = Some("s");
 

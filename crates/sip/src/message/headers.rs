@@ -95,14 +95,12 @@ pub use www_authenticate::WWWAuthenticate;
 
 use core::str;
 
-use crate::bytes::Bytes;
-use crate::macros::newline;
-use crate::macros::remaing;
-use crate::macros::sip_parse_error;
-use crate::macros::space;
-use crate::macros::until_newline;
-use crate::parser::Result;
-use crate::parser::{self};
+use crate::{
+    bytes::Bytes,
+    macros::{newline, remaing, sip_parse_error, space},
+    parser::{self, parse_token, Result},
+    uri::Params,
+};
 
 /// An Header param
 type Param<'a> = (&'a str, Option<&'a str>);
@@ -141,7 +139,7 @@ fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Param<'a> {
 /// Trait to parse SIP headers.
 ///
 /// This trait provides methods for header parsing and creation from byte slices.
-pub trait SipHeaderParser<'a>: Sized {
+pub trait SipHeader<'a>: Sized {
     /// The header name in bytes
     const NAME: &'static str;
     /// The header short name(if exists) in bytes
@@ -357,7 +355,7 @@ impl<'a> Headers<'a> {
     /// Each parsed header will be pushed into the internal header list. The return value
     /// will be the body of the message in bytes if the [`Header::ContentType`]
     /// is found.
-    pub(crate) fn parse_headers_and_return_body(
+    pub(crate) fn parses_and_return_body(
         &mut self,
         bytes: &mut Bytes<'a>,
     ) -> Result<Option<&'a [u8]>> {
@@ -577,8 +575,7 @@ impl<'a> Headers<'a> {
                     self.push(Header::Warning(warning));
                 }
                 _ => {
-                    let value = until_newline!(bytes);
-                    let value = str::from_utf8(value)?;
+                    let value = parse_token(bytes);
 
                     self.push(Header::Other { name, value });
                 }
@@ -595,5 +592,31 @@ impl<'a> Headers<'a> {
         } else {
             None
         })
+    }
+}
+
+
+/// This type reprents an MIME type that indicates an content format.
+pub struct MimeType<'a> {
+    pub mtype: &'a str,
+    pub subtype: &'a str,
+}
+
+/// The `media-type` that appears in `Accept` and `Content-Type` SIP headers.
+pub struct MediaType<'a> {
+    pub mimetype: MimeType<'a>,
+    pub param: Option<Params<'a>>,
+}
+
+impl<'a> MediaType<'a> {
+    pub fn new(
+        mtype: &'a str,
+        subtype: &'a str,
+        param: Option<Params<'a>>,
+    ) -> Self {
+        Self {
+            mimetype: MimeType { mtype, subtype },
+            param,
+        }
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     util::{is_float, is_newline},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Describes when the `UAC` sent the request to the `UAS`.
 pub struct Timestamp<'a> {
@@ -15,7 +15,7 @@ pub struct Timestamp<'a> {
     delay: Option<&'a str>,
 }
 
-impl<'a> SipHeaderParser<'a> for Timestamp<'a> {
+impl<'a> SipHeader<'a> for Timestamp<'a> {
     const NAME: &'static str = "Timestamp";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

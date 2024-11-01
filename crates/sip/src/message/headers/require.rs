@@ -6,14 +6,14 @@ use crate::{
     parser::{self, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Is used by `UACs` to tell `UASs` about options that the 
 /// `UAC` expects the `UAS` to support in order to process the
 /// request.
 pub struct Require<'a>(Vec<&'a str>);
 
-impl<'a> SipHeaderParser<'a> for Require<'a> {
+impl<'a> SipHeader<'a> for Require<'a> {
     const NAME: &'static str = "Require";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

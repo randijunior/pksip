@@ -2,7 +2,7 @@ use crate::{
     bytes::Bytes, macros::until_newline, parser::Result, util::is_newline,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 
@@ -24,7 +24,7 @@ impl<'a> CallId<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for CallId<'a> {
+impl<'a> SipHeader<'a> for CallId<'a> {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: Option<&'static str> = Some("i");
 

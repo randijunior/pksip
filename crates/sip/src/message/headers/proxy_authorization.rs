@@ -1,12 +1,12 @@
 use crate::{
-    bytes::Bytes, headers::SipHeaderParser, message::auth::digest::Credential,
+    bytes::Bytes, headers::SipHeader, message::auth::digest::Credential,
     parser::Result,
 };
 
 /// Consists of credentials containing the authentication information of the user agent for the proxy.
 pub struct ProxyAuthorization<'a>(Credential<'a>);
 
-impl<'a> SipHeaderParser<'a> for ProxyAuthorization<'a> {
+impl<'a> SipHeader<'a> for ProxyAuthorization<'a> {
     const NAME: &'static str = "Proxy-Authorization";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

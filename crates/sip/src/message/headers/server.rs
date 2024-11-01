@@ -2,14 +2,14 @@ use core::str;
 
 use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Is used by UACs to tell UASs about options
 /// that the UAC expects the UAS to support in order to process the
 /// request.
 pub struct Server<'a>(&'a str);
 
-impl<'a> SipHeaderParser<'a> for Server<'a> {
+impl<'a> SipHeader<'a> for Server<'a> {
     const NAME: &'static str = "Server";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

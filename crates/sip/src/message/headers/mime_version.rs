@@ -6,13 +6,13 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicate what version of the `MIME` protocol was used to construct the message.
 #[derive(Debug, PartialEq)]
 pub struct MimeVersion(f32);
 
-impl<'a> SipHeaderParser<'a> for MimeVersion {
+impl<'a> SipHeader<'a> for MimeVersion {
     const NAME: &'static str = "MIME-Version";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

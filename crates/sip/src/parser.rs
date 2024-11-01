@@ -76,11 +76,11 @@ fn is_sip_version(bytes: &Bytes) -> bool {
     next.is_some_and(|next| tag == SIP && next == &b'/')
 }
 
-fn parse_headers_and_body<'a>(
+fn parses_and_body<'a>(
     bytes: &mut Bytes<'a>,
 ) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
     let mut headers = Headers::new();
-    let body = headers.parse_headers_and_return_body(bytes)?;
+    let body = headers.parses_and_return_body(bytes)?;
 
     Ok((headers, body))
 }
@@ -91,13 +91,13 @@ pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 
     let msg = if !is_sip_version(&bytes) {
         let req_line = RequestLine::parse(&mut bytes)?;
-        let (headers, body) = parse_headers_and_body(&mut bytes)?;
+        let (headers, body) = parses_and_body(&mut bytes)?;
         let request = SipRequest::new(req_line, headers, body);
 
         SipMessage::Request(request)
     } else {
         let status_line = StatusLine::parse(&mut bytes)?;
-        let (headers, body) = parse_headers_and_body(&mut bytes)?;
+        let (headers, body) = parses_and_body(&mut bytes)?;
         let response = SipResponse::new(status_line, headers, body);
 
         SipMessage::Response(response)
@@ -169,7 +169,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_headers_and_return_body() {
+    fn test_parses_and_return_body() {
         let headers = b"Max-Forwards: 70\r\n\
         Call-ID: 843817637684230@998sdasdh09\r\n\
         CSeq: 1826 REGISTER\r\n\
@@ -177,7 +177,7 @@ mod tests {
         Content-Length: 0\r\n\r\n";
         let mut bytes = Bytes::new(headers);
         let mut sip_headers = Headers::new();
-        let body = sip_headers.parse_headers_and_return_body(&mut bytes);
+        let body = sip_headers.parses_and_return_body(&mut bytes);
         assert_eq!(body.unwrap(), None);
 
         assert_eq!(sip_headers.len(), 5);

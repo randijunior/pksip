@@ -2,18 +2,20 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    headers::SipHeaderParser,
-    macros::{parse_header_param, read_while},
+    headers::SipHeader,
+    macros::{parse_param, read_while},
     parser::{is_token, Result},
 };
 
-use super::accept::{MediaType, MimeType};
+use super::{MediaType, MimeType};
+
+
 
 
 /// Indicates the media type of the `message-body` sent to the recipient.
 pub struct ContentType<'a>(MediaType<'a>);
 
-impl<'a> SipHeaderParser<'a> for ContentType<'a> {
+impl<'a> SipHeader<'a> for ContentType<'a> {
     const NAME: &'static str = "Content-Type";
     const SHORT_NAME: Option<&'static str> = Some("c");
 
@@ -23,7 +25,7 @@ impl<'a> SipHeaderParser<'a> for ContentType<'a> {
         bytes.next();
         let sub = read_while!(bytes, is_token);
         let sub = unsafe { str::from_utf8_unchecked(sub) };
-        let param = parse_header_param!(bytes);
+        let param = parse_param!(bytes);
 
         Ok(ContentType(MediaType {
             mimetype: MimeType {

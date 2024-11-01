@@ -1,12 +1,12 @@
 use crate::{
     bytes::Bytes,
     headers::TAG_PARAM,
-    macros::parse_header_param,
+    macros::parse_param,
     parser::Result,
     uri::{Params, SipUri},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 
@@ -17,14 +17,14 @@ pub struct To<'a> {
     pub(crate) params: Option<Params<'a>>,
 }
 
-impl<'a> SipHeaderParser<'a> for To<'a> {
+impl<'a> SipHeader<'a> for To<'a> {
     const NAME: &'static str = "To";
     const SHORT_NAME: Option<&'static str> = Some("t");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let uri = SipUri::parse(bytes)?;
         let mut tag = None;
-        let params = parse_header_param!(bytes, TAG_PARAM = tag);
+        let params = parse_param!(bytes, TAG_PARAM = tag);
 
         Ok(To { tag, uri, params })
     }

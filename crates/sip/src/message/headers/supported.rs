@@ -6,12 +6,12 @@ use crate::{
     parser::{self, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Enumerates all the extensions supported by the `UAC` or `UAS`.
 pub struct Supported<'a>(Vec<&'a str>);
 
-impl<'a> SipHeaderParser<'a> for Supported<'a> {
+impl<'a> SipHeader<'a> for Supported<'a> {
     const NAME: &'static str = "Supported";
     const SHORT_NAME: Option<&'static str> = Some("k");
 

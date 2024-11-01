@@ -1,11 +1,11 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, sip_parse_error},
+    macros::{parse_param, sip_parse_error},
     parser::Result,
     uri::{NameAddr, Params, SipUri},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Specify the sequence of proxy servers and other intermediaries
 /// that a SIP message should pass through on its way to the final destination.
@@ -14,12 +14,12 @@ pub struct Route<'a> {
     pub(crate) param: Option<Params<'a>>,
 }
 
-impl<'a> SipHeaderParser<'a> for Route<'a> {
+impl<'a> SipHeader<'a> for Route<'a> {
     const NAME: &'static str = "Route";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipUri::parse(bytes)? {
-            let param = parse_header_param!(bytes);
+            let param = parse_param!(bytes);
             Ok(Route { addr, param })
         } else {
             sip_parse_error!("Invalid Route Header!")

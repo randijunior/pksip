@@ -19,7 +19,7 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 use crate::macros::{b_map, read_while};
 use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
@@ -144,7 +144,7 @@ impl<'a> Via<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for Via<'a> {
+impl<'a> SipHeader<'a> for Via<'a> {
     const NAME: &'static str = "Via";
     const SHORT_NAME: Option<&'static str> = Some("v");
 

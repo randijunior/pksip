@@ -1,6 +1,6 @@
 use crate::{bytes::Bytes, message::auth::digest::Credential, parser::Result};
 
-use super::SipHeaderParser;
+use super::SipHeader;
 
 
 /// Contains authentication credentials of a `UA`.
@@ -12,7 +12,7 @@ impl<'a> Authorization<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for Authorization<'a> {
+impl<'a> SipHeader<'a> for Authorization<'a> {
     const NAME: &'static str = "Authorization";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

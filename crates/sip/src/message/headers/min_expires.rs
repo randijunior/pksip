@@ -6,12 +6,12 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// The minimum refresh interval supported for soft-state elements managed by that server.
 pub struct MinExpires(u32);
 
-impl<'a> SipHeaderParser<'a> for MinExpires {
+impl<'a> SipHeader<'a> for MinExpires {
     const NAME: &'static str = "Min-Expires";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

@@ -1,36 +1,25 @@
 use crate::{
     bytes::Bytes,
     headers::{self, Q_PARAM},
-    macros::{parse_header_param, read_while, space},
+    macros::{parse_comma_separated_header, parse_param},
     parser::{self, Result},
     uri::Params,
     util::is_alphabetic,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 use std::str;
 
+/// A `language` that apear in `Accept-Language` header.
 pub struct Language<'a> {
     language: &'a str,
     q: Option<f32>,
     param: Option<Params<'a>>,
 }
 
-impl<'a> Language<'a> {
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        space!(bytes);
-        let is_lang =
-            |byte: &u8| byte == &b'*' || byte == &b'-' || is_alphabetic(byte);
-        let language = parser::parse_slice_utf8(bytes, is_lang);
-        let mut q_param = None;
-        let param = parse_header_param!(bytes, Q_PARAM = q_param);
-        let q = q_param.and_then(|q| headers::parse_q(Some(q)));
-
-        Ok(Language { language, q, param })
-    }
-}
-
-/// Specifies the client's language preferences.
+/// A `Accept-Language` SIP header.
+///
+/// The `Accept-Language` indicates the client's language preferences.
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {
@@ -43,22 +32,21 @@ impl<'a> AcceptLanguage<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for AcceptLanguage<'a> {
+impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
     const NAME: &'static str = "Accept-Language";
 
-    fn parse(bytes: &mut Bytes<'a>) -> crate::parser::Result<Self> {
-        let mut languages: Vec<Language> = Vec::new();
-        space!(bytes);
+    fn parse(bytes: &mut Bytes<'a>) -> Result<AcceptLanguage<'a>> {
+        let languages = parse_comma_separated_header!(bytes => {
+            let is_lang = |byte: &u8| {
+                byte == &b'*' || byte == &b'-' || is_alphabetic(byte)
+            };
+            let language = parser::parse_slice_utf8(bytes, is_lang);
+            let mut q_param = None;
+            let param = parse_param!(bytes, Q_PARAM = q_param);
+            let q = q_param.and_then(|q| headers::parse_q(Some(q)));
 
-        let lang = Language::parse(bytes)?;
-        languages.push(lang);
-
-        while let Some(b',') = bytes.peek() {
-            bytes.next();
-            let lang = Language::parse(bytes)?;
-            languages.push(lang);
-            space!(bytes);
-        }
+            Language { language, q, param }
+        });
 
         Ok(AcceptLanguage(languages))
     }

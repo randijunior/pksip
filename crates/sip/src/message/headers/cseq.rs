@@ -5,7 +5,7 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 
@@ -21,7 +21,7 @@ impl<'a> CSeq<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for CSeq<'a> {
+impl<'a> SipHeader<'a> for CSeq<'a> {
     const NAME: &'static str = "CSeq";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

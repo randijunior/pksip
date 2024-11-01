@@ -1,11 +1,11 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, sip_parse_error},
+    macros::{parse_param, sip_parse_error},
     parser::Result,
     uri::{NameAddr, Params, SipUri},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Keeps proxies in the signaling path for consistent routing and session control.
 pub struct RecordRoute<'a> {
@@ -13,12 +13,12 @@ pub struct RecordRoute<'a> {
     param: Option<Params<'a>>,
 }
 
-impl<'a> SipHeaderParser<'a> for RecordRoute<'a> {
+impl<'a> SipHeader<'a> for RecordRoute<'a> {
     const NAME: &'static str = "Record-Route";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         if let SipUri::NameAddr(addr) = SipUri::parse(bytes)? {
-            let param = parse_header_param!(bytes);
+            let param = parse_param!(bytes);
             Ok(RecordRoute { addr, param })
         } else {
             sip_parse_error!("Invalid Record-Route Header!")

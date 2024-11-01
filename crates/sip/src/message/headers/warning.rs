@@ -5,7 +5,7 @@ use crate::{
     uri::is_host,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Carry additional information about the status of a response.
 pub struct Warning<'a> {
@@ -14,7 +14,7 @@ pub struct Warning<'a> {
     text: &'a str,
 }
 
-impl<'a> SipHeaderParser<'a> for Warning<'a> {
+impl<'a> SipHeader<'a> for Warning<'a> {
     const NAME: &'static str = "Warning";
 
     fn parse(

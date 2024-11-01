@@ -3,14 +3,15 @@ use std::str;
 use crate::{
     bytes::Bytes,
     headers::{self, Q_PARAM},
-    macros::{parse_header_param, space},
-    parser::{self, is_token, Result},
+    macros::{parse_comma_separated_header, parse_param},
+    parser::{self, Result},
     uri::Params,
     util::is_newline,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
+/// A `coding` that apear in `Accept-Encoding` header
 #[derive(Default)]
 pub struct Coding<'a> {
     coding: &'a str,
@@ -18,19 +19,11 @@ pub struct Coding<'a> {
     param: Option<Params<'a>>,
 }
 
-impl<'a> Coding<'a> {
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        space!(bytes);
-        let coding = parser::parse_token(bytes);
-        let mut q_param = None;
-        let param = parse_header_param!(bytes, Q_PARAM = q_param);
-        let q = q_param.and_then(|q| headers::parse_q(Some(q)));
 
-        Ok(Coding { coding, q, param })
-    }
-}
-
-/// Indicates what types of content encoding (compression) the client can process.
+/// A `Accept-Encoding` SIP header.
+///
+/// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
+/// process.
 #[derive(Default)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
@@ -43,24 +36,21 @@ impl<'a> AcceptEncoding<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for AcceptEncoding<'a> {
+impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
     const NAME: &'static str = "Accept-Encoding";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        space!(bytes);
-
+    fn parse(bytes: &mut Bytes<'a>) -> Result<AcceptEncoding<'a>> {
         if bytes.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }
-        let mut codings: Vec<Coding> = Vec::new();
-        let coding = Coding::parse(bytes)?;
-        codings.push(coding);
-
-        while let Some(b',') = bytes.peek() {
-            bytes.next();
-            let coding = Coding::parse(bytes)?;
-            codings.push(coding);
-        }
+        let codings = parse_comma_separated_header!(bytes => {
+            let coding = parser::parse_token(bytes);
+            let mut q_param = None;
+            let param = parse_param!(bytes, Q_PARAM = q_param);
+            let q = q_param.and_then(|q| headers::parse_q(Some(q)));
+    
+            Coding { coding, q, param }
+        });
 
         Ok(AcceptEncoding(codings))
     }

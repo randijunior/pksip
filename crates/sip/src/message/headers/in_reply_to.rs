@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    headers::{call_id::CallId, SipHeaderParser},
+    headers::{call_id::CallId, SipHeader},
     macros::{read_while, space},
     parser::Result,
     util::is_newline,
@@ -11,7 +11,7 @@ use crate::{
 /// Enumerates the `Call-IDs` that this call references or returns.
 pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 
-impl<'a> SipHeaderParser<'a> for InReplyTo<'a> {
+impl<'a> SipHeader<'a> for InReplyTo<'a> {
     const NAME: &'static str = "In-Reply-To";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

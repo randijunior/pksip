@@ -2,26 +2,17 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, read_until_byte, read_while, space},
-    parser::Result,
-    uri::Params,
-    util::is_newline,
+    macros::{parse_comma_separated_header, parse_param},
+    parser::{self, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
+use super::MediaType;
 
-pub struct MimeType<'a> {
-    pub mtype: &'a str,
-    pub subtype: &'a str,
-}
-
-pub struct MediaType<'a> {
-    pub mimetype: MimeType<'a>,
-    pub param: Option<Params<'a>>,
-}
-
-/// Indicates witch media types the client can process.
+/// A `Accept` SIP header.
+/// 
+/// The `Accept` indicates witch media types the client can process.
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
 impl<'a> Accept<'a> {
@@ -34,34 +25,19 @@ impl<'a> Accept<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for Accept<'a> {
+impl<'a> SipHeader<'a> for Accept<'a> {
     const NAME: &'static str = "Accept";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Accept<'a>> {
-        let mut mtypes: Vec<MediaType<'a>> = Vec::new();
-        loop {
-            let is_next_newline = bytes.peek().is_some_and(|c| is_newline(c));
-            if bytes.is_eof() || is_next_newline {
-                break;
-            }
-            let mtype = read_until_byte!(bytes, &b'/');
+        let mtypes = parse_comma_separated_header!(bytes => {
+            let mtype = parser::parse_token(bytes);
+            // take "/" character
             bytes.next();
-            let subtype = read_while!(bytes, |c| c != &b','
-                && !is_newline(c)
-                && c != &b';');
+            let subtype = parser::parse_token(bytes);
+            let param = parse_param!(bytes);
 
-            let param = parse_header_param!(bytes);
-            let media_type = MediaType {
-                mimetype: MimeType {
-                    mtype: str::from_utf8(mtype)?,
-                    subtype: str::from_utf8(subtype)?,
-                },
-                param,
-            };
-            mtypes.push(media_type);
-            bytes.read_if(|b| b == &b',')?;
-            space!(bytes);
-        }
+            MediaType::new(mtype, subtype, param)
+        });
 
         Ok(Accept(mtypes))
     }

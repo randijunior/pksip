@@ -1,12 +1,12 @@
 use crate::{
     bytes::Bytes,
     headers::{self, EXPIRES_PARAM, Q_PARAM},
-    macros::parse_header_param,
+    macros::parse_param,
     parser::Result,
     uri::{Params, SipUri},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Specifies the `URI` for the user or `UA` sending the message.
 pub enum Contact<'a> {
@@ -19,7 +19,7 @@ pub enum Contact<'a> {
     },
 }
 
-impl<'a> SipHeaderParser<'a> for Contact<'a> {
+impl<'a> SipHeader<'a> for Contact<'a> {
     const NAME: &'static str = "Contact";
     const SHORT_NAME: Option<&'static str> = Some("m");
 
@@ -32,7 +32,7 @@ impl<'a> SipHeaderParser<'a> for Contact<'a> {
         let mut q = None;
         let mut expires = None;
         let param =
-            parse_header_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
+            parse_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
         let q = q.and_then(|q| headers::parse_q(Some(q)));
         let expires = expires.and_then(|expires| expires.parse().ok());
 

@@ -83,9 +83,9 @@ macro_rules! b_map {
     };
 }
 
-macro_rules! parse_header_param {
+macro_rules! parse_param {
     ($bytes:ident) => (
-        parse_header_param!($bytes,)
+        parse_param!($bytes,)
     );
 
     ($bytes:ident, $($name:ident = $var:expr),*) => (
@@ -144,6 +144,24 @@ macro_rules! parse_auth_param {
     }};
 }
 
+macro_rules! parse_comma_separated_header {
+    ($bytes:ident => $body:expr) => {{
+        let mut hdr_itens = Vec::new();
+        crate::macros::space!($bytes);
+        let item = $body;
+        hdr_itens.push(item);
+
+        while let Some(b',') = $bytes.peek() {
+            $bytes.next();
+            crate::macros::space!($bytes);
+            let item = $body;
+            hdr_itens.push(item);
+        }
+
+        hdr_itens
+    }};
+}
+
 macro_rules! sip_parse_error {
     ($message:expr) => {{
         Err(crate::parser::SipParserError::from($message))
@@ -155,7 +173,8 @@ pub(crate) use b_map;
 pub(crate) use digits;
 pub(crate) use newline;
 pub(crate) use parse_auth_param;
-pub(crate) use parse_header_param;
+pub(crate) use parse_param;
+pub(crate) use parse_comma_separated_header;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;
 pub(crate) use read_while;

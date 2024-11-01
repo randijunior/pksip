@@ -2,12 +2,12 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, read_while, sip_parse_error, space},
+    macros::{parse_param, read_while, sip_parse_error, space},
     parser::{is_token, Result},
     uri::{is_uri, GenericUri, Params},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 
 pub struct ErrorUri<'a> {
@@ -32,7 +32,7 @@ impl<'a> ErrorUri<'a> {
         let Some(&b'>') = bytes.next() else {
             return sip_parse_error!("Invalid uri!");
         };
-        let params = parse_header_param!(bytes);
+        let params = parse_param!(bytes);
 
         Ok(ErrorUri {
             url: GenericUri { scheme, content },
@@ -44,7 +44,7 @@ impl<'a> ErrorUri<'a> {
 /// Provides a pointer to additional information about the error status response.
 pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
 
-impl<'a> SipHeaderParser<'a> for ErrorInfo<'a> {
+impl<'a> SipHeader<'a> for ErrorInfo<'a> {
     const NAME: &'static str = "Error-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

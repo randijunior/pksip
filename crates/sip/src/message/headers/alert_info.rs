@@ -1,6 +1,6 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, read_while, sip_parse_error, space},
+    macros::{parse_param, read_while, sip_parse_error, space},
     parser::Result,
     uri::Params,
     util::is_newline,
@@ -12,11 +12,11 @@ pub struct AlertInfo<'a> {
     params: Option<Params<'a>>,
 }
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 
-impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
+impl<'a> SipHeader<'a> for AlertInfo<'a> {
     const NAME: &'static str = "Alert-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
@@ -32,7 +32,7 @@ impl<'a> SipHeaderParser<'a> for AlertInfo<'a> {
         let Some(&b'>') = bytes.next() else {
             return sip_parse_error!("Invalid alert info!");
         };
-        let params = parse_header_param!(bytes);
+        let params = parse_param!(bytes);
 
         Ok(AlertInfo { url, params })
     }

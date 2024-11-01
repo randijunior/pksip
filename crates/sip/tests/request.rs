@@ -1,4 +1,4 @@
-use sip::headers::{Header, SipHeaderParser, Via};
+use sip::headers::{Header, SipHeader, Via};
 
 use sip::parser;
 

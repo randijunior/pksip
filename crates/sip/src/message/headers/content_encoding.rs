@@ -6,7 +6,7 @@ use crate::{
     parser::{self, is_token, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicates what decoding mechanisms must be applied to obtain the media-type 
 /// referenced by the Content-Type header field.
@@ -22,7 +22,7 @@ impl<'a> ContentEncoding<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for ContentEncoding<'a> {
+impl<'a> SipHeader<'a> for ContentEncoding<'a> {
     const NAME: &'static str = "Content-Encoding";
     const SHORT_NAME: Option<&'static str> = Some("e");
 

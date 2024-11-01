@@ -6,12 +6,12 @@ use crate::{
     parser::{self, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicate `proxy-sensitive` features that must be supported by the proxy.
 pub struct ProxyRequire<'a>(Vec<&'a str>);
 
-impl<'a> SipHeaderParser<'a> for ProxyRequire<'a> {
+impl<'a> SipHeader<'a> for ProxyRequire<'a> {
     const NAME: &'static str = "Proxy-Require";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

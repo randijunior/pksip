@@ -2,13 +2,13 @@ use core::str;
 
 use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// The name of the organization to which the SIP
 /// element issuing the request or response belongs.
 pub struct Organization<'a>(&'a str);
 
-impl<'a> SipHeaderParser<'a> for Organization<'a> {
+impl<'a> SipHeader<'a> for Organization<'a> {
     const NAME: &'static str = "Organization";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

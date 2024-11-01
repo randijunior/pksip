@@ -5,7 +5,7 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicates what methods is supported by the `UA`.
 pub struct Allow<'a>(Vec<SipMethod<'a>>);
@@ -20,7 +20,7 @@ impl<'a> Allow<'a> {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for Allow<'a> {
+impl<'a> SipHeader<'a> for Allow<'a> {
     const NAME: &'static str = "Allow";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

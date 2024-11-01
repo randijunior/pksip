@@ -1,5 +1,5 @@
 use crate::{
-    bytes::Bytes, headers::SipHeaderParser,
+    bytes::Bytes, headers::SipHeader,
     message::auth::challenge::Challenge, parser::Result,
 };
 
@@ -8,7 +8,7 @@ use crate::{
 /// to the `Request-URI`.
 pub struct WWWAuthenticate<'a>(Challenge<'a>);
 
-impl<'a> SipHeaderParser<'a> for WWWAuthenticate<'a> {
+impl<'a> SipHeader<'a> for WWWAuthenticate<'a> {
     const NAME: &'static str = "WWW-Authenticate";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

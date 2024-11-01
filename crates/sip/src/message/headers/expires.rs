@@ -6,7 +6,7 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Gives the relative time after which the message (or content) expires.
 pub struct Expires(i32);
@@ -23,7 +23,7 @@ impl Expires {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for Expires {
+impl<'a> SipHeader<'a> for Expires {
     const NAME: &'static str = "Expires";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

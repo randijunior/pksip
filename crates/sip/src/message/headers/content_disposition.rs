@@ -1,11 +1,11 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, read_while, space},
+    macros::{parse_param, read_while, space},
     parser::{is_token, Result},
     uri::Params,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Describes how the `message-body` is to be interpreted by the `UAC` or `UAS`.
 pub struct ContentDisposition<'a> {
@@ -13,14 +13,14 @@ pub struct ContentDisposition<'a> {
     params: Option<Params<'a>>,
 }
 
-impl<'a> SipHeaderParser<'a> for ContentDisposition<'a> {
+impl<'a> SipHeader<'a> for ContentDisposition<'a> {
     const NAME: &'static str = "Content-Disposition";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let disp_type = read_while!(bytes, is_token);
         let disp_type = unsafe { std::str::from_utf8_unchecked(disp_type) };
         space!(bytes);
-        let params = parse_header_param!(bytes);
+        let params = parse_param!(bytes);
 
         Ok(ContentDisposition { disp_type, params })
     }

@@ -1,12 +1,12 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, read_while, sip_parse_error, space},
+    macros::{parse_param, read_while, sip_parse_error, space},
     parser::Result,
     uri::Params,
     util::is_newline,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 const PURPOSE: &'static str = "purpose";
@@ -18,7 +18,7 @@ pub struct CallInfo<'a> {
     params: Option<Params<'a>>,
 }
 
-impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
+impl<'a> SipHeader<'a> for CallInfo<'a> {
     const NAME: &'static str = "Call-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
@@ -35,7 +35,7 @@ impl<'a> SipHeaderParser<'a> for CallInfo<'a> {
             return sip_parse_error!("Invalid call info!");
         };
         space!(bytes);
-        let params = parse_header_param!(bytes, PURPOSE = purpose);
+        let params = parse_param!(bytes, PURPOSE = purpose);
 
         Ok(CallInfo {
             url,

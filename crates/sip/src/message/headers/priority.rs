@@ -6,12 +6,12 @@ use crate::{
     parser::{is_token, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicates the urgency of the request as perceived by the client.
 pub struct Priority<'a>(&'a str);
 
-impl<'a> SipHeaderParser<'a> for Priority<'a> {
+impl<'a> SipHeader<'a> for Priority<'a> {
     const NAME: &'static str = "Priority";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

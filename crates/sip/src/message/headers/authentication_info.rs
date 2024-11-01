@@ -5,7 +5,7 @@ use crate::{
     uri::Params,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 
@@ -18,7 +18,7 @@ pub struct AuthenticationInfo<'a> {
     nc: Option<&'a str>,
 }
 
-impl<'a> SipHeaderParser<'a> for AuthenticationInfo<'a> {
+impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     const NAME: &'static str = "Authentication-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

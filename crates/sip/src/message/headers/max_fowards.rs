@@ -4,7 +4,7 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 use std::str;
 
@@ -20,7 +20,7 @@ impl MaxForwards {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for MaxForwards {
+impl<'a> SipHeader<'a> for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

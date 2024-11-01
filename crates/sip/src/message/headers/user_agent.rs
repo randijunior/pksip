@@ -2,12 +2,12 @@ use core::str;
 
 use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Contains information about the `UAC` originating the request.
 pub struct UserAgent<'a>(&'a str);
 
-impl<'a> SipHeaderParser<'a> for UserAgent<'a> {
+impl<'a> SipHeader<'a> for UserAgent<'a> {
     const NAME: &'static str = "User-Agent";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

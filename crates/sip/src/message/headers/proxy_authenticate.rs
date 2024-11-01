@@ -2,12 +2,12 @@ use crate::{
     bytes::Bytes, message::auth::challenge::Challenge, parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// The authentication requirements from a proxy server to a client.
 pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
-impl<'a> SipHeaderParser<'a> for ProxyAuthenticate<'a> {
+impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
     const NAME: &'static str = "Proxy-Authenticate";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {

@@ -1,11 +1,11 @@
 use crate::{
     bytes::Bytes,
-    macros::parse_header_param,
+    macros::parse_param,
     parser::Result,
     uri::{Params, SipUri},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Contains a logical return URI that may be different from the From header field
 pub struct ReplyTo<'a> {
@@ -13,12 +13,12 @@ pub struct ReplyTo<'a> {
     param: Option<Params<'a>>,
 }
 
-impl<'a> SipHeaderParser<'a> for ReplyTo<'a> {
+impl<'a> SipHeader<'a> for ReplyTo<'a> {
     const NAME: &'static str = "Reply-To";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let uri = SipUri::parse(bytes)?;
-        let param = parse_header_param!(bytes);
+        let param = parse_param!(bytes);
 
         Ok(ReplyTo { uri, param })
     }

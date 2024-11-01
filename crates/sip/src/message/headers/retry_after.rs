@@ -4,13 +4,13 @@ use std::u32;
 use crate::{
     bytes::Bytes,
     macros::{
-        digits, parse_header_param, read_until_byte, sip_parse_error, space,
+        digits, parse_param, read_until_byte, sip_parse_error, space,
     },
     parser::Result,
     uri::Params,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicate how long the service is expected to be 
 /// unavailable to the requesting client. 
@@ -21,7 +21,7 @@ pub struct RetryAfter<'a> {
     comment: Option<&'a str>,
 }
 
-impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
+impl<'a> SipHeader<'a> for RetryAfter<'a> {
     const NAME: &'static str = "Retry-After";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
@@ -43,7 +43,7 @@ impl<'a> SipHeaderParser<'a> for RetryAfter<'a> {
                     bytes.next();
                     comment = Some(str::from_utf8(b)?);
                 }
-                let param = parse_header_param!(bytes);
+                let param = parse_param!(bytes);
 
                 Ok(RetryAfter {
                     seconds: digits,

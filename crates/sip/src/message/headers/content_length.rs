@@ -6,7 +6,7 @@ use crate::{
     parser::Result,
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Indicates the size of the `message-body`.
 pub struct ContentLength(u32);
@@ -17,7 +17,7 @@ impl ContentLength {
     }
 }
 
-impl<'a> SipHeaderParser<'a> for ContentLength {
+impl<'a> SipHeader<'a> for ContentLength {
     const NAME: &'static str = "Content-Length";
     const SHORT_NAME: Option<&'static str> = Some("l");
 

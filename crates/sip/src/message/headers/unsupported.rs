@@ -6,12 +6,12 @@ use crate::{
     parser::{self, is_token, Result},
 };
 
-use crate::headers::SipHeaderParser;
+use crate::headers::SipHeader;
 
 /// Lists the features not supported by the `UAS`.
 pub struct Unsupported<'a>(Vec<&'a str>);
 
-impl<'a> SipHeaderParser<'a> for Unsupported<'a> {
+impl<'a> SipHeader<'a> for Unsupported<'a> {
     const NAME: &'static str = "Unsupported";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
