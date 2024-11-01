@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_comma_separated_header, parse_param},
+    macros::{parse_comma_separated_header, parse_param, sip_parse_error},
     parser::{self, Result},
 };
 
@@ -10,7 +10,7 @@ use crate::headers::SipHeader;
 
 use super::MediaType;
 
-/// A `Accept` SIP header.
+/// `Accept` SIP header.
 /// 
 /// The `Accept` indicates witch media types the client can process.
 pub struct Accept<'a>(Vec<MediaType<'a>>);
@@ -32,7 +32,9 @@ impl<'a> SipHeader<'a> for Accept<'a> {
         let mtypes = parse_comma_separated_header!(bytes => {
             let mtype = parser::parse_token(bytes);
             // take "/" character
-            bytes.next();
+            let Some(b'/') = bytes.next() else {
+                return sip_parse_error!("Invalid Accept!");
+            };
             let subtype = parser::parse_token(bytes);
             let param = parse_param!(bytes);
 

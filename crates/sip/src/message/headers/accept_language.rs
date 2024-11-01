@@ -17,7 +17,7 @@ pub struct Language<'a> {
     param: Option<Params<'a>>,
 }
 
-/// A `Accept-Language` SIP header.
+/// `Accept-Language` SIP header.
 ///
 /// The `Accept-Language` indicates the client's language preferences.
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);

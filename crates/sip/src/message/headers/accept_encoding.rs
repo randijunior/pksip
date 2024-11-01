@@ -20,7 +20,7 @@ pub struct Coding<'a> {
 }
 
 
-/// A `Accept-Encoding` SIP header.
+/// `Accept-Encoding` SIP header.
 ///
 /// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
 /// process.

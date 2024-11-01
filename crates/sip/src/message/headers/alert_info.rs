@@ -1,3 +1,5 @@
+use crate::headers::SipHeader;
+use crate::macros::read_until_byte;
 use crate::{
     bytes::Bytes,
     macros::{parse_param, read_while, sip_parse_error, space},
@@ -5,33 +7,27 @@ use crate::{
     uri::Params,
     util::is_newline,
 };
+use core::str;
 
-/// Specifies an alternative ring tone.
+/// A `Alert-Info` SIP header.
+///
+/// The `Alert-Info` Specifies an alternative ring tone.
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,
 }
 
-use crate::headers::SipHeader;
-
-use std::str;
-
 impl<'a> SipHeader<'a> for AlertInfo<'a> {
     const NAME: &'static str = "Alert-Info";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<AlertInfo<'a>> {
         space!(bytes);
-        // must be an '<'
-        let Some(&b'<') = bytes.next() else {
-            return sip_parse_error!("Invalid alert info!");
-        };
-        let url =
-            read_while!(bytes, |b| !matches!(b, b'>' | b';') && !is_newline(b));
+        
+        bytes.must_read(&b'<')?;
+        let url = read_until_byte!(bytes, &b'>');
+        bytes.must_read(&b'>')?;
+
         let url = str::from_utf8(url)?;
-        // must be an '>'
-        let Some(&b'>') = bytes.next() else {
-            return sip_parse_error!("Invalid alert info!");
-        };
         let params = parse_param!(bytes);
 
         Ok(AlertInfo { url, params })

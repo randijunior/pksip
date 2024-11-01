@@ -6,6 +6,8 @@ type Result<'a, T> = std::result::Result<T, BytesError<'a>>;
 pub enum ErrorKind {
     /// End of file reached.
     Eof,
+    ///
+    Char
 }
 
 #[derive(Debug, PartialEq)]
@@ -86,6 +88,16 @@ impl<'a> Bytes<'a> {
         let end = self.idx;
 
         Range { start, end }
+    }
+
+    pub(crate) fn must_read(&mut self, b: &u8) -> Result<()> {
+        let Some(n) = self.peek() else {
+            return self.error(ErrorKind::Eof);
+        };
+        if b != n {
+            return self.error(ErrorKind::Char);
+        }
+        Ok(())
     }
 
     pub(crate) fn read_if<F>(&mut self, func: F) -> Result<Option<&u8>>
