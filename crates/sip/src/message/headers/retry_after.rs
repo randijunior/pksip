@@ -3,17 +3,15 @@ use std::u32;
 
 use crate::{
     bytes::Bytes,
-    macros::{
-        digits, parse_param, read_until_byte, sip_parse_error, space,
-    },
+    macros::{digits, parse_param, read_until_byte, sip_parse_error, space},
     parser::Result,
     uri::Params,
 };
 
 use crate::headers::SipHeader;
 
-/// Indicate how long the service is expected to be 
-/// unavailable to the requesting client. 
+/// Indicate how long the service is expected to be
+/// unavailable to the requesting client.
 /// Or when the called party anticipates being available again.
 pub struct RetryAfter<'a> {
     seconds: u32,

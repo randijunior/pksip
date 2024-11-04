@@ -8,12 +8,14 @@ use crate::{
 
 use crate::headers::SipHeader;
 
+use super::Q;
+
 /// Specifies the `URI` for the user or `UA` sending the message.
 pub enum Contact<'a> {
     Star,
     Uri {
         uri: SipUri<'a>,
-        q: Option<f32>,
+        q: Option<Q>,
         expires: Option<u32>,
         param: Option<Params<'a>>,
     },
@@ -31,9 +33,8 @@ impl<'a> SipHeader<'a> for Contact<'a> {
         let uri = SipUri::parse(bytes)?;
         let mut q = None;
         let mut expires = None;
-        let param =
-            parse_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
-        let q = q.and_then(|q| headers::parse_q(Some(q)));
+        let param = parse_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
+        let q = q.and_then(|q| headers::parse_q(q));
         let expires = expires.and_then(|expires| expires.parse().ok());
 
         Ok(Contact::Uri {
@@ -77,7 +78,7 @@ mod tests {
                     }
                 );
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(q, Some(0.7));
+                assert_eq!(q, Some(Q(0, 7)));
                 assert_eq!(expires, Some(3600));
             }
             _ => unreachable!(),

@@ -9,9 +9,6 @@ use crate::{
 
 use super::{MediaType, MimeType};
 
-
-
-
 /// Indicates the media type of the `message-body` sent to the recipient.
 pub struct ContentType<'a>(MediaType<'a>);
 

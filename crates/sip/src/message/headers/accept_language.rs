@@ -10,16 +10,20 @@ use crate::{
 use crate::headers::SipHeader;
 use std::str;
 
+use super::Q;
+
 /// A `language` that apear in `Accept-Language` header.
+#[derive(Debug, Clone)]
 pub struct Language<'a> {
     language: &'a str,
-    q: Option<f32>,
+    q: Option<Q>,
     param: Option<Params<'a>>,
 }
 
-/// `Accept-Language` SIP header.
+/// The `Accept-Language` SIP header.
 ///
-/// The `Accept-Language` indicates the client's language preferences.
+/// Indicates the client's language preferences.
+#[derive(Default, Debug, Clone)]
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {
@@ -43,7 +47,7 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
             let language = parser::parse_slice_utf8(bytes, is_lang);
             let mut q_param = None;
             let param = parse_param!(bytes, Q_PARAM = q_param);
-            let q = q_param.and_then(|q| headers::parse_q(Some(q)));
+            let q = q_param.and_then(|q| headers::parse_q(q));
 
             Language { language, q, param }
         });
@@ -82,11 +86,11 @@ mod tests {
 
         let lang = accept_language.get(1).unwrap();
         assert_eq!(lang.language, "en-gb");
-        assert_eq!(lang.q, Some(0.8));
+        assert_eq!(lang.q, Some(Q(0, 8)));
 
         let lang = accept_language.get(2).unwrap();
         assert_eq!(lang.language, "en");
-        assert_eq!(lang.q, Some(0.7));
+        assert_eq!(lang.q, Some(Q(0, 7)));
 
         let src = b"*\r\n";
         let mut bytes = Bytes::new(src);

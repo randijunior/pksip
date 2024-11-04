@@ -9,7 +9,6 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-
 pub struct ErrorUri<'a> {
     url: GenericUri<'a>,
     params: Option<Params<'a>>,

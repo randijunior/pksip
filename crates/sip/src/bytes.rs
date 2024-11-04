@@ -6,8 +6,7 @@ type Result<'a, T> = std::result::Result<T, BytesError<'a>>;
 pub enum ErrorKind {
     /// End of file reached.
     Eof,
-    ///
-    Char
+    Char(u8, u8),
 }
 
 #[derive(Debug, PartialEq)]
@@ -95,8 +94,9 @@ impl<'a> Bytes<'a> {
             return self.error(ErrorKind::Eof);
         };
         if b != n {
-            return self.error(ErrorKind::Char);
+            return self.error(ErrorKind::Char(*b, *n));
         }
+        self.next();
         Ok(())
     }
 

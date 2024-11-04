@@ -77,8 +77,7 @@ impl<'a> ViaParams<'a> {
     }
 }
 
-
-/// Indicates the path taken by the request so far and the 
+/// Indicates the path taken by the request so far and the
 /// path that should be followed in routing responses.
 pub struct Via<'a> {
     pub(crate) transport: Transport,

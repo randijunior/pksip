@@ -2,16 +2,15 @@ use crate::headers::SipHeader;
 use crate::macros::read_until_byte;
 use crate::{
     bytes::Bytes,
-    macros::{parse_param, read_while, sip_parse_error, space},
+    macros::{parse_param, space},
     parser::Result,
     uri::Params,
-    util::is_newline,
 };
 use core::str;
 
-/// A `Alert-Info` SIP header.
+/// The `Alert-Info` SIP header.
 ///
-/// The `Alert-Info` Specifies an alternative ring tone.
+/// Specifies an alternative ring tone.
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,
@@ -22,7 +21,7 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<AlertInfo<'a>> {
         space!(bytes);
-        
+
         bytes.must_read(&b'<')?;
         let url = read_until_byte!(bytes, &b'>');
         bytes.must_read(&b'>')?;
@@ -43,7 +42,8 @@ mod tests {
     fn test_parse() {
         let src = b"<http://www.example.com/sounds/moo.wav>\r\n";
         let mut bytes = Bytes::new(src);
-        let alert_info = AlertInfo::parse(&mut bytes).unwrap();
+        let alert_info = AlertInfo::parse(&mut bytes);
+        let alert_info = alert_info.unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(alert_info.url, "http://www.example.com/sounds/moo.wav");
@@ -51,7 +51,8 @@ mod tests {
         let src =
             b"<http://example.com/ringtones/premium.wav>;purpose=ringtone\r\n";
         let mut bytes = Bytes::new(src);
-        let alert_info = AlertInfo::parse(&mut bytes).unwrap();
+        let alert_info = AlertInfo::parse(&mut bytes);
+        let alert_info = alert_info.unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
         assert_eq!(alert_info.url, "http://example.com/ringtones/premium.wav");

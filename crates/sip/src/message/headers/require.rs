@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-/// Is used by `UACs` to tell `UASs` about options that the 
+/// Is used by `UACs` to tell `UASs` about options that the
 /// `UAC` expects the `UAS` to support in order to process the
 /// request.
 pub struct Require<'a>(Vec<&'a str>);

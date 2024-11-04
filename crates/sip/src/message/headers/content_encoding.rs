@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-/// Indicates what decoding mechanisms must be applied to obtain the media-type 
+/// Indicates what decoding mechanisms must be applied to obtain the media-type
 /// referenced by the Content-Type header field.
 pub struct ContentEncoding<'a>(Vec<&'a str>);
 

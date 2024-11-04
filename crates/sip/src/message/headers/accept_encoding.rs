@@ -11,20 +11,21 @@ use crate::{
 
 use crate::headers::SipHeader;
 
+use super::Q;
+
 /// A `coding` that apear in `Accept-Encoding` header
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct Coding<'a> {
     coding: &'a str,
-    q: Option<f32>,
+    q: Option<Q>,
     param: Option<Params<'a>>,
 }
-
 
 /// `Accept-Encoding` SIP header.
 ///
 /// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
 /// process.
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
 impl<'a> AcceptEncoding<'a> {
@@ -47,8 +48,8 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
             let coding = parser::parse_token(bytes);
             let mut q_param = None;
             let param = parse_param!(bytes, Q_PARAM = q_param);
-            let q = q_param.and_then(|q| headers::parse_q(Some(q)));
-    
+            let q = q_param.and_then(|q| headers::parse_q(q));
+
             Coding { coding, q, param }
         });
 
@@ -64,7 +65,8 @@ mod tests {
     fn test_parse() {
         let src = b"compress, gzip\r\n";
         let mut bytes = Bytes::new(src);
-        let accept_encoding = AcceptEncoding::parse(&mut bytes).unwrap();
+        let accept_encoding = AcceptEncoding::parse(&mut bytes);
+        let accept_encoding = accept_encoding.unwrap();
 
         assert!(accept_encoding.len() == 2);
         assert_eq!(bytes.as_ref(), b"\r\n");
@@ -78,7 +80,8 @@ mod tests {
         assert_eq!(coding.q, None);
 
         let mut bytes = Bytes::new(b"*\r\n");
-        let accept_encoding = AcceptEncoding::parse(&mut bytes).unwrap();
+        let accept_encoding = AcceptEncoding::parse(&mut bytes);
+        let accept_encoding = accept_encoding.unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
 
@@ -88,21 +91,22 @@ mod tests {
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
         let mut bytes = Bytes::new(src);
-        let accept_encoding = AcceptEncoding::parse(&mut bytes).unwrap();
+        let accept_encoding = AcceptEncoding::parse(&mut bytes);
+        let accept_encoding = accept_encoding.unwrap();
 
         assert!(accept_encoding.len() == 3);
         assert_eq!(bytes.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "gzip");
-        assert_eq!(coding.q, Some(1.0));
+        assert_eq!(coding.q, Some(Q(1, 0)));
 
         let coding = accept_encoding.get(1).unwrap();
         assert_eq!(coding.coding, "identity");
-        assert_eq!(coding.q, Some(0.5));
+        assert_eq!(coding.q, Some(Q(0, 5)));
 
         let coding = accept_encoding.get(2).unwrap();
         assert_eq!(coding.coding, "*");
-        assert_eq!(coding.q, Some(0.0));
+        assert_eq!(coding.q, Some(Q(0, 0)));
     }
 }

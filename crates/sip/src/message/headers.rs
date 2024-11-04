@@ -114,10 +114,17 @@ const Q_PARAM: &str = "q";
 const EXPIRES_PARAM: &str = "expires";
 
 // Parse the `q` param used in SIP header
-fn parse_q(param: Option<&str>) -> Option<f32> {
-    param
-        .and_then(|q| q.parse().ok())
-        .filter(|&value| (0.0..=1.0).contains(&value))
+fn parse_q(param: &str) -> Option<Q> {
+    match param.rsplit_once(".") {
+        Some((first, second)) => match (first.parse(), second.parse()) {
+            (Ok(a), Ok(b)) => Some(Q(a, b)),
+            _ => None,
+        },
+        None => match param.parse() {
+            Ok(n) => Some(Q(n, 0)),
+            Err(_) => None,
+        },
+    }
 }
 
 // Parses a `name=value` parameter in a SIP header.
@@ -595,14 +602,15 @@ impl<'a> Headers<'a> {
     }
 }
 
-
 /// This type reprents an MIME type that indicates an content format.
+#[derive(Default, Debug, Clone)]
 pub struct MimeType<'a> {
     pub mtype: &'a str,
     pub subtype: &'a str,
 }
 
 /// The `media-type` that appears in `Accept` and `Content-Type` SIP headers.
+#[derive(Default, Debug, Clone)]
 pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,
@@ -620,3 +628,6 @@ impl<'a> MediaType<'a> {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Q(u8, u8);

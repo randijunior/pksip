@@ -1,9 +1,9 @@
 use crate::{
-    bytes::Bytes, headers::SipHeader,
-    message::auth::challenge::Challenge, parser::Result,
+    bytes::Bytes, headers::SipHeader, message::auth::challenge::Challenge,
+    parser::Result,
 };
 
-/// Consists of at least one challenge the 
+/// Consists of at least one challenge the
 /// authentication scheme(s) and parameters applicable
 /// to the `Request-URI`.
 pub struct WWWAuthenticate<'a>(Challenge<'a>);
