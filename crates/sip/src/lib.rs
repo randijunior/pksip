@@ -6,6 +6,7 @@ pub mod uri;
 
 pub(crate) mod bytes;
 pub(crate) mod macros;
+pub(crate) mod token;
 pub(crate) mod util;
 
 pub use message::headers;

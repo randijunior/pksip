@@ -97,8 +97,9 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{newline, remaing, sip_parse_error, space},
-    parser::{self, parse_token, Result},
+    macros::{newline, read_until_byte, remaing, sip_parse_error, space},
+    parser::Result,
+    token::Token,
     uri::Params,
 };
 
@@ -128,19 +129,27 @@ fn parse_q(param: &str) -> Option<Q> {
 }
 
 // Parses a `name=value` parameter in a SIP header.
-fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Param<'a> {
+fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
     space!(bytes);
-    let name = parser::parse_token(bytes);
+    let name = Token::parse(bytes);
 
     let value = if bytes.peek() == Some(&b'=') {
         bytes.next();
-        let value = parser::parse_token(bytes);
-        Some(value)
+        match bytes.peek() {
+            Some(&b'"') => {
+                bytes.next();
+                let value = read_until_byte!(bytes, &b'"');
+                bytes.next();
+                Some(std::str::from_utf8(value)?)
+            }
+            Some(_) => Some(Token::parse(bytes)),
+            None => None,
+        }
     } else {
         None
     };
 
-    (name, value)
+    Ok((name, value))
 }
 
 /// Trait to parse SIP headers.
@@ -368,7 +377,7 @@ impl<'a> Headers<'a> {
     ) -> Result<Option<&'a [u8]>> {
         let mut has_body = false;
         'headers: loop {
-            let name = parser::parse_token(bytes);
+            let name = Token::parse(bytes);
 
             if bytes.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
@@ -582,7 +591,7 @@ impl<'a> Headers<'a> {
                     self.push(Header::Warning(warning));
                 }
                 _ => {
-                    let value = parse_token(bytes);
+                    let value = Token::parse(bytes);
 
                     self.push(Header::Other { name, value });
                 }

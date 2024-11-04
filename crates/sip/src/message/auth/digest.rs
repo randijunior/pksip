@@ -3,7 +3,8 @@ use crate::{
     macros::{
         parse_auth_param, read_until_byte, read_while, sip_parse_error, space,
     },
-    parser::{self, is_token, Result},
+    parser::Result,
+    token::{is_token, Token},
     uri::Params,
 };
 
@@ -27,7 +28,7 @@ impl<'a> DigestCredential<'a> {
         let mut digest = Self::default();
         loop {
             space!(bytes);
-            match parser::parse_token(bytes) {
+            match Token::parse(bytes) {
                 "realm" => digest.realm = parse_auth_param!(bytes),
                 "username" => digest.username = parse_auth_param!(bytes),
                 "nonce" => digest.nonce = parse_auth_param!(bytes),
@@ -83,14 +84,14 @@ impl<'a> Credential<'a> {
             other => {
                 space!(bytes);
                 let other = std::str::from_utf8(other)?;
-                let name = parser::parse_token(bytes);
+                let name = Token::parse(bytes);
                 let val = parse_auth_param!(bytes);
                 let mut params = Params::new();
                 params.set(name, val.unwrap_or(""));
 
                 while let Some(b',') = bytes.peek() {
                     space!(bytes);
-                    let name = parser::parse_token(bytes);
+                    let name = Token::parse(bytes);
                     let val = parse_auth_param!(bytes);
                     params.set(name, val.unwrap_or(""));
                 }

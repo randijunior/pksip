@@ -1,7 +1,8 @@
 use crate::{
     bytes::Bytes,
     macros::{parse_param, read_while, space},
-    parser::{is_token, Result},
+    parser::Result,
+    token::is_token,
     uri::Params,
 };
 

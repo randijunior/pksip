@@ -1,13 +1,13 @@
 use crate::{
     bytes::Bytes,
-    macros::{alpha, parse_comma_separated_header},
+    macros::{alpha, parse_header_list},
     message::SipMethod,
     parser::Result,
 };
 
 use crate::headers::SipHeader;
 /// The `Allow` SIP header
-/// 
+///
 /// Indicates what methods is supported by the `UA`.
 pub struct Allow<'a>(Vec<SipMethod<'a>>);
 
@@ -25,7 +25,7 @@ impl<'a> SipHeader<'a> for Allow<'a> {
     const NAME: &'static str = "Allow";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let allow = parse_comma_separated_header!(bytes => { 
+        let allow = parse_header_list!(bytes => {
             let b_method = alpha!(bytes);
 
             SipMethod::from(b_method)

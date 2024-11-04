@@ -2,8 +2,9 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_comma_separated_header, parse_param},
+    macros::{parse_header_list, parse_param},
     parser::{self, Result},
+    token::Token,
 };
 
 use crate::headers::SipHeader;
@@ -30,10 +31,10 @@ impl<'a> SipHeader<'a> for Accept<'a> {
     const NAME: &'static str = "Accept";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Accept<'a>> {
-        let mtypes = parse_comma_separated_header!(bytes => {
-            let mtype = parser::parse_token(bytes);
+        let mtypes = parse_header_list!(bytes => {
+            let mtype = Token::parse(bytes);
             bytes.must_read(&b'/')?;
-            let subtype = parser::parse_token(bytes);
+            let subtype = Token::parse(bytes);
 
             let param = parse_param!(bytes);
 

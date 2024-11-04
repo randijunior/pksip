@@ -4,7 +4,8 @@ use crate::{
     bytes::Bytes,
     headers::SipHeader,
     macros::{parse_param, read_while},
-    parser::{is_token, Result},
+    parser::Result,
+    token::is_token,
 };
 
 use super::{MediaType, MimeType};

@@ -5,7 +5,7 @@
 use crate::{
     bytes::Bytes,
     macros::{alpha, newline, space},
-    parser::{self, SipParserError},
+    parser::{self, SipParser, SipParserError},
     uri::Uri,
 };
 
@@ -33,7 +33,7 @@ impl<'a> RequestLine<'a> {
         let uri = Uri::parse(bytes, true)?;
         space!(bytes);
 
-        parser::parse_sip_v2(bytes)?;
+        SipParser::parse_sip_v2(bytes)?;
         newline!(bytes);
 
         Ok(RequestLine { method, uri })

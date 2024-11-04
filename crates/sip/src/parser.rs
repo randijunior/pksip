@@ -12,9 +12,7 @@ use std::str::Utf8Error;
 use crate::bytes::BytesError;
 use crate::message::headers::Headers;
 
-use crate::macros::b_map;
 use crate::macros::peek_while;
-use crate::macros::read_while;
 
 use crate::message::SipMessage;
 use crate::message::StatusLine;
@@ -36,74 +34,54 @@ pub(crate) const PASS: &[u8] = b"&=+$,";
 pub(crate) const HOST: &[u8] = b"_-.";
 pub(crate) const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 
-b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
+pub struct SipParser;
 
-#[inline(always)]
-pub(crate) fn is_token(b: &u8) -> bool {
-    TOKEN_SPEC_MAP[*b as usize]
-}
+impl SipParser {
+    /// Parse a buff of bytes into sip message
+    pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
+        let mut bytes = Bytes::new(buff);
 
-#[inline]
-pub(crate) fn parse_slice_utf8<'a>(
-    bytes: &mut Bytes<'a>,
-    func: impl Fn(&u8) -> bool,
-) -> &'a str {
-    let slc = read_while!(bytes, func);
+        let msg = if !Self::is_sip_version(&bytes) {
+            let req_line = RequestLine::parse(&mut bytes)?;
+            let (headers, body) = Self::parse_headers_and_body(&mut bytes)?;
+            let request = SipRequest::new(req_line, headers, body);
 
-    // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
-    unsafe { str::from_utf8_unchecked(slc) }
-}
+            SipMessage::Request(request)
+        } else {
+            let status_line = StatusLine::parse(&mut bytes)?;
+            let (headers, body) = Self::parse_headers_and_body(&mut bytes)?;
+            let response = SipResponse::new(status_line, headers, body);
 
-#[inline]
-pub(crate) fn parse_token<'a>(bytes: &mut Bytes<'a>) -> &'a str {
-    // is_token ensures that is valid UTF-8
-    parse_slice_utf8(bytes, is_token)
-}
+            SipMessage::Response(response)
+        };
 
-pub(crate) fn parse_sip_v2(bytes: &mut Bytes) -> Result<()> {
-    if let Some(SIPV2) = bytes.peek_n(7) {
-        bytes.nth(6);
-        return Ok(());
+        Ok(msg)
     }
-    sip_parse_error!("Sip Version Invalid")
-}
 
-fn is_sip_version(bytes: &Bytes) -> bool {
-    const SIP: &[u8] = b"SIP";
-    let tag = peek_while!(bytes, is_alphabetic);
-    let next = bytes.src.get(tag.len());
+    fn is_sip_version(bytes: &Bytes) -> bool {
+        const SIP: &[u8] = b"SIP";
+        let tag = peek_while!(bytes, is_alphabetic);
+        let next = bytes.src.get(tag.len());
 
-    next.is_some_and(|next| tag == SIP && next == &b'/')
-}
+        next.is_some_and(|next| tag == SIP && next == &b'/')
+    }
 
-fn parses_and_body<'a>(
-    bytes: &mut Bytes<'a>,
-) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
-    let mut headers = Headers::new();
-    let body = headers.parses_and_return_body(bytes)?;
+    pub fn parse_sip_v2(bytes: &mut Bytes) -> Result<()> {
+        if let Some(SIPV2) = bytes.peek_n(7) {
+            bytes.nth(6);
+            return Ok(());
+        }
+        sip_parse_error!("Sip Version Invalid")
+    }
 
-    Ok((headers, body))
-}
+    fn parse_headers_and_body<'a>(
+        bytes: &mut Bytes<'a>,
+    ) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
+        let mut headers = Headers::new();
+        let body = headers.parses_and_return_body(bytes)?;
 
-/// Parse a buff of bytes into sip message
-pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
-    let mut bytes = Bytes::new(buff);
-
-    let msg = if !is_sip_version(&bytes) {
-        let req_line = RequestLine::parse(&mut bytes)?;
-        let (headers, body) = parses_and_body(&mut bytes)?;
-        let request = SipRequest::new(req_line, headers, body);
-
-        SipMessage::Request(request)
-    } else {
-        let status_line = StatusLine::parse(&mut bytes)?;
-        let (headers, body) = parses_and_body(&mut bytes)?;
-        let response = SipResponse::new(status_line, headers, body);
-
-        SipMessage::Response(response)
-    };
-
-    Ok(msg)
+        Ok((headers, body))
+    }
 }
 
 /// Error on parsing
@@ -158,10 +136,6 @@ impl<'a> From<BytesError<'a>> for SipParserError {
 #[cfg(test)]
 mod tests {
     use crate::{
-        message::headers::{
-            call_id::CallId, content_length::ContentLength, cseq::CSeq,
-            expires::Expires, max_fowards::MaxForwards, Header,
-        },
         message::{SipMethod, SipStatusCode},
         uri::{HostPort, Scheme},
     };
@@ -210,7 +184,7 @@ mod tests {
     fn test_parse_sip_version_2_0() {
         let src = b"SIP/2.0";
         let mut bytes = Bytes::new(src);
-        parse_sip_v2(&mut bytes).unwrap();
+        assert!(SipParser::parse_sip_v2(&mut bytes).is_ok());
     }
 
     #[test]

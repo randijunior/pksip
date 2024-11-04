@@ -96,7 +96,7 @@ macro_rules! parse_param {
                 while let Some(&b';') = $bytes.peek() {
                     // take ';' character
                     $bytes.next();
-                    let param = crate::message::headers::parse_param($bytes);
+                    let param = crate::message::headers::parse_param($bytes)?;
                     $(
                         if param.0 == $name {
                             $var = param.1;
@@ -132,7 +132,7 @@ macro_rules! parse_auth_param {
                 Some(_) => {
                     let value = crate::macros::read_while!(
                         $bytes,
-                        crate::parser::is_token
+                        crate::token::is_token
                     );
                     Some(unsafe { std::str::from_utf8_unchecked(value) })
                 }
@@ -144,21 +144,26 @@ macro_rules! parse_auth_param {
     }};
 }
 
-macro_rules! parse_comma_separated_header {
+macro_rules! parse_header_list {
     ($bytes:ident => $body:expr) => {{
         let mut hdr_itens = Vec::new();
+        crate::macros::parse_comma_separated_header!($bytes => {
+            hdr_itens.push($body);
+        });
+        hdr_itens
+    }};
+}
+
+macro_rules! parse_comma_separated_header {
+    ($bytes:ident => $body:expr) => {{
         crate::macros::space!($bytes);
-        let item = $body;
-        hdr_itens.push(item);
+        $body
 
         while let Some(b',') = $bytes.peek() {
             $bytes.next();
             crate::macros::space!($bytes);
-            let item = $body;
-            hdr_itens.push(item);
+            $body
         }
-
-        hdr_itens
     }};
 }
 
@@ -174,6 +179,7 @@ pub(crate) use digits;
 pub(crate) use newline;
 pub(crate) use parse_auth_param;
 pub(crate) use parse_comma_separated_header;
+pub(crate) use parse_header_list;
 pub(crate) use parse_param;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;

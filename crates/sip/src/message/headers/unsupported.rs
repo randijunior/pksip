@@ -3,7 +3,8 @@ use core::str;
 use crate::{
     bytes::Bytes,
     macros::{read_while, space},
-    parser::{self, is_token, Result},
+    parser::Result,
+    token::{is_token, Token},
 };
 
 use crate::headers::SipHeader;
@@ -15,7 +16,7 @@ impl<'a> SipHeader<'a> for Unsupported<'a> {
     const NAME: &'static str = "Unsupported";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let tag = parser::parse_token(bytes);
+        let tag = Token::parse(bytes);
         let mut tags = vec![tag];
 
         while let Some(b',') = bytes.peek() {

@@ -15,6 +15,7 @@ use crate::{
         self, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS,
         UNRESERVED, USER_UNRESERVED,
     },
+    token::{self, Token},
 };
 
 mod host;
@@ -183,7 +184,7 @@ impl<'a> SipUri<'a> {
             }
             // Nameaddr with unquoted display name
             Some(_) => {
-                let display = parser::parse_token(bytes);
+                let display = Token::parse(bytes);
 
                 space!(bytes);
 
@@ -219,10 +220,10 @@ impl<'a> Uri<'a> {
             let mut uri_params = UriParams::default();
             while let Some(&b';') = bytes.peek() {
                 bytes.next();
-                let name = parser::parse_token(bytes);
+                let name = Token::parse(bytes);
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
-                    let value = parser::parse_slice_utf8(bytes, is_param);
+                    let value = Token::parse_slice(bytes, is_param);
                     Some(value)
                 } else {
                     None
@@ -281,10 +282,10 @@ impl<'a> Uri<'a> {
             loop {
                 // take '?' or '&'
                 bytes.next();
-                let name = parser::parse_slice_utf8(bytes, is_hdr);
+                let name = Token::parse_slice(bytes, is_hdr);
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
-                    let value = parser::parse_slice_utf8(bytes, is_hdr);
+                    let value = Token::parse_slice(bytes, is_hdr);
                     Some(value)
                 } else {
                     None

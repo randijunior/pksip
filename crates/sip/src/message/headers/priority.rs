@@ -1,10 +1,7 @@
 use core::str;
 
-use crate::{
-    bytes::Bytes,
-    macros::read_while,
-    parser::{is_token, Result},
-};
+use crate::token::is_token;
+use crate::{bytes::Bytes, macros::read_while, parser::Result};
 
 use crate::headers::SipHeader;
 

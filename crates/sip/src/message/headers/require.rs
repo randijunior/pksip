@@ -1,10 +1,6 @@
 use core::str;
 
-use crate::{
-    bytes::Bytes,
-    macros::space,
-    parser::{self, Result},
-};
+use crate::{bytes::Bytes, macros::space, parser::Result, token::Token};
 
 use crate::headers::SipHeader;
 
@@ -17,13 +13,13 @@ impl<'a> SipHeader<'a> for Require<'a> {
     const NAME: &'static str = "Require";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let tag = parser::parse_token(bytes);
+        let tag = Token::parse(bytes);
         let mut tags = vec![tag];
 
         while let Some(b',') = bytes.peek() {
             bytes.next();
             space!(bytes);
-            let tag = parser::parse_token(bytes);
+            let tag = Token::parse(bytes);
             tags.push(tag);
             space!(bytes);
         }

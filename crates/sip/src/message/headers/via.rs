@@ -21,7 +21,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 
 use crate::headers::SipHeader;
 use crate::macros::{b_map, read_while};
-use crate::parser::{self, ALPHA_NUM, TOKEN};
+use crate::parser::{self, SipParser, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
     bytes::Bytes,
@@ -149,7 +149,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         //@TODO: handle LWS
-        parser::parse_sip_v2(bytes)?;
+        SipParser::parse_sip_v2(bytes)?;
 
         if bytes.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");

@@ -1,10 +1,6 @@
 use core::str;
 
-use crate::{
-    bytes::Bytes,
-    macros::{read_while, space},
-    parser::{self, is_token, Result},
-};
+use crate::{bytes::Bytes, macros::space, parser::Result, token::Token};
 
 use crate::headers::SipHeader;
 
@@ -28,14 +24,14 @@ impl<'a> SipHeader<'a> for ContentEncoding<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut codings: Vec<&'a str> = Vec::new();
-        let coding = parser::parse_token(bytes);
+        let coding = Token::parse(bytes);
         codings.push(coding);
 
         space!(bytes);
         while let Some(b',') = bytes.peek() {
             bytes.next();
             space!(bytes);
-            let coding = parser::parse_token(bytes);
+            let coding = Token::parse(bytes);
             codings.push(coding);
         }
 

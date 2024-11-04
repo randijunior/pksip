@@ -1,14 +1,15 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_auth_param, read_while, sip_parse_error, space},
-    parser::{is_token, Result},
-    uri::Params,
+    macros::{parse_comma_separated_header, sip_parse_error},
+    parser::Result,
 };
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 
+/// The `Authentication-Info` SIP header.
+///
 /// Provides additional authentication information.
 pub struct AuthenticationInfo<'a> {
     nextnonce: Option<&'a str>,
@@ -21,32 +22,24 @@ pub struct AuthenticationInfo<'a> {
 impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     const NAME: &'static str = "Authentication-Info";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<AuthenticationInfo<'a>> {
         let mut nextnonce: Option<&'a str> = None;
         let mut rspauth: Option<&'a str> = None;
         let mut qop: Option<&'a str> = None;
         let mut cnonce: Option<&'a str> = None;
         let mut nc: Option<&'a str> = None;
 
-        macro_rules! parse {
-            () => {
-                space!(bytes);
-                match read_while!(bytes, is_token) {
-                    b"nextnonce" => nextnonce = parse_auth_param!(bytes),
-                    b"qop" => qop = parse_auth_param!(bytes),
-                    b"rspauth" => rspauth = parse_auth_param!(bytes),
-                    b"cnonce" => cnonce = parse_auth_param!(bytes),
-                    b"nc" => nc = parse_auth_param!(bytes),
-                    _ => sip_parse_error!("Can't parse Authentication-Info")?,
-                };
+        parse_comma_separated_header!(bytes => {
+            let (name, value) = super::parse_param(bytes)?;
+            match name {
+                "nextnonce" => nextnonce = value,
+                "qop" => qop = value,
+                "rspauth" => rspauth = value,
+                "cnonce" => cnonce = value,
+                "nc" => nc = value,
+                _ => sip_parse_error!("Can't parse Authentication-Info")?,
             };
-        }
-
-        parse!();
-        while let Some(&b',') = bytes.peek() {
-            bytes.next();
-            parse!();
-        }
+        });
 
         Ok(AuthenticationInfo {
             nextnonce,

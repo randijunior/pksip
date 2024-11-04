@@ -3,7 +3,7 @@ use core::str;
 use crate::{
     bytes::Bytes,
     macros::{digits, newline, space, until_newline},
-    parser::{self, SipParserError},
+    parser::{self, SipParser, SipParserError},
 };
 
 use super::{headers::Headers, SipStatusCode};
@@ -36,7 +36,7 @@ impl<'a> StatusLine<'a> {
     pub(crate) fn parse(
         bytes: &mut Bytes<'a>,
     ) -> Result<StatusLine<'a>, SipParserError> {
-        parser::parse_sip_v2(bytes)?;
+        SipParser::parse_sip_v2(bytes)?;
 
         space!(bytes);
         let digits = digits!(bytes);
