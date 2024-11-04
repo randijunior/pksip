@@ -1,6 +1,6 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_comma_separated_header, sip_parse_error},
+    macros::{parse_comma_separated, sip_parse_error},
     parser::Result,
 };
 
@@ -11,6 +11,7 @@ use core::str;
 /// The `Authentication-Info` SIP header.
 ///
 /// Provides additional authentication information.
+#[derive(Debug, Default)]
 pub struct AuthenticationInfo<'a> {
     nextnonce: Option<&'a str>,
     qop: Option<&'a str>,
@@ -23,31 +24,21 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     const NAME: &'static str = "Authentication-Info";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<AuthenticationInfo<'a>> {
-        let mut nextnonce: Option<&'a str> = None;
-        let mut rspauth: Option<&'a str> = None;
-        let mut qop: Option<&'a str> = None;
-        let mut cnonce: Option<&'a str> = None;
-        let mut nc: Option<&'a str> = None;
+        let mut auth_info = AuthenticationInfo::default();
 
-        parse_comma_separated_header!(bytes => {
+        parse_comma_separated!(bytes => {
             let (name, value) = super::parse_param(bytes)?;
             match name {
-                "nextnonce" => nextnonce = value,
-                "qop" => qop = value,
-                "rspauth" => rspauth = value,
-                "cnonce" => cnonce = value,
-                "nc" => nc = value,
+                "nextnonce" => auth_info.nextnonce = value,
+                "qop" => auth_info.qop = value,
+                "rspauth" => auth_info.rspauth = value,
+                "cnonce" => auth_info.cnonce = value,
+                "nc" => auth_info.nc = value,
                 _ => sip_parse_error!("Can't parse Authentication-Info")?,
             };
         });
 
-        Ok(AuthenticationInfo {
-            nextnonce,
-            qop,
-            rspauth,
-            cnonce,
-            nc,
-        })
+        Ok(auth_info)
     }
 }
 

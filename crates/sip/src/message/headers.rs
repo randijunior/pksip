@@ -129,7 +129,7 @@ fn parse_q(param: &str) -> Option<Q> {
 }
 
 // Parses a `name=value` parameter in a SIP header.
-fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
+pub(crate) fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
     space!(bytes);
     let name = Token::parse(bytes);
 

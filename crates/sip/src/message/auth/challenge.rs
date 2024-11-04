@@ -28,7 +28,7 @@ pub struct DigestChallenge<'a> {
 impl<'a> Challenge<'a> {
     pub fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let scheme = match bytes.peek() {
-            Some(b'"') => {
+            Some(&b'"') => {
                 bytes.next();
                 let value = read_until_byte!(bytes, &b'"');
                 bytes.next();

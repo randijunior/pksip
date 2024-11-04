@@ -1,7 +1,9 @@
-use crate::{bytes::Bytes, message::auth::digest::Credential, parser::Result};
+use crate::{bytes::Bytes, message::auth::credential::Credential, parser::Result};
 
 use super::SipHeader;
 
+/// The `Authorization` SIP header.
+///
 /// Contains authentication credentials of a `UA`.
 pub struct Authorization<'a>(Credential<'a>);
 

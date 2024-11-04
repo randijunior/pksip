@@ -1,2 +1,4 @@
 pub(crate) mod challenge;
-pub(crate) mod digest;
+pub(crate) mod credential;
+
+pub const DIGEST_SCHEME: &str = "Digest";

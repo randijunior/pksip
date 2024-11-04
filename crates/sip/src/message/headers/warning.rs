@@ -26,7 +26,7 @@ impl<'a> SipHeader<'a> for Warning<'a> {
             space!(bytes);
             let host = read_while!(bytes, is_host);
             let host = unsafe { str::from_utf8_unchecked(host) };
-            if let Ok(Some(b'"')) = bytes.read_if(|b| b == &b'"') {
+            if let Ok(Some(&b'"')) = bytes.read_if(|b| b == &b'"') {
                 let text = read_until_byte!(bytes, &b'"');
                 let text = unsafe { str::from_utf8_unchecked(text) };
 

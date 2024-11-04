@@ -141,7 +141,7 @@ impl<'a> SipUri<'a> {
 
         match peeked {
             // Nameaddr with quoted display name
-            Some(b'"') => {
+            Some(&b'"') => {
                 bytes.next();
                 let display = read_until_byte!(bytes, &b'"');
                 bytes.next();

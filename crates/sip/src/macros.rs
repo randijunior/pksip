@@ -147,14 +147,14 @@ macro_rules! parse_auth_param {
 macro_rules! parse_header_list {
     ($bytes:ident => $body:expr) => {{
         let mut hdr_itens = Vec::new();
-        crate::macros::parse_comma_separated_header!($bytes => {
+        crate::macros::parse_comma_separated!($bytes => {
             hdr_itens.push($body);
         });
         hdr_itens
     }};
 }
 
-macro_rules! parse_comma_separated_header {
+macro_rules! parse_comma_separated {
     ($bytes:ident => $body:expr) => {{
         crate::macros::space!($bytes);
         $body
@@ -178,7 +178,7 @@ pub(crate) use b_map;
 pub(crate) use digits;
 pub(crate) use newline;
 pub(crate) use parse_auth_param;
-pub(crate) use parse_comma_separated_header;
+pub(crate) use parse_comma_separated;
 pub(crate) use parse_header_list;
 pub(crate) use parse_param;
 pub(crate) use peek_while;
