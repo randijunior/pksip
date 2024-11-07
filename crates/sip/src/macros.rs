@@ -12,14 +12,6 @@ macro_rules! digits {
     }};
 }
 
-macro_rules! num {
-    ($bytes:ident) => {{
-        let range = $bytes.read_while(|b| crate::util::is_digit(b) || b == &b'.');
-
-        &$bytes.src[range]
-    }};
-}
-
 macro_rules! read_while {
     ($bytes:expr, $func:expr) => {{
         let range = $bytes.read_while($func);
@@ -156,7 +148,6 @@ macro_rules! sip_parse_error {
 pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;
-pub(crate) use num;
 pub(crate) use newline;
 pub(crate) use parse_comma_separated;
 pub(crate) use parse_header_list;

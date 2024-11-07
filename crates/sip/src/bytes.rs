@@ -1,7 +1,5 @@
 use std::{ops::Range, result};
 
-use crate::macros::num;
-
 type Result<'a, T> = std::result::Result<T, BytesError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
