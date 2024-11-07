@@ -4,11 +4,6 @@ pub fn is_digit(c: &u8) -> bool {
 }
 
 #[inline(always)]
-pub fn maybe_a_number(c: &u8) -> bool {
-    is_digit(c) || c == &b'.'
-}
-
-#[inline(always)]
 pub fn is_space(c: &u8) -> bool {
     c == &b' ' || c == &b'\t'
 }

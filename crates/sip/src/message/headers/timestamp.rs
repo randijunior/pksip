@@ -2,28 +2,28 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::read_while,
     parser::Result,
-    util::{is_newline, maybe_a_number},
+    util::is_newline,
 };
 
 use crate::headers::SipHeader;
 
+use super::space;
+
 /// Describes when the `UAC` sent the request to the `UAS`.
-pub struct Timestamp<'a> {
-    time: &'a str,
-    delay: Option<&'a str>,
+pub struct Timestamp {
+    time: f32,
+    delay: Option<f32>,
 }
 
-impl<'a> SipHeader<'a> for Timestamp<'a> {
+impl<'a> SipHeader<'a> for Timestamp {
     const NAME: &'static str = "Timestamp";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let time = read_while!(bytes, maybe_a_number);
-        let time = unsafe { str::from_utf8_unchecked(time) };
+        let time = bytes.read_num()?;
+        space!(bytes);
         let delay = if bytes.peek().is_some_and(|b| !is_newline(b)) {
-            let delay = read_while!(bytes, maybe_a_number);
-            Some(unsafe { str::from_utf8_unchecked(delay) })
+            Some(bytes.read_num()?)
         } else {
             None
         };
@@ -42,6 +42,6 @@ mod tests {
         let timestamp = Timestamp::parse(&mut bytes);
         let timestamp = timestamp.unwrap();
 
-        assert_eq!(timestamp.time, "54");
+        assert_eq!(timestamp.time, 54.0);
     }
 }

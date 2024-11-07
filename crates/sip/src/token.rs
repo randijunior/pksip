@@ -18,7 +18,8 @@ impl<'a> Token {
     }
 
     pub fn parse_quoted(bytes: &mut Bytes<'a>) -> Result<&'a str> {
-        if let Some(&b'"') = bytes.maybe_read(b'"') {
+        if let Some(&b'"') = bytes.peek() {
+            bytes.next();
             let value = read_until_byte!(bytes, &b'"');
             bytes.next();
 

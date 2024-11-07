@@ -1,5 +1,7 @@
 use std::{ops::Range, result};
 
+use crate::macros::num;
+
 type Result<'a, T> = std::result::Result<T, BytesError<'a>>;
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -7,6 +9,7 @@ pub enum ErrorKind {
     /// End of file reached.
     Eof,
     Char(u8, u8),
+    Num
 }
 
 #[derive(Debug, PartialEq)]
@@ -100,8 +103,17 @@ impl<'a> Bytes<'a> {
         Ok(())
     }
 
-    pub fn maybe_read(&mut self, b: u8) -> Option<&u8> {
-        self.read_if(|&byte| byte == b).ok()?
+    pub(crate) fn read_num<T>(&mut self) -> Result<T>
+    where
+        T: lexical_core::FromLexical,
+    {
+        match lexical_core::parse_partial::<T>(self.as_ref()) {
+            Ok((value, processed)) => {
+                self.nth(processed);
+                Ok(value)
+            },
+            Err(_) => self.error(ErrorKind::Num),
+        }
     }
 
     pub(crate) fn read_if<F>(&mut self, func: F) -> Result<Option<&u8>>

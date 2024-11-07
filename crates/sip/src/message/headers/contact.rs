@@ -32,7 +32,8 @@ impl<'a> SipHeader<'a> for Contact<'a> {
     const SHORT_NAME: Option<&'static str> = Some("m");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Contact<'a>> {
-        if bytes.maybe_read(b'*') == Some(&b'*') {
+        if bytes.peek()== Some(&b'*') {
+            bytes.next();
             return Ok(Contact::Star);
         }
         let uri = SipUri::parse(bytes)?;

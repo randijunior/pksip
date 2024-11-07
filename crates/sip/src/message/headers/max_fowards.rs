@@ -4,7 +4,6 @@ use crate::headers::SipHeader;
 
 use core::str;
 
-use super::SipHeaderNum;
 
 /// The `Max-Forwards` SIP header.
 ///
@@ -24,7 +23,7 @@ impl<'a> SipHeader<'a> for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<MaxForwards> {
-        let fowards = SipHeaderNum::parse(bytes)?;
+        let fowards = bytes.read_num()?;
 
         Ok(MaxForwards(fowards))
     }

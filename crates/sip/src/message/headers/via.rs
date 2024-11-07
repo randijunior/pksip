@@ -21,7 +21,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 
 use crate::headers::SipHeader;
 use crate::macros::{b_map, read_while};
-use crate::parser::{self, SipParser, ALPHA_NUM, TOKEN};
+use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
     bytes::Bytes,

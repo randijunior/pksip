@@ -4,7 +4,6 @@ use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
-use super::SipHeaderNum;
 
 /// The `MIME-Version` SIP header.
 ///
@@ -16,7 +15,7 @@ impl<'a> SipHeader<'a> for MimeVersion {
     const NAME: &'static str = "MIME-Version";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<MimeVersion> {
-        let expires = SipHeaderNum::parse(bytes)?;
+        let expires = bytes.read_num()?;
 
         Ok(MimeVersion(expires))
     }

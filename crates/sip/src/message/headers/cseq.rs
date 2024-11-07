@@ -1,6 +1,5 @@
 use crate::{
     bytes::Bytes,
-    headers::SipHeaderNum,
     macros::{alpha, space},
     message::SipMethod,
     parser::Result,
@@ -28,13 +27,14 @@ impl<'a> SipHeader<'a> for CSeq<'a> {
     const NAME: &'static str = "CSeq";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<CSeq<'a>> {
-        let cseq = SipHeaderNum::parse(bytes)?;
+        let cseq = bytes.read_num()?;
 
         space!(bytes);
         let b_method = alpha!(bytes);
         let method = SipMethod::from(b_method);
 
         Ok(CSeq { cseq, method })
+
     }
 }
 

@@ -4,7 +4,6 @@ use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
-use super::SipHeaderNum;
 
 /// The `Min-Expires` SIP header.
 ///
@@ -15,7 +14,7 @@ impl<'a> SipHeader<'a> for MinExpires {
     const NAME: &'static str = "Min-Expires";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let expires = SipHeaderNum::parse(bytes)?;
+        let expires = bytes.read_num()?;
 
         Ok(MinExpires(expires))
     }

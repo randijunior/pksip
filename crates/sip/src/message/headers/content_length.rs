@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{bytes::Bytes, parser::Result};
 
-use crate::headers::{SipHeader, SipHeaderNum};
+use crate::headers::SipHeader;
 
 /// The `Content-Length` SIP header.
 ///
@@ -20,7 +20,7 @@ impl<'a> SipHeader<'a> for ContentLength {
     const SHORT_NAME: Option<&'static str> = Some("l");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<ContentLength> {
-        let l = SipHeaderNum::parse(bytes)?;
+        let l = bytes.read_num()?;
 
         Ok(ContentLength(l))
     }

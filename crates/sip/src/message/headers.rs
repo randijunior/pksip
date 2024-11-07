@@ -94,15 +94,13 @@ pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
 use core::str;
-use std::str::FromStr;
 
 use crate::{
     bytes::Bytes,
     macros::{newline, remaing, sip_parse_error, space, until_newline},
-    parser::{self, Result, SipParserError},
+    parser::Result,
     token::Token,
     uri::Params,
-    util::{is_digit, maybe_a_number},
 };
 
 /// An Header param
@@ -144,26 +142,6 @@ pub(crate) fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
 
     Ok((name, value))
 }
-
-pub trait SipHeaderNum<'a>: Sized
-where
-    Self: FromStr,
-    SipParserError: std::convert::From<<Self as FromStr>::Err>,
-{
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = unsafe {
-            parser::extract_as_str(bytes, |b| is_digit(b) || b == &b'.')
-        };
-
-        digits.parse::<Self>().map_err(|e| e.into())
-    }
-}
-
-impl<'a> SipHeaderNum<'a> for i32 {}
-impl<'a> SipHeaderNum<'a> for u32 {}
-impl<'a> SipHeaderNum<'a> for f32 {}
-
-
 
 /// Trait to parse SIP headers.
 ///
@@ -275,7 +253,7 @@ pub enum Header<'a> {
     /// `Supported` Header
     Supported(Supported<'a>),
     /// `Timestamp` Header
-    Timestamp(Timestamp<'a>),
+    Timestamp(Timestamp),
     /// `To` Header
     To(To<'a>),
     /// `Unsupported` Header

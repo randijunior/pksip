@@ -1,6 +1,6 @@
 use core::str;
 
-use crate::{bytes::Bytes, macros::until_newline, parser::Result};
+use crate::{bytes::Bytes,parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -11,10 +11,9 @@ impl<'a> SipHeader<'a> for UserAgent<'a> {
     const NAME: &'static str = "User-Agent";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let val = until_newline!(bytes);
-        let val = str::from_utf8(val)?;
+        let agent = Self::parse_as_str(bytes)?;
 
-        Ok(UserAgent(val))
+        Ok(UserAgent(agent))
     }
 }
 

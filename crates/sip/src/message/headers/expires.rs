@@ -7,7 +7,6 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use super::SipHeaderNum;
 
 /// The `Expires` SIP header.
 ///
@@ -24,7 +23,7 @@ impl<'a> SipHeader<'a> for Expires {
     const NAME: &'static str = "Expires";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Expires> {
-        let expires = SipHeaderNum::parse(bytes)?;
+        let expires = bytes.read_num()?;
 
         Ok(Expires(expires))
     }

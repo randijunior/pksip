@@ -1,4 +1,4 @@
-use crate::{bytes::Bytes, macros::until_newline, parser::Result};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
