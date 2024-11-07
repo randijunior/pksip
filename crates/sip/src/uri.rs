@@ -108,7 +108,7 @@ Request-URI: The Request-URI is a SIP or SIPS URI as described in
 // struct sip_param/header_param optional
 // SIP URI: sip:user:password@host:port;uri-parameters?headers
 // SIPS URI: sips:user:password@host:port;uri-parameters?headers
-
+#[derive(Debug)]
 pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
     pub(crate) user: Option<UserInfo<'a>>,
@@ -121,12 +121,13 @@ pub struct Uri<'a> {
 //SIP name-addr, which typically appear in From, To, and Contact header.
 // display optional display part
 // Struct Uri uri
-
+#[derive(Debug)]
 pub struct NameAddr<'a> {
     pub(crate) display: Option<&'a str>,
     pub(crate) uri: Uri<'a>,
 }
 
+#[derive(Debug)]
 pub enum SipUri<'a> {
     Uri(Uri<'a>),
     NameAddr(NameAddr<'a>),
@@ -223,7 +224,8 @@ impl<'a> Uri<'a> {
                 let name = Token::parse(bytes);
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
-                    let value = Token::parse_slice(bytes, is_param);
+                    let value =
+                        unsafe { parser::extract_as_str(bytes, is_param) };
                     Some(value)
                 } else {
                     None
@@ -282,10 +284,11 @@ impl<'a> Uri<'a> {
             loop {
                 // take '?' or '&'
                 bytes.next();
-                let name = Token::parse_slice(bytes, is_hdr);
+                let name = unsafe { parser::extract_as_str(bytes, is_hdr) };
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
-                    let value = Token::parse_slice(bytes, is_hdr);
+                    let value =
+                        unsafe { parser::extract_as_str(bytes, is_hdr) };
                     Some(value)
                 } else {
                     None

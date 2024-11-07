@@ -1,19 +1,19 @@
-use crate::{
-    bytes::Bytes,
-    macros::{digits, sip_parse_error},
-    parser::Result,
-};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 
+use super::SipHeaderNum;
+
+/// The `Max-Forwards` SIP header.
+///
 /// Limit the number of proxies or gateways that can forward the request.
 pub struct MaxForwards(u32);
 
 impl MaxForwards {
-    pub fn new(m_fowards: u32) -> Self {
-        Self(m_fowards)
+    pub fn new(fowards: u32) -> Self {
+        Self(fowards)
     }
     pub fn max_fowards(&self) -> u32 {
         self.0
@@ -23,12 +23,10 @@ impl MaxForwards {
 impl<'a> SipHeader<'a> for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = digits!(bytes);
-        match unsafe { str::from_utf8_unchecked(digits) }.parse() {
-            Ok(digits) => Ok(MaxForwards(digits)),
-            Err(_) => sip_parse_error!("invalid Max Fowards"),
-        }
+    fn parse(bytes: &mut Bytes<'a>) -> Result<MaxForwards> {
+        let fowards = SipHeaderNum::parse(bytes)?;
+
+        Ok(MaxForwards(fowards))
     }
 }
 

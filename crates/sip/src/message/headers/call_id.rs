@@ -1,11 +1,11 @@
-use crate::{
-    bytes::Bytes, macros::until_newline, parser::Result, util::is_newline,
-};
+use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 
+/// The `Call-ID` SIP header.
+///
 /// Uniquely identifies a particular invitation or all registrations of a particular client.
 pub struct CallId<'a>(&'a str);
 
@@ -28,9 +28,8 @@ impl<'a> SipHeader<'a> for CallId<'a> {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: Option<&'static str> = Some("i");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let id = until_newline!(bytes);
-        let id = str::from_utf8(id)?;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<CallId<'a>> {
+        let id = Self::parse_as_str(bytes)?;
 
         Ok(CallId(id))
     }

@@ -1,6 +1,6 @@
 use core::str;
 
-use crate::{bytes::Bytes, macros::until_newline, parser::Result};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -12,10 +12,9 @@ impl<'a> SipHeader<'a> for Subject<'a> {
     const SHORT_NAME: Option<&'static str> = Some("s");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let val = until_newline!(bytes);
-        let val = str::from_utf8(val)?;
+        let subject = Self::parse_as_str(bytes)?;
 
-        Ok(Subject(val))
+        Ok(Subject(subject))
     }
 }
 

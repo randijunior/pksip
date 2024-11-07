@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 
 /// Specifies the logical recipient of the request.
 pub struct To<'a> {

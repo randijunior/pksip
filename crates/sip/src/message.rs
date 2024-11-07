@@ -12,7 +12,7 @@ pub mod headers;
 mod request;
 mod response;
 
-use std::str;
+use core::str;
 
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),

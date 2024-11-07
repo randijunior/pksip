@@ -24,7 +24,7 @@ impl<'a> Allow<'a> {
 impl<'a> SipHeader<'a> for Allow<'a> {
     const NAME: &'static str = "Allow";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Allow<'a>> {
         let allow = parse_header_list!(bytes => {
             let b_method = alpha!(bytes);
 

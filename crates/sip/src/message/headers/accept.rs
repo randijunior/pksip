@@ -33,7 +33,7 @@ impl<'a> SipHeader<'a> for Accept<'a> {
     fn parse(bytes: &mut Bytes<'a>) -> Result<Accept<'a>> {
         let mtypes = parse_header_list!(bytes => {
             let mtype = Token::parse(bytes);
-            bytes.must_read(&b'/')?;
+            bytes.must_read(b'/')?;
             let subtype = Token::parse(bytes);
 
             let param = parse_param!(bytes);

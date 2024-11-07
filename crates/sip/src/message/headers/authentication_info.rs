@@ -1,6 +1,7 @@
 use crate::{
     bytes::Bytes,
     macros::{parse_comma_separated, sip_parse_error},
+    message::auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
     parser::Result,
 };
 
@@ -29,11 +30,11 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
         parse_comma_separated!(bytes => {
             let (name, value) = super::parse_param(bytes)?;
             match name {
-                "nextnonce" => auth_info.nextnonce = value,
-                "qop" => auth_info.qop = value,
-                "rspauth" => auth_info.rspauth = value,
-                "cnonce" => auth_info.cnonce = value,
-                "nc" => auth_info.nc = value,
+                NEXTNONCE => auth_info.nextnonce = value,
+                QOP => auth_info.qop = value,
+                RSPAUTH => auth_info.rspauth = value,
+                CNONCE => auth_info.cnonce = value,
+                NC => auth_info.nc = value,
                 _ => sip_parse_error!("Can't parse Authentication-Info")?,
             };
         });

@@ -2,8 +2,8 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{b_map, read_until_byte, read_while, sip_parse_error},
-    parser::{Result, ALPHA_NUM, TOKEN},
+    macros::{b_map, read_until_byte},
+    parser::{self, Result, ALPHA_NUM, TOKEN},
 };
 
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
@@ -14,23 +14,11 @@ impl<'a> Token {
     #[inline]
     pub(crate) fn parse(bytes: &mut Bytes<'a>) -> &'a str {
         // is_token ensures that is valid UTF-8
-        Self::parse_slice(bytes, is_token)
-    }
-
-    #[inline]
-    pub(crate) fn parse_slice<F>(bytes: &mut Bytes<'a>, func: F) -> &'a str
-    where
-        F: Fn(&u8) -> bool,
-    {
-        let slc = read_while!(bytes, func);
-
-        // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
-        unsafe { str::from_utf8_unchecked(slc) }
+        unsafe { parser::extract_as_str(bytes, is_token) }
     }
 
     pub fn parse_quoted(bytes: &mut Bytes<'a>) -> Result<&'a str> {
-        if let Some(&b'"') = bytes.peek() {
-            bytes.next();
+        if let Some(&b'"') = bytes.maybe_read(b'"') {
             let value = read_until_byte!(bytes, &b'"');
             bytes.next();
 

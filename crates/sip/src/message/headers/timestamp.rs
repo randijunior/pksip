@@ -4,7 +4,7 @@ use crate::{
     bytes::Bytes,
     macros::read_while,
     parser::Result,
-    util::{is_float, is_newline},
+    util::{is_newline, maybe_a_number},
 };
 
 use crate::headers::SipHeader;
@@ -19,10 +19,10 @@ impl<'a> SipHeader<'a> for Timestamp<'a> {
     const NAME: &'static str = "Timestamp";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let time = read_while!(bytes, is_float);
+        let time = read_while!(bytes, maybe_a_number);
         let time = unsafe { str::from_utf8_unchecked(time) };
         let delay = if bytes.peek().is_some_and(|b| !is_newline(b)) {
-            let delay = read_while!(bytes, is_float);
+            let delay = read_while!(bytes, maybe_a_number);
             Some(unsafe { str::from_utf8_unchecked(delay) })
         } else {
             None

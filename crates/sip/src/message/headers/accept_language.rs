@@ -9,7 +9,7 @@ use crate::{
 };
 
 use crate::headers::SipHeader;
-use std::str;
+use core::str;
 
 use super::Q;
 
@@ -37,15 +37,17 @@ impl<'a> AcceptLanguage<'a> {
     }
 }
 
+#[inline]
+pub(crate) fn is_lang(byte: &u8) -> bool {
+    byte == &b'*' || byte == &b'-' || is_alphabetic(byte)
+}
+
 impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
     const NAME: &'static str = "Accept-Language";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<AcceptLanguage<'a>> {
         let languages = parse_header_list!(bytes => {
-            let is_lang = |byte: &u8| {
-                byte == &b'*' || byte == &b'-' || is_alphabetic(byte)
-            };
-            let language = Token::parse_slice(bytes, is_lang);
+            let language = unsafe { parser::extract_as_str(bytes, is_lang) };
             let mut q_param = None;
             let param = parse_param!(bytes, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));

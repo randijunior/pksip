@@ -1,10 +1,13 @@
 use core::str;
 
+use crate::macros::parse_header_list;
 use crate::token::Token;
-use crate::{bytes::Bytes, macros::space, parser::Result};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
+/// The `Proxy-Require` SIP header.
+///
 /// Indicate `proxy-sensitive` features that must be supported by the proxy.
 pub struct ProxyRequire<'a>(Vec<&'a str>);
 
@@ -12,16 +15,7 @@ impl<'a> SipHeader<'a> for ProxyRequire<'a> {
     const NAME: &'static str = "Proxy-Require";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let tag = Token::parse(bytes);
-        let mut tags = vec![tag];
-
-        while let Some(b',') = bytes.peek() {
-            bytes.next();
-            space!(bytes);
-            let tag = Token::parse(bytes);
-            tags.push(tag);
-            space!(bytes);
-        }
+        let tags = parse_header_list!(bytes => Token::parse(bytes));
 
         Ok(ProxyRequire(tags))
     }

@@ -1,12 +1,15 @@
 //! SIP Parser
 
 use crate::bytes::Bytes;
+use crate::macros::read_while;
 use crate::macros::sip_parse_error;
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
 use core::str;
+use std::num::ParseFloatError;
+use std::num::ParseIntError;
 use std::str::Utf8Error;
 
 use crate::bytes::BytesError;
@@ -84,6 +87,20 @@ impl SipParser {
     }
 }
 
+#[inline]
+pub(crate) unsafe fn extract_as_str<'a, F>(
+    bytes: &mut Bytes<'a>,
+    func: F,
+) -> &'a str
+where
+    F: Fn(&u8) -> bool,
+{
+    let slc = read_while!(bytes, func);
+
+    // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
+    unsafe { str::from_utf8_unchecked(slc) }
+}
+
 /// Error on parsing
 #[derive(Debug)]
 pub struct SipParserError {
@@ -112,6 +129,22 @@ impl From<String> for SipParserError {
 
 impl From<Utf8Error> for SipParserError {
     fn from(value: Utf8Error) -> Self {
+        SipParserError {
+            message: format!("{:#?}", value),
+        }
+    }
+}
+
+impl From<ParseIntError> for SipParserError {
+    fn from(value: ParseIntError) -> Self {
+        SipParserError {
+            message: format!("{:#?}", value),
+        }
+    }
+}
+
+impl From<ParseFloatError> for SipParserError {
+    fn from(value: ParseFloatError) -> Self {
         SipParserError {
             message: format!("{:#?}", value),
         }

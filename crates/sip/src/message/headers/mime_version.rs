@@ -1,13 +1,13 @@
 use core::str;
 
-use crate::{
-    bytes::Bytes,
-    macros::{digits, sip_parse_error},
-    parser::Result,
-};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
+use super::SipHeaderNum;
+
+/// The `MIME-Version` SIP header.
+///
 /// Indicate what version of the `MIME` protocol was used to construct the message.
 #[derive(Debug, PartialEq)]
 pub struct MimeVersion(f32);
@@ -15,12 +15,10 @@ pub struct MimeVersion(f32);
 impl<'a> SipHeader<'a> for MimeVersion {
     const NAME: &'static str = "MIME-Version";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = digits!(bytes);
-        match unsafe { str::from_utf8_unchecked(digits) }.parse() {
-            Ok(expires) => Ok(MimeVersion(expires)),
-            Err(_) => return sip_parse_error!("invalid MIME-Version!"),
-        }
+    fn parse(bytes: &mut Bytes<'a>) -> Result<MimeVersion> {
+        let expires = SipHeaderNum::parse(bytes)?;
+
+        Ok(MimeVersion(expires))
     }
 }
 

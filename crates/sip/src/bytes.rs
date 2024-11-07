@@ -89,15 +89,19 @@ impl<'a> Bytes<'a> {
         Range { start, end }
     }
 
-    pub(crate) fn must_read(&mut self, b: &u8) -> Result<()> {
-        let Some(n) = self.peek() else {
+    pub(crate) fn must_read(&mut self, b: u8) -> Result<()> {
+        let Some(&n) = self.peek() else {
             return self.error(ErrorKind::Eof);
         };
         if b != n {
-            return self.error(ErrorKind::Char(*b, *n));
+            return self.error(ErrorKind::Char(b, n));
         }
         self.next();
         Ok(())
+    }
+
+    pub fn maybe_read(&mut self, b: u8) -> Option<&u8> {
+        self.read_if(|&byte| byte == b).ok()?
     }
 
     pub(crate) fn read_if<F>(&mut self, func: F) -> Result<Option<&u8>>

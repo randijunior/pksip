@@ -30,7 +30,7 @@ impl<'a> Params<'a> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct UriParams<'a> {
     pub(crate) user: Option<&'a str>,
     pub(crate) method: Option<&'a str>,

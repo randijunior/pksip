@@ -22,9 +22,9 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
     fn parse(bytes: &mut Bytes<'a>) -> Result<AlertInfo<'a>> {
         space!(bytes);
 
-        bytes.must_read(&b'<')?;
+        bytes.must_read(b'<')?;
         let url = read_until_byte!(bytes, &b'>');
-        bytes.must_read(&b'>')?;
+        bytes.must_read(b'>')?;
 
         let url = str::from_utf8(url)?;
         let params = parse_param!(bytes);

@@ -1,19 +1,22 @@
 use crate::{
     bytes::Bytes,
-    macros::{
-        parse_auth_param, read_until_byte, read_while, sip_parse_error, space,
+    headers,
+    macros::parse_comma_separated,
+    message::auth::{
+        ALGORITHM, DIGEST, DOMAIN, NONCE, OPAQUE, QOP, REALM, STALE,
     },
     parser::Result,
-    token::{is_token, Token},
+    token::Token,
     uri::Params,
 };
 
+#[derive(Debug)]
 pub enum Challenge<'a> {
     Digest(DigestChallenge<'a>),
     Other { scheme: &'a str, param: Params<'a> },
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DigestChallenge<'a> {
     pub realm: Option<&'a str>,
     pub domain: Option<&'a str>,
@@ -27,72 +30,46 @@ pub struct DigestChallenge<'a> {
 
 impl<'a> Challenge<'a> {
     pub fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let scheme = match bytes.peek() {
-            Some(&b'"') => {
-                bytes.next();
-                let value = read_until_byte!(bytes, &b'"');
-                bytes.next();
-                value
-            }
-            Some(_) => {
-                read_while!(bytes, is_token)
-            }
-            None => return sip_parse_error!("eof!"),
-        };
+        let scheme = Token::parse_quoted(bytes)?;
 
-        match scheme {
-            b"Digest" => Ok(Challenge::Digest(DigestChallenge::parse(bytes)?)),
-            other => {
-                space!(bytes);
-                let other = std::str::from_utf8(other)?;
-                let name = Token::parse(bytes);
-                let val = parse_auth_param!(bytes);
-                let mut params = Params::new();
-                params.set(name, val.unwrap_or(""));
-
-                while let Some(b',') = bytes.peek() {
-                    space!(bytes);
-
-                    let name = Token::parse(bytes);
-                    let val = parse_auth_param!(bytes);
-                    params.set(name, val.unwrap_or(""));
-                }
-
-                Ok(Challenge::Other {
-                    scheme: other,
-                    param: params,
-                })
-            }
+        if scheme == DIGEST {
+            let digest = DigestChallenge::parse(bytes)?;
+            return Ok(Challenge::Digest(digest));
         }
+
+        let mut param = Params::new();
+        parse_comma_separated!(bytes => {
+            let (name, value) = headers::parse_param(bytes)?;
+
+            param.set(name, value.unwrap_or(""));
+
+        });
+
+        Ok(Challenge::Other { scheme, param })
     }
 }
 
 impl<'a> DigestChallenge<'a> {
     pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut digest = Self::default();
-        loop {
-            space!(bytes);
-            match Token::parse(bytes) {
-                "realm" => digest.realm = parse_auth_param!(bytes),
-                "nonce" => digest.nonce = parse_auth_param!(bytes),
-                "domain" => digest.domain = parse_auth_param!(bytes),
-                "algorithm" => digest.algorithm = parse_auth_param!(bytes),
-                "opaque" => digest.opaque = parse_auth_param!(bytes),
-                "qop" => digest.qop = parse_auth_param!(bytes),
-                "stale" => digest.stale = parse_auth_param!(bytes),
+        parse_comma_separated!(bytes => {
+            let (name, value) = headers::parse_param(bytes)?;
+
+            match name {
+                REALM => digest.realm = value,
+                NONCE => digest.nonce = value,
+                DOMAIN => digest.domain = value,
+                ALGORITHM => digest.algorithm = value,
+                OPAQUE => digest.opaque = value,
+                QOP => digest.qop = value,
+                STALE => digest.stale = value,
                 other => {
                     digest
                         .param
-                        .set(other, parse_auth_param!(bytes).unwrap_or(""));
+                        .set(other, value.unwrap_or(""));
                 }
-            };
-
-            if let Some(&b',') = bytes.peek() {
-                bytes.next();
-            } else {
-                break;
             }
-        }
+        });
 
         Ok(digest)
     }

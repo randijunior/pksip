@@ -1,10 +1,19 @@
 use crate::{
-    bytes::Bytes, headers, macros::parse_comma_separated,
-    message::auth::DIGEST_SCHEME, parser::Result, token::Token, uri::Params,
+    bytes::Bytes,
+    headers,
+    macros::parse_comma_separated,
+    message::auth::{
+        ALGORITHM, CNONCE, DIGEST, NC, NONCE, OPAQUE, QOP, REALM, RESPONSE,
+        URI, USERNAME,
+    },
+    parser::Result,
+    token::Token,
+    uri::Params,
 };
 
+#[derive(Debug, Clone)]
 pub enum Credential<'a> {
-    Digest(Digest<'a>),
+    Digest(DigestCredential<'a>),
     Other { scheme: &'a str, param: Params<'a> },
 }
 
@@ -12,8 +21,8 @@ impl<'a> Credential<'a> {
     pub fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let scheme = Token::parse_quoted(bytes)?;
 
-        if scheme == DIGEST_SCHEME {
-            let digest = Digest::parse(bytes)?;
+        if scheme == DIGEST {
+            let digest = DigestCredential::parse(bytes)?;
             return Ok(Credential::Digest(digest));
         }
 
@@ -29,8 +38,8 @@ impl<'a> Credential<'a> {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct Digest<'a> {
+#[derive(Default, Debug, Clone)]
+pub struct DigestCredential<'a> {
     pub realm: Option<&'a str>,
     pub username: Option<&'a str>,
     pub nonce: Option<&'a str>,
@@ -44,7 +53,7 @@ pub struct Digest<'a> {
     pub param: Params<'a>,
 }
 
-impl<'a> Digest<'a> {
+impl<'a> DigestCredential<'a> {
     pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut digest = Self::default();
 
@@ -52,16 +61,16 @@ impl<'a> Digest<'a> {
             let (name, value) = headers::parse_param(bytes)?;
 
             match name {
-                "realm" => digest.realm = value,
-                "username" => digest.username = value,
-                "nonce" => digest.nonce = value,
-                "uri" => digest.uri = value,
-                "response" => digest.response = value,
-                "algorithm" => digest.algorithm = value,
-                "cnonce" => digest.cnonce = value,
-                "opaque" => digest.opaque = value,
-                "qop" => digest.qop = value,
-                "nc" => digest.nc = value,
+                REALM => digest.realm = value,
+                USERNAME => digest.username = value,
+                NONCE => digest.nonce = value,
+                URI => digest.uri = value,
+                RESPONSE => digest.response = value,
+                ALGORITHM => digest.algorithm = value,
+                CNONCE => digest.cnonce = value,
+                OPAQUE => digest.opaque = value,
+                QOP => digest.qop = value,
+                NC => digest.nc = value,
                 other => {
                     digest
                         .param

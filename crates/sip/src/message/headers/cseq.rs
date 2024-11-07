@@ -1,14 +1,17 @@
 use crate::{
     bytes::Bytes,
-    macros::{alpha, digits, sip_parse_error, space},
+    headers::SipHeaderNum,
+    macros::{alpha, space},
     message::SipMethod,
     parser::Result,
 };
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 
+/// The `CSeq` SIP header.
+///
 /// Ensures order and tracking of SIP transactions within a session.
 pub struct CSeq<'a> {
     cseq: i32,
@@ -24,12 +27,8 @@ impl<'a> CSeq<'a> {
 impl<'a> SipHeader<'a> for CSeq<'a> {
     const NAME: &'static str = "CSeq";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = digits!(bytes);
-        let cseq: i32 = match str::from_utf8(digits)?.parse() {
-            Ok(cseq) => cseq,
-            Err(_) => return sip_parse_error!("invalid CSeq!"),
-        };
+    fn parse(bytes: &mut Bytes<'a>) -> Result<CSeq<'a>> {
+        let cseq = SipHeaderNum::parse(bytes)?;
 
         space!(bytes);
         let b_method = alpha!(bytes);

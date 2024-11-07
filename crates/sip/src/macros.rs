@@ -30,9 +30,7 @@ macro_rules! read_until_byte {
 
 macro_rules! remaing {
     ($bytes:ident) => {{
-        let range = $bytes.read_while(|_| true);
-
-        &$bytes.src[range]
+        &$bytes.src[$bytes.idx()..]
     }};
 }
 
@@ -85,7 +83,7 @@ macro_rules! b_map {
 
 macro_rules! parse_param {
     ($bytes:ident) => (
-        parse_param!($bytes,)
+        crate::macros::parse_param!($bytes,)
     );
 
     ($bytes:ident, $($name:ident = $var:expr),*) => (
@@ -116,32 +114,6 @@ macro_rules! parse_param {
 
          }
     );
-}
-
-macro_rules! parse_auth_param {
-    ($bytes: expr) => {{
-        if $bytes.peek() == Some(&b'=') {
-            $bytes.next();
-            match $bytes.peek() {
-                Some(&b'"') => {
-                    $bytes.next();
-                    let value = crate::macros::read_until_byte!($bytes, &b'"');
-                    $bytes.next();
-                    Some((std::str::from_utf8(value)?))
-                }
-                Some(_) => {
-                    let value = crate::macros::read_while!(
-                        $bytes,
-                        crate::token::is_token
-                    );
-                    Some(unsafe { std::str::from_utf8_unchecked(value) })
-                }
-                None => None,
-            }
-        } else {
-            None
-        }
-    }};
 }
 
 macro_rules! parse_header_list {
@@ -177,7 +149,6 @@ pub(crate) use alpha;
 pub(crate) use b_map;
 pub(crate) use digits;
 pub(crate) use newline;
-pub(crate) use parse_auth_param;
 pub(crate) use parse_comma_separated;
 pub(crate) use parse_header_list;
 pub(crate) use parse_param;

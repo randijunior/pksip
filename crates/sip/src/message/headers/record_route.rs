@@ -7,6 +7,8 @@ use crate::{
 
 use crate::headers::SipHeader;
 
+/// The `Record-Route` SIP header.
+///
 /// Keeps proxies in the signaling path for consistent routing and session control.
 pub struct RecordRoute<'a> {
     addr: NameAddr<'a>,
@@ -39,41 +41,32 @@ mod tests {
         let mut bytes = Bytes::new(src);
         let rr = RecordRoute::parse(&mut bytes);
         let rr = rr.unwrap();
-        match rr {
-            RecordRoute { addr, .. } => {
-                assert_eq!(addr.display, None);
-                assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(
-                    addr.uri.host,
-                    HostPort::DomainName {
-                        host: "server10.biloxi.com",
-                        port: None
-                    }
-                );
-                assert!(addr.uri.params.is_some());
+
+        assert_eq!(rr.addr.display, None);
+        assert_eq!(rr.addr.uri.scheme, Scheme::Sip);
+        assert_eq!(
+            rr.addr.uri.host,
+            HostPort::DomainName {
+                host: "server10.biloxi.com",
+                port: None
             }
-            _ => unreachable!(),
-        }
+        );
+        assert!(rr.addr.uri.params.is_some());
 
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>;foo=bar\r\n";
         let mut bytes = Bytes::new(src);
         let rr = RecordRoute::parse(&mut bytes);
         let rr = rr.unwrap();
 
-        match rr {
-            RecordRoute { addr, param } => {
-                assert_eq!(addr.display, None);
-                assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(
-                    addr.uri.host,
-                    HostPort::DomainName {
-                        host: "bigbox3.site3.atlanta.com",
-                        port: None
-                    }
-                );
-                assert_eq!(param.unwrap().get("foo"), Some(&"bar"));
+        assert_eq!(rr.addr.display, None);
+        assert_eq!(rr.addr.uri.scheme, Scheme::Sip);
+        assert_eq!(
+            rr.addr.uri.host,
+            HostPort::DomainName {
+                host: "bigbox3.site3.atlanta.com",
+                port: None
             }
-            _ => unreachable!(),
-        }
+        );
+        assert_eq!(rr.param.unwrap().get("foo"), Some(&"bar"));
     }
 }

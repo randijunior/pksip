@@ -2,62 +2,42 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_param, read_while, sip_parse_error, space},
-    parser::Result,
-    token::is_token,
+    macros::{parse_header_list, parse_param},
+    parser::{self, Result},
+    token::Token,
     uri::{is_uri, GenericUri, Params},
 };
 
 use crate::headers::SipHeader;
 
-pub struct ErrorUri<'a> {
+pub struct ErrorInfoUri<'a> {
     url: GenericUri<'a>,
     params: Option<Params<'a>>,
 }
 
-impl<'a> ErrorUri<'a> {
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        // must be an '<'
-        let Some(&b'<') = bytes.next() else {
-            return sip_parse_error!("Invalid uri!");
-        };
-        let scheme = read_while!(bytes, is_token);
-        let scheme = unsafe { str::from_utf8_unchecked(scheme) };
-        let Some(&b':') = bytes.next() else {
-            return sip_parse_error!("Invalid uri!");
-        };
-        let content = read_while!(bytes, is_uri);
-        let content = unsafe { str::from_utf8_unchecked(content) };
-        // must be an '>'
-        let Some(&b'>') = bytes.next() else {
-            return sip_parse_error!("Invalid uri!");
-        };
-        let params = parse_param!(bytes);
-
-        Ok(ErrorUri {
-            url: GenericUri { scheme, content },
-            params,
-        })
-    }
-}
-
+/// The `Error-Info` SIP header.
+///
 /// Provides a pointer to additional information about the error status response.
-pub struct ErrorInfo<'a>(Vec<ErrorUri<'a>>);
+pub struct ErrorInfo<'a>(Vec<ErrorInfoUri<'a>>);
 
 impl<'a> SipHeader<'a> for ErrorInfo<'a> {
     const NAME: &'static str = "Error-Info";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let mut infos: Vec<ErrorUri> = Vec::new();
-        let uri = ErrorUri::parse(bytes)?;
-        infos.push(uri);
-
-        while let Some(b',') = bytes.peek() {
-            bytes.next();
-            let uri = ErrorUri::parse(bytes)?;
-            infos.push(uri);
-            space!(bytes);
-        }
+    fn parse(bytes: &mut Bytes<'a>) -> Result<ErrorInfo<'a>> {
+        let infos = parse_header_list!(bytes => {
+            // must be an '<'
+            bytes.must_read(b'<')?;
+            let scheme = Token::parse(bytes);
+            bytes.must_read(b':')?;
+            let content = unsafe { parser::extract_as_str(bytes, is_uri) };
+            // must be an '>'
+            bytes.must_read(b'>')?;
+            let params = parse_param!(bytes);
+            ErrorInfoUri {
+                url: GenericUri { scheme, content },
+                params
+            }
+        });
 
         Ok(ErrorInfo(infos))
     }

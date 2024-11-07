@@ -3,7 +3,7 @@ use core::str;
 use crate::{bytes::Bytes, macros::read_while, parser::SipParserError};
 
 use super::{is_pass, is_user};
-
+#[derive(Debug)]
 pub struct UserInfo<'a> {
     pub(crate) user: &'a str,
     pub(crate) password: Option<&'a str>,

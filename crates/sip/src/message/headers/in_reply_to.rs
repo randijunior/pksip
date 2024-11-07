@@ -3,31 +3,26 @@ use core::str;
 use crate::{
     bytes::Bytes,
     headers::{call_id::CallId, SipHeader},
-    macros::{read_while, space},
+    macros::{parse_header_list, read_while},
     parser::Result,
-    util::is_newline,
+    util::not_comma_or_newline,
 };
 
+/// The `In-Reply-To` SIP header.
+///
 /// Enumerates the `Call-IDs` that this call references or returns.
 pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 
 impl<'a> SipHeader<'a> for InReplyTo<'a> {
     const NAME: &'static str = "In-Reply-To";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let mut ids: Vec<CallId<'a>> = Vec::new();
-        let id = read_while!(bytes, |b| b != &b',' && !is_newline(b));
-        let id = str::from_utf8(id)?;
-        ids.push(CallId::from(id));
-
-        while let Some(b',') = bytes.peek() {
-            bytes.next();
-            space!(bytes);
-            let id = read_while!(bytes, |b| b != &b',' && !is_newline(b));
+    fn parse(bytes: &mut Bytes<'a>) -> Result<InReplyTo<'a>> {
+        let ids = parse_header_list!(bytes => {
+            let id = read_while!(bytes, not_comma_or_newline);
             let id = str::from_utf8(id)?;
-            ids.push(CallId::from(id));
-            space!(bytes);
-        }
+
+            CallId::from(id)
+        });
 
         Ok(InReplyTo(ids))
     }

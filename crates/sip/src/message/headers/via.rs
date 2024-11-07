@@ -30,7 +30,7 @@ use crate::{
     parser::Result,
     uri::{HostPort, Params},
 };
-use std::str;
+use core::str;
 
 b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 

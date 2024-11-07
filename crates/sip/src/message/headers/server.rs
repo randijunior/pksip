@@ -1,9 +1,11 @@
 use core::str;
 
-use crate::{bytes::Bytes, macros::until_newline, parser::Result};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
+/// The `Server` SIP header.
+///
 /// Is used by UACs to tell UASs about options
 /// that the UAC expects the UAS to support in order to process the
 /// request.
@@ -13,10 +15,9 @@ impl<'a> SipHeader<'a> for Server<'a> {
     const NAME: &'static str = "Server";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let val = until_newline!(bytes);
-        let val = str::from_utf8(val)?;
+        let server = Self::parse_as_str(bytes)?;
 
-        Ok(Server(val))
+        Ok(Server(server))
     }
 }
 

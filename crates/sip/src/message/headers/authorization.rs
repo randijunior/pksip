@@ -1,4 +1,6 @@
-use crate::{bytes::Bytes, message::auth::credential::Credential, parser::Result};
+use crate::{
+    bytes::Bytes, message::auth::credential::Credential, parser::Result,
+};
 
 use super::SipHeader;
 
@@ -16,7 +18,7 @@ impl<'a> Authorization<'a> {
 impl<'a> SipHeader<'a> for Authorization<'a> {
     const NAME: &'static str = "Authorization";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Authorization<'a>> {
         let credential = Credential::parse(bytes)?;
 
         Ok(Authorization(credential))
@@ -37,20 +39,18 @@ mod tests {
 
         assert_eq!(bytes.as_ref(), b"\r\n");
         let cred = auth.credential();
-        let digest_credential = match cred {
-            Credential::Digest(digest_credential) => digest_credential,
-            _ => unreachable!("The credential is digest!"),
-        };
 
-        assert_eq!(digest_credential.username, Some("Alice"));
-        assert_eq!(digest_credential.realm, Some("atlanta.com"));
-        assert_eq!(
-            digest_credential.nonce,
-            Some("84a4cc6f3082121f32b42a2187831a9e")
-        );
-        assert_eq!(
-            digest_credential.response,
-            Some("7587245234b3434cc3412213e5f113a5432")
-        );
+        assert_matches!(cred, Credential::Digest(digest) => {
+            assert_eq!(digest.username, Some("Alice"));
+            assert_eq!(digest.realm, Some("atlanta.com"));
+            assert_eq!(
+                digest.nonce,
+                Some("84a4cc6f3082121f32b42a2187831a9e")
+            );
+            assert_eq!(
+                digest.response,
+                Some("7587245234b3434cc3412213e5f113a5432")
+            );
+        });
     }
 }

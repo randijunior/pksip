@@ -1,16 +1,17 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_param, read_while, sip_parse_error, space},
+    macros::{parse_param, read_until_byte},
     parser::Result,
     uri::Params,
-    util::is_newline,
 };
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 const PURPOSE: &'static str = "purpose";
 
+/// The `Call-Info` SIP header.
+///
 /// Provides aditional information aboute the caller or calle.
 pub struct CallInfo<'a> {
     url: &'a str,
@@ -21,20 +22,14 @@ pub struct CallInfo<'a> {
 impl<'a> SipHeader<'a> for CallInfo<'a> {
     const NAME: &'static str = "Call-Info";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn parse(bytes: &mut Bytes<'a>) -> Result<CallInfo<'a>> {
         let mut purpose: Option<&'a str> = None;
         // must be an '<'
-        let Some(&b'<') = bytes.next() else {
-            return sip_parse_error!("Invalid call info!");
-        };
-        let url =
-            read_while!(bytes, |b| !matches!(b, b'>' | b';') && !is_newline(b));
-        let url = str::from_utf8(url)?;
+        bytes.must_read(b'<')?;
+        let url = read_until_byte!(bytes, &b'>');
         // must be an '>'
-        let Some(&b'>') = bytes.next() else {
-            return sip_parse_error!("Invalid call info!");
-        };
-        space!(bytes);
+        bytes.must_read(b'>')?;
+        let url = str::from_utf8(url)?;
         let params = parse_param!(bytes, PURPOSE = purpose);
 
         Ok(CallInfo {

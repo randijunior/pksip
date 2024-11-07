@@ -7,7 +7,10 @@ use crate::{
 
 use crate::headers::SipHeader;
 
+/// The `Reply-To` SIP header.
+///
 /// Contains a logical return URI that may be different from the From header field
+#[derive(Debug)]
 pub struct ReplyTo<'a> {
     uri: SipUri<'a>,
     param: Option<Params<'a>>,
@@ -37,22 +40,19 @@ mod tests {
         let reply_to = ReplyTo::parse(&mut bytes);
         let reply_to = reply_to.unwrap();
 
-        match reply_to {
-            ReplyTo {
-                uri: SipUri::NameAddr(addr),
-                ..
-            } => {
-                assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(addr.uri.user.unwrap().user, "bob");
-                assert_eq!(
-                    addr.uri.host,
-                    HostPort::DomainName {
-                        host: "biloxi.com",
-                        port: None
-                    }
-                );
-            }
-            _ => unreachable!(),
-        }
+        assert_matches!(reply_to, ReplyTo {
+            uri: SipUri::NameAddr(addr),
+            ..
+        } => {
+            assert_eq!(addr.uri.scheme, Scheme::Sip);
+            assert_eq!(addr.uri.user.unwrap().user, "bob");
+            assert_eq!(
+                addr.uri.host,
+                HostPort::DomainName {
+                    host: "biloxi.com",
+                    port: None
+                }
+            );
+        });
     }
 }

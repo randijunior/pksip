@@ -2,17 +2,18 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeader;
 
-use std::str;
+use core::str;
 
+/// The `Date` SIP header.
+///
 /// Reflects the time when the request or response is first sent.
 pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Date<'a> {
     const NAME: &'static str = "Date";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let date = until_newline!(bytes);
-        let date = str::from_utf8(date)?;
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Date<'a>> {
+        let date = Self::parse_as_str(bytes)?;
 
         Ok(Date(date))
     }

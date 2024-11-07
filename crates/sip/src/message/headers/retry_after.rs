@@ -2,14 +2,13 @@ use core::str;
 use std::u32;
 
 use crate::{
-    bytes::Bytes,
-    macros::{digits, parse_param, read_until_byte, sip_parse_error, space},
-    parser::Result,
-    uri::Params,
+    bytes::Bytes, headers::SipHeaderNum, macros::{parse_param, read_until_byte, space}, parser::Result, uri::Params
 };
 
 use crate::headers::SipHeader;
 
+/// The `Retry-After` SIP header.
+///
 /// Indicate how long the service is expected to be
 /// unavailable to the requesting client.
 /// Or when the called party anticipates being available again.
@@ -23,34 +22,22 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
     const NAME: &'static str = "Retry-After";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = digits!(bytes);
-        let digits = unsafe { str::from_utf8_unchecked(digits) };
-        let digits = digits.parse::<u32>();
+        let digits = SipHeaderNum::parse(bytes)?;
+        let mut comment = None;
+
         space!(bytes);
-        let mut comment: Option<_> = None;
-
-        match digits {
-            Ok(digits) => {
-                let peeked = bytes.peek();
-                if let None = peeked {
-                    return sip_parse_error!("eof!");
-                }
-                if let Some(b'(') = peeked {
-                    bytes.next();
-                    let b = read_until_byte!(bytes, &b')');
-                    bytes.next();
-                    comment = Some(str::from_utf8(b)?);
-                }
-                let param = parse_param!(bytes);
-
-                Ok(RetryAfter {
-                    seconds: digits,
-                    param,
-                    comment,
-                })
-            }
-            Err(_) => todo!(),
+        if let Some(&b'(') = bytes.maybe_read(b'(') {
+            let b = read_until_byte!(bytes, &b')');
+            bytes.must_read(b')')?;
+            comment = Some(str::from_utf8(b)?);
         }
+        let param = parse_param!(bytes);
+
+        Ok(RetryAfter {
+            seconds: digits,
+            param,
+            comment,
+        })
     }
 }
 

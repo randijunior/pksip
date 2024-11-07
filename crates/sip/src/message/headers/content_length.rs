@@ -1,13 +1,11 @@
 use core::str;
 
-use crate::{
-    bytes::Bytes,
-    macros::{digits, sip_parse_error},
-    parser::Result,
-};
+use crate::{bytes::Bytes, parser::Result};
 
-use crate::headers::SipHeader;
+use crate::headers::{SipHeader, SipHeaderNum};
 
+/// The `Content-Length` SIP header.
+///
 /// Indicates the size of the `message-body`.
 pub struct ContentLength(u32);
 
@@ -21,27 +19,25 @@ impl<'a> SipHeader<'a> for ContentLength {
     const NAME: &'static str = "Content-Length";
     const SHORT_NAME: Option<&'static str> = Some("l");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = digits!(bytes);
-        let digits = unsafe { str::from_utf8_unchecked(digits) };
-        if let Ok(cl) = digits.parse() {
-            Ok(ContentLength(cl))
-        } else {
-            sip_parse_error!("invalid content length")
-        }
+    fn parse(bytes: &mut Bytes<'a>) -> Result<ContentLength> {
+        let l = SipHeaderNum::parse(bytes)?;
+
+        Ok(ContentLength(l))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_parse() {
         let src = b"349\r\n";
         let mut bytes = Bytes::new(src);
-        let c_length = ContentLength::parse(&mut bytes).unwrap();
+        let length = ContentLength::parse(&mut bytes);
+        let length = length.unwrap();
 
         assert_eq!(bytes.as_ref(), b"\r\n");
-        assert_eq!(c_length.0, 349)
+        assert_eq!(length.0, 349)
     }
 }

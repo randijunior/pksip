@@ -1,10 +1,12 @@
 use core::str;
 
-use crate::token::is_token;
-use crate::{bytes::Bytes, macros::read_while, parser::Result};
+use crate::token::Token;
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
+/// The `Priority` SIP header.
+///
 /// Indicates the urgency of the request as perceived by the client.
 pub struct Priority<'a>(&'a str);
 
@@ -12,8 +14,7 @@ impl<'a> SipHeader<'a> for Priority<'a> {
     const NAME: &'static str = "Priority";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let priority = read_while!(bytes, is_token);
-        let priority = unsafe { str::from_utf8_unchecked(priority) };
+        let priority = Token::parse(bytes);
 
         Ok(Priority(priority))
     }
