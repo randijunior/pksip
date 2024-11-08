@@ -18,7 +18,7 @@ impl<'a> SipHeader<'a> for ContentLanguage<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<ContentLanguage<'a>> {
         let languages = parse_header_list!(bytes => unsafe {
-            parser::extract_as_str(bytes, is_lang)
+            bytes.parse_str(is_lang)
         });
 
         Ok(ContentLanguage(languages))

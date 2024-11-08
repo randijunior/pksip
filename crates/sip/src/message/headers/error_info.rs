@@ -29,7 +29,7 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
             bytes.must_read(b'<')?;
             let scheme = Token::parse(bytes);
             bytes.must_read(b':')?;
-            let content = unsafe { parser::extract_as_str(bytes, is_uri) };
+            let content = unsafe { bytes.parse_str(is_uri) };
             // must be an '>'
             bytes.must_read(b'>')?;
             let params = parse_param!(bytes);

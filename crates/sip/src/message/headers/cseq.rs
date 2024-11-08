@@ -27,7 +27,7 @@ impl<'a> SipHeader<'a> for CSeq<'a> {
     const NAME: &'static str = "CSeq";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<CSeq<'a>> {
-        let cseq = bytes.read_num()?;
+        let cseq = bytes.parse_num()?;
 
         space!(bytes);
         let b_method = alpha!(bytes);

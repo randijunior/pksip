@@ -128,6 +128,13 @@ fn parse_q(param: &str) -> Option<Q> {
     }
 }
 
+pub(crate) fn parse_param_impl<'a>(
+    bytes: &mut Bytes<'a>,
+    lookup_table: &[bool; 256],
+) -> Result<Param<'a>> {
+    todo!()
+}
+
 // Parses a `name=value` parameter in a SIP message.
 pub(crate) fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
     space!(bytes);

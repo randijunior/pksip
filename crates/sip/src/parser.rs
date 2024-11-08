@@ -87,20 +87,6 @@ impl SipParser {
     }
 }
 
-#[inline]
-pub(crate) unsafe fn extract_as_str<'a, F>(
-    bytes: &mut Bytes<'a>,
-    func: F,
-) -> &'a str
-where
-    F: Fn(&u8) -> bool,
-{
-    let slc = read_while!(bytes, func);
-
-    // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
-    unsafe { str::from_utf8_unchecked(slc) }
-}
-
 /// Error on parsing
 #[derive(Debug)]
 pub struct SipParserError {
@@ -195,22 +181,17 @@ mod tests {
         let req_line = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n";
         let mut bytes = Bytes::new(req_line);
         let parsed = RequestLine::parse(&mut bytes);
-        let parsed = parsed.unwrap();
+        let RequestLine { method, uri } = parsed.unwrap();
 
-        match parsed {
-            RequestLine { method, uri } => {
-                assert_eq!(method, SipMethod::Register);
-                assert_eq!(uri.scheme, Scheme::Sip);
-                assert_eq!(
-                    uri.host,
-                    HostPort::DomainName {
-                        host: "registrar.biloxi.com",
-                        port: None
-                    }
-                );
+        assert_eq!(method, SipMethod::Register);
+        assert_eq!(uri.scheme, Scheme::Sip);
+        assert_eq!(
+            uri.host,
+            HostPort::DomainName {
+                host: "registrar.biloxi.com",
+                port: None
             }
-            _ => unreachable!(),
-        }
+        );
     }
 
     #[test]
@@ -225,17 +206,9 @@ mod tests {
         let msg = b"SIP/2.0 200 OK\r\n";
         let mut bytes = Bytes::new(msg);
         let parsed = StatusLine::parse(&mut bytes);
-        let parsed = parsed.unwrap();
+        let StatusLine { status_code, reason_phrase } = parsed.unwrap();
 
-        match parsed {
-            StatusLine {
-                status_code,
-                reason_phrase,
-            } => {
-                assert_eq!(status_code, SipStatusCode::Ok);
-                assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
-            }
-            _ => unreachable!(),
-        }
+        assert_eq!(status_code, SipStatusCode::Ok);
+        assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
     }
 }

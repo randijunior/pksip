@@ -14,7 +14,7 @@ impl<'a> Token {
     #[inline]
     pub(crate) fn parse(bytes: &mut Bytes<'a>) -> &'a str {
         // is_token ensures that is valid UTF-8
-        unsafe { parser::extract_as_str(bytes, is_token) }
+        unsafe { bytes.parse_str(is_token) }
     }
 
     pub fn parse_quoted(bytes: &mut Bytes<'a>) -> Result<&'a str> {

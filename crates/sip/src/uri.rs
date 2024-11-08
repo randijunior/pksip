@@ -225,7 +225,7 @@ impl<'a> Uri<'a> {
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
                     let value =
-                        unsafe { parser::extract_as_str(bytes, is_param) };
+                        unsafe { bytes.parse_str(is_param) };
                     Some(value)
                 } else {
                     None
@@ -284,11 +284,11 @@ impl<'a> Uri<'a> {
             loop {
                 // take '?' or '&'
                 bytes.next();
-                let name = unsafe { parser::extract_as_str(bytes, is_hdr) };
+                let name = unsafe { bytes.parse_str(is_hdr) };
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
                     let value =
-                        unsafe { parser::extract_as_str(bytes, is_hdr) };
+                        unsafe { bytes.parse_str(is_hdr) };
                     Some(value)
                 } else {
                     None

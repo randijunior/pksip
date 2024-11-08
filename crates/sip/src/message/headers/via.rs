@@ -112,17 +112,15 @@ impl<'a> Via<'a> {
                 TTL_PARAM => params.set_ttl(value),
                 MADDR_PARAM => params.set_maddr(value),
                 RECEIVED_PARAM => params.set_received(value),
-                RPORT_PARAM => {
-                    if !value.is_empty() {
-                        match value.parse::<u16>() {
-                            Ok(port) if is_valid_port(port) => {
-                                params.set_rport(port)
-                            }
-                            Ok(_) | Err(_) => {
-                                return sip_parse_error!(
-                                    "Via param rport is invalid!"
-                                )
-                            }
+                RPORT_PARAM if !value.is_empty() => {
+                    match value.parse::<u16>() {
+                        Ok(port) if is_valid_port(port) => {
+                            params.set_rport(port)
+                        }
+                        Ok(_) | Err(_) => {
+                            return sip_parse_error!(
+                                "Via param rport is invalid!"
+                            )
                         }
                     }
                 }

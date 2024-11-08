@@ -23,7 +23,7 @@ impl<'a> SipHeader<'a> for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<MaxForwards> {
-        let fowards = bytes.read_num()?;
+        let fowards = bytes.parse_num()?;
 
         Ok(MaxForwards(fowards))
     }

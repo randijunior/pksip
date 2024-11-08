@@ -22,7 +22,7 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
     const NAME: &'static str = "Retry-After";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let digits = bytes.read_num()?;
+        let digits = bytes.parse_num()?;
         let mut comment = None;
 
         space!(bytes);

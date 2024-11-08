@@ -20,10 +20,10 @@ impl<'a> SipHeader<'a> for Timestamp {
     const NAME: &'static str = "Timestamp";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let time = bytes.read_num()?;
+        let time = bytes.parse_num()?;
         space!(bytes);
         let delay = if bytes.peek().is_some_and(|b| !is_newline(b)) {
-            Some(bytes.read_num()?)
+            Some(bytes.parse_num()?)
         } else {
             None
         };

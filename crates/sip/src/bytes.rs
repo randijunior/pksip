@@ -1,4 +1,9 @@
+use core::str;
 use std::{ops::Range, result};
+
+use lexical_core::FromLexical;
+
+use crate::macros::read_while;
 
 type Result<'a, T> = std::result::Result<T, BytesError<'a>>;
 /// Errors that can occur while reading the src.
@@ -7,7 +12,7 @@ pub enum ErrorKind {
     /// End of file reached.
     Eof,
     Char(u8, u8),
-    Num
+    Num,
 }
 
 #[derive(Debug, PartialEq)]
@@ -101,15 +106,25 @@ impl<'a> Bytes<'a> {
         Ok(())
     }
 
-    pub(crate) fn read_num<T>(&mut self) -> Result<T>
+    pub(crate) unsafe fn parse_str<F>(&mut self, func: F) -> &'a str
     where
-        T: lexical_core::FromLexical,
+        F: Fn(&u8) -> bool,
     {
-        match lexical_core::parse_partial::<T>(self.as_ref()) {
+        let slice = read_while!(self, &func);
+
+        // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
+        unsafe { str::from_utf8_unchecked(slice) }
+    }
+
+    pub(crate) fn parse_num<N>(&mut self) -> Result<N>
+    where
+        N: FromLexical,
+    {
+        match lexical_core::parse_partial::<N>(self.as_ref()) {
             Ok((value, processed)) => {
                 self.nth(processed);
                 Ok(value)
-            },
+            }
             Err(_) => self.error(ErrorKind::Num),
         }
     }
