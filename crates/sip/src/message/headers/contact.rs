@@ -32,14 +32,15 @@ impl<'a> SipHeader<'a> for Contact<'a> {
     const SHORT_NAME: Option<&'static str> = Some("m");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Contact<'a>> {
-        if bytes.peek()== Some(&b'*') {
+        if bytes.peek() == Some(&b'*') {
             bytes.next();
             return Ok(Contact::Star);
         }
         let uri = SipUri::parse(bytes)?;
         let mut q = None;
         let mut expires = None;
-        let param = parse_header_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
+        let param =
+            parse_header_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
         let q = q.and_then(|q| headers::parse_q(q));
         let expires = expires.and_then(|expires| expires.parse().ok());
 

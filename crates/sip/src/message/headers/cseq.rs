@@ -34,7 +34,6 @@ impl<'a> SipHeader<'a> for CSeq<'a> {
         let method = SipMethod::from(b_method);
 
         Ok(CSeq { cseq, method })
-
     }
 }
 

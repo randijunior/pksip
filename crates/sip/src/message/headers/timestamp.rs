@@ -1,10 +1,6 @@
 use core::str;
 
-use crate::{
-    bytes::Bytes,
-    parser::Result,
-    util::is_newline,
-};
+use crate::{bytes::Bytes, parser::Result, util::is_newline};
 
 use crate::headers::SipHeader;
 

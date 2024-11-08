@@ -1,12 +1,8 @@
 use core::str;
 
-
-use crate::{
-    bytes::Bytes, parser::Result,
-};
+use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
-
 
 /// The `Expires` SIP header.
 ///

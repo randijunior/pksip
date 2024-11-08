@@ -160,7 +160,9 @@ where
 }
 
 // Parses a `name=value` parameter in a SIP message.
-pub(crate) fn parse_header_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
+pub(crate) fn parse_header_param<'a>(
+    bytes: &mut Bytes<'a>,
+) -> Result<Param<'a>> {
     unsafe { parse_param_unchecked(bytes, is_token) }
 }
 

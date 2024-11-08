@@ -104,8 +104,9 @@ impl<'a> Via<'a> {
         }
         let mut params = ViaParams::default();
         let mut rport_p = None;
-        let others = parse_via_param!(bytes, 
-            BRANCH_PARAM = params.branch, 
+        let others = parse_via_param!(
+            bytes,
+            BRANCH_PARAM = params.branch,
             TTL_PARAM = params.ttl,
             MADDR_PARAM = params.maddr,
             RECEIVED_PARAM = params.received,
@@ -115,13 +116,9 @@ impl<'a> Via<'a> {
         if let Some(rport) = rport_p {
             if !rport.is_empty() {
                 match rport.parse::<u16>() {
-                    Ok(port) if is_valid_port(port) => {
-                        params.set_rport(port)
-                    }
+                    Ok(port) if is_valid_port(port) => params.set_rport(port),
                     _ => {
-                        return sip_parse_error!(
-                            "Via param rport is invalid!"
-                        )
+                        return sip_parse_error!("Via param rport is invalid!")
                     }
                 }
             }

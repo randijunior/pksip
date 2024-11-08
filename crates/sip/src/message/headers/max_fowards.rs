@@ -4,7 +4,6 @@ use crate::headers::SipHeader;
 
 use core::str;
 
-
 /// The `Max-Forwards` SIP header.
 ///
 /// Limit the number of proxies or gateways that can forward the request.

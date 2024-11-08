@@ -2,7 +2,10 @@ use core::str;
 use std::u32;
 
 use crate::{
-    bytes::Bytes, macros::{parse_header_param, read_until_byte, space}, parser::Result, uri::Params
+    bytes::Bytes,
+    macros::{parse_header_param, read_until_byte, space},
+    parser::Result,
+    uri::Params,
 };
 
 use crate::headers::SipHeader;

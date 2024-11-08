@@ -4,7 +4,6 @@ use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
-
 /// The `MIME-Version` SIP header.
 ///
 /// Indicate what version of the `MIME` protocol was used to construct the message.

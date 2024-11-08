@@ -206,7 +206,10 @@ mod tests {
         let msg = b"SIP/2.0 200 OK\r\n";
         let mut bytes = Bytes::new(msg);
         let parsed = StatusLine::parse(&mut bytes);
-        let StatusLine { status_code, reason_phrase } = parsed.unwrap();
+        let StatusLine {
+            status_code,
+            reason_phrase,
+        } = parsed.unwrap();
 
         assert_eq!(status_code, SipStatusCode::Ok);
         assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());

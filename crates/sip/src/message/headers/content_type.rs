@@ -1,8 +1,8 @@
 use core::str;
 
 use crate::{
-    bytes::Bytes, headers::SipHeader, macros::parse_header_param, parser::Result,
-    token::Token,
+    bytes::Bytes, headers::SipHeader, macros::parse_header_param,
+    parser::Result, token::Token,
 };
 
 use super::MediaType;

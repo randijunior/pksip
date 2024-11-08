@@ -1,10 +1,7 @@
 use core::str;
 
 use crate::{
-    bytes::Bytes,
-    macros::parse_header_list,
-    parser::Result,
-    token::Token,
+    bytes::Bytes, macros::parse_header_list, parser::Result, token::Token,
 };
 
 use crate::headers::SipHeader;

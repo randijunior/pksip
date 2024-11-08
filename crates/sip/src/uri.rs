@@ -224,8 +224,7 @@ impl<'a> Uri<'a> {
                 let name = Token::parse(bytes);
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
-                    let value =
-                        unsafe { bytes.parse_str(is_param) };
+                    let value = unsafe { bytes.parse_str(is_param) };
                     Some(value)
                 } else {
                     None
@@ -287,8 +286,7 @@ impl<'a> Uri<'a> {
                 let name = unsafe { bytes.parse_str(is_hdr) };
                 let value = if bytes.peek() == Some(&b'=') {
                     bytes.next();
-                    let value =
-                        unsafe { bytes.parse_str(is_hdr) };
+                    let value = unsafe { bytes.parse_str(is_hdr) };
                     Some(value)
                 } else {
                     None

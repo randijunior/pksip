@@ -4,7 +4,6 @@ use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
-
 /// The `Min-Expires` SIP header.
 ///
 /// The minimum refresh interval supported for soft-state elements managed by that server.
