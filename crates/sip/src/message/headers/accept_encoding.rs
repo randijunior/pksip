@@ -3,7 +3,7 @@ use core::str;
 use crate::{
     bytes::Bytes,
     headers::{self, Q_PARAM},
-    macros::{parse_header_list, parse_param},
+    macros::{parse_header_list, parse_header_param},
     parser::{self, Result},
     token::Token,
     uri::Params,
@@ -48,7 +48,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
         let codings = parse_header_list!(bytes => {
             let coding = Token::parse(bytes);
             let mut q_param = None;
-            let param = parse_param!(bytes, Q_PARAM = q_param);
+            let param = parse_header_param!(bytes, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));
 
             Coding { coding, q, param }

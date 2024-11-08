@@ -97,9 +97,12 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{newline, remaing, sip_parse_error, space, until_newline},
+    macros::{
+        newline, read_until_byte, remaing, sip_parse_error, space,
+        until_newline,
+    },
     parser::Result,
-    token::Token,
+    token::{is_token, Token},
     uri::Params,
 };
 
@@ -128,26 +131,37 @@ fn parse_q(param: &str) -> Option<Q> {
     }
 }
 
-pub(crate) fn parse_param_impl<'a>(
+pub(crate) unsafe fn parse_param_unchecked<'a, F>(
     bytes: &mut Bytes<'a>,
-    lookup_table: &[bool; 256],
-) -> Result<Param<'a>> {
-    todo!()
-}
-
-// Parses a `name=value` parameter in a SIP message.
-pub(crate) fn parse_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
+    func: F,
+) -> Result<Param<'a>>
+where
+    F: Fn(&u8) -> bool,
+{
     space!(bytes);
-    let name = Token::parse(bytes);
+    let name = unsafe { bytes.parse_str(&func) };
 
     let value = if bytes.peek() == Some(&b'=') {
         bytes.next();
-        Some(Token::parse_quoted(bytes)?)
+        Some(if let Some(&b'"') = bytes.peek() {
+            bytes.next();
+            let value = read_until_byte!(bytes, &b'"');
+            bytes.next();
+
+            str::from_utf8(value)?
+        } else {
+            unsafe { bytes.parse_str(func) }
+        })
     } else {
         None
     };
 
     Ok((name, value))
+}
+
+// Parses a `name=value` parameter in a SIP message.
+pub(crate) fn parse_header_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
+    unsafe { parse_param_unchecked(bytes, is_token) }
 }
 
 /// Trait to parse SIP headers.

@@ -122,7 +122,7 @@ impl<'a> Bytes<'a> {
     {
         match lexical_core::parse_partial::<N>(self.as_ref()) {
             Ok((value, processed)) => {
-                self.nth(processed);
+                self.nth(processed - 1);
                 Ok(value)
             }
             Err(_) => self.error(ErrorKind::Num),

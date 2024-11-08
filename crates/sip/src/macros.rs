@@ -81,27 +81,41 @@ macro_rules! b_map {
     };
 }
 
-macro_rules! parse_param {
+macro_rules! parse_header_param {
     ($bytes:ident) => (
-        crate::macros::parse_param!($bytes,)
+        crate::macros::parse_param!($bytes, crate::headers::parse_header_param,)
     );
 
     ($bytes:ident, $($name:ident = $var:expr),*) => (
-         {
+        crate::macros::parse_param!($bytes, crate::headers::parse_header_param, $($name = $var),*)
+    );
+}
+
+macro_rules! parse_via_param {
+    ($bytes:ident, $($name:ident = $var:expr),*) => (
+        crate::macros::parse_param!($bytes, parse_via_param, $($name = $var),*)
+    );
+}
+
+macro_rules! parse_param {
+    ($bytes:ident, $func:expr, $($name:ident = $var:expr),*) => (
+        {
             crate::macros::space!($bytes);
             if let Some(&b';') = $bytes.peek() {
                 let mut params = crate::uri::Params::new();
                 while let Some(&b';') = $bytes.peek() {
                     // take ';' character
                     $bytes.next();
-                    let param = crate::message::headers::parse_param($bytes)?;
+                    let param = $func($bytes)?;
                     $(
                         if param.0 == $name {
                             $var = param.1;
+                            crate::macros::space!($bytes);
                             continue;
                         }
                     )*
                     params.set(param.0, param.1.unwrap_or(""));
+                    crate::macros::space!($bytes);
                 }
                 if params.is_empty() {
                     None
@@ -151,7 +165,9 @@ pub(crate) use digits;
 pub(crate) use newline;
 pub(crate) use parse_comma_separated;
 pub(crate) use parse_header_list;
+pub(crate) use parse_header_param;
 pub(crate) use parse_param;
+pub(crate) use parse_via_param;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;
 pub(crate) use read_while;

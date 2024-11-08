@@ -1,6 +1,6 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_param, read_until_byte},
+    macros::{parse_header_param, read_until_byte},
     parser::Result,
     uri::Params,
 };
@@ -30,7 +30,7 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
         // must be an '>'
         bytes.must_read(b'>')?;
         let url = str::from_utf8(url)?;
-        let params = parse_param!(bytes, PURPOSE = purpose);
+        let params = parse_header_param!(bytes, PURPOSE = purpose);
 
         Ok(CallInfo {
             url,

@@ -19,8 +19,8 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
-use crate::headers::SipHeader;
-use crate::macros::{b_map, read_while};
+use crate::headers::{parse_param_unchecked, SipHeader};
+use crate::macros::{b_map, parse_via_param, read_while};
 use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
@@ -31,6 +31,8 @@ use crate::{
     uri::{HostPort, Params},
 };
 use core::str;
+
+use super::Param;
 
 b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 
@@ -43,6 +45,11 @@ const RECEIVED_PARAM: &str = "received";
 #[inline(always)]
 fn is_via_param(b: &u8) -> bool {
     VIA_PARAM_SPEC_MAP[*b as usize]
+}
+
+// Parses a via param.
+fn parse_via_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
+    unsafe { parse_param_unchecked(bytes, is_via_param) }
 }
 
 #[derive(Default)]
@@ -96,46 +103,29 @@ impl<'a> Via<'a> {
             return Ok((None, None));
         }
         let mut params = ViaParams::default();
-        let mut others = Params::new();
-        while let Some(&b';') = bytes.peek() {
-            bytes.next();
-            let name = read_while!(bytes, is_via_param);
-            let name = unsafe { str::from_utf8_unchecked(name) };
-            let mut value = "";
-            if let Some(&b'=') = bytes.peek() {
-                bytes.next();
-                let v = read_while!(bytes, is_via_param);
-                value = unsafe { str::from_utf8_unchecked(v) };
-            }
-            match name {
-                BRANCH_PARAM => params.set_branch(value),
-                TTL_PARAM => params.set_ttl(value),
-                MADDR_PARAM => params.set_maddr(value),
-                RECEIVED_PARAM => params.set_received(value),
-                RPORT_PARAM if !value.is_empty() => {
-                    match value.parse::<u16>() {
-                        Ok(port) if is_valid_port(port) => {
-                            params.set_rport(port)
-                        }
-                        Ok(_) | Err(_) => {
-                            return sip_parse_error!(
-                                "Via param rport is invalid!"
-                            )
-                        }
+        let mut rport_p = None;
+        let others = parse_via_param!(bytes, 
+            BRANCH_PARAM = params.branch, 
+            TTL_PARAM = params.ttl,
+            MADDR_PARAM = params.maddr,
+            RECEIVED_PARAM = params.received,
+            RPORT_PARAM = rport_p
+        );
+
+        if let Some(rport) = rport_p {
+            if !rport.is_empty() {
+                match rport.parse::<u16>() {
+                    Ok(port) if is_valid_port(port) => {
+                        params.set_rport(port)
+                    }
+                    _ => {
+                        return sip_parse_error!(
+                            "Via param rport is invalid!"
+                        )
                     }
                 }
-                _ => {
-                    others.set(name, value);
-                }
             }
-            space!(bytes);
         }
-
-        let others = if others.is_empty() {
-            None
-        } else {
-            Some(others)
-        };
 
         Ok((Some(params), others))
     }

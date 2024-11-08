@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::{
-    bytes::Bytes, headers::SipHeader, macros::parse_param, parser::Result,
+    bytes::Bytes, headers::SipHeader, macros::parse_header_param, parser::Result,
     token::Token,
 };
 
@@ -20,7 +20,7 @@ impl<'a> SipHeader<'a> for ContentType<'a> {
         let mtype = Token::parse(bytes);
         bytes.must_read(b'/')?;
         let subtype = Token::parse(bytes);
-        let param = parse_param!(bytes);
+        let param = parse_header_param!(bytes);
         let media_type = MediaType::new(mtype, subtype, param);
 
         Ok(ContentType(media_type))

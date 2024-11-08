@@ -1,5 +1,5 @@
 use crate::{
-    bytes::Bytes, macros::parse_param, parser::Result, token::Token,
+    bytes::Bytes, macros::parse_header_param, parser::Result, token::Token,
     uri::Params,
 };
 
@@ -18,7 +18,7 @@ impl<'a> SipHeader<'a> for ContentDisposition<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<ContentDisposition<'a>> {
         let _type = Token::parse(bytes);
-        let params = parse_param!(bytes);
+        let params = parse_header_param!(bytes);
 
         Ok(ContentDisposition { _type, params })
     }

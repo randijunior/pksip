@@ -28,7 +28,7 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
         let mut auth_info = AuthenticationInfo::default();
 
         parse_comma_separated!(bytes => {
-            let (name, value) = super::parse_param(bytes)?;
+            let (name, value) = super::parse_header_param(bytes)?;
             match name {
                 NEXTNONCE => auth_info.nextnonce = value,
                 QOP => auth_info.qop = value,

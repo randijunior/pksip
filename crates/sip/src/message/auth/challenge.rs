@@ -39,7 +39,7 @@ impl<'a> Challenge<'a> {
 
         let mut param = Params::new();
         parse_comma_separated!(bytes => {
-            let (name, value) = headers::parse_param(bytes)?;
+            let (name, value) = headers::parse_header_param(bytes)?;
 
             param.set(name, value.unwrap_or(""));
 
@@ -53,7 +53,7 @@ impl<'a> DigestChallenge<'a> {
     pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let mut digest = Self::default();
         parse_comma_separated!(bytes => {
-            let (name, value) = headers::parse_param(bytes)?;
+            let (name, value) = headers::parse_header_param(bytes)?;
 
             match name {
                 REALM => digest.realm = value,

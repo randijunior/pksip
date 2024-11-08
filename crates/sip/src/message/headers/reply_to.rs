@@ -1,6 +1,6 @@
 use crate::{
     bytes::Bytes,
-    macros::parse_param,
+    macros::parse_header_param,
     parser::Result,
     uri::{Params, SipUri},
 };
@@ -21,7 +21,7 @@ impl<'a> SipHeader<'a> for ReplyTo<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
         let uri = SipUri::parse(bytes)?;
-        let param = parse_param!(bytes);
+        let param = parse_header_param!(bytes);
 
         Ok(ReplyTo { uri, param })
     }

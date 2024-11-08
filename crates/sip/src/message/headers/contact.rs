@@ -1,7 +1,7 @@
 use crate::{
     bytes::Bytes,
     headers::{self, EXPIRES_PARAM, Q_PARAM},
-    macros::parse_param,
+    macros::parse_header_param,
     parser::Result,
     uri::{Params, SipUri},
 };
@@ -39,7 +39,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
         let uri = SipUri::parse(bytes)?;
         let mut q = None;
         let mut expires = None;
-        let param = parse_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
+        let param = parse_header_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
         let q = q.and_then(|q| headers::parse_q(q));
         let expires = expires.and_then(|expires| expires.parse().ok());
 

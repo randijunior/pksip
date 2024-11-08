@@ -2,7 +2,7 @@ use core::str;
 use std::u32;
 
 use crate::{
-    bytes::Bytes, macros::{parse_param, read_until_byte, space}, parser::Result, uri::Params
+    bytes::Bytes, macros::{parse_header_param, read_until_byte, space}, parser::Result, uri::Params
 };
 
 use crate::headers::SipHeader;
@@ -32,7 +32,7 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
             bytes.must_read(b')')?;
             comment = Some(str::from_utf8(b)?);
         }
-        let param = parse_param!(bytes);
+        let param = parse_header_param!(bytes);
 
         Ok(RetryAfter {
             seconds: digits,

@@ -2,7 +2,7 @@ use crate::headers::SipHeader;
 use crate::macros::read_until_byte;
 use crate::{
     bytes::Bytes,
-    macros::{parse_param, space},
+    macros::{parse_header_param, space},
     parser::Result,
     uri::Params,
 };
@@ -27,7 +27,7 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
         bytes.must_read(b'>')?;
 
         let url = str::from_utf8(url)?;
-        let params = parse_param!(bytes);
+        let params = parse_header_param!(bytes);
 
         Ok(AlertInfo { url, params })
     }

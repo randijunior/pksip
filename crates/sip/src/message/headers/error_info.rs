@@ -2,7 +2,7 @@ use core::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_list, parse_param},
+    macros::{parse_header_list, parse_header_param, parse_param},
     parser::{self, Result},
     token::Token,
     uri::{is_uri, GenericUri, Params},
@@ -32,7 +32,7 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
             let content = unsafe { bytes.parse_str(is_uri) };
             // must be an '>'
             bytes.must_read(b'>')?;
-            let params = parse_param!(bytes);
+            let params = parse_header_param!(bytes);
             ErrorInfoUri {
                 url: GenericUri { scheme, content },
                 params
