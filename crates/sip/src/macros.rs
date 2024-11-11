@@ -83,24 +83,24 @@ macro_rules! b_map {
 
 macro_rules! parse_header_param {
     ($bytes:ident) => (
-        crate::macros::parse_param!($bytes, crate::headers::parse_header_param,)
+        $crate::macros::parse_param!($bytes, crate::headers::parse_header_param,)
     );
 
     ($bytes:ident, $($name:ident = $var:expr),*) => (
-        crate::macros::parse_param!($bytes, crate::headers::parse_header_param, $($name = $var),*)
+        $crate::macros::parse_param!($bytes, crate::headers::parse_header_param, $($name = $var),*)
     );
 }
 
 macro_rules! parse_via_param {
     ($bytes:ident, $($name:ident = $var:expr),*) => (
-        crate::macros::parse_param!($bytes, parse_via_param, $($name = $var),*)
+        $crate::macros::parse_param!($bytes, parse_via_param, $($name = $var),*)
     );
 }
 
 macro_rules! parse_param {
     ($bytes:ident, $func:expr, $($name:ident = $var:expr),*) => (
         {
-            crate::macros::space!($bytes);
+            $crate::macros::space!($bytes);
             if let Some(&b';') = $bytes.peek() {
                 let mut params = crate::uri::Params::new();
                 while let Some(&b';') = $bytes.peek() {
@@ -110,12 +110,12 @@ macro_rules! parse_param {
                     $(
                         if param.0 == $name {
                             $var = param.1;
-                            crate::macros::space!($bytes);
+                            $crate::macros::space!($bytes);
                             continue;
                         }
                     )*
                     params.set(param.0, param.1.unwrap_or(""));
-                    crate::macros::space!($bytes);
+                    $crate::macros::space!($bytes);
                 }
                 if params.is_empty() {
                     None
@@ -133,7 +133,7 @@ macro_rules! parse_param {
 macro_rules! parse_header_list {
     ($bytes:ident => $body:expr) => {{
         let mut hdr_itens = Vec::new();
-        crate::macros::parse_comma_separated!($bytes => {
+        $crate::macros::parse_comma_separated!($bytes => {
             hdr_itens.push($body);
         });
         hdr_itens
@@ -142,12 +142,12 @@ macro_rules! parse_header_list {
 
 macro_rules! parse_comma_separated {
     ($bytes:ident => $body:expr) => {{
-        crate::macros::space!($bytes);
+        $crate::macros::space!($bytes);
         $body
 
         while let Some(b',') = $bytes.peek() {
             $bytes.next();
-            crate::macros::space!($bytes);
+            $crate::macros::space!($bytes);
             $body
         }
     }};
