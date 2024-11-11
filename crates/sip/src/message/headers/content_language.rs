@@ -1,4 +1,4 @@
-use core::str;
+use std::str;
 
 use crate::headers::accept_language::is_lang;
 use crate::parser;

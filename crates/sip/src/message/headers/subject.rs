@@ -1,9 +1,11 @@
-use core::str;
+use std::str;
 
 use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
+/// The `Subject` SIP header.
+///
 /// Provides a summary or indicates the nature of the call.
 pub struct Subject<'a>(&'a str);
 

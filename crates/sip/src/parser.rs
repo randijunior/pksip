@@ -7,7 +7,7 @@ use crate::macros::sip_parse_error;
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
-use core::str;
+use std::str;
 use std::num::ParseFloatError;
 use std::num::ParseIntError;
 use std::str::Utf8Error;

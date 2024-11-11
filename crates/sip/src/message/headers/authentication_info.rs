@@ -7,7 +7,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use core::str;
+use std::str;
 
 /// The `Authentication-Info` SIP header.
 ///

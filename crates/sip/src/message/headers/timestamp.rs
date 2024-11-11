@@ -1,4 +1,4 @@
-use core::str;
+use std::str;
 
 use crate::{bytes::Bytes, parser::Result, util::is_newline};
 
@@ -6,6 +6,8 @@ use crate::headers::SipHeader;
 
 use super::space;
 
+/// The `Timestamp` SIP header.
+///
 /// Describes when the `UAC` sent the request to the `UAS`.
 pub struct Timestamp {
     time: f32,

@@ -1,4 +1,4 @@
-use core::str;
+use std::str;
 
 use crate::{bytes::Bytes, macros::read_while, parser::SipParserError};
 

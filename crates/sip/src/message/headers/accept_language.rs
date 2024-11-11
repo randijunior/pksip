@@ -9,7 +9,7 @@ use crate::{
 };
 
 use crate::headers::SipHeader;
-use core::str;
+use std::str;
 
 use super::Q;
 

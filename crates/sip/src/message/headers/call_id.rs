@@ -2,7 +2,7 @@ use crate::{bytes::Bytes, macros::until_newline, parser::Result};
 
 use crate::headers::SipHeader;
 
-use core::str;
+use std::str;
 
 /// The `Call-ID` SIP header.
 ///

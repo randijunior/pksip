@@ -93,7 +93,7 @@ pub use via::Via;
 pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
-use core::str;
+use std::str;
 
 use crate::{
     bytes::Bytes,
@@ -131,7 +131,15 @@ fn parse_q(param: &str) -> Option<Q> {
     }
 }
 
-pub(crate) unsafe fn parse_param_unchecked<'a, F>(
+// Parses a `name=value` parameter in a SIP message.
+pub(crate) fn parse_header_param<'a>(
+    bytes: &mut Bytes<'a>,
+) -> Result<Param<'a>> {
+    unsafe { parse_param_sip(bytes, is_token) }
+}
+
+
+pub(crate) unsafe fn parse_param_sip<'a, F>(
     bytes: &mut Bytes<'a>,
     func: F,
 ) -> Result<Param<'a>>
@@ -140,30 +148,21 @@ where
 {
     space!(bytes);
     let name = unsafe { bytes.parse_str(&func) };
-
-    let value = if bytes.peek() == Some(&b'=') {
+    let Some(&b'=') = bytes.peek() else {
+        return Ok((name, None))
+    };
+    bytes.next();
+    let value = if let Some(&b'"') = bytes.peek() {
         bytes.next();
-        Some(if let Some(&b'"') = bytes.peek() {
-            bytes.next();
-            let value = read_until_byte!(bytes, &b'"');
-            bytes.next();
+        let value = read_until_byte!(bytes, &b'"');
+        bytes.next();
 
-            str::from_utf8(value)?
-        } else {
-            unsafe { bytes.parse_str(func) }
-        })
+        str::from_utf8(value)?
     } else {
-        None
+        unsafe { bytes.parse_str(func) }
     };
 
-    Ok((name, value))
-}
-
-// Parses a `name=value` parameter in a SIP message.
-pub(crate) fn parse_header_param<'a>(
-    bytes: &mut Bytes<'a>,
-) -> Result<Param<'a>> {
-    unsafe { parse_param_unchecked(bytes, is_token) }
+    Ok((name, Some(value)))
 }
 
 /// Trait to parse SIP headers.

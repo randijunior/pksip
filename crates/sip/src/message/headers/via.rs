@@ -19,8 +19,8 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
-use crate::headers::{parse_param_unchecked, SipHeader};
-use crate::macros::{b_map, parse_via_param, read_while};
+use crate::headers::{parse_param_sip, SipHeader};
+use crate::macros::{b_map, parse_via_param};
 use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
@@ -30,7 +30,7 @@ use crate::{
     parser::Result,
     uri::{HostPort, Params},
 };
-use core::str;
+use std::str;
 
 use super::Param;
 
@@ -49,7 +49,7 @@ fn is_via_param(b: &u8) -> bool {
 
 // Parses a via param.
 fn parse_via_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
-    unsafe { parse_param_unchecked(bytes, is_via_param) }
+    unsafe { parse_param_sip(bytes, is_via_param) }
 }
 
 #[derive(Default)]
@@ -84,6 +84,8 @@ impl<'a> ViaParams<'a> {
     }
 }
 
+/// The `Via` SIP header.
+///
 /// Indicates the path taken by the request so far and the
 /// path that should be followed in routing responses.
 pub struct Via<'a> {
@@ -92,40 +94,6 @@ pub struct Via<'a> {
     pub(crate) params: Option<ViaParams<'a>>,
     pub(crate) comment: Option<&'a str>,
     pub(crate) others_params: Option<Params<'a>>,
-}
-
-impl<'a> Via<'a> {
-    pub(crate) fn parse_params(
-        bytes: &mut Bytes<'a>,
-    ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
-        space!(bytes);
-        if bytes.peek() != Some(&b';') {
-            return Ok((None, None));
-        }
-        let mut params = ViaParams::default();
-        let mut rport_p = None;
-        let others = parse_via_param!(
-            bytes,
-            BRANCH_PARAM = params.branch,
-            TTL_PARAM = params.ttl,
-            MADDR_PARAM = params.maddr,
-            RECEIVED_PARAM = params.received,
-            RPORT_PARAM = rport_p
-        );
-
-        if let Some(rport) = rport_p {
-            if !rport.is_empty() {
-                match rport.parse::<u16>() {
-                    Ok(port) if is_valid_port(port) => params.set_rport(port),
-                    _ => {
-                        return sip_parse_error!("Via param rport is invalid!")
-                    }
-                }
-            }
-        }
-
-        Ok((Some(params), others))
-    }
 }
 
 impl<'a> SipHeader<'a> for Via<'a> {
@@ -163,6 +131,40 @@ impl<'a> SipHeader<'a> for Via<'a> {
             others_params,
             comment,
         })
+    }
+}
+
+impl<'a> Via<'a> {
+    pub(crate) fn parse_params(
+        bytes: &mut Bytes<'a>,
+    ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
+        space!(bytes);
+        if bytes.peek() != Some(&b';') {
+            return Ok((None, None));
+        }
+        let mut params = ViaParams::default();
+        let mut rport_p = None;
+        let others = parse_via_param!(
+            bytes,
+            BRANCH_PARAM = params.branch,
+            TTL_PARAM = params.ttl,
+            MADDR_PARAM = params.maddr,
+            RECEIVED_PARAM = params.received,
+            RPORT_PARAM = rport_p
+        );
+
+        if let Some(rport) = rport_p
+            .filter(|rport| !rport.is_empty())
+            .and_then(|rpot| rpot.parse().ok())
+        {
+            if is_valid_port(rport) {
+                params.set_rport(rport);
+            } else {
+                return sip_parse_error!("Via param rport is invalid!");
+            }
+        }
+
+        Ok((Some(params), others))
     }
 }
 

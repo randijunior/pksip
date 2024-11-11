@@ -6,7 +6,7 @@ use crate::{
     parser::Result,
     uri::Params,
 };
-use core::str;
+use std::str;
 
 /// The `Alert-Info` SIP header.
 ///

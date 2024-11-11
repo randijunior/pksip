@@ -1,9 +1,12 @@
-use core::str;
+use std::str;
 
-use crate::{bytes::Bytes, macros::space, parser::Result, token::Token};
+use crate::macros::parse_header_list;
+use crate::{bytes::Bytes, parser::Result, token::Token};
 
 use crate::headers::SipHeader;
 
+/// The `Supported` SIP header.
+///
 /// Enumerates all the extensions supported by the `UAC` or `UAS`.
 pub struct Supported<'a>(Vec<&'a str>);
 
@@ -12,16 +15,7 @@ impl<'a> SipHeader<'a> for Supported<'a> {
     const SHORT_NAME: Option<&'static str> = Some("k");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let tag = Token::parse(bytes);
-        let mut tags = vec![tag];
-
-        while let Some(b',') = bytes.peek() {
-            bytes.next();
-            space!(bytes);
-            let tag = Token::parse(bytes);
-            tags.push(tag);
-            space!(bytes);
-        }
+        let tags = parse_header_list!(bytes => Token::parse(bytes));
 
         Ok(Supported(tags))
     }

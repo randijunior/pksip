@@ -2,7 +2,7 @@ use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
-use core::str;
+use std::str;
 
 /// The `Max-Forwards` SIP header.
 ///

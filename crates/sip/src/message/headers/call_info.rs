@@ -7,7 +7,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use core::str;
+use std::str;
 const PURPOSE: &'static str = "purpose";
 
 /// The `Call-Info` SIP header.

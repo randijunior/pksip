@@ -8,8 +8,10 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use core::str;
+use std::str;
 
+/// The `To` SIP header.
+///
 /// Specifies the logical recipient of the request.
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,

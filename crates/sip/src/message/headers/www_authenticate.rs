@@ -3,6 +3,8 @@ use crate::{
     parser::Result,
 };
 
+/// The `WWW-Authenticate` SIP header.
+/// 
 /// Consists of at least one challenge the
 /// authentication scheme(s) and parameters applicable
 /// to the `Request-URI`.
@@ -32,17 +34,14 @@ mod tests {
         let www_auth = WWWAuthenticate::parse(&mut bytes);
         let www_auth = www_auth.unwrap();
 
-        match www_auth.0 {
-            Challenge::Digest(digest) => {
-                assert_eq!(digest.realm, Some("atlanta.com"));
-                assert_eq!(digest.algorithm, Some("MD5"));
-                assert_eq!(digest.domain, Some("sip:boxesbybob.com"));
-                assert_eq!(digest.qop, Some("auth"));
-                assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
-                assert_eq!(digest.opaque, Some(""));
-                assert_eq!(digest.stale, Some("FALSE"));
-            }
-            _ => unreachable!(),
-        }
+        assert_matches!(www_auth.0, Challenge::Digest(digest) => {
+            assert_eq!(digest.realm, Some("atlanta.com"));
+            assert_eq!(digest.algorithm, Some("MD5"));
+            assert_eq!(digest.domain, Some("sip:boxesbybob.com"));
+            assert_eq!(digest.qop, Some("auth"));
+            assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
+            assert_eq!(digest.opaque, Some(""));
+            assert_eq!(digest.stale, Some("FALSE"));
+        });
     }
 }

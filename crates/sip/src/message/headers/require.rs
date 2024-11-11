@@ -1,4 +1,4 @@
-use core::str;
+use std::str;
 
 use crate::macros::parse_header_list;
 use crate::token::Token;

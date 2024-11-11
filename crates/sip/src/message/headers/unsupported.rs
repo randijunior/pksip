@@ -1,4 +1,4 @@
-use core::str;
+use std::str;
 
 use crate::{
     bytes::Bytes, macros::parse_header_list, parser::Result, token::Token,
@@ -6,6 +6,8 @@ use crate::{
 
 use crate::headers::SipHeader;
 
+/// The `Unsupported` SIP header.
+///
 /// Lists the features not supported by the `UAS`.
 pub struct Unsupported<'a>(Vec<&'a str>);
 

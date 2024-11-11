@@ -1,4 +1,4 @@
-use core::str;
+use std::str;
 use std::{net::IpAddr, str::FromStr};
 
 use crate::{

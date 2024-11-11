@@ -8,7 +8,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use core::str;
+use std::str;
 
 /// The `From` SIP header.
 ///

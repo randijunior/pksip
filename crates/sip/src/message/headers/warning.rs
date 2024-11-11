@@ -1,12 +1,15 @@
-use core::str;
+use std::str;
 
 use crate::{
-    macros::{digits, read_until_byte, read_while, sip_parse_error, space},
+    bytes::Bytes,
+    macros::{read_until_byte, sip_parse_error, space},
+    parser::Result,
     uri::is_host,
 };
 
 use crate::headers::SipHeader;
 
+/// The `Warning` SIP header.
 /// Carry additional information about the status of a response.
 pub struct Warning<'a> {
     code: u32,
@@ -17,25 +20,37 @@ pub struct Warning<'a> {
 impl<'a> SipHeader<'a> for Warning<'a> {
     const NAME: &'static str = "Warning";
 
-    fn parse(
-        bytes: &mut crate::bytes::Bytes<'a>,
-    ) -> crate::parser::Result<Self> {
-        let code = digits!(bytes);
-        let code = unsafe { str::from_utf8_unchecked(code) };
-        if let Ok(code) = code.parse::<u32>() {
-            space!(bytes);
-            let host = read_while!(bytes, is_host);
-            let host = unsafe { str::from_utf8_unchecked(host) };
-            if let Ok(Some(&b'"')) = bytes.read_if(|b| b == &b'"') {
-                let text = read_until_byte!(bytes, &b'"');
-                let text = unsafe { str::from_utf8_unchecked(text) };
+    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+        let code = bytes.parse_num()?;
+        space!(bytes);
+        let host = unsafe { bytes.parse_str(is_host) };
+        space!(bytes);
+        let Some(&b'"') = bytes.peek() else {
+            return sip_parse_error!("invalid warning header!");
+        };
+        bytes.next();
+        let text = read_until_byte!(bytes, &b'"');
+        bytes.next();
+        let text = str::from_utf8(text)?;
 
-                Ok(Warning { code, host, text })
-            } else {
-                sip_parse_error!("invalid warning header!")
-            }
-        } else {
-            sip_parse_error!("invalid warning header!")
-        }
+        Ok(Warning { code, host, text })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src =
+            b"307 isi.edu \"Session parameter 'foo' not understood\"";
+        let mut bytes = Bytes::new(src);
+        let warn = Warning::parse(&mut bytes);
+        let warn = warn.unwrap();
+
+        assert_eq!(warn.code, 307);
+        assert_eq!(warn.host, "isi.edu");
+        assert_eq!(warn.text, "Session parameter 'foo' not understood");
     }
 }

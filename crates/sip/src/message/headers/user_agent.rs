@@ -1,9 +1,11 @@
-use core::str;
+use std::str;
 
 use crate::{bytes::Bytes, parser::Result};
 
 use crate::headers::SipHeader;
 
+/// The `User-Agent` SIP header.
+///
 /// Contains information about the `UAC` originating the request.
 pub struct UserAgent<'a>(&'a str);
 
