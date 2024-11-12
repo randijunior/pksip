@@ -98,7 +98,7 @@ use std::str;
 use crate::{
     bytes::Bytes,
     macros::{
-        newline, read_until_byte, remaing, sip_parse_error, space,
+        newline, until_byte, remaing, sip_parse_error, space,
         until_newline,
     },
     parser::Result,
@@ -107,7 +107,7 @@ use crate::{
 };
 
 /// An Header param
-type Param<'a> = (&'a str, Option<&'a str>);
+pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
@@ -154,7 +154,7 @@ where
     bytes.next();
     let value = if let Some(&b'"') = bytes.peek() {
         bytes.next();
-        let value = read_until_byte!(bytes, &b'"');
+        let value = until_byte!(bytes, &b'"');
         bytes.next();
 
         str::from_utf8(value)?

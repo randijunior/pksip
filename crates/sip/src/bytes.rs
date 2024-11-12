@@ -68,6 +68,11 @@ impl<'a> Bytes<'a> {
         Some(&self.src[self.idx])
     }
 
+    pub fn lookahead(&self) -> Result<&u8> {
+        self.peek()
+            .ok_or_else(|| self.error::<&u8>(ErrorKind::Eof).unwrap_err())
+    }
+
     pub(crate) fn peek_n(&self, n: usize) -> Option<&[u8]> {
         self.as_ref().get(..n)
     }

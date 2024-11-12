@@ -19,12 +19,9 @@ impl<'a> SipHeader<'a> for RecordRoute<'a> {
     const NAME: &'static str = "Record-Route";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        if let SipUri::NameAddr(addr) = SipUri::parse(bytes)? {
-            let param = parse_header_param!(bytes);
-            Ok(RecordRoute { addr, param })
-        } else {
-            sip_parse_error!("Invalid Record-Route Header!")
-        }
+        let addr = NameAddr::parse(bytes)?;
+        let param = parse_header_param!(bytes);
+        Ok(RecordRoute { addr, param })
     }
 }
 

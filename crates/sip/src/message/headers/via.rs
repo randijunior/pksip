@@ -25,7 +25,7 @@ use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
     bytes::Bytes,
-    macros::{read_until_byte, sip_parse_error, space},
+    macros::{until_byte, sip_parse_error, space},
     message::Transport,
     parser::Result,
     uri::{HostPort, Params},
@@ -107,7 +107,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
         if bytes.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let b = read_until_byte!(bytes, &b' ');
+        let b = until_byte!(bytes, &b' ');
         let transport = Transport::from(b);
 
         space!(bytes);
@@ -117,7 +117,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
 
         let comment = if bytes.peek() == Some(&b'(') {
             bytes.next();
-            let comment = read_until_byte!(bytes, &b')');
+            let comment = until_byte!(bytes, &b')');
             bytes.next();
             Some(str::from_utf8(comment)?)
         } else {

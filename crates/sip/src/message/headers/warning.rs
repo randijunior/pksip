@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{read_until_byte, sip_parse_error, space},
+    macros::{until_byte, sip_parse_error, space},
     parser::Result,
     uri::is_host,
 };
@@ -29,7 +29,7 @@ impl<'a> SipHeader<'a> for Warning<'a> {
             return sip_parse_error!("invalid warning header!");
         };
         bytes.next();
-        let text = read_until_byte!(bytes, &b'"');
+        let text = until_byte!(bytes, &b'"');
         bytes.next();
         let text = str::from_utf8(text)?;
 

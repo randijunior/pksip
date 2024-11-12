@@ -10,12 +10,13 @@ pub(crate) use user::UserInfo;
 
 use crate::{
     bytes::Bytes,
-    macros::{b_map, read_until_byte, sip_parse_error, space},
+    headers::{parse_param_sip, Param},
+    macros::{b_map, parse_param, space, until_byte},
     parser::{
-        self, SipParserError, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS,
-        UNRESERVED, USER_UNRESERVED,
+        Result, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS, UNRESERVED,
+        USER_UNRESERVED,
     },
-    token::{self, Token},
+    token::Token,
 };
 
 mod host;
@@ -82,32 +83,32 @@ pub(crate) fn is_uri(b: &u8) -> bool {
     GENERIC_URI_SPEC_MAP[*b as usize]
 }
 
-/*
-Request-URI: The Request-URI is a SIP or SIPS URI as described in
-           Section 19.1 or a general URI (RFC 2396 [5]).  It indicates
-           the user or service to which this request is being addressed.
-           The Request-URI MUST NOT contain unescaped spaces or control
-           characters and MUST NOT be enclosed in "<>".
-*/
+fn parse_uri_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
+    unsafe { parse_param_sip(bytes, is_param) }
+}
 
-// scheme
-// user optional
-// password optional
-// str host required
-// u32 port optional
 
-// transport, maddr, ttl,user, method and lr
-// str use_param  optional
-// str method_param optional
-// str transport_param  optional
-// int ttl_param optional
-// int lr_param optional
-// str maddr_param optional
+#[derive(Debug)]
+pub enum SipUri<'a> {
+    Uri(Uri<'a>),
+    NameAddr(NameAddr<'a>),
+}
 
-// struct sip_param/other_param other parameters group together
-// struct sip_param/header_param optional
-// SIP URI: sip:user:password@host:port;uri-parameters?headers
-// SIPS URI: sips:user:password@host:port;uri-parameters?headers
+impl<'a> SipUri<'a> {
+    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<SipUri<'a>> {
+        space!(bytes);
+
+        if matches!(bytes.peek_n(3), Some(SCHEME_SIP) | Some(SCHEME_SIPS)) {
+            let uri = Uri::parse(bytes, false)?;
+
+            return Ok(SipUri::Uri(uri));
+        }
+
+        let addr = NameAddr::parse(bytes)?;
+        Ok(SipUri::NameAddr(addr))
+    }
+}
+
 #[derive(Debug)]
 pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
@@ -118,146 +119,11 @@ pub struct Uri<'a> {
     pub(crate) header_params: Option<Params<'a>>,
 }
 
-//SIP name-addr, which typically appear in From, To, and Contact header.
-// display optional display part
-// Struct Uri uri
-#[derive(Debug)]
-pub struct NameAddr<'a> {
-    pub(crate) display: Option<&'a str>,
-    pub(crate) uri: Uri<'a>,
-}
-
-#[derive(Debug)]
-pub enum SipUri<'a> {
-    Uri(Uri<'a>),
-    NameAddr(NameAddr<'a>),
-}
-
-impl<'a> SipUri<'a> {
-    pub(crate) fn parse(
-        bytes: &mut Bytes<'a>,
-    ) -> Result<SipUri<'a>, SipParserError> {
-        space!(bytes);
-        let peeked = bytes.peek();
-
-        match peeked {
-            // Nameaddr with quoted display name
-            Some(&b'"') => {
-                bytes.next();
-                let display = read_until_byte!(bytes, &b'"');
-                bytes.next();
-                let display = str::from_utf8(display)?;
-
-                space!(bytes);
-
-                // must be an '<'
-                let Some(&b'<') = bytes.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-                let uri = Uri::parse(bytes, true)?;
-                // must be an '>'
-                let Some(&b'>') = bytes.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-
-                Ok(SipUri::NameAddr(NameAddr {
-                    display: Some(display),
-                    uri,
-                }))
-            }
-            // NameAddr without display name
-            Some(&b'<') => {
-                bytes.next();
-                let uri = Uri::parse(bytes, true)?;
-                bytes.next();
-
-                Ok(SipUri::NameAddr(NameAddr { display: None, uri }))
-            }
-            // SipUri
-            Some(_)
-                if matches!(
-                    bytes.peek_n(3),
-                    Some(SCHEME_SIP) | Some(SCHEME_SIPS)
-                ) =>
-            {
-                let uri = Uri::parse(bytes, false)?;
-                Ok(SipUri::Uri(uri))
-            }
-            // Nameaddr with unquoted display name
-            Some(_) => {
-                let display = Token::parse(bytes);
-
-                space!(bytes);
-
-                // must be an '<'
-                let Some(&b'<') = bytes.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-                let uri = Uri::parse(bytes, true)?;
-                // must be an '>'
-                let Some(&b'>') = bytes.next() else {
-                    return sip_parse_error!("Invalid name addr!");
-                };
-
-                Ok(SipUri::NameAddr(NameAddr {
-                    display: Some(display),
-                    uri,
-                }))
-            }
-            None => {
-                todo!()
-            }
-        }
-    }
-}
-
 impl<'a> Uri<'a> {
-    fn parse_uri_param(
-        bytes: &mut Bytes<'a>,
-    ) -> Result<(Option<UriParams<'a>>, Option<Params<'a>>), SipParserError>
-    {
-        if bytes.peek() == Some(&b';') {
-            let mut others = Params::new();
-            let mut uri_params = UriParams::default();
-            while let Some(&b';') = bytes.peek() {
-                bytes.next();
-                let name = Token::parse(bytes);
-                let value = if bytes.peek() == Some(&b'=') {
-                    bytes.next();
-                    let value = unsafe { bytes.parse_str(is_param) };
-                    Some(value)
-                } else {
-                    None
-                };
-                match name {
-                    USER_PARAM => uri_params.user = value,
-                    METHOD_PARAM => uri_params.method = value,
-                    TRANSPORT_PARAM => uri_params.transport = value,
-                    TTL_PARAM => uri_params.ttl = value,
-                    LR_PARAM => uri_params.lr = value,
-                    MADDR_PARAM => uri_params.maddr = value,
-                    _ => {
-                        others.set(name, value.unwrap_or(""));
-                    }
-                }
-            }
-            let params = Some(uri_params);
-            let others = if others.is_empty() {
-                None
-            } else {
-                Some(others)
-            };
-
-            Ok((params, others))
-        } else {
-            Ok((None, None))
-        }
-    }
-
     pub(crate) fn parse(
         bytes: &mut Bytes<'a>,
         parse_params: bool,
-    ) -> Result<Self, SipParserError> {
+    ) -> Result<Self> {
         let scheme = Scheme::parse(bytes)?;
         // take ':'
         bytes.next();
@@ -275,7 +141,18 @@ impl<'a> Uri<'a> {
                 header_params: None,
             });
         }
-        let (params, other_params) = Self::parse_uri_param(bytes)?;
+
+        let mut uri_params = UriParams::default();
+        let others = parse_param!(
+            bytes,
+            parse_uri_param,
+            USER_PARAM = uri_params.user,
+            METHOD_PARAM = uri_params.method,
+            TRANSPORT_PARAM = uri_params.transport,
+            TTL_PARAM = uri_params.ttl,
+            LR_PARAM = uri_params.lr,
+            MADDR_PARAM = uri_params.maddr
+        );
 
         let mut header_params = None;
         if bytes.peek() == Some(&b'?') {
@@ -283,14 +160,7 @@ impl<'a> Uri<'a> {
             loop {
                 // take '?' or '&'
                 bytes.next();
-                let name = unsafe { bytes.parse_str(is_hdr) };
-                let value = if bytes.peek() == Some(&b'=') {
-                    bytes.next();
-                    let value = unsafe { bytes.parse_str(is_hdr) };
-                    Some(value)
-                } else {
-                    None
-                };
+                let (name, value) = unsafe { parse_param_sip(bytes, is_hdr)? };
                 params.set(name, value.unwrap_or(""));
                 if bytes.peek() != Some(&b'&') {
                     break;
@@ -304,12 +174,52 @@ impl<'a> Uri<'a> {
             scheme,
             user,
             host,
-            params,
-            other_params,
+            params: Some(uri_params),
+            other_params: others,
             header_params,
         })
     }
 }
+
+// SIP name-addr, which typically appear in From, To, and Contact header.
+// display optional display part
+// Struct Uri uri
+#[derive(Debug)]
+pub struct NameAddr<'a> {
+    pub(crate) display: Option<&'a str>,
+    pub(crate) uri: Uri<'a>,
+}
+
+impl<'a> NameAddr<'a> {
+    pub fn parse(bytes: &mut Bytes<'a>) -> Result<NameAddr<'a>> {
+        space!(bytes);
+        let display = match bytes.lookahead()? {
+            &b'"' => {
+                bytes.next();
+                let display = until_byte!(bytes, &b'"');
+                bytes.must_read(b'"')?;
+
+                Some(str::from_utf8(display)?)
+            }
+            &b'<' => None,
+            _ => {
+                let d = Token::parse(bytes);
+                space!(bytes);
+
+                Some(d)
+            }
+        };
+        space!(bytes);
+        // must be an '<'
+        bytes.must_read(b'<')?;
+        let uri = Uri::parse(bytes, true)?;
+        // must be an '>'
+        bytes.must_read(b'>')?;
+
+        Ok(NameAddr { display, uri })
+    }
+}
+
 
 pub struct GenericUri<'a> {
     pub(crate) scheme: &'a str,

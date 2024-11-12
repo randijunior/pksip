@@ -3,7 +3,7 @@ use std::{net::IpAddr, str::FromStr};
 
 use crate::{
     bytes::Bytes,
-    macros::{digits, read_until_byte, read_while, sip_parse_error},
+    macros::{digits, until_byte, read_while, sip_parse_error},
     parser::SipParserError,
     util::is_valid_port,
 };
@@ -36,7 +36,7 @@ impl<'a> HostPort<'a> {
     ) -> Result<HostPort<'a>, SipParserError> {
         if let Ok(Some(_)) = bytes.read_if(|b| b == &b'[') {
             // the '[' and ']' characters are removed from the host
-            let host = read_until_byte!(bytes, &b']');
+            let host = until_byte!(bytes, &b']');
             let host = str::from_utf8(host)?;
             bytes.next();
             return if let Ok(host) = host.parse() {

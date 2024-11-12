@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{b_map, read_until_byte},
+    macros::{b_map, until_byte},
     parser::{self, Result, ALPHA_NUM, TOKEN},
 };
 
@@ -20,7 +20,7 @@ impl<'a> Token {
     pub fn parse_quoted(bytes: &mut Bytes<'a>) -> Result<&'a str> {
         if let Some(&b'"') = bytes.peek() {
             bytes.next();
-            let value = read_until_byte!(bytes, &b'"');
+            let value = until_byte!(bytes, &b'"');
             bytes.next();
 
             Ok(str::from_utf8(value)?)

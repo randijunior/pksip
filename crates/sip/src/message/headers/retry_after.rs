@@ -3,7 +3,7 @@ use std::u32;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, read_until_byte, space},
+    macros::{parse_header_param, until_byte, space},
     parser::Result,
     uri::Params,
 };
@@ -31,7 +31,7 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
         space!(bytes);
         if let Some(&b'(') = bytes.peek() {
             bytes.next();
-            let b = read_until_byte!(bytes, &b')');
+            let b = until_byte!(bytes, &b')');
             bytes.must_read(b')')?;
             comment = Some(str::from_utf8(b)?);
         }
