@@ -49,8 +49,8 @@ const TTL_PARAM: &str = "ttl";
 const LR_PARAM: &str = "lr";
 const MADDR_PARAM: &str = "maddr";
 
-const SCHEME_SIP: &[u8] = b"sip";
-const SCHEME_SIPS: &[u8] = b"sips";
+pub(crate) const SIP: &[u8] = b"sip";
+pub(crate) const SIPS: &[u8] = b"sips";
 
 #[inline(always)]
 fn is_user(b: &u8) -> bool {
@@ -97,7 +97,7 @@ impl<'a> SipUri<'a> {
     pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<SipUri<'a>> {
         space!(bytes);
 
-        if matches!(bytes.peek_n(3), Some(SCHEME_SIP) | Some(SCHEME_SIPS)) {
+        if matches!(bytes.peek_n(3), Some(SIP) | Some(SIPS)) {
             let uri = Uri::parse(bytes, false)?;
 
             return Ok(SipUri::Uri(uri));

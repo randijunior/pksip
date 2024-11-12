@@ -1,8 +1,8 @@
 //! SIP Parser
 
 use crate::bytes::Bytes;
-use crate::macros::read_while;
 use crate::macros::sip_parse_error;
+use crate::uri::SIP;
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
@@ -62,7 +62,6 @@ impl SipParser {
     }
 
     fn is_sip_version(bytes: &Bytes) -> bool {
-        const SIP: &[u8] = b"SIP";
         let tag = peek_while!(bytes, is_alphabetic);
         let next = bytes.src.get(tag.len());
 

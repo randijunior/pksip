@@ -1,10 +1,10 @@
 use crate::{
     bytes::Bytes,
-    macros::{until_byte, sip_parse_error},
-    parser::SipParserError,
+    macros::{sip_parse_error, until_byte},
+    parser::Result,
 };
 
-use super::{SCHEME_SIP, SCHEME_SIPS};
+use super::{SIP, SIPS};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Scheme {
@@ -13,14 +13,14 @@ pub enum Scheme {
 }
 
 impl Scheme {
-    pub(crate) fn parse(bytes: &mut Bytes) -> Result<Self, SipParserError> {
+    pub(crate) fn parse(bytes: &mut Bytes) -> Result<Self> {
         match until_byte!(bytes, &b':') {
-            SCHEME_SIP => Ok(Scheme::Sip),
-            SCHEME_SIPS => Ok(Scheme::Sips),
+            SIP => Ok(Self::Sip),
+            SIPS => Ok(Self::Sips),
             // Unsupported URI scheme
-            unsupported => sip_parse_error!(format!(
+            other => sip_parse_error!(format!(
                 "Unsupported URI scheme: {}",
-                String::from_utf8_lossy(unsupported)
+                String::from_utf8_lossy(other)
             )),
         }
     }
