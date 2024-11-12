@@ -20,7 +20,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use crate::headers::{parse_param_sip, SipHeader};
-use crate::macros::{b_map, parse_via_param};
+use crate::macros::{b_map, parse_param};
 use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
 use crate::util::is_valid_port;
 use crate::{
@@ -144,8 +144,9 @@ impl<'a> Via<'a> {
         }
         let mut params = ViaParams::default();
         let mut rport_p = None;
-        let others = parse_via_param!(
+        let others = parse_param!(
             bytes,
+            parse_via_param,
             BRANCH_PARAM = params.branch,
             TTL_PARAM = params.ttl,
             MADDR_PARAM = params.maddr,

@@ -83,17 +83,11 @@ macro_rules! b_map {
 
 macro_rules! parse_header_param {
     ($bytes:ident) => (
-        $crate::macros::parse_param!($bytes, crate::headers::parse_header_param,)
+        $crate::macros::parse_param!($bytes, $crate::headers::parse_header_param,)
     );
 
     ($bytes:ident, $($name:ident = $var:expr),*) => (
-        $crate::macros::parse_param!($bytes, crate::headers::parse_header_param, $($name = $var),*)
-    );
-}
-
-macro_rules! parse_via_param {
-    ($bytes:ident, $($name:ident = $var:expr),*) => (
-        $crate::macros::parse_param!($bytes, parse_via_param, $($name = $var),*)
+        $crate::macros::parse_param!($bytes, $crate::headers::parse_header_param, $($name = $var),*)
     );
 }
 
@@ -167,7 +161,6 @@ pub(crate) use parse_comma_separated;
 pub(crate) use parse_header_list;
 pub(crate) use parse_header_param;
 pub(crate) use parse_param;
-pub(crate) use parse_via_param;
 pub(crate) use peek_while;
 pub(crate) use read_until_byte;
 pub(crate) use read_while;
