@@ -3,7 +3,7 @@ use std::{net::IpAddr, str::FromStr};
 
 use crate::{
     bytes::Bytes,
-    macros::{until_byte, read_while, sip_parse_error},
+    macros::{sip_parse_error, until_byte},
     parser::Result,
     util::is_valid_port,
 };
@@ -19,7 +19,7 @@ pub enum HostPort<'a> {
 impl<'a> HostPort<'a> {
     fn parse_port(bytes: &mut Bytes) -> Result<Option<u16>> {
         let Some(&b':') = bytes.peek() else {
-            return Ok(None)
+            return Ok(None);
         };
         bytes.next();
         let digits = bytes.parse_num()?;
@@ -29,35 +29,38 @@ impl<'a> HostPort<'a> {
             sip_parse_error!("Sip Uri Port is invalid!")
         }
     }
-    pub(crate) fn parse(
-        bytes: &mut Bytes<'a>,
-    ) -> Result<HostPort<'a>> {
-        if let Ok(Some(_)) = bytes.read_if(|b| b == &b'[') {
-            // the '[' and ']' characters are removed from the host
-            let host = until_byte!(bytes, &b']');
-            let host = str::from_utf8(host)?;
-            bytes.next();
-            return if let Ok(host) = host.parse() {
-                bytes.next();
-                Ok(HostPort::IpAddr {
-                    host: IpAddr::V6(host),
-                    port: Self::parse_port(bytes)?,
-                })
-            } else {
-                sip_parse_error!("bytesError parsing Ipv6 HostPort!")
-            };
+
+    fn parse_ipv6(bytes: &mut Bytes<'a>) -> Result<HostPort<'a>> {
+        bytes.must_read(b'[')?;
+        // the '[' and ']' characters are removed from the host
+        let host = until_byte!(bytes, &b']');
+        let host = str::from_utf8(host)?;
+        bytes.must_read(b']')?;
+
+        match host.parse() {
+            Ok(host) => Ok(HostPort::IpAddr {
+                host: IpAddr::V6(host),
+                port: Self::parse_port(bytes)?,
+            }),
+            Err(_) => sip_parse_error!("Error parsing Ipv6 HostPort!"),
         }
+    }
+
+    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<HostPort<'a>> {
+        if let Some(&b'[') = bytes.peek() {
+            return Self::parse_ipv6(bytes);
+        }
+
         let host = unsafe { bytes.parse_str(is_host) };
-        if let Ok(addr) = IpAddr::from_str(host) {
-            Ok(HostPort::IpAddr {
+        match IpAddr::from_str(host) {
+            Ok(addr) => Ok(HostPort::IpAddr {
                 host: addr,
                 port: Self::parse_port(bytes)?,
-            })
-        } else {
-            Ok(HostPort::DomainName {
+            }),
+            Err(_) => Ok(HostPort::DomainName {
                 host,
                 port: Self::parse_port(bytes)?,
-            })
+            }),
         }
     }
 }

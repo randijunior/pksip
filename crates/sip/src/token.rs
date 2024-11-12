@@ -3,7 +3,7 @@ use std::str;
 use crate::{
     bytes::Bytes,
     macros::{b_map, until_byte},
-    parser::{self, Result, ALPHA_NUM, TOKEN},
+    parser::{Result, ALPHA_NUM, TOKEN},
 };
 
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);

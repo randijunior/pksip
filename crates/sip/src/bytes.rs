@@ -1,5 +1,5 @@
+use std::ops::Range;
 use std::str;
-use std::{ops::Range, result};
 
 use lexical_core::FromLexical;
 
@@ -115,10 +115,10 @@ impl<'a> Bytes<'a> {
     where
         F: Fn(&u8) -> bool,
     {
-        let slice = read_while!(self, &func);
+        let bytes = read_while!(self, &func);
 
         // SAFETY: caller must ensures that func valid that bytes are valid UTF-8
-        unsafe { str::from_utf8_unchecked(slice) }
+        unsafe { str::from_utf8_unchecked(bytes) }
     }
 
     pub(crate) fn parse_num<N>(&mut self) -> Result<N>
@@ -126,13 +126,11 @@ impl<'a> Bytes<'a> {
         N: FromLexical,
     {
         match lexical_core::parse_partial::<N>(self.as_ref()) {
-            Ok((value, processed)) => {
-                if processed > 0 {
-                    self.nth(processed - 1);
-                }
+            Ok((value, readed)) if readed > 0 => {
+                self.nth(readed - 1);
                 Ok(value)
             }
-            Err(_) => self.error(ErrorKind::Num),
+            _ => self.error(ErrorKind::Num),
         }
     }
 
@@ -164,7 +162,7 @@ impl<'a> Bytes<'a> {
         byte
     }
 
-    fn error<T>(&self, kind: ErrorKind) -> result::Result<T, BytesError> {
+    fn error<T>(&self, kind: ErrorKind) -> Result<T> {
         Err(BytesError {
             kind,
             line: self.line,
@@ -235,5 +233,34 @@ mod tests {
 
         assert_eq!(bytes.line, 2);
         assert_eq!(bytes.col, 1);
+    }
+
+    #[test]
+    fn test_parse_num() {
+        let mut bytes = Bytes::new("12345".as_bytes());
+        assert_eq!(bytes.parse_num(), Ok(12345));
+
+        let mut bytes = Bytes::new("NaN".as_bytes());
+        assert!(bytes.parse_num::<u32>().is_err());
+        assert_eq!(bytes.as_ref(), b"NaN");
+
+        let mut bytes = Bytes::new("9123Test".as_bytes());
+        assert_eq!(bytes.parse_num(), Ok(9123));
+        assert_eq!(bytes.as_ref(), b"Test");
+    }
+
+    #[test]
+    fn test_lookahead() {
+        let mut bytes = Bytes::new("Hello".as_bytes());
+
+        assert_eq!(bytes.lookahead(), Ok(&b'H'));
+        bytes.next();
+        assert_eq!(bytes.lookahead(), Ok(&b'e'));
+        bytes.next();
+        assert_eq!(bytes.lookahead(), Ok(&b'l'));
+        
+        bytes.read_while(|_| true);
+
+        assert!(bytes.lookahead().is_err());
     }
 }
