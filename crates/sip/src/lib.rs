@@ -8,6 +8,7 @@ pub(crate) mod bytes;
 pub(crate) mod macros;
 pub(crate) mod token;
 pub(crate) mod util;
+pub(crate) mod params;
 
 pub use message::headers;
 

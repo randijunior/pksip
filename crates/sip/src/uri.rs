@@ -4,7 +4,7 @@
 use std::str::{self};
 
 pub(crate) use host::HostPort;
-pub(crate) use params::{Params, UriParams};
+pub(crate) use crate::params::Params;
 pub(crate) use scheme::Scheme;
 pub(crate) use user::UserInfo;
 
@@ -20,7 +20,6 @@ use crate::{
 };
 
 mod host;
-mod params;
 mod scheme;
 mod user;
 
@@ -179,6 +178,16 @@ impl<'a> Uri<'a> {
             header_params,
         })
     }
+}
+
+#[derive(Default, Debug)]
+pub struct UriParams<'a> {
+    pub(crate) user: Option<&'a str>,
+    pub(crate) method: Option<&'a str>,
+    pub(crate) transport: Option<&'a str>,
+    pub(crate) ttl: Option<&'a str>,
+    pub(crate) lr: Option<&'a str>,
+    pub(crate) maddr: Option<&'a str>,
 }
 
 // SIP name-addr, which typically appear in From, To, and Contact header.

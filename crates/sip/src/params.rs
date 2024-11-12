@@ -29,13 +29,3 @@ impl<'a> Params<'a> {
         self.inner.is_empty()
     }
 }
-
-#[derive(Default, Debug)]
-pub struct UriParams<'a> {
-    pub(crate) user: Option<&'a str>,
-    pub(crate) method: Option<&'a str>,
-    pub(crate) transport: Option<&'a str>,
-    pub(crate) ttl: Option<&'a str>,
-    pub(crate) lr: Option<&'a str>,
-    pub(crate) maddr: Option<&'a str>,
-}
