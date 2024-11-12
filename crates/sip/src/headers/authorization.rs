@@ -1,5 +1,5 @@
 use crate::{
-    bytes::Bytes, message::auth::credential::Credential, parser::Result,
+    bytes::Bytes, auth::credential::Credential, parser::Result,
 };
 
 use super::SipHeader;

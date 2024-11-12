@@ -13,7 +13,7 @@ use std::num::ParseIntError;
 use std::str::Utf8Error;
 
 use crate::bytes::BytesError;
-use crate::message::headers::Headers;
+use crate::headers::Headers;
 
 use crate::macros::peek_while;
 

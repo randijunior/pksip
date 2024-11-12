@@ -3,13 +3,10 @@
 //! The module provide the [`SipRequest`]
 
 use crate::{
-    bytes::Bytes,
-    macros::{alpha, newline, space},
-    parser::{self, SipParser, SipParserError},
-    uri::Uri,
+    bytes::Bytes, headers::Headers, macros::{alpha, newline, space}, parser::{self, SipParser, SipParserError}, uri::Uri
 };
 
-use super::{headers::Headers, SipMethod};
+use super::SipMethod;
 
 /// Represents an SIP Request-Line
 

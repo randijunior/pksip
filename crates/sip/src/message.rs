@@ -3,16 +3,16 @@
 //! The module provide the [`SipMessage`] enum that can be
 //! an [`SipMessage::Request`] or [`SipMessage::Response`] and represents an sip message.
 
-use headers::Headers;
+
 pub(crate) use request::*;
 pub(crate) use response::*;
 
-pub(crate) mod auth;
-pub mod headers;
 mod request;
 mod response;
 
 use std::str;
+
+use crate::headers::Headers;
 
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),

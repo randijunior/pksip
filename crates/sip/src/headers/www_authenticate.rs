@@ -1,5 +1,5 @@
 use crate::{
-    bytes::Bytes, headers::SipHeader, message::auth::challenge::Challenge,
+    bytes::Bytes, headers::SipHeader, auth::challenge::Challenge,
     parser::Result,
 };
 

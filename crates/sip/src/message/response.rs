@@ -1,12 +1,10 @@
 use std::str;
 
 use crate::{
-    bytes::Bytes,
-    macros::{digits, newline, space, until_newline},
-    parser::{self, SipParser, SipParserError},
+    bytes::Bytes, headers::Headers, macros::{digits, newline, space, until_newline}, parser::{self, SipParser, SipParserError}
 };
 
-use super::{headers::Headers, SipStatusCode};
+use super::SipStatusCode;
 
 /// Represents an SIP Status-Line
 

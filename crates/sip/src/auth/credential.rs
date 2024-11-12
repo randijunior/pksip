@@ -2,7 +2,7 @@ use crate::{
     bytes::Bytes,
     headers,
     macros::parse_comma_separated,
-    message::auth::{
+    auth::{
         ALGORITHM, CNONCE, DIGEST, NC, NONCE, OPAQUE, QOP, REALM, RESPONSE,
         URI, USERNAME,
     },

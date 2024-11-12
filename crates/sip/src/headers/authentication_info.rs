@@ -1,7 +1,7 @@
 use crate::{
     bytes::Bytes,
     macros::{parse_comma_separated, sip_parse_error},
-    message::auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
+    auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
     parser::Result,
 };
 
