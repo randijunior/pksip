@@ -9,3 +9,8 @@ lexical-core = "1.0.2"
 
 [dev-dependencies]
 assert_matches = "1.5"
+criterion = "0.5"
+
+[[bench]]
+name = "parse"
+harness = false
