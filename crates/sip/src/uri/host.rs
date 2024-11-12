@@ -17,6 +17,20 @@ pub enum HostPort<'a> {
 }
 
 impl<'a> HostPort<'a> {
+    fn with_addr(addr: IpAddr, bytes: &mut Bytes<'a>) -> Result<Self> {
+        Ok(Self::IpAddr {
+            host: addr,
+            port: Self::parse_port(bytes)?,
+        })
+    }
+
+    fn with_domain(domain: &'a str, bytes: &mut Bytes<'a>) -> Result<Self> {
+        Ok(Self::DomainName {
+            host: domain,
+            port: Self::parse_port(bytes)?,
+        })
+    }
+
     fn parse_port(bytes: &mut Bytes) -> Result<Option<u16>> {
         let Some(&b':') = bytes.peek() else {
             return Ok(None);
@@ -38,10 +52,7 @@ impl<'a> HostPort<'a> {
         bytes.must_read(b']')?;
 
         match host.parse() {
-            Ok(host) => Ok(HostPort::IpAddr {
-                host: IpAddr::V6(host),
-                port: Self::parse_port(bytes)?,
-            }),
+            Ok(host) => Self::with_addr(host, bytes),
             Err(_) => sip_parse_error!("Error parsing Ipv6 HostPort!"),
         }
     }
@@ -53,14 +64,8 @@ impl<'a> HostPort<'a> {
 
         let host = unsafe { bytes.parse_str(is_host) };
         match IpAddr::from_str(host) {
-            Ok(addr) => Ok(HostPort::IpAddr {
-                host: addr,
-                port: Self::parse_port(bytes)?,
-            }),
-            Err(_) => Ok(HostPort::DomainName {
-                host,
-                port: Self::parse_port(bytes)?,
-            }),
+            Ok(addr) => Self::with_addr(addr, bytes),
+            Err(_) => Self::with_domain(host, bytes),
         }
     }
 }
