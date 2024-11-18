@@ -12,9 +12,7 @@ CSeq: 986759 INVITE\r\n";
 fn request(c: &mut Criterion) {
     c.bench_function("request", |b| {
         b.iter(|| {
-            black_box(|| {
-                let _ = SipParser::parse(INVITE).unwrap();
-            })
+            _ = SipParser::parse(black_box(INVITE)).unwrap();
         });
     });
 }

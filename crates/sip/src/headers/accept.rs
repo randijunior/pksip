@@ -2,8 +2,8 @@ use std::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_list, parse_header_param, parse_param},
-    parser::{self, Result},
+    macros::{parse_header_list, parse_header_param},
+    parser::Result,
     token::Token,
 };
 

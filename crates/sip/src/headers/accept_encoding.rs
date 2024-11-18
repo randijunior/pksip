@@ -4,7 +4,7 @@ use crate::{
     bytes::Bytes,
     headers::{self, Q_PARAM},
     macros::{parse_header_list, parse_header_param},
-    parser::{self, Result},
+    parser::Result,
     token::Token,
     uri::Params,
     util::is_newline,

@@ -13,7 +13,7 @@ impl<'a> SipHeader<'a> for MinExpires {
     const NAME: &'static str = "Min-Expires";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let expires = bytes.parse_num()?;
+        let expires = bytes.read_num()?;
 
         Ok(MinExpires(expires))
     }

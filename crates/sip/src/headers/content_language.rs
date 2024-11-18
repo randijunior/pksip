@@ -1,9 +1,8 @@
 use std::str;
 
 use crate::headers::accept_language::is_lang;
-use crate::parser;
 use crate::{
-    bytes::Bytes, macros::parse_header_list, parser::Result, token::Token,
+    bytes::Bytes, macros::parse_header_list, parser::Result,
 };
 
 use crate::headers::SipHeader;
@@ -18,7 +17,7 @@ impl<'a> SipHeader<'a> for ContentLanguage<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<ContentLanguage<'a>> {
         let languages = parse_header_list!(bytes => unsafe {
-            bytes.parse_str(is_lang)
+            bytes.read_and_convert_to_str(is_lang)
         });
 
         Ok(ContentLanguage(languages))

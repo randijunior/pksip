@@ -2,8 +2,8 @@ use std::str;
 
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_list, parse_header_param, parse_param},
-    parser::{self, Result},
+    macros::{parse_header_list, parse_header_param},
+    parser::Result,
     token::Token,
     uri::{is_uri, GenericUri, Params},
 };
@@ -29,7 +29,7 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
             bytes.must_read(b'<')?;
             let scheme = Token::parse(bytes);
             bytes.must_read(b':')?;
-            let content = unsafe { bytes.parse_str(is_uri) };
+            let content = unsafe { bytes.read_and_convert_to_str(is_uri) };
             // must be an '>'
             bytes.must_read(b'>')?;
             let params = parse_header_param!(bytes);

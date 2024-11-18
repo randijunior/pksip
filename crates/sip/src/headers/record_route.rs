@@ -1,8 +1,8 @@
 use crate::{
     bytes::Bytes,
-    macros::{parse_header_param, sip_parse_error},
+    macros::parse_header_param,
     parser::Result,
-    uri::{NameAddr, Params, SipUri},
+    uri::{NameAddr, Params},
 };
 
 use crate::headers::SipHeader;

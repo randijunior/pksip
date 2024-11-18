@@ -21,9 +21,9 @@ impl<'a> SipHeader<'a> for Warning<'a> {
     const NAME: &'static str = "Warning";
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let code = bytes.parse_num()?;
+        let code = bytes.read_num()?;
         space!(bytes);
-        let host = unsafe { bytes.parse_str(is_host) };
+        let host = unsafe { bytes.read_and_convert_to_str(is_host) };
         space!(bytes);
         let Some(&b'"') = bytes.peek() else {
             return sip_parse_error!("invalid warning header!");

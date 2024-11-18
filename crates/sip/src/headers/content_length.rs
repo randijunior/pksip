@@ -20,7 +20,7 @@ impl<'a> SipHeader<'a> for ContentLength {
     const SHORT_NAME: Option<&'static str> = Some("l");
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<ContentLength> {
-        let l = bytes.parse_num()?;
+        let l = bytes.read_num()?;
 
         Ok(ContentLength(l))
     }

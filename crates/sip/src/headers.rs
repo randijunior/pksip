@@ -147,7 +147,7 @@ where
     F: Fn(&u8) -> bool,
 {
     space!(bytes);
-    let name = unsafe { bytes.parse_str(&func) };
+    let name = unsafe { bytes.read_and_convert_to_str(&func) };
     let Some(&b'=') = bytes.peek() else {
         return Ok((name, None))
     };
@@ -159,7 +159,7 @@ where
 
         str::from_utf8(value)?
     } else {
-        unsafe { bytes.parse_str(func) }
+        unsafe { bytes.read_and_convert_to_str(func) }
     };
 
     Ok((name, Some(value)))

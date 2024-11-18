@@ -44,9 +44,9 @@ macro_rules! until_newline {
 
 macro_rules! peek_while {
     ($bytes:expr, $func:expr) => {{
-        let range = $bytes.peek_while($func);
+        let processed = $bytes.peek_while($func);
 
-        (&$bytes.src[range])
+        (&$bytes.src[$bytes.idx()..processed])
     }};
 }
 
@@ -83,46 +83,57 @@ macro_rules! b_map {
 
 macro_rules! parse_header_param {
     ($bytes:ident) => (
-        $crate::macros::parse_param!($bytes, $crate::headers::parse_header_param,)
+        $crate::macros::parse_param!(
+            $bytes,
+            $crate::headers::parse_header_param,
+        )
     );
 
     ($bytes:ident, $($name:ident = $var:expr),*) => (
-        $crate::macros::parse_param!($bytes, $crate::headers::parse_header_param, $($name = $var),*)
+        $crate::macros::parse_param!(
+            $bytes,
+            $crate::headers::parse_header_param,
+            $($name = $var),*
+        )
     );
 }
 
 macro_rules! parse_param {
-    ($bytes:ident, $func:expr, $($name:ident = $var:expr),*) => (
-        {
-            $crate::macros::space!($bytes);
-            if let Some(&b';') = $bytes.peek() {
-                let mut params = crate::uri::Params::new();
+    (
+        $bytes:ident,
+        $func:expr,
+        $($name:ident = $var:expr),*
+    ) =>  {{
+        $crate::macros::space!($bytes);
+        match $bytes.peek() {
+            Some(&b';') => {
+                let mut params = $crate::uri::Params::new();
                 while let Some(&b';') = $bytes.peek() {
-                    // take ';' character
-                    $bytes.next();
-                    let param = $func($bytes)?;
-                    $(
-                        if param.0 == $name {
-                            $var = param.1;
-                            $crate::macros::space!($bytes);
-                            continue;
-                        }
-                    )*
-                    params.set(param.0, param.1.unwrap_or(""));
-                    $crate::macros::space!($bytes);
-                }
-                if params.is_empty() {
+                        // take ';' character
+                        $bytes.next();
+                        let param = $func($bytes)?;
+                        $(
+                            if param.0 == $name {
+                                $var = param.1;
+                                $crate::macros::space!($bytes);
+                                continue;
+                            }
+                        )*
+                        params.set(param.0, param.1.unwrap_or(""));
+                        $crate::macros::space!($bytes);
+                    }
+                    if params.is_empty() {
+                        None
+                    } else {
+                        Some(params)
+                    }
+                },
+                _ => {
                     None
-                } else {
-                    Some(params)
                 }
-            } else {
-                None
             }
-
-         }
-    );
-}
+        }};
+    }
 
 macro_rules! parse_header_list {
     ($bytes:ident => $body:expr) => {{
@@ -162,9 +173,9 @@ pub(crate) use parse_header_list;
 pub(crate) use parse_header_param;
 pub(crate) use parse_param;
 pub(crate) use peek_while;
-pub(crate) use until_byte;
 pub(crate) use read_while;
 pub(crate) use remaing;
 pub(crate) use sip_parse_error;
 pub(crate) use space;
+pub(crate) use until_byte;
 pub(crate) use until_newline;

@@ -40,7 +40,7 @@ b_map!(PARAM_SPEC_MAP => b"[]/:&+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 // "[]/?:+$"  "-_.!~*'()" "%"
 b_map!(HDR_SPEC_MAP => b"[]/?:+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 
-b_map!(GENERIC_URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
+b_map!(URI_SPEC_MAP => ALPHA_NUM, GENERIC_URI);
 
 const USER_PARAM: &str = "user";
 const METHOD_PARAM: &str = "method";
@@ -79,7 +79,7 @@ pub(crate) fn is_host(b: &u8) -> bool {
 
 #[inline(always)]
 pub(crate) fn is_uri(b: &u8) -> bool {
-    GENERIC_URI_SPEC_MAP[*b as usize]
+    URI_SPEC_MAP[*b as usize]
 }
 
 fn parse_uri_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {

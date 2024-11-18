@@ -1,9 +1,8 @@
 use crate::{
     bytes::Bytes,
     headers::{self, Q_PARAM},
-    macros::{parse_header_list, parse_header_param, parse_param},
-    parser::{self, Result},
-    token::Token,
+    macros::{parse_header_list, parse_header_param},
+    parser::Result,
     uri::Params,
     util::is_alphabetic,
 };
@@ -47,7 +46,7 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
 
     fn parse(bytes: &mut Bytes<'a>) -> Result<AcceptLanguage<'a>> {
         let languages = parse_header_list!(bytes => {
-            let language = unsafe { bytes.parse_str(is_lang) };
+            let language = unsafe { bytes.read_and_convert_to_str(is_lang) };
             let mut q_param = None;
             let param = parse_header_param!(bytes, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));

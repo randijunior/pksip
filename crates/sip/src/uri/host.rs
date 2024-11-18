@@ -36,7 +36,7 @@ impl<'a> HostPort<'a> {
             return Ok(None);
         };
         bytes.next();
-        let digits = bytes.parse_num()?;
+        let digits = bytes.read_num()?;
         if is_valid_port(digits) {
             Ok(Some(digits))
         } else {
@@ -62,7 +62,7 @@ impl<'a> HostPort<'a> {
             return Self::parse_ipv6(bytes);
         }
 
-        let host = unsafe { bytes.parse_str(is_host) };
+        let host = unsafe { bytes.read_and_convert_to_str(is_host) };
         match IpAddr::from_str(host) {
             Ok(addr) => Self::with_addr(addr, bytes),
             Err(_) => Self::with_domain(host, bytes),
