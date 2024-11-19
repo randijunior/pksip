@@ -1,8 +1,8 @@
 use crate::{
-    bytes::Bytes,
     headers::{self, EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
     parser::Result,
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
@@ -31,16 +31,16 @@ impl<'a> SipHeader<'a> for Contact<'a> {
     const NAME: &'static str = "Contact";
     const SHORT_NAME: Option<&'static str> = Some("m");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Contact<'a>> {
-        if bytes.peek() == Some(&b'*') {
-            bytes.next();
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Contact<'a>> {
+        if scanner.peek() == Some(&b'*') {
+            scanner.next();
             return Ok(Contact::Star);
         }
-        let uri = SipUri::parse(bytes)?;
+        let uri = SipUri::parse(scanner)?;
         let mut q = None;
         let mut expires = None;
         let param =
-            parse_header_param!(bytes, Q_PARAM = q, EXPIRES_PARAM = expires);
+            parse_header_param!(scanner, Q_PARAM = q, EXPIRES_PARAM = expires);
         let q = q.and_then(|q| headers::parse_q(q));
         let expires = expires.and_then(|expires| expires.parse().ok());
 
@@ -65,8 +65,8 @@ mod tests {
     fn test_parse() {
         let src = b"\"Mr. Watson\" <sip:watson@worcester.bell-telephone.com> \
         ;q=0.7; expires=3600\r\n";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact::Uri(ContactUri {
@@ -91,8 +91,8 @@ mod tests {
 
         let src =
             b"\"Mr. Watson\" <mailto:watson@bell-telephone.com> ;q=0.1\r\n";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
 
         assert_matches!(contact, Err(err) => {
             assert_eq!(
@@ -101,11 +101,11 @@ mod tests {
             )
         });
 
-        assert_eq!(bytes.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
+        assert_eq!(scanner.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
 
         let src = b"sip:caller@u1.example.com\r\n";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact::Uri(ContactUri {
@@ -127,8 +127,8 @@ mod tests {
     #[test]
     fn test_parse_ipv6_host() {
         let src = b"sips:[2620:0:2ef0:7070:250:60ff:fe03:32b7]";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact::Uri(ContactUri{
@@ -151,8 +151,8 @@ mod tests {
     #[test]
     fn test_parse_pass() {
         let src = b"sip:thks.ashwin:pass@212.123.1.213\r\n";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact::Uri(ContactUri {
@@ -176,8 +176,8 @@ mod tests {
     #[test]
     fn test_parse_host_port() {
         let src = b"sip:192.168.1.1:5060";
-        let mut bytes = Bytes::new(src);
-        let contact = Contact::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact::Uri(ContactUri {

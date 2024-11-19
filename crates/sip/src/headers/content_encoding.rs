@@ -1,7 +1,7 @@
 use std::str;
 
 use crate::macros::parse_header_list;
-use crate::{bytes::Bytes, parser::Result, token::Token};
+use crate::{parser::Result, scanner::Scanner, token::Token};
 
 use crate::headers::SipHeader;
 
@@ -25,8 +25,8 @@ impl<'a> SipHeader<'a> for ContentEncoding<'a> {
     const NAME: &'static str = "Content-Encoding";
     const SHORT_NAME: Option<&'static str> = Some("e");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<ContentEncoding<'a>> {
-        let codings = parse_header_list!(bytes => Token::parse(bytes));
+    fn parse(scanner: &mut Scanner<'a>) -> Result<ContentEncoding<'a>> {
+        let codings = parse_header_list!(scanner => Token::parse(scanner));
 
         Ok(ContentEncoding(codings))
     }
@@ -39,21 +39,21 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"gzip\r\n";
-        let mut bytes = Bytes::new(src);
-        let encoding = ContentEncoding::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let encoding = ContentEncoding::parse(&mut scanner);
         let encoding = encoding.unwrap();
 
         assert!(encoding.len() == 1);
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(encoding.get(0), Some("gzip"));
 
         let src = b"gzip, deflate\r\n";
-        let mut bytes = Bytes::new(src);
-        let encoding = ContentEncoding::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let encoding = ContentEncoding::parse(&mut scanner);
         let encoding = encoding.unwrap();
 
         assert!(encoding.len() == 2);
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(encoding.get(0), Some("gzip"));
         assert_eq!(encoding.get(1), Some("deflate"));
     }

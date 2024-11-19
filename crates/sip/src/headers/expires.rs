@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -18,8 +18,8 @@ impl Expires {
 impl<'a> SipHeader<'a> for Expires {
     const NAME: &'static str = "Expires";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Expires> {
-        let expires = bytes.read_num()?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Expires> {
+        let expires = scanner.read_num()?;
 
         Ok(Expires(expires))
     }
@@ -32,9 +32,9 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"5\r\n";
-        let mut bytes = Bytes::new(src);
-        let expires = Expires::parse(&mut bytes).unwrap();
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        let mut scanner = Scanner::new(src);
+        let expires = Expires::parse(&mut scanner).unwrap();
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(expires.0, 5);
     }
 }

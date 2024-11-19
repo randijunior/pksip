@@ -1,8 +1,8 @@
 use crate::{
-    bytes::Bytes,
     macros::{alpha, space},
     message::SipMethod,
     parser::Result,
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeader;
@@ -26,11 +26,11 @@ impl<'a> CSeq<'a> {
 impl<'a> SipHeader<'a> for CSeq<'a> {
     const NAME: &'static str = "CSeq";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<CSeq<'a>> {
-        let cseq = bytes.read_num()?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<CSeq<'a>> {
+        let cseq = scanner.read_num()?;
 
-        space!(bytes);
-        let b_method = alpha!(bytes);
+        space!(scanner);
+        let b_method = alpha!(scanner);
         let method = SipMethod::from(b_method);
 
         Ok(CSeq { cseq, method })
@@ -43,10 +43,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"4711 INVITE\r\n";
-        let mut bytes = Bytes::new(src);
-        let c_length = CSeq::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let c_length = CSeq::parse(&mut scanner).unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(c_length.method, SipMethod::Invite);
         assert_eq!(c_length.cseq, 4711);
     }

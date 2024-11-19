@@ -1,9 +1,9 @@
 use std::str;
 
 use crate::{
-    bytes::Bytes,
     macros::{parse_header_list, parse_header_param},
     parser::Result,
+    scanner::Scanner,
     token::Token,
     uri::{is_uri, GenericUri, Params},
 };
@@ -23,16 +23,16 @@ pub struct ErrorInfo<'a>(Vec<ErrorInfoUri<'a>>);
 impl<'a> SipHeader<'a> for ErrorInfo<'a> {
     const NAME: &'static str = "Error-Info";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<ErrorInfo<'a>> {
-        let infos = parse_header_list!(bytes => {
+    fn parse(scanner: &mut Scanner<'a>) -> Result<ErrorInfo<'a>> {
+        let infos = parse_header_list!(scanner => {
             // must be an '<'
-            bytes.must_read(b'<')?;
-            let scheme = Token::parse(bytes);
-            bytes.must_read(b':')?;
-            let content = unsafe { bytes.read_and_convert_to_str(is_uri) };
+            scanner.must_read(b'<')?;
+            let scheme = Token::parse(scanner);
+            scanner.must_read(b':')?;
+            let content = unsafe { scanner.read_and_convert_to_str(is_uri) };
             // must be an '>'
-            bytes.must_read(b'>')?;
-            let params = parse_header_param!(bytes);
+            scanner.must_read(b'>')?;
+            let params = parse_header_param!(scanner);
             ErrorInfoUri {
                 url: GenericUri { scheme, content },
                 params
@@ -50,9 +50,9 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:not-in-service-recording@atlanta.com>\r\n";
-        let mut bytes = Bytes::new(src);
-        let err_info = ErrorInfo::parse(&mut bytes).unwrap();
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        let mut scanner = Scanner::new(src);
+        let err_info = ErrorInfo::parse(&mut scanner).unwrap();
+        assert_eq!(scanner.as_ref(), b"\r\n");
 
         let err = err_info.0.get(0).unwrap();
         assert_eq!(err.url.scheme, "sip");

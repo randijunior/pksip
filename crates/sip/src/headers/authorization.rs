@@ -1,6 +1,4 @@
-use crate::{
-    bytes::Bytes, auth::credential::Credential, parser::Result,
-};
+use crate::{auth::credential::Credential, parser::Result, scanner::Scanner};
 
 use super::SipHeader;
 
@@ -18,8 +16,8 @@ impl<'a> Authorization<'a> {
 impl<'a> SipHeader<'a> for Authorization<'a> {
     const NAME: &'static str = "Authorization";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Authorization<'a>> {
-        let credential = Credential::parse(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Authorization<'a>> {
+        let credential = Credential::parse(scanner)?;
 
         Ok(Authorization(credential))
     }
@@ -34,10 +32,10 @@ mod tests {
         let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"84a4cc6f3082121f32b42a2187831a9e\",\
         response=\"7587245234b3434cc3412213e5f113a5432\"\r\n";
-        let mut bytes = Bytes::new(src);
-        let auth = Authorization::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let auth = Authorization::parse(&mut scanner).unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         let cred = auth.credential();
 
         assert_matches!(cred, Credential::Digest(digest) => {

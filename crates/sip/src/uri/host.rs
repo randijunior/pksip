@@ -2,9 +2,9 @@ use std::str;
 use std::{net::IpAddr, str::FromStr};
 
 use crate::{
-    bytes::Bytes,
     macros::{sip_parse_error, until_byte},
     parser::Result,
+    scanner::Scanner,
     util::is_valid_port,
 };
 
@@ -17,26 +17,26 @@ pub enum HostPort<'a> {
 }
 
 impl<'a> HostPort<'a> {
-    fn with_addr(addr: IpAddr, bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn with_addr(addr: IpAddr, scanner: &mut Scanner<'a>) -> Result<Self> {
         Ok(Self::IpAddr {
             host: addr,
-            port: Self::parse_port(bytes)?,
+            port: Self::parse_port(scanner)?,
         })
     }
 
-    fn with_domain(domain: &'a str, bytes: &mut Bytes<'a>) -> Result<Self> {
+    fn with_domain(domain: &'a str, scanner: &mut Scanner<'a>) -> Result<Self> {
         Ok(Self::DomainName {
             host: domain,
-            port: Self::parse_port(bytes)?,
+            port: Self::parse_port(scanner)?,
         })
     }
 
-    fn parse_port(bytes: &mut Bytes) -> Result<Option<u16>> {
-        let Some(&b':') = bytes.peek() else {
+    fn parse_port(scanner: &mut Scanner) -> Result<Option<u16>> {
+        let Some(&b':') = scanner.peek() else {
             return Ok(None);
         };
-        bytes.next();
-        let digits = bytes.read_num()?;
+        scanner.next();
+        let digits = scanner.read_num()?;
         if is_valid_port(digits) {
             Ok(Some(digits))
         } else {
@@ -44,28 +44,28 @@ impl<'a> HostPort<'a> {
         }
     }
 
-    fn parse_ipv6(bytes: &mut Bytes<'a>) -> Result<HostPort<'a>> {
-        bytes.must_read(b'[')?;
+    fn parse_ipv6(scanner: &mut Scanner<'a>) -> Result<HostPort<'a>> {
+        scanner.must_read(b'[')?;
         // the '[' and ']' characters are removed from the host
-        let host = until_byte!(bytes, &b']');
+        let host = until_byte!(scanner, &b']');
         let host = str::from_utf8(host)?;
-        bytes.must_read(b']')?;
+        scanner.must_read(b']')?;
 
         match host.parse() {
-            Ok(host) => Self::with_addr(host, bytes),
+            Ok(host) => Self::with_addr(host, scanner),
             Err(_) => sip_parse_error!("Error parsing Ipv6 HostPort!"),
         }
     }
 
-    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<HostPort<'a>> {
-        if let Some(&b'[') = bytes.peek() {
-            return Self::parse_ipv6(bytes);
+    pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<HostPort<'a>> {
+        if let Some(&b'[') = scanner.peek() {
+            return Self::parse_ipv6(scanner);
         }
 
-        let host = unsafe { bytes.read_and_convert_to_str(is_host) };
+        let host = unsafe { scanner.read_and_convert_to_str(is_host) };
         match IpAddr::from_str(host) {
-            Ok(addr) => Self::with_addr(addr, bytes),
-            Err(_) => Self::with_domain(host, bytes),
+            Ok(addr) => Self::with_addr(addr, scanner),
+            Err(_) => Self::with_domain(host, scanner),
         }
     }
 }

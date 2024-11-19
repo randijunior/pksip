@@ -1,7 +1,7 @@
 use crate::{
-    bytes::Bytes,
     macros::parse_header_param,
     parser::Result,
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
@@ -19,9 +19,9 @@ pub struct ReplyTo<'a> {
 impl<'a> SipHeader<'a> for ReplyTo<'a> {
     const NAME: &'static str = "Reply-To";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let uri = SipUri::parse(bytes)?;
-        let param = parse_header_param!(bytes);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let uri = SipUri::parse(scanner)?;
+        let param = parse_header_param!(scanner);
 
         Ok(ReplyTo { uri, param })
     }
@@ -36,8 +36,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>\r\n";
-        let mut bytes = Bytes::new(src);
-        let reply_to = ReplyTo::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let reply_to = ReplyTo::parse(&mut scanner);
         let reply_to = reply_to.unwrap();
 
         assert_matches!(reply_to, ReplyTo {

@@ -1,5 +1,5 @@
 use crate::{
-    bytes::Bytes, macros::parse_header_param, parser::Result, token::Token,
+    macros::parse_header_param, parser::Result, scanner::Scanner, token::Token,
     uri::Params,
 };
 
@@ -16,9 +16,9 @@ pub struct ContentDisposition<'a> {
 impl<'a> SipHeader<'a> for ContentDisposition<'a> {
     const NAME: &'static str = "Content-Disposition";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<ContentDisposition<'a>> {
-        let _type = Token::parse(bytes);
-        let params = parse_header_param!(bytes);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<ContentDisposition<'a>> {
+        let _type = Token::parse(scanner);
+        let params = parse_header_param!(scanner);
 
         Ok(ContentDisposition { _type, params })
     }
@@ -31,21 +31,21 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"session\r\n";
-        let mut bytes = Bytes::new(src);
-        let disp = ContentDisposition::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
 
         let src = b"session;handling=optional\r\n";
-        let mut bytes = Bytes::new(src);
-        let disp = ContentDisposition::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
         assert_eq!(disp.params.unwrap().get("handling"), Some(&"optional"));
 
         let src = b"attachment; filename=smime.p7s;handling=required\r\n";
-        let mut bytes = Bytes::new(src);
-        let disp = ContentDisposition::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "attachment");
         let params = disp.params.unwrap();

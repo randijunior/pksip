@@ -1,66 +1,66 @@
 macro_rules! space {
-    ($bytes:ident) => {{
-        $bytes.read_while(crate::util::is_space);
+    ($scanner:ident) => {{
+        $scanner.read_while(crate::util::is_space);
     }};
 }
 
 macro_rules! digits {
-    ($bytes:ident) => {{
-        let range = $bytes.read_while(crate::util::is_digit);
+    ($scanner:ident) => {{
+        let range = $scanner.read_while(crate::util::is_digit);
 
-        &$bytes.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! read_while {
-    ($bytes:expr, $func:expr) => {{
-        let range = $bytes.read_while($func);
+    ($scanner:expr, $func:expr) => {{
+        let range = $scanner.read_while($func);
 
-        &$bytes.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! until_byte {
-    ($bytes:expr, $byte:expr) => {{
-        let range = $bytes.read_while(|b| b != $byte);
+    ($scanner:expr, $byte:expr) => {{
+        let range = $scanner.read_while(|b| b != $byte);
 
-        &$bytes.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! remaing {
-    ($bytes:ident) => {{
-        &$bytes.src[$bytes.idx()..]
+    ($scanner:ident) => {{
+        &$scanner.src[$scanner.idx()..]
     }};
 }
 
 macro_rules! until_newline {
-    ($bytes:ident) => {{
-        let range = $bytes.read_while(|b| !crate::util::is_newline(b));
+    ($scanner:ident) => {{
+        let range = $scanner.read_while(|b| !crate::util::is_newline(b));
 
-        &$bytes.src[range]
+        &$scanner.src[range]
     }};
 }
 
 macro_rules! peek_while {
-    ($bytes:expr, $func:expr) => {{
-        let processed = $bytes.peek_while($func);
+    ($scanner:expr, $func:expr) => {{
+        let processed = $scanner.peek_while($func);
 
-        (&$bytes.src[$bytes.idx()..processed])
+        (&$scanner.src[$scanner.idx()..processed])
     }};
 }
 
 macro_rules! newline {
-    ($bytes:ident) => {{
-        $bytes.read_while(crate::util::is_newline);
+    ($scanner:ident) => {{
+        $scanner.read_while(crate::util::is_newline);
     }};
 }
 
 macro_rules! alpha {
-    ($bytes:ident) => {{
-        let range = $bytes.read_while(crate::util::is_alphabetic);
+    ($scanner:ident) => {{
+        let range = $scanner.read_while(crate::util::is_alphabetic);
 
-        &$bytes.src[range]
+        &$scanner.src[range]
     }};
 }
 
@@ -82,16 +82,16 @@ macro_rules! b_map {
 }
 
 macro_rules! parse_header_param {
-    ($bytes:ident) => (
+    ($scanner:ident) => (
         $crate::macros::parse_param!(
-            $bytes,
+            $scanner,
             $crate::headers::parse_header_param,
         )
     );
 
-    ($bytes:ident, $($name:ident = $var:expr),*) => (
+    ($scanner:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
-            $bytes,
+            $scanner,
             $crate::headers::parse_header_param,
             $($name = $var),*
         )
@@ -100,27 +100,27 @@ macro_rules! parse_header_param {
 
 macro_rules! parse_param {
     (
-        $bytes:ident,
+        $scanner:ident,
         $func:expr,
         $($name:ident = $var:expr),*
     ) =>  {{
-        $crate::macros::space!($bytes);
-        match $bytes.peek() {
+        $crate::macros::space!($scanner);
+        match $scanner.peek() {
             Some(&b';') => {
                 let mut params = $crate::uri::Params::new();
-                while let Some(&b';') = $bytes.peek() {
+                while let Some(&b';') = $scanner.peek() {
                         // take ';' character
-                        $bytes.next();
-                        let param = $func($bytes)?;
+                        $scanner.next();
+                        let param = $func($scanner)?;
                         $(
                             if param.0 == $name {
                                 $var = param.1;
-                                $crate::macros::space!($bytes);
+                                $crate::macros::space!($scanner);
                                 continue;
                             }
                         )*
                         params.set(param.0, param.1.unwrap_or(""));
-                        $crate::macros::space!($bytes);
+                        $crate::macros::space!($scanner);
                     }
                     if params.is_empty() {
                         None
@@ -136,9 +136,9 @@ macro_rules! parse_param {
     }
 
 macro_rules! parse_header_list {
-    ($bytes:ident => $body:expr) => {{
+    ($scanner:ident => $body:expr) => {{
         let mut hdr_itens = Vec::new();
-        $crate::macros::parse_comma_separated!($bytes => {
+        $crate::macros::parse_comma_separated!($scanner => {
             hdr_itens.push($body);
         });
         hdr_itens
@@ -146,13 +146,13 @@ macro_rules! parse_header_list {
 }
 
 macro_rules! parse_comma_separated {
-    ($bytes:ident => $body:expr) => {{
-        $crate::macros::space!($bytes);
+    ($scanner:ident => $body:expr) => {{
+        $crate::macros::space!($scanner);
         $body
 
-        while let Some(b',') = $bytes.peek() {
-            $bytes.next();
-            $crate::macros::space!($bytes);
+        while let Some(b',') = $scanner.peek() {
+            $scanner.next();
+            $crate::macros::space!($scanner);
             $body
         }
     }};

@@ -2,7 +2,7 @@ use std::str;
 
 use crate::macros::parse_header_list;
 use crate::token::Token;
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -16,8 +16,8 @@ pub struct Require<'a>(Vec<&'a str>);
 impl<'a> SipHeader<'a> for Require<'a> {
     const NAME: &'static str = "Require";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let tags = parse_header_list!(bytes => Token::parse(bytes));
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let tags = parse_header_list!(scanner => Token::parse(scanner));
 
         Ok(Require(tags))
     }
@@ -30,8 +30,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"100rel\r\n";
-        let mut bytes = Bytes::new(src);
-        let require = Require::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let require = Require::parse(&mut scanner);
         let require = require.unwrap();
 
         assert_eq!(require.0.get(0), Some(&"100rel"));

@@ -1,10 +1,10 @@
 use std::str;
 
 use crate::{
-    bytes::Bytes,
     headers::{call_id::CallId, SipHeader},
     macros::{parse_header_list, read_while},
     parser::Result,
+    scanner::Scanner,
     util::not_comma_or_newline,
 };
 
@@ -16,9 +16,9 @@ pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 impl<'a> SipHeader<'a> for InReplyTo<'a> {
     const NAME: &'static str = "In-Reply-To";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<InReplyTo<'a>> {
-        let ids = parse_header_list!(bytes => {
-            let id = read_while!(bytes, not_comma_or_newline);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<InReplyTo<'a>> {
+        let ids = parse_header_list!(scanner => {
+            let id = read_while!(scanner, not_comma_or_newline);
             let id = str::from_utf8(id)?;
 
             CallId::from(id)
@@ -35,9 +35,9 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"70710@saturn.bell-tel.com, 17320@saturn.bell-tel.com\r\n";
-        let mut bytes = Bytes::new(src);
-        let in_reply_to = InReplyTo::parse(&mut bytes).unwrap();
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        let mut scanner = Scanner::new(src);
+        let in_reply_to = InReplyTo::parse(&mut scanner).unwrap();
+        assert_eq!(scanner.as_ref(), b"\r\n");
 
         assert_eq!(
             in_reply_to.0.get(0).unwrap().id(),

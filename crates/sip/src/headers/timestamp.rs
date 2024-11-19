@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{bytes::Bytes, parser::Result, util::is_newline};
+use crate::{parser::Result, scanner::Scanner, util::is_newline};
 
 use crate::headers::SipHeader;
 
@@ -17,11 +17,11 @@ pub struct Timestamp {
 impl<'a> SipHeader<'a> for Timestamp {
     const NAME: &'static str = "Timestamp";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let time = bytes.read_num()?;
-        space!(bytes);
-        let delay = if bytes.peek().is_some_and(|b| !is_newline(b)) {
-            Some(bytes.read_num()?)
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let time = scanner.read_num()?;
+        space!(scanner);
+        let delay = if scanner.peek().is_some_and(|b| !is_newline(b)) {
+            Some(scanner.read_num()?)
         } else {
             None
         };
@@ -36,8 +36,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"54\r\n";
-        let mut bytes = Bytes::new(src);
-        let timestamp = Timestamp::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let timestamp = Timestamp::parse(&mut scanner);
         let timestamp = timestamp.unwrap();
 
         assert_eq!(timestamp.time, 54.0);

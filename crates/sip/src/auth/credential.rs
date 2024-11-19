@@ -1,12 +1,12 @@
 use crate::{
-    bytes::Bytes,
-    headers,
-    macros::parse_comma_separated,
     auth::{
         ALGORITHM, CNONCE, DIGEST, NC, NONCE, OPAQUE, QOP, REALM, RESPONSE,
         URI, USERNAME,
     },
+    headers,
+    macros::parse_comma_separated,
     parser::Result,
+    scanner::Scanner,
     token::Token,
     uri::Params,
 };
@@ -18,17 +18,17 @@ pub enum Credential<'a> {
 }
 
 impl<'a> Credential<'a> {
-    pub fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let scheme = Token::parse_quoted(bytes)?;
+    pub fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let scheme = Token::parse_quoted(scanner)?;
 
         if scheme == DIGEST {
-            let digest = DigestCredential::parse(bytes)?;
+            let digest = DigestCredential::parse(scanner)?;
             return Ok(Credential::Digest(digest));
         }
 
         let mut param = Params::new();
-        parse_comma_separated!(bytes => {
-            let (name, value) = headers::parse_header_param(bytes)?;
+        parse_comma_separated!(scanner => {
+            let (name, value) = headers::parse_header_param(scanner)?;
 
             param.set(name, value.unwrap_or(""));
 
@@ -54,11 +54,11 @@ pub struct DigestCredential<'a> {
 }
 
 impl<'a> DigestCredential<'a> {
-    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
+    pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let mut digest = Self::default();
 
-        parse_comma_separated!(bytes => {
-            let (name, value) = headers::parse_header_param(bytes)?;
+        parse_comma_separated!(scanner => {
+            let (name, value) = headers::parse_header_param(scanner)?;
 
             match name {
                 REALM => digest.realm = value,

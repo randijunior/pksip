@@ -1,8 +1,8 @@
 use crate::{
-    bytes::Bytes,
     macros::{alpha, parse_header_list},
     message::SipMethod,
     parser::Result,
+    scanner::Scanner,
 };
 
 use crate::headers::SipHeader;
@@ -24,9 +24,9 @@ impl<'a> Allow<'a> {
 impl<'a> SipHeader<'a> for Allow<'a> {
     const NAME: &'static str = "Allow";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Allow<'a>> {
-        let allow = parse_header_list!(bytes => {
-            let b_method = alpha!(bytes);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Allow<'a>> {
+        let allow = parse_header_list!(scanner => {
+            let b_method = alpha!(scanner);
 
             SipMethod::from(b_method)
         });
@@ -42,10 +42,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"INVITE, ACK, OPTIONS, CANCEL, BYE\r\n";
-        let mut bytes = Bytes::new(src);
-        let allow = Allow::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let allow = Allow::parse(&mut scanner).unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
 
         assert_eq!(allow.get(0), Some(&SipMethod::Invite));
         assert_eq!(allow.get(1), Some(&SipMethod::Ack));

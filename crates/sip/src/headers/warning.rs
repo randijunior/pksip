@@ -1,9 +1,9 @@
 use std::str;
 
 use crate::{
-    bytes::Bytes,
-    macros::{until_byte, sip_parse_error, space},
+    macros::{sip_parse_error, space, until_byte},
     parser::Result,
+    scanner::Scanner,
     uri::is_host,
 };
 
@@ -20,17 +20,17 @@ pub struct Warning<'a> {
 impl<'a> SipHeader<'a> for Warning<'a> {
     const NAME: &'static str = "Warning";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let code = bytes.read_num()?;
-        space!(bytes);
-        let host = unsafe { bytes.read_and_convert_to_str(is_host) };
-        space!(bytes);
-        let Some(&b'"') = bytes.peek() else {
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let code = scanner.read_num()?;
+        space!(scanner);
+        let host = unsafe { scanner.read_and_convert_to_str(is_host) };
+        space!(scanner);
+        let Some(&b'"') = scanner.peek() else {
             return sip_parse_error!("invalid warning header!");
         };
-        bytes.next();
-        let text = until_byte!(bytes, &b'"');
-        bytes.next();
+        scanner.next();
+        let text = until_byte!(scanner, &b'"');
+        scanner.next();
         let text = str::from_utf8(text)?;
 
         Ok(Warning { code, host, text })
@@ -43,10 +43,9 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let src =
-            b"307 isi.edu \"Session parameter 'foo' not understood\"";
-        let mut bytes = Bytes::new(src);
-        let warn = Warning::parse(&mut bytes);
+        let src = b"307 isi.edu \"Session parameter 'foo' not understood\"";
+        let mut scanner = Scanner::new(src);
+        let warn = Warning::parse(&mut scanner);
         let warn = warn.unwrap();
 
         assert_eq!(warn.code, 307);

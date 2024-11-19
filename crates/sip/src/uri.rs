@@ -3,19 +3,19 @@
 
 use std::str::{self};
 
-pub(crate) use host::HostPort;
 pub(crate) use crate::params::Params;
+pub(crate) use host::HostPort;
 pub(crate) use scheme::Scheme;
 pub(crate) use user::UserInfo;
 
 use crate::{
-    bytes::Bytes,
     headers::{parse_param_sip, Param},
     macros::{b_map, parse_param, space, until_byte},
     parser::{
         Result, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS, UNRESERVED,
         USER_UNRESERVED,
     },
+    scanner::Scanner,
     token::Token,
 };
 
@@ -82,10 +82,9 @@ pub(crate) fn is_uri(b: &u8) -> bool {
     URI_SPEC_MAP[*b as usize]
 }
 
-fn parse_uri_param<'a>(bytes: &mut Bytes<'a>) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(bytes, is_param) }
+fn parse_uri_param<'a>(scanner: &mut Scanner<'a>) -> Result<Param<'a>> {
+    unsafe { parse_param_sip(scanner, is_param) }
 }
-
 
 #[derive(Debug)]
 pub enum SipUri<'a> {
@@ -94,16 +93,16 @@ pub enum SipUri<'a> {
 }
 
 impl<'a> SipUri<'a> {
-    pub(crate) fn parse(bytes: &mut Bytes<'a>) -> Result<SipUri<'a>> {
-        space!(bytes);
+    pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<SipUri<'a>> {
+        space!(scanner);
 
-        if matches!(bytes.peek_n(3), Some(SIP) | Some(SIPS)) {
-            let uri = Uri::parse(bytes, false)?;
+        if matches!(scanner.peek_n(3), Some(SIP) | Some(SIPS)) {
+            let uri = Uri::parse(scanner, false)?;
 
             return Ok(SipUri::Uri(uri));
         }
 
-        let addr = NameAddr::parse(bytes)?;
+        let addr = NameAddr::parse(scanner)?;
         Ok(SipUri::NameAddr(addr))
     }
 }
@@ -120,15 +119,15 @@ pub struct Uri<'a> {
 
 impl<'a> Uri<'a> {
     pub(crate) fn parse(
-        bytes: &mut Bytes<'a>,
+        scanner: &mut Scanner<'a>,
         parse_params: bool,
     ) -> Result<Self> {
-        let scheme = Scheme::parse(bytes)?;
+        let scheme = Scheme::parse(scanner)?;
         // take ':'
-        bytes.next();
+        scanner.next();
 
-        let user = UserInfo::parse(bytes)?;
-        let host = HostPort::parse(bytes)?;
+        let user = UserInfo::parse(scanner)?;
+        let host = HostPort::parse(scanner)?;
 
         if !parse_params {
             return Ok(Uri {
@@ -143,7 +142,7 @@ impl<'a> Uri<'a> {
 
         let mut uri_params = UriParams::default();
         let others = parse_param!(
-            bytes,
+            scanner,
             parse_uri_param,
             USER_PARAM = uri_params.user,
             METHOD_PARAM = uri_params.method,
@@ -154,14 +153,15 @@ impl<'a> Uri<'a> {
         );
 
         let mut header_params = None;
-        if bytes.peek() == Some(&b'?') {
+        if scanner.peek() == Some(&b'?') {
             let mut params = Params::new();
             loop {
                 // take '?' or '&'
-                bytes.next();
-                let (name, value) = unsafe { parse_param_sip(bytes, is_hdr)? };
+                scanner.next();
+                let (name, value) =
+                    unsafe { parse_param_sip(scanner, is_hdr)? };
                 params.set(name, value.unwrap_or(""));
-                if bytes.peek() != Some(&b'&') {
+                if scanner.peek() != Some(&b'&') {
                     break;
                 }
             }
@@ -200,35 +200,34 @@ pub struct NameAddr<'a> {
 }
 
 impl<'a> NameAddr<'a> {
-    pub fn parse(bytes: &mut Bytes<'a>) -> Result<NameAddr<'a>> {
-        space!(bytes);
-        let display = match bytes.lookahead()? {
+    pub fn parse(scanner: &mut Scanner<'a>) -> Result<NameAddr<'a>> {
+        space!(scanner);
+        let display = match scanner.lookahead()? {
             &b'"' => {
-                bytes.next();
-                let display = until_byte!(bytes, &b'"');
-                bytes.must_read(b'"')?;
+                scanner.next();
+                let display = until_byte!(scanner, &b'"');
+                scanner.must_read(b'"')?;
 
                 Some(str::from_utf8(display)?)
             }
             &b'<' => None,
             _ => {
-                let d = Token::parse(bytes);
-                space!(bytes);
+                let d = Token::parse(scanner);
+                space!(scanner);
 
                 Some(d)
             }
         };
-        space!(bytes);
+        space!(scanner);
         // must be an '<'
-        bytes.must_read(b'<')?;
-        let uri = Uri::parse(bytes, true)?;
+        scanner.must_read(b'<')?;
+        let uri = Uri::parse(scanner, true)?;
         // must be an '>'
-        bytes.must_read(b'>')?;
+        scanner.must_read(b'>')?;
 
         Ok(NameAddr { display, uri })
     }
 }
-
 
 pub struct GenericUri<'a> {
     pub(crate) scheme: &'a str,

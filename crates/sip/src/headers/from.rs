@@ -1,8 +1,8 @@
 use crate::{
-    bytes::Bytes,
     headers::TAG_PARAM,
     macros::parse_header_param,
     parser::Result,
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
@@ -24,10 +24,10 @@ impl<'a> SipHeader<'a> for From<'a> {
     const NAME: &'static str = "From";
     const SHORT_NAME: Option<&'static str> = Some("f");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<From<'a>> {
-        let uri = SipUri::parse(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<From<'a>> {
+        let uri = SipUri::parse(scanner)?;
         let mut tag = None;
-        let params = parse_header_param!(bytes, TAG_PARAM = tag);
+        let params = parse_header_param!(scanner, TAG_PARAM = tag);
 
         Ok(From { tag, uri, params })
     }
@@ -42,8 +42,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"\"A. G. Bell\" <sip:agb@bell-telephone.com> ;tag=a48s\r\n";
-        let mut bytes = Bytes::new(src);
-        let from = From::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
             uri: SipUri::NameAddr(addr),
@@ -64,8 +64,8 @@ mod tests {
         });
 
         let src = b"sip:+12125551212@server.phone2net.com;tag=887s\r\n";
-        let mut bytes = Bytes::new(src);
-        let from = From::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
             uri: SipUri::Uri(uri),
@@ -85,8 +85,8 @@ mod tests {
         });
 
         let src = b"Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8\r\n";
-        let mut bytes = Bytes::new(src);
-        let from = From::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
             uri: SipUri::NameAddr(addr),

@@ -17,8 +17,5 @@ fn request(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    request,
-);
+criterion_group!(benches, request,);
 criterion_main!(benches);

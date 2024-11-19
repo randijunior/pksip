@@ -1,8 +1,8 @@
 use crate::{
-    bytes::Bytes,
     headers::TAG_PARAM,
     macros::parse_header_param,
     parser::Result,
+    scanner::Scanner,
     uri::{Params, SipUri},
 };
 
@@ -23,10 +23,10 @@ impl<'a> SipHeader<'a> for To<'a> {
     const NAME: &'static str = "To";
     const SHORT_NAME: Option<&'static str> = Some("t");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let uri = SipUri::parse(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let uri = SipUri::parse(scanner)?;
         let mut tag = None;
-        let params = parse_header_param!(bytes, TAG_PARAM = tag);
+        let params = parse_header_param!(scanner, TAG_PARAM = tag);
 
         Ok(To { tag, uri, params })
     }
@@ -41,8 +41,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>;tag=a6c85cf\r\n";
-        let mut bytes = Bytes::new(src);
-        let to = To::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let to = To::parse(&mut scanner);
         let to = to.unwrap();
 
         match to {

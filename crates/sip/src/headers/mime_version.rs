@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -13,8 +13,8 @@ pub struct MimeVersion(f32);
 impl<'a> SipHeader<'a> for MimeVersion {
     const NAME: &'static str = "MIME-Version";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<MimeVersion> {
-        let expires = bytes.read_num()?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<MimeVersion> {
+        let expires = scanner.read_num()?;
 
         Ok(MimeVersion(expires))
     }
@@ -27,8 +27,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"1.0";
-        let mut bytes = Bytes::new(src);
-        let mime_version = MimeVersion::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let mime_version = MimeVersion::parse(&mut scanner).unwrap();
 
         assert_eq!(mime_version.0, 1.0);
     }

@@ -1,4 +1,4 @@
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -28,8 +28,8 @@ impl<'a> SipHeader<'a> for CallId<'a> {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: Option<&'static str> = Some("i");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<CallId<'a>> {
-        let id = Self::parse_as_str(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<CallId<'a>> {
+        let id = Self::parse_as_str(scanner)?;
 
         Ok(CallId(id))
     }
@@ -42,8 +42,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"bs9ki9iqbee8k5kal8mpqb\r\n";
-        let mut bytes = Bytes::new(src);
-        let cid = CallId::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let cid = CallId::parse(&mut scanner).unwrap();
 
         assert_eq!(cid.id(), "bs9ki9iqbee8k5kal8mpqb");
     }

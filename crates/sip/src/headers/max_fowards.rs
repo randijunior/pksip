@@ -1,4 +1,4 @@
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -21,8 +21,8 @@ impl MaxForwards {
 impl<'a> SipHeader<'a> for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<MaxForwards> {
-        let fowards = bytes.read_num()?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<MaxForwards> {
+        let fowards = scanner.read_num()?;
 
         Ok(MaxForwards(fowards))
     }
@@ -34,10 +34,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"6\r\n";
-        let mut bytes = Bytes::new(src);
-        let c_length = MaxForwards::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let c_length = MaxForwards::parse(&mut scanner).unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(c_length.0, 6)
     }
 }

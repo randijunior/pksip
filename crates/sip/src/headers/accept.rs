@@ -1,9 +1,9 @@
 use std::str;
 
 use crate::{
-    bytes::Bytes,
     macros::{parse_header_list, parse_header_param},
     parser::Result,
+    scanner::Scanner,
     token::Token,
 };
 
@@ -30,13 +30,13 @@ impl<'a> Accept<'a> {
 impl<'a> SipHeader<'a> for Accept<'a> {
     const NAME: &'static str = "Accept";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Accept<'a>> {
-        let mtypes = parse_header_list!(bytes => {
-            let mtype = Token::parse(bytes);
-            bytes.must_read(b'/')?;
-            let subtype = Token::parse(bytes);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Accept<'a>> {
+        let mtypes = parse_header_list!(scanner => {
+            let mtype = Token::parse(scanner);
+            scanner.must_read(b'/')?;
+            let subtype = Token::parse(scanner);
 
-            let param = parse_header_param!(bytes);
+            let param = parse_header_param!(scanner);
 
             MediaType::new(mtype, subtype, param)
         });
@@ -53,11 +53,11 @@ mod tests {
     fn test_parse() {
         let src =
             b"application/sdp;level=1, application/x-private, text/html\r\n";
-        let mut bytes = Bytes::new(src);
-        let accept = Accept::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 3);
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
 
         let mtype = accept.get(0).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");
@@ -73,11 +73,11 @@ mod tests {
         assert_eq!(mtype.mimetype.subtype, "html");
 
         let src = b"application/sdp, application/pidf+xml, message/sipfrag\r\n";
-        let mut bytes = Bytes::new(src);
-        let accept = Accept::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 3);
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
 
         let mtype = accept.get(0).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");
@@ -92,11 +92,11 @@ mod tests {
         assert_eq!(mtype.mimetype.subtype, "sipfrag");
 
         let src = b"application/sdp;q=0.8, application/simple-message-summary+xml;q=0.6\r\n";
-        let mut bytes = Bytes::new(src);
-        let accept = Accept::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 2);
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
 
         let mtype = accept.get(0).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application");

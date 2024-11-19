@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -12,8 +12,8 @@ pub struct MinExpires(u32);
 impl<'a> SipHeader<'a> for MinExpires {
     const NAME: &'static str = "Min-Expires";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let expires = bytes.read_num()?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let expires = scanner.read_num()?;
 
         Ok(MinExpires(expires))
     }
@@ -26,8 +26,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"60";
-        let mut bytes = Bytes::new(src);
-        let mime_version = MinExpires::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let mime_version = MinExpires::parse(&mut scanner).unwrap();
 
         assert_eq!(mime_version.0, 60);
     }

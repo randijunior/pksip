@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{bytes::Bytes, macros::read_while, parser::SipParserError};
+use crate::{macros::read_while, parser::SipParserError, scanner::Scanner};
 
 use super::{is_pass, is_user};
 #[derive(Debug)]
@@ -10,9 +10,9 @@ pub struct UserInfo<'a> {
 }
 
 impl<'a> UserInfo<'a> {
-    fn has_user(bytes: &Bytes) -> bool {
+    fn has_user(scanner: &Scanner) -> bool {
         let mut matched = None;
-        for &byte in bytes.as_ref().iter() {
+        for &byte in scanner.as_ref().iter() {
             if matches!(byte, b'@' | b' ' | b'\n' | b'>') {
                 matched = Some(byte);
                 break;
@@ -22,22 +22,22 @@ impl<'a> UserInfo<'a> {
     }
 
     pub(crate) fn parse(
-        bytes: &mut Bytes<'a>,
+        scanner: &mut Scanner<'a>,
     ) -> Result<Option<Self>, SipParserError> {
-        if !Self::has_user(bytes) {
+        if !Self::has_user(scanner) {
             return Ok(None);
         }
-        let b = read_while!(bytes, is_user);
+        let b = read_while!(scanner, is_user);
         let user = str::from_utf8(b)?;
         let mut user = UserInfo {
             user,
             password: None,
         };
 
-        if bytes.next() == Some(&b':') {
-            let b = read_while!(bytes, is_pass);
+        if scanner.next() == Some(&b':') {
+            let b = read_while!(scanner, is_pass);
             let b = str::from_utf8(b)?;
-            bytes.next();
+            scanner.next();
             user.password = Some(b);
         }
 

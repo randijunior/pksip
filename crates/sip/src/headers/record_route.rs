@@ -1,7 +1,7 @@
 use crate::{
-    bytes::Bytes,
     macros::parse_header_param,
     parser::Result,
+    scanner::Scanner,
     uri::{NameAddr, Params},
 };
 
@@ -18,9 +18,9 @@ pub struct RecordRoute<'a> {
 impl<'a> SipHeader<'a> for RecordRoute<'a> {
     const NAME: &'static str = "Record-Route";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let addr = NameAddr::parse(bytes)?;
-        let param = parse_header_param!(bytes);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let addr = NameAddr::parse(scanner)?;
+        let param = parse_header_param!(scanner);
         Ok(RecordRoute { addr, param })
     }
 }
@@ -35,8 +35,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:server10.biloxi.com;lr>\r\n";
-        let mut bytes = Bytes::new(src);
-        let rr = RecordRoute::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let rr = RecordRoute::parse(&mut scanner);
         let rr = rr.unwrap();
 
         assert_eq!(rr.addr.display, None);
@@ -51,8 +51,8 @@ mod tests {
         assert!(rr.addr.uri.params.is_some());
 
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>;foo=bar\r\n";
-        let mut bytes = Bytes::new(src);
-        let rr = RecordRoute::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let rr = RecordRoute::parse(&mut scanner);
         let rr = rr.unwrap();
 
         assert_eq!(rr.addr.display, None);

@@ -96,12 +96,11 @@ pub use www_authenticate::WWWAuthenticate;
 use std::str;
 
 use crate::{
-    bytes::Bytes,
     macros::{
-        newline, until_byte, remaing, sip_parse_error, space,
-        until_newline,
+        newline, remaing, sip_parse_error, space, until_byte, until_newline,
     },
     parser::Result,
+    scanner::Scanner,
     token::{is_token, Token},
     uri::Params,
 };
@@ -133,33 +132,32 @@ fn parse_q(param: &str) -> Option<Q> {
 
 // Parses a `name=value` parameter in a SIP message.
 pub(crate) fn parse_header_param<'a>(
-    bytes: &mut Bytes<'a>,
+    scanner: &mut Scanner<'a>,
 ) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(bytes, is_token) }
+    unsafe { parse_param_sip(scanner, is_token) }
 }
 
-
 pub(crate) unsafe fn parse_param_sip<'a, F>(
-    bytes: &mut Bytes<'a>,
+    scanner: &mut Scanner<'a>,
     func: F,
 ) -> Result<Param<'a>>
 where
     F: Fn(&u8) -> bool,
 {
-    space!(bytes);
-    let name = unsafe { bytes.read_and_convert_to_str(&func) };
-    let Some(&b'=') = bytes.peek() else {
-        return Ok((name, None))
+    space!(scanner);
+    let name = unsafe { scanner.read_and_convert_to_str(&func) };
+    let Some(&b'=') = scanner.peek() else {
+        return Ok((name, None));
     };
-    bytes.next();
-    let value = if let Some(&b'"') = bytes.peek() {
-        bytes.next();
-        let value = until_byte!(bytes, &b'"');
-        bytes.next();
+    scanner.next();
+    let value = if let Some(&b'"') = scanner.peek() {
+        scanner.next();
+        let value = until_byte!(scanner, &b'"');
+        scanner.next();
 
         str::from_utf8(value)?
     } else {
-        unsafe { bytes.read_and_convert_to_str(func) }
+        unsafe { scanner.read_and_convert_to_str(func) }
     };
 
     Ok((name, Some(value)))
@@ -174,18 +172,18 @@ pub trait SipHeader<'a>: Sized {
     /// The header short name(if exists) in bytes
     const SHORT_NAME: Option<&'static str> = None;
 
-    /// Use `bytes` that is a [`Bytes`] instance to parse into this type
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self>;
+    /// Use `bytes` that is a [`Scanner`] instance to parse into this type
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self>;
 
     /// Get this type from `src`
     fn from_bytes(src: &'a [u8]) -> Result<Self> {
-        let mut bytes = Bytes::new(src);
+        let mut scanner = Scanner::new(src);
 
-        Self::parse(&mut bytes)
+        Self::parse(&mut scanner)
     }
 
-    fn parse_as_str(bytes: &mut Bytes<'a>) -> Result<&'a str> {
-        let str = until_newline!(bytes);
+    fn parse_as_str(scanner: &mut Scanner<'a>) -> Result<&'a str> {
+        let str = until_newline!(scanner);
 
         Ok(str::from_utf8(str)?)
     }
@@ -385,170 +383,171 @@ impl<'a> Headers<'a> {
         self.0.get(index)
     }
 
-    /// Parse all the sip headers in the buffer of bytes.
+    /// Parse all the sip headers in the buffer of scanner.
     ///
     /// Each parsed header will be pushed into the internal header list. The return value
     /// will be the body of the message in bytes if the [`Header::ContentType`]
     /// is found.
     pub(crate) fn parses_and_return_body(
         &mut self,
-        bytes: &mut Bytes<'a>,
+        scanner: &mut Scanner<'a>,
     ) -> Result<Option<&'a [u8]>> {
         let mut has_body = false;
         'headers: loop {
-            let name = Token::parse(bytes);
+            let name = Token::parse(scanner);
 
-            if bytes.next() != Some(&b':') {
+            if scanner.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
             }
-            space!(bytes);
+            space!(scanner);
 
             match name {
                 error_info if ErrorInfo::match_name(error_info) => {
-                    let error_info = ErrorInfo::parse(bytes)?;
+                    let error_info = ErrorInfo::parse(scanner)?;
                     self.push(Header::ErrorInfo(error_info))
                 }
 
                 route if Route::match_name(route) => 'route: loop {
-                    let route = Route::parse(bytes)?;
+                    let route = Route::parse(scanner)?;
                     self.push(Header::Route(route));
-                    let Some(&b',') = bytes.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'route;
                     };
-                    bytes.next();
+                    scanner.next();
                 },
 
                 via if Via::match_name(via) => 'via: loop {
-                    let via = Via::parse(bytes)?;
+                    let via = Via::parse(scanner)?;
                     self.push(Header::Via(via));
-                    let Some(&b',') = bytes.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'via;
                     };
-                    bytes.next();
+                    scanner.next();
                 },
 
                 max_fowards if MaxForwards::match_name(max_fowards) => {
-                    let max_fowards = MaxForwards::parse(bytes)?;
+                    let max_fowards = MaxForwards::parse(scanner)?;
                     self.push(Header::MaxForwards(max_fowards))
                 }
 
                 from if From::match_name(from) => {
-                    let from = From::parse(bytes)?;
+                    let from = From::parse(scanner)?;
                     self.push(Header::From(from))
                 }
 
                 to if To::match_name(to) => {
-                    let to = To::parse(bytes)?;
+                    let to = To::parse(scanner)?;
                     self.push(Header::To(to))
                 }
 
                 cid if CallId::match_name(cid) => {
-                    let call_id = CallId::parse(bytes)?;
+                    let call_id = CallId::parse(scanner)?;
                     self.push(Header::CallId(call_id))
                 }
 
                 cseq if CSeq::match_name(cseq) => {
-                    let cseq = CSeq::parse(bytes)?;
+                    let cseq = CSeq::parse(scanner)?;
                     self.push(Header::CSeq(cseq))
                 }
 
                 auth if Authorization::match_name(auth) => {
-                    let auth = Authorization::parse(bytes)?;
+                    let auth = Authorization::parse(scanner)?;
                     self.push(Header::Authorization(auth))
                 }
 
                 contact if Contact::match_name(contact) => 'contact: loop {
-                    let contact = Contact::parse(bytes)?;
+                    let contact = Contact::parse(scanner)?;
                     self.push(Header::Contact(contact));
-                    let Some(&b',') = bytes.peek() else {
+                    let Some(&b',') = scanner.peek() else {
                         break 'contact;
                     };
-                    bytes.next();
+                    scanner.next();
                 },
 
                 expires if Expires::match_name(expires) => {
-                    let expires = Expires::parse(bytes)?;
+                    let expires = Expires::parse(scanner)?;
                     self.push(Header::Expires(expires));
                 }
 
                 in_reply_to if InReplyTo::match_name(in_reply_to) => {
-                    let in_reply_to = InReplyTo::parse(bytes)?;
+                    let in_reply_to = InReplyTo::parse(scanner)?;
                     self.push(Header::InReplyTo(in_reply_to));
                 }
 
                 mime_version if MimeVersion::match_name(mime_version) => {
-                    let mime_version = MimeVersion::parse(bytes)?;
+                    let mime_version = MimeVersion::parse(scanner)?;
                     self.push(Header::MimeVersion(mime_version));
                 }
 
                 min_expires if MinExpires::match_name(min_expires) => {
-                    let min_expires = MinExpires::parse(bytes)?;
+                    let min_expires = MinExpires::parse(scanner)?;
                     self.push(Header::MinExpires(min_expires));
                 }
 
                 user_agent if UserAgent::match_name(user_agent) => {
-                    let user_agent = UserAgent::parse(bytes)?;
+                    let user_agent = UserAgent::parse(scanner)?;
                     self.push(Header::UserAgent(user_agent))
                 }
 
                 date if Date::match_name(date) => {
-                    let date = Date::parse(bytes)?;
+                    let date = Date::parse(scanner)?;
                     self.push(Header::Date(date))
                 }
 
                 server if Server::match_name(server) => {
-                    let server = Server::parse(bytes)?;
+                    let server = Server::parse(scanner)?;
                     self.push(Header::Server(server))
                 }
 
                 subject if Subject::match_name(subject) => {
-                    let subject = Subject::parse(bytes)?;
+                    let subject = Subject::parse(scanner)?;
                     self.push(Header::Subject(subject))
                 }
 
                 priority if Priority::match_name(priority) => {
-                    let priority = Priority::parse(bytes)?;
+                    let priority = Priority::parse(scanner)?;
                     self.push(Header::Priority(priority))
                 }
 
                 proxy_authenticate
                     if ProxyAuthenticate::match_name(proxy_authenticate) =>
                 {
-                    let proxy_authenticate = ProxyAuthenticate::parse(bytes)?;
+                    let proxy_authenticate = ProxyAuthenticate::parse(scanner)?;
                     self.push(Header::ProxyAuthenticate(proxy_authenticate))
                 }
 
                 proxy_authorization
                     if ProxyAuthorization::match_name(proxy_authorization) =>
                 {
-                    let proxy_authorization = ProxyAuthorization::parse(bytes)?;
+                    let proxy_authorization =
+                        ProxyAuthorization::parse(scanner)?;
                     self.push(Header::ProxyAuthorization(proxy_authorization))
                 }
 
                 proxy_require if ProxyRequire::match_name(proxy_require) => {
-                    let proxy_require = ProxyRequire::parse(bytes)?;
+                    let proxy_require = ProxyRequire::parse(scanner)?;
                     self.push(Header::ProxyRequire(proxy_require))
                 }
 
                 reply_to if ReplyTo::match_name(reply_to) => {
-                    let reply_to = ReplyTo::parse(bytes)?;
+                    let reply_to = ReplyTo::parse(scanner)?;
                     self.push(Header::ReplyTo(reply_to))
                 }
 
                 content_length if ContentLength::match_name(content_length) => {
-                    let content_length = ContentLength::parse(bytes)?;
+                    let content_length = ContentLength::parse(scanner)?;
                     self.push(Header::ContentLength(content_length))
                 }
 
                 content_encoding
                     if ContentEncoding::match_name(content_encoding) =>
                 {
-                    let content_encoding = ContentEncoding::parse(bytes)?;
+                    let content_encoding = ContentEncoding::parse(scanner)?;
                     self.push(Header::ContentEncoding(content_encoding))
                 }
 
                 content_type if ContentType::match_name(content_type) => {
-                    let content_type = ContentType::parse(bytes)?;
+                    let content_type = ContentType::parse(scanner)?;
                     has_body = true;
                     self.push(Header::ContentType(content_type))
                 }
@@ -556,118 +555,119 @@ impl<'a> Headers<'a> {
                 content_disposition
                     if ContentDisposition::match_name(content_disposition) =>
                 {
-                    let content_disposition = ContentDisposition::parse(bytes)?;
+                    let content_disposition =
+                        ContentDisposition::parse(scanner)?;
                     self.push(Header::ContentDisposition(content_disposition))
                 }
 
                 record_route if RecordRoute::match_name(record_route) => {
                     'rr: loop {
-                        let record_route = RecordRoute::parse(bytes)?;
+                        let record_route = RecordRoute::parse(scanner)?;
                         self.push(Header::RecordRoute(record_route));
-                        let Some(&b',') = bytes.peek() else {
+                        let Some(&b',') = scanner.peek() else {
                             break 'rr;
                         };
-                        bytes.next();
+                        scanner.next();
                     }
                 }
 
                 require if Require::match_name(require) => {
-                    let require = Require::parse(bytes)?;
+                    let require = Require::parse(scanner)?;
                     self.push(Header::Require(require))
                 }
 
                 retry_after if RetryAfter::match_name(retry_after) => {
-                    let retry_after = RetryAfter::parse(bytes)?;
+                    let retry_after = RetryAfter::parse(scanner)?;
                     self.push(Header::RetryAfter(retry_after))
                 }
 
                 organization if Organization::match_name(organization) => {
-                    let organization = Organization::parse(bytes)?;
+                    let organization = Organization::parse(scanner)?;
                     self.push(Header::Organization(organization))
                 }
 
                 accept_encoding
                     if AcceptEncoding::match_name(accept_encoding) =>
                 {
-                    let accept_encoding = AcceptEncoding::parse(bytes)?;
+                    let accept_encoding = AcceptEncoding::parse(scanner)?;
                     self.push(Header::AcceptEncoding(accept_encoding));
                 }
 
                 accept if Accept::match_name(accept) => {
-                    let accept = Accept::parse(bytes)?;
+                    let accept = Accept::parse(scanner)?;
                     self.push(Header::Accept(accept));
                 }
 
                 accept_language
                     if AcceptLanguage::match_name(accept_language) =>
                 {
-                    let accept_language = AcceptLanguage::parse(bytes)?;
+                    let accept_language = AcceptLanguage::parse(scanner)?;
                     self.push(Header::AcceptLanguage(accept_language));
                 }
 
                 alert_info if AlertInfo::match_name(alert_info) => {
-                    let alert_info = AlertInfo::parse(bytes)?;
+                    let alert_info = AlertInfo::parse(scanner)?;
                     self.push(Header::AlertInfo(alert_info));
                 }
 
                 allow if Allow::match_name(allow) => {
-                    let allow = Allow::parse(bytes)?;
+                    let allow = Allow::parse(scanner)?;
                     self.push(Header::Allow(allow));
                 }
 
                 auth_info if AuthenticationInfo::match_name(auth_info) => {
-                    let auth_info = AuthenticationInfo::parse(bytes)?;
+                    let auth_info = AuthenticationInfo::parse(scanner)?;
                     self.push(Header::AuthenticationInfo(auth_info));
                 }
 
                 supported if Supported::match_name(supported) => {
-                    let supported = Supported::parse(bytes)?;
+                    let supported = Supported::parse(scanner)?;
                     self.push(Header::Supported(supported));
                 }
 
                 timestamp if Timestamp::match_name(timestamp) => {
-                    let timestamp = Timestamp::parse(bytes)?;
+                    let timestamp = Timestamp::parse(scanner)?;
                     self.push(Header::Timestamp(timestamp));
                 }
 
                 user_agent if UserAgent::match_name(user_agent) => {
-                    let user_agent = UserAgent::parse(bytes)?;
+                    let user_agent = UserAgent::parse(scanner)?;
                     self.push(Header::UserAgent(user_agent));
                 }
 
                 unsupported if Unsupported::match_name(unsupported) => {
-                    let unsupported = Unsupported::parse(bytes)?;
+                    let unsupported = Unsupported::parse(scanner)?;
                     self.push(Header::Unsupported(unsupported));
                 }
 
                 www_authenticate
                     if WWWAuthenticate::match_name(www_authenticate) =>
                 {
-                    let www_authenticate = WWWAuthenticate::parse(bytes)?;
+                    let www_authenticate = WWWAuthenticate::parse(scanner)?;
                     self.push(Header::WWWAuthenticate(www_authenticate));
                 }
 
                 warning if Warning::match_name(warning) => {
-                    let warning = Warning::parse(bytes)?;
+                    let warning = Warning::parse(scanner)?;
                     self.push(Header::Warning(warning));
                 }
 
                 _ => {
-                    let value = Token::parse(bytes);
+                    let value = Token::parse(scanner);
 
                     self.push(Header::Other { name, value });
                 }
             };
 
-            newline!(bytes);
-            if !bytes.is_eof() {
+            newline!(scanner);
+            if !scanner.is_eof() {
                 continue;
             }
             break 'headers;
         }
 
         Ok(if has_body {
-            Some(remaing!(bytes))
+            Some(remaing!(scanner))
         } else {
             None
         })

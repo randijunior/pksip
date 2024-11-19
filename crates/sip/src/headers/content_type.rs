@@ -1,8 +1,8 @@
 use std::str;
 
 use crate::{
-    bytes::Bytes, headers::SipHeader, macros::parse_header_param,
-    parser::Result, token::Token,
+    headers::SipHeader, macros::parse_header_param, parser::Result,
+    scanner::Scanner, token::Token,
 };
 
 use super::MediaType;
@@ -16,11 +16,11 @@ impl<'a> SipHeader<'a> for ContentType<'a> {
     const NAME: &'static str = "Content-Type";
     const SHORT_NAME: Option<&'static str> = Some("c");
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<ContentType<'a>> {
-        let mtype = Token::parse(bytes);
-        bytes.must_read(b'/')?;
-        let subtype = Token::parse(bytes);
-        let param = parse_header_param!(bytes);
+    fn parse(scanner: &mut Scanner<'a>) -> Result<ContentType<'a>> {
+        let mtype = Token::parse(scanner);
+        scanner.must_read(b'/')?;
+        let subtype = Token::parse(scanner);
+        let param = parse_header_param!(scanner);
         let media_type = MediaType::new(mtype, subtype, param);
 
         Ok(ContentType(media_type))
@@ -34,20 +34,20 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"application/sdp\r\n";
-        let mut bytes = Bytes::new(src);
-        let c_type = ContentType::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let c_type = ContentType::parse(&mut scanner);
         let c_type = c_type.unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(c_type.0.mimetype.mtype, "application");
         assert_eq!(c_type.0.mimetype.subtype, "sdp");
 
         let src = b"text/html; charset=ISO-8859-4\r\n";
-        let mut bytes = Bytes::new(src);
-        let c_type = ContentType::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let c_type = ContentType::parse(&mut scanner);
         let c_type = c_type.unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(c_type.0.mimetype.mtype, "text");
         assert_eq!(c_type.0.mimetype.subtype, "html");
         assert_eq!(c_type.0.param.unwrap().get("charset"), Some(&"ISO-8859-4"));

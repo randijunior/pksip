@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -14,8 +14,8 @@ pub struct Server<'a>(&'a str);
 impl<'a> SipHeader<'a> for Server<'a> {
     const NAME: &'static str = "Server";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let server = Self::parse_as_str(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let server = Self::parse_as_str(scanner)?;
 
         Ok(Server(server))
     }
@@ -28,11 +28,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"HomeServer v2\r\n";
-        let mut bytes = Bytes::new(src);
-        let server = Server::parse(&mut bytes);
+        let mut scanner = Scanner::new(src);
+        let server = Server::parse(&mut scanner);
         let server = server.unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(server.0, "HomeServer v2");
     }
 }

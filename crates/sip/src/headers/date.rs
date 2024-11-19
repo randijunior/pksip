@@ -1,4 +1,4 @@
-use crate::{bytes::Bytes, parser::Result};
+use crate::{parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -12,8 +12,8 @@ pub struct Date<'a>(&'a str);
 impl<'a> SipHeader<'a> for Date<'a> {
     const NAME: &'static str = "Date";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Date<'a>> {
-        let date = Self::parse_as_str(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Date<'a>> {
+        let date = Self::parse_as_str(scanner)?;
 
         Ok(Date(date))
     }
@@ -26,10 +26,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Sat, 13 Nov 2010 23:29:00 GMT\r\n";
-        let mut bytes = Bytes::new(src);
-        let date = Date::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let date = Date::parse(&mut scanner).unwrap();
 
-        assert_eq!(bytes.as_ref(), b"\r\n");
+        assert_eq!(scanner.as_ref(), b"\r\n");
         assert_eq!(date.0, "Sat, 13 Nov 2010 23:29:00 GMT");
     }
 }

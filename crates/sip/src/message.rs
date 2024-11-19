@@ -3,7 +3,6 @@
 //! The module provide the [`SipMessage`] enum that can be
 //! an [`SipMessage::Request`] or [`SipMessage::Response`] and represents an sip message.
 
-
 pub(crate) use request::*;
 pub(crate) use response::*;
 

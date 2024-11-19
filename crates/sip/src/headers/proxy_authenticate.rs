@@ -1,6 +1,4 @@
-use crate::{
-    bytes::Bytes, auth::challenge::Challenge, parser::Result,
-};
+use crate::{auth::challenge::Challenge, parser::Result, scanner::Scanner};
 
 use crate::headers::SipHeader;
 
@@ -12,8 +10,8 @@ pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
     const NAME: &'static str = "Proxy-Authenticate";
 
-    fn parse(bytes: &mut Bytes<'a>) -> Result<Self> {
-        let challenge = Challenge::parse(bytes)?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+        let challenge = Challenge::parse(scanner)?;
 
         Ok(ProxyAuthenticate(challenge))
     }
@@ -29,8 +27,8 @@ mod tests {
         domain=\"sip:ss1.carrier.com\", qop=\"auth\", \
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\", \
         opaque=\"\", stale=FALSE, algorithm=MD5\r\n";
-        let mut bytes = Bytes::new(src);
-        let proxy_auth = ProxyAuthenticate::parse(&mut bytes).unwrap();
+        let mut scanner = Scanner::new(src);
+        let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest(digest) => {
             assert_eq!(digest.realm, Some("atlanta.com"));
