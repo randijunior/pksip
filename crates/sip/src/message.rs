@@ -180,6 +180,7 @@ pub enum SipStatusCode {
 }
 
 // https://en.wikipedia.org/wiki/List_of_SIP_response_codes
+//@TODO: complete status codes
 impl SipStatusCode {
     pub fn reason_phrase(&self) -> &str {
         match &self {

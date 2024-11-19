@@ -8,12 +8,15 @@ use crate::{
     uri::Params,
 };
 
+/// This type represent a challenge authentication mechanism used in
+/// `Proxy-Authenticate` and `WWW-Authenticate` headers.
 #[derive(Debug)]
 pub enum Challenge<'a> {
     Digest(DigestChallenge<'a>),
     Other { scheme: &'a str, param: Params<'a> },
 }
 
+/// This type represent a digest challenge authentication scheme.
 #[derive(Default, Debug)]
 pub struct DigestChallenge<'a> {
     pub realm: Option<&'a str>,
@@ -27,6 +30,7 @@ pub struct DigestChallenge<'a> {
 }
 
 impl<'a> Challenge<'a> {
+    ///  Use `scanner` to parse a `Challenge`.
     pub fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let scheme = Token::parse_quoted(scanner)?;
 
@@ -48,6 +52,7 @@ impl<'a> Challenge<'a> {
 }
 
 impl<'a> DigestChallenge<'a> {
+    ///  Use `scanner` to parse a `DigestChallenge`.
     pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let mut digest = Self::default();
         parse_comma_separated!(scanner => {

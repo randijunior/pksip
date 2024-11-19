@@ -11,6 +11,8 @@ use crate::{
     uri::Params,
 };
 
+/// This type represent a credential containing the authentication
+/// information in `Authorization` and `Proxy-Authorization` headers.
 #[derive(Debug, Clone)]
 pub enum Credential<'a> {
     Digest(DigestCredential<'a>),
@@ -18,6 +20,7 @@ pub enum Credential<'a> {
 }
 
 impl<'a> Credential<'a> {
+    ///  Use `scanner` to parse a `Credential`.
     pub fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let scheme = Token::parse_quoted(scanner)?;
 
@@ -37,7 +40,8 @@ impl<'a> Credential<'a> {
         Ok(Credential::Other { scheme, param })
     }
 }
-
+/// This type represent a digest credential used in `Authorization`
+/// and `Proxy-Authorization` headers for authentication.
 #[derive(Default, Debug, Clone)]
 pub struct DigestCredential<'a> {
     pub realm: Option<&'a str>,
@@ -54,6 +58,7 @@ pub struct DigestCredential<'a> {
 }
 
 impl<'a> DigestCredential<'a> {
+    ///  Use `scanner` to parse a `DigestCredential`.
     pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let mut digest = Self::default();
 

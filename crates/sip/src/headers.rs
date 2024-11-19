@@ -110,7 +110,7 @@ pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
-/// The q parameterthat is used normaly in [`Contact`], [`AcceptEncoding`]
+/// The q parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
 /// and [`AcceptLanguage`] headers.
 const Q_PARAM: &str = "q";
 /// The expires parameter that is used normaly in [`Contact`] headers.
@@ -172,7 +172,7 @@ pub trait SipHeader<'a>: Sized {
     /// The header short name(if exists) in bytes
     const SHORT_NAME: Option<&'static str> = None;
 
-    /// Use `bytes` that is a [`Scanner`] instance to parse into this type
+    /// Use the `scanner` to parse into this type.
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self>;
 
     /// Get this type from `src`
@@ -701,5 +701,7 @@ impl<'a> MediaType<'a> {
     }
 }
 
+/// This type represents a `q` parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
+/// and [`AcceptLanguage`] headers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Q(u8, u8);
