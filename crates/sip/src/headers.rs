@@ -245,7 +245,7 @@ pub enum Header<'a> {
     /// `Min-Expires` Header
     MinExpires(MinExpires),
     /// `MIME-Version` Header
-    MimeVersion(MimeVersion),
+    MimeVersion(MimeVersion<'a>),
     /// `Organization` Header
     Organization(Organization<'a>),
     /// `Priority` Header
@@ -273,7 +273,7 @@ pub enum Header<'a> {
     /// `Supported` Header
     Supported(Supported<'a>),
     /// `Timestamp` Header
-    Timestamp(Timestamp),
+    Timestamp(Timestamp<'a>),
     /// `To` Header
     To(To<'a>),
     /// `Unsupported` Header

@@ -8,13 +8,13 @@ use crate::headers::SipHeader;
 ///
 /// Indicate what version of the `MIME` protocol was used to construct the message.
 #[derive(Debug, PartialEq)]
-pub struct MimeVersion(f32);
+pub struct MimeVersion<'a>(&'a str);
 
-impl<'a> SipHeader<'a> for MimeVersion {
+impl<'a> SipHeader<'a> for MimeVersion<'a> {
     const NAME: &'static str = "MIME-Version";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<MimeVersion> {
-        let expires = scanner.read_num()?;
+    fn parse(scanner: &mut Scanner<'a>) -> Result<MimeVersion<'a>> {
+        let expires = scanner.scan_number_as_str();
 
         Ok(MimeVersion(expires))
     }
@@ -30,6 +30,6 @@ mod tests {
         let mut scanner = Scanner::new(src);
         let mime_version = MimeVersion::parse(&mut scanner).unwrap();
 
-        assert_eq!(mime_version.0, 1.0);
+        assert_eq!(mime_version.0, "1.0");
     }
 }

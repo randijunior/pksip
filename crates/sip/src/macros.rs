@@ -1,12 +1,12 @@
 macro_rules! space {
     ($scanner:ident) => {{
-        $scanner.read_while(crate::util::is_space);
+        $scanner.read_while($crate::util::is_space);
     }};
 }
 
 macro_rules! digits {
     ($scanner:ident) => {{
-        let range = $scanner.read_while(crate::util::is_digit);
+        let range = $scanner.read_while($crate::util::is_digit);
 
         &$scanner.src[range]
     }};
@@ -36,7 +36,7 @@ macro_rules! remaing {
 
 macro_rules! until_newline {
     ($scanner:ident) => {{
-        let range = $scanner.read_while(|b| !crate::util::is_newline(b));
+        let range = $scanner.read_while(|b| !$crate::util::is_newline(b));
 
         &$scanner.src[range]
     }};
@@ -52,13 +52,13 @@ macro_rules! peek_while {
 
 macro_rules! newline {
     ($scanner:ident) => {{
-        $scanner.read_while(crate::util::is_newline);
+        $scanner.read_while($crate::util::is_newline);
     }};
 }
 
 macro_rules! alpha {
     ($scanner:ident) => {{
-        let range = $scanner.read_while(crate::util::is_alphabetic);
+        let range = $scanner.read_while($crate::util::is_alphabetic);
 
         &$scanner.src[range]
     }};

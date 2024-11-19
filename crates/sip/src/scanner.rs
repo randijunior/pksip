@@ -2,6 +2,7 @@ use std::ops::Range;
 use std::str;
 
 use crate::macros::read_while;
+use crate::util::is_digit;
 
 type Result<'a, T> = std::result::Result<T, ScannerError<'a>>;
 
@@ -180,6 +181,19 @@ impl<'a> Scanner<'a> {
             }
             _ => self.error(ErrorKind::Num),
         }
+    }
+
+    pub fn scan_number_as_str(&mut self) -> &'a str {
+        let mut range = self.read_while(is_digit);
+        
+        if let Some(&b'.') = self.peek() {
+            self.next();
+            range.end = self.read_while(is_digit).end;
+        }
+
+        let num_slice = &self.src[range];
+
+        unsafe { str::from_utf8_unchecked(num_slice) }
     }
 
     /// Call the `func` closure for next byte and read it if the closure returns `true`.
