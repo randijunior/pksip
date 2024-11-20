@@ -2,7 +2,8 @@ use std::str;
 
 use scanner::{read_while, Scanner};
 
-use crate::parser::SipParserError;
+use crate::parser::error::SipParserError;
+
 
 use super::{is_pass, is_user};
 #[derive(Debug)]

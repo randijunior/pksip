@@ -1,9 +1,11 @@
 //! SIP Parser
 
+use error::SipParserError;
 use scanner::peek_while;
 use scanner::util::is_alphabetic;
 use scanner::Scanner;
-use scanner::ScannerError;
+
+pub mod error;
 
 use crate::macros::sip_parse_error;
 use crate::uri::SIP;
@@ -11,8 +13,7 @@ use crate::uri::SIP;
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
-use std::str;
-use std::str::Utf8Error;
+
 
 use crate::headers::Headers;
 
@@ -123,55 +124,6 @@ impl SipParser {
     }
 }
 
-/// Error on parsing
-#[derive(Debug)]
-pub struct SipParserError {
-    /// Message in error
-    pub message: String,
-}
-
-#[allow(missing_docs)]
-impl SipParserError {
-    pub fn new(message: String) -> Self {
-        Self { message }
-    }
-}
-
-impl From<&str> for SipParserError {
-    fn from(value: &str) -> Self {
-        Self::new(value.to_string())
-    }
-}
-
-impl From<String> for SipParserError {
-    fn from(value: String) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<Utf8Error> for SipParserError {
-    fn from(value: Utf8Error) -> Self {
-        SipParserError {
-            message: format!("{:#?}", value),
-        }
-    }
-}
-
-impl<'a> From<ScannerError<'a>> for SipParserError {
-    fn from(err: ScannerError) -> Self {
-        SipParserError {
-            message: format!(
-                "Failed to parse at line:{} column:{} kind:{:?}
-                {}",
-                err.line,
-                err.col,
-                err.kind,
-                String::from_utf8_lossy(err.src)
-            ),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -182,7 +134,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parses_and_return_body() {
+    fn test_parse_headers() {
         let headers = b"Max-Forwards: 70\r\n\
         Call-ID: 843817637684230@998sdasdh09\r\n\
         CSeq: 1826 REGISTER\r\n\
@@ -222,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn status_line() {
+    fn test_parse_status_line() {
         let msg = b"SIP/2.0 200 OK\r\n";
         let mut scanner = Scanner::new(msg);
         let parsed = StatusLine::parse(&mut scanner);

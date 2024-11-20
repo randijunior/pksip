@@ -6,7 +6,7 @@ use scanner::{alpha, newline, space, Scanner};
 
 use crate::{
     headers::Headers,
-    parser::{self, SipParser, SipParserError},
+    parser::{SipParser, error::SipParserError},
     uri::Uri,
 };
 

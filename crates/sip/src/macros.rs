@@ -94,7 +94,7 @@ macro_rules! parse_comma_separated {
 
 macro_rules! sip_parse_error {
     ($message:expr) => {{
-        Err(crate::parser::SipParserError::from($message))
+        Err(crate::parser::error::SipParserError::from($message))
     }};
 }
 
