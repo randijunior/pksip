@@ -7,6 +7,7 @@ use super::SipHeader;
 /// The `Authorization` SIP header.
 ///
 /// Contains authentication credentials of a `UA`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Authorization<'a>(Credential<'a>);
 
 impl<'a> Authorization<'a> {

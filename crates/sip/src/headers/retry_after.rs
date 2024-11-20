@@ -18,6 +18,7 @@ use crate::headers::SipHeader;
 /// Indicate how long the service is expected to be
 /// unavailable to the requesting client.
 /// Or when the called party anticipates being available again.
+#[derive(Debug, PartialEq, Eq)]
 pub struct RetryAfter<'a> {
     seconds: u32,
     param: Option<Params<'a>>,

@@ -9,6 +9,7 @@ use std::str;
 /// The `Max-Forwards` SIP header.
 ///
 /// Limit the number of proxies or gateways that can forward the request.
+#[derive(Debug, PartialEq, Eq)]
 pub struct MaxForwards(u32);
 
 impl MaxForwards {

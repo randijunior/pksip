@@ -11,6 +11,7 @@ use crate::headers::SipHeader;
 /// The `Proxy-Require` SIP header.
 ///
 /// Indicate `proxy-sensitive` features that must be supported by the proxy.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProxyRequire<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for ProxyRequire<'a> {

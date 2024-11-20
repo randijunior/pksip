@@ -9,6 +9,7 @@ use std::str;
 /// The `Date` SIP header.
 ///
 /// Reflects the time when the request or response is first sent.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Date<'a> {

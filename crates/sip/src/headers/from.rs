@@ -14,7 +14,7 @@ use std::str;
 /// The `From` SIP header.
 ///
 /// Indicates the initiator of the request.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct From<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,

@@ -11,6 +11,7 @@ use crate::headers::SipHeader;
 /// The `Record-Route` SIP header.
 ///
 /// Keeps proxies in the signaling path for consistent routing and session control.
+#[derive(Debug, PartialEq, Eq)]
 pub struct RecordRoute<'a> {
     addr: NameAddr<'a>,
     param: Option<Params<'a>>,

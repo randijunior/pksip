@@ -10,7 +10,7 @@ use crate::{
 };
 
 use crate::headers::SipHeader;
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct ErrorInfoUri<'a> {
     url: GenericUri<'a>,
     params: Option<Params<'a>>,
@@ -19,6 +19,7 @@ pub struct ErrorInfoUri<'a> {
 /// The `Error-Info` SIP header.
 ///
 /// Provides a pointer to additional information about the error status response.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ErrorInfo<'a>(Vec<ErrorInfoUri<'a>>);
 
 impl<'a> SipHeader<'a> for ErrorInfo<'a> {

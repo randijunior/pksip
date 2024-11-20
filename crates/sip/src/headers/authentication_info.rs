@@ -13,7 +13,7 @@ use std::str;
 /// The `Authentication-Info` SIP header.
 ///
 /// Provides additional authentication information.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct AuthenticationInfo<'a> {
     nextnonce: Option<&'a str>,
     qop: Option<&'a str>,

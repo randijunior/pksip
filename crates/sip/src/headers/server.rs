@@ -11,6 +11,7 @@ use crate::headers::SipHeader;
 /// Is used by UACs to tell UASs about options
 /// that the UAC expects the UAS to support in order to process the
 /// request.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Server<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Server<'a> {

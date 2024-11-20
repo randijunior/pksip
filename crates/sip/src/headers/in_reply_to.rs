@@ -11,6 +11,7 @@ use crate::{
 /// The `In-Reply-To` SIP header.
 ///
 /// Enumerates the `Call-IDs` that this call references or returns.
+#[derive(Debug, PartialEq, Eq)]
 pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 
 impl<'a> SipHeader<'a> for InReplyTo<'a> {

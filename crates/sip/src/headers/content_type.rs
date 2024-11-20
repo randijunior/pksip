@@ -12,6 +12,7 @@ use super::MediaType;
 /// The `Content-Type` SIP header.
 ///
 /// Indicates the media type of the `message-body` sent to the recipient.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeader<'a> for ContentType<'a> {

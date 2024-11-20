@@ -6,7 +6,7 @@ use crate::parser::error::SipParserError;
 
 
 use super::{is_pass, is_user};
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct UserInfo<'a> {
     pub(crate) user: &'a str,
     pub(crate) password: Option<&'a str>,

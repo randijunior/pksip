@@ -10,6 +10,7 @@ use crate::headers::SipHeader;
 /// The `Supported` SIP header.
 ///
 /// Enumerates all the extensions supported by the `UAC` or `UAS`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Supported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for Supported<'a> {

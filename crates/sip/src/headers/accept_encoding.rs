@@ -15,7 +15,7 @@ use crate::headers::SipHeader;
 use super::Q;
 
 /// A `coding` that apear in `Accept-Encoding` header
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Coding<'a> {
     coding: &'a str,
     q: Option<Q>,
@@ -26,7 +26,7 @@ pub struct Coding<'a> {
 ///
 /// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
 /// process.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
 impl<'a> AcceptEncoding<'a> {

@@ -11,7 +11,7 @@ use crate::headers::SipHeader;
 
 use super::Q;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContactUri<'a> {
     uri: SipUri<'a>,
     q: Option<Q>,
@@ -22,7 +22,7 @@ pub struct ContactUri<'a> {
 /// The `Contact` SIP header.
 ///
 /// Specifies the `URI` for the user or `UA` sending the message.
-#[derive(Debug)]
+#[derive(Debug,PartialEq, Eq)]
 pub enum Contact<'a> {
     Star,
     Uri(ContactUri<'a>),

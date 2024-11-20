@@ -9,6 +9,7 @@ use crate::headers::SipHeader;
 /// The `Content-Length` SIP header.
 ///
 /// Indicates the size of the `message-body`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentLength(u32);
 
 impl ContentLength {

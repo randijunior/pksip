@@ -14,6 +14,7 @@ use std::str;
 /// The `To` SIP header.
 ///
 /// Specifies the logical recipient of the request.
+#[derive(Debug, PartialEq, Eq)]
 pub struct To<'a> {
     pub(crate) uri: SipUri<'a>,
     pub(crate) tag: Option<&'a str>,

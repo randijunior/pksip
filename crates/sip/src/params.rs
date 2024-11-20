@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, &'a str>,
 }

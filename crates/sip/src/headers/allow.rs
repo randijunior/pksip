@@ -10,6 +10,7 @@ use crate::headers::SipHeader;
 /// The `Allow` SIP header
 ///
 /// Indicates what methods is supported by the `UA`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Allow<'a>(Vec<SipMethod<'a>>);
 
 impl<'a> Allow<'a> {

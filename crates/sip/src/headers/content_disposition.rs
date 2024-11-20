@@ -10,6 +10,7 @@ use crate::headers::SipHeader;
 /// The `Content-Disposition` SIP header.
 ///
 /// Describes how the `message-body` is to be interpreted by the `UAC` or `UAS`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentDisposition<'a> {
     _type: &'a str,
     params: Option<Params<'a>>,

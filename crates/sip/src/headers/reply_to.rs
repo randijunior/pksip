@@ -11,7 +11,7 @@ use crate::headers::SipHeader;
 /// The `Reply-To` SIP header.
 ///
 /// Contains a logical return URI that may be different from the From header field
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ReplyTo<'a> {
     uri: SipUri<'a>,
     param: Option<Params<'a>>,

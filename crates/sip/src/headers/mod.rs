@@ -192,6 +192,7 @@ pub trait SipHeader<'a>: Sized {
 }
 
 /// SIP headers, as defined in RFC3261.
+#[derive(Debug, PartialEq, Eq)]
 pub enum Header<'a> {
     /// `Accept` Header
     Accept(Accept<'a>),
@@ -666,14 +667,14 @@ impl<'a> Headers<'a> {
 }
 
 /// This type reprents an MIME type that indicates an content format.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct MimeType<'a> {
     pub mtype: &'a str,
     pub subtype: &'a str,
 }
 
 /// The `media-type` that appears in `Accept` and `Content-Type` SIP headers.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,

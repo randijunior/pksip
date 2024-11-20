@@ -86,7 +86,7 @@ fn parse_uri_param<'a>(scanner: &mut Scanner<'a>) -> Result<Param<'a>> {
     unsafe { parse_param_sip(scanner, is_param) }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SipUri<'a> {
     Uri(Uri<'a>),
     NameAddr(NameAddr<'a>),
@@ -107,7 +107,7 @@ impl<'a> SipUri<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
     pub(crate) user: Option<UserInfo<'a>>,
@@ -140,17 +140,42 @@ impl<'a> Uri<'a> {
             });
         }
 
-        let mut uri_params = UriParams::default();
+        let mut user_param = None;
+        let mut method = None;
+        let mut transport = None;
+        let mut ttl = None;
+        let mut lr = None;
+        let mut maddr = None;
+
         let others = parse_param!(
             scanner,
             parse_uri_param,
-            USER_PARAM = uri_params.user,
-            METHOD_PARAM = uri_params.method,
-            TRANSPORT_PARAM = uri_params.transport,
-            TTL_PARAM = uri_params.ttl,
-            LR_PARAM = uri_params.lr,
-            MADDR_PARAM = uri_params.maddr
+            USER_PARAM = user_param,
+            METHOD_PARAM = method,
+            TRANSPORT_PARAM = transport,
+            TTL_PARAM = ttl,
+            LR_PARAM = lr,
+            MADDR_PARAM = maddr
         );
+
+        let uri_params = if user_param.is_some()
+            || method.is_some()
+            || transport.is_some()
+            || ttl.is_some()
+            || lr.is_some()
+            || maddr.is_some()
+        {
+            Some(UriParams {
+                user: user_param,
+                method,
+                transport,
+                ttl,
+                lr,
+                maddr,
+            })
+        } else {
+            None
+        };
 
         let mut header_params = None;
         if scanner.peek() == Some(&b'?') {
@@ -173,14 +198,14 @@ impl<'a> Uri<'a> {
             scheme,
             user,
             host,
-            params: Some(uri_params),
+            params: uri_params,
             other_params: others,
             header_params,
         })
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct UriParams<'a> {
     pub(crate) user: Option<&'a str>,
     pub(crate) method: Option<&'a str>,
@@ -193,7 +218,7 @@ pub struct UriParams<'a> {
 // SIP name-addr, which typically appear in From, To, and Contact header.
 // display optional display part
 // Struct Uri uri
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NameAddr<'a> {
     pub(crate) display: Option<&'a str>,
     pub(crate) uri: Uri<'a>,
@@ -228,7 +253,7 @@ impl<'a> NameAddr<'a> {
         Ok(NameAddr { display, uri })
     }
 }
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct GenericUri<'a> {
     pub(crate) scheme: &'a str,
     pub(crate) content: &'a str,

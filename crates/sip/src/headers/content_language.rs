@@ -10,6 +10,7 @@ use crate::headers::SipHeader;
 /// The `Content-Language` SIP header.
 ///
 /// Specifies the language of the `message-body` content.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentLanguage<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for ContentLanguage<'a> {

@@ -10,6 +10,7 @@ use crate::headers::SipHeader;
 /// The `Priority` SIP header.
 ///
 /// Indicates the urgency of the request as perceived by the client.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Priority<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Priority<'a> {

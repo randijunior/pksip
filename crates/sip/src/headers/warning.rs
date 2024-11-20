@@ -12,6 +12,7 @@ use crate::headers::SipHeader;
 
 /// The `Warning` SIP header.
 /// Carry additional information about the status of a response.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Warning<'a> {
     code: u32,
     host: &'a str,

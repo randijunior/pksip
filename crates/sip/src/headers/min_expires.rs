@@ -9,6 +9,7 @@ use crate::headers::SipHeader;
 /// The `Min-Expires` SIP header.
 ///
 /// The minimum refresh interval supported for soft-state elements managed by that server.
+#[derive(Debug, PartialEq, Eq)]
 pub struct MinExpires(u32);
 
 impl<'a> SipHeader<'a> for MinExpires {

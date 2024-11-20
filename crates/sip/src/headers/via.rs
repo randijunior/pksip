@@ -53,7 +53,7 @@ fn parse_via_param<'a>(scanner: &mut Scanner<'a>) -> Result<Param<'a>> {
     unsafe { parse_param_sip(scanner, is_via_param) }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct ViaParams<'a> {
     ttl: Option<&'a str>,
     maddr: Option<&'a str>,
@@ -89,6 +89,7 @@ impl<'a> ViaParams<'a> {
 ///
 /// Indicates the path taken by the request so far and the
 /// path that should be followed in routing responses.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Via<'a> {
     pub(crate) transport: Transport,
     pub(crate) sent_by: HostPort<'a>,

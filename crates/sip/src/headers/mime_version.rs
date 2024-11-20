@@ -9,7 +9,7 @@ use crate::headers::SipHeader;
 /// The `MIME-Version` SIP header.
 ///
 /// Indicate what version of the `MIME` protocol was used to construct the message.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct MimeVersion<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for MimeVersion<'a> {

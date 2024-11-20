@@ -9,6 +9,7 @@ use crate::headers::SipHeader;
 /// The `User-Agent` SIP header.
 ///
 /// Contains information about the `UAC` originating the request.
+#[derive(Debug, PartialEq, Eq)]
 pub struct UserAgent<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for UserAgent<'a> {

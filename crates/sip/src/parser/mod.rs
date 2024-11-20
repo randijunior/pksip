@@ -13,8 +13,6 @@ use crate::uri::SIP;
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
-
-
 use crate::headers::Headers;
 
 use crate::message::SipMessage;
@@ -50,9 +48,9 @@ pub struct SipParserContext<'a> {
 }
 
 impl<'a> SipParserContext<'a> {
-    pub fn from_buff(buff: &'a [u8]) -> Self {
+    pub fn from_bytes(bytes: &'a [u8]) -> Self {
         SipParserContext {
-            scanner: Scanner::new(buff),
+            scanner: Scanner::new(bytes),
             should_parse_body: false,
             state: ParserState::default(),
         }
@@ -64,7 +62,7 @@ pub struct SipParser;
 impl SipParser {
     /// Parse a buff of bytes into sip message
     pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
-        let mut ctx = SipParserContext::from_buff(buff);
+        let mut ctx = SipParserContext::from_bytes(buff);
 
         if Self::is_sip_version(&ctx) {
             let status_line = StatusLine::parse(&mut ctx.scanner)?;
@@ -127,63 +125,109 @@ impl SipParser {
 #[cfg(test)]
 mod tests {
     use crate::{
+        headers::{self, Header},
         message::{SipMethod, SipStatusCode},
-        uri::{HostPort, Scheme},
+        uri::{HostPort, Scheme, Uri},
     };
 
     use super::*;
 
-    #[test]
-    fn test_parse_headers() {
-        let headers = b"Max-Forwards: 70\r\n\
+    macro_rules! hdr {
+        ($name:ident, $bytes:expr, $expected:expr) => {
+            #[test]
+            fn $name() {
+                let mut ctx = SipParserContext::from_bytes($bytes);
+                let mut sip_headers = Headers::new();
+
+                assert!(sip_headers.parse(&mut ctx).is_ok());
+                assert_eq!(sip_headers.len(), $expected.len());
+
+                $expected
+                    .iter()
+                    .zip(sip_headers.iter())
+                    .for_each(|(a, b)| assert_eq!(*a, *b));
+            }
+        };
+    }
+
+    macro_rules! req_line {
+        ($name:ident, $bytes:expr, $method:expr, $uri:expr) => {
+            #[test]
+            fn $name() {
+                let mut scanner = Scanner::new($bytes);
+                let parsed = RequestLine::parse(&mut scanner);
+                let RequestLine { method, uri } = parsed.unwrap();
+
+                assert_eq!(method, $method);
+                assert_eq!(uri, $uri);
+            }
+        };
+    }
+
+    macro_rules! st_line {
+        ($name:ident, $bytes:expr, $code:expr, $phrase:expr) => {
+            #[test]
+            fn $name() {
+                let mut scanner = Scanner::new($bytes);
+                let parsed = StatusLine::parse(&mut scanner);
+                let StatusLine {
+                    status_code,
+                    reason_phrase,
+                } = parsed.unwrap();
+
+                assert_eq!(status_code, $code);
+                assert_eq!(reason_phrase, $phrase);
+            }
+        };
+    }
+
+    hdr! {
+        test_hdr_1,
+        b"Max-Forwards: 70\r\n\
         Call-ID: 843817637684230@998sdasdh09\r\n\
         CSeq: 1826 REGISTER\r\n\
         Expires: 7200\r\n\
-        Content-Length: 0\r\n\r\n";
-        let mut ctx = SipParserContext::from_buff(headers);
-        let mut sip_headers = Headers::new();
+        Content-Length: 0\r\n\r\n",
+        [
+            Header::MaxForwards(headers::MaxForwards::new(70)),
+            Header::CallId(headers::CallId::new("843817637684230@998sdasdh09")),
+            Header::CSeq(headers::CSeq::new(1826, SipMethod::Register)),
+            Header::Expires(headers::Expires::new(7200)),
+            Header::ContentLength(headers::ContentLength::new(0)),
+        ]
 
-        assert!(sip_headers.parse(&mut ctx).is_ok());
-
-        assert_eq!(sip_headers.len(), 5);
     }
 
-    #[test]
-    fn test_parse_req_line() {
-        let req_line = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n";
-        let mut scanner = Scanner::new(req_line);
-        let parsed = RequestLine::parse(&mut scanner);
-        let RequestLine { method, uri } = parsed.unwrap();
+    hdr! {
+        test_hdr_2,
+        b"X-Custom-Header: 12345\r\n",
+        [
+            Header::Other { name: "X-Custom-Header", value: "12345" }
+        ]
 
-        assert_eq!(method, SipMethod::Register);
-        assert_eq!(uri.scheme, Scheme::Sip);
-        assert_eq!(
-            uri.host,
-            HostPort::DomainName {
-                host: "registrar.biloxi.com",
-                port: None
-            }
-        );
     }
 
-    #[test]
-    fn test_parse_sip_version_2_0() {
-        let src = b"SIP/2.0";
-        let mut scanner = Scanner::new(src);
-        assert!(SipParser::parse_sip_v2(&mut scanner).is_ok());
+    req_line! {
+            test_req_line_1,
+            b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n",
+            SipMethod::Register,
+            Uri {
+                scheme: Scheme::Sip,
+                host: HostPort::DomainName {
+                    host: "registrar.biloxi.com",
+                    port: None
+            },
+            user: None,
+            header_params: None,
+            params: None,
+            other_params: None
+        }
     }
 
-    #[test]
-    fn test_parse_status_line() {
-        let msg = b"SIP/2.0 200 OK\r\n";
-        let mut scanner = Scanner::new(msg);
-        let parsed = StatusLine::parse(&mut scanner);
-        let StatusLine {
-            status_code,
-            reason_phrase,
-        } = parsed.unwrap();
-
-        assert_eq!(status_code, SipStatusCode::Ok);
-        assert_eq!(reason_phrase, SipStatusCode::Ok.reason_phrase());
+    st_line! {
+        test_st_line1,
+        b"SIP/2.0 200 OK\r\n",
+        SipStatusCode::Ok,
+        SipStatusCode::Ok.reason_phrase()
     }
 }

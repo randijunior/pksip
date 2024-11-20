@@ -7,8 +7,9 @@ use crate::{
 
 use super::{SIP, SIPS};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum Scheme {
+    #[default]
     Sip,
     Sips,
 }

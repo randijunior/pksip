@@ -9,6 +9,7 @@ use crate::{
 /// Consists of at least one challenge the
 /// authentication scheme(s) and parameters applicable
 /// to the `Request-URI`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct WWWAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeader<'a> for WWWAuthenticate<'a> {

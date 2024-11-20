@@ -11,6 +11,7 @@ use std::str;
 /// The `Alert-Info` SIP header.
 ///
 /// Specifies an alternative ring tone.
+#[derive(Debug, PartialEq, Eq)]
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,

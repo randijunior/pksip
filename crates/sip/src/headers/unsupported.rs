@@ -11,6 +11,7 @@ use crate::headers::SipHeader;
 /// The `Unsupported` SIP header.
 ///
 /// Lists the features not supported by the `UAS`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Unsupported<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for Unsupported<'a> {

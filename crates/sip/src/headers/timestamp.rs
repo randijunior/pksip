@@ -12,6 +12,7 @@ use crate::headers::SipHeader;
 /// The `Timestamp` SIP header.
 ///
 /// Describes when the `UAC` sent the request to the `UAS`.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Timestamp<'a> {
     time: &'a str,
     delay: Option<&'a str>,

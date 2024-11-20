@@ -9,6 +9,7 @@ use std::str;
 /// The `Call-ID` SIP header.
 ///
 /// Uniquely identifies a particular invitation or all registrations of a particular client.
+#[derive(Debug, PartialEq, Eq)]
 pub struct CallId<'a>(&'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {

@@ -14,6 +14,7 @@ const PURPOSE: &'static str = "purpose";
 /// The `Call-Info` SIP header.
 ///
 /// Provides aditional information aboute the caller or calle.
+#[derive(Debug, PartialEq, Eq)]
 pub struct CallInfo<'a> {
     url: &'a str,
     purpose: Option<&'a str>,

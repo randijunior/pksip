@@ -12,6 +12,7 @@ use std::str;
 /// The `CSeq` SIP header.
 ///
 /// Ensures order and tracking of SIP transactions within a session.
+#[derive(Debug, PartialEq, Eq)]
 pub struct CSeq<'a> {
     cseq: i32,
     method: SipMethod<'a>,

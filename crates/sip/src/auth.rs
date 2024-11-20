@@ -24,7 +24,7 @@ const STALE: &str = "stale";
 
 /// This type represent a challenge authentication mechanism used in
 /// `Proxy-Authenticate` and `WWW-Authenticate` headers.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Challenge<'a> {
     Digest {
         realm: Option<&'a str>,
@@ -100,7 +100,7 @@ impl<'a> Challenge<'a> {
 
 /// This type represent a credential containing the authentication
 /// information in `Authorization` and `Proxy-Authorization` headers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Credential<'a> {
     Digest {
         realm: Option<&'a str>,

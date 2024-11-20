@@ -7,6 +7,7 @@ use crate::headers::SipHeader;
 /// The `Proxy-Authenticate` SIP header.
 ///
 /// The authentication requirements from a proxy server to a client.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {

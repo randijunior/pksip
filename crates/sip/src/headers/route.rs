@@ -12,6 +12,7 @@ use crate::headers::SipHeader;
 ///
 /// Specify the sequence of proxy servers and other intermediaries
 /// that a SIP message should pass through on its way to the final destination.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Route<'a> {
     pub(crate) addr: NameAddr<'a>,
     pub(crate) param: Option<Params<'a>>,

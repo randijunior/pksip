@@ -11,6 +11,7 @@ use crate::headers::SipHeader;
 ///
 /// Indicates what decoding mechanisms must be applied to obtain the media-type
 /// referenced by the Content-Type header field.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentEncoding<'a>(Vec<&'a str>);
 
 impl<'a> ContentEncoding<'a> {

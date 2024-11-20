@@ -7,6 +7,7 @@ use crate::{
 /// The `Proxy-Authorization` SIP header.
 ///
 /// Consists of credentials containing the authentication information of the user agent for the proxy.
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProxyAuthorization<'a>(Credential<'a>);
 
 impl<'a> SipHeader<'a> for ProxyAuthorization<'a> {

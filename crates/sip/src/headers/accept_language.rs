@@ -13,7 +13,7 @@ use std::str;
 use super::Q;
 
 /// A `language` that apear in `Accept-Language` header.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Language<'a> {
     language: &'a str,
     q: Option<Q>,
@@ -23,7 +23,7 @@ pub struct Language<'a> {
 /// The `Accept-Language` SIP header.
 ///
 /// Indicates the client's language preferences.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
 impl<'a> AcceptLanguage<'a> {

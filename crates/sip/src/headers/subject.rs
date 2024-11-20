@@ -9,6 +9,7 @@ use crate::headers::SipHeader;
 /// The `Subject` SIP header.
 ///
 /// Provides a summary or indicates the nature of the call.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Subject<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Subject<'a> {

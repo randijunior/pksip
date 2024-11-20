@@ -15,7 +15,7 @@ use super::MediaType;
 /// The `Accept` SIP header.
 ///
 /// Indicates witch media types the client can process.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
 impl<'a> Accept<'a> {
