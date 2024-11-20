@@ -1,9 +1,10 @@
 use std::str;
 
+use scanner::{until_byte, Scanner};
+
 use crate::{
-    macros::{b_map, until_byte},
+    macros::b_map,
     parser::{Result, ALPHA_NUM, TOKEN},
-    scanner::Scanner,
 };
 
 b_map!(TOKEN_SPEC_MAP => ALPHA_NUM, TOKEN);
@@ -14,7 +15,12 @@ impl<'a> Token {
     #[inline]
     pub(crate) fn parse(scanner: &mut Scanner<'a>) -> &'a str {
         // is_token ensures that is valid UTF-8
-        unsafe { scanner.read_and_convert_to_str(is_token) }
+        unsafe { scanner.read_and_convert_to_str(Self::is_token) }
+    }
+
+    #[inline(always)]
+    pub(crate) fn is_token(b: &u8) -> bool {
+        TOKEN_SPEC_MAP[*b as usize]
     }
 
     pub fn parse_quoted(scanner: &mut Scanner<'a>) -> Result<&'a str> {
@@ -28,9 +34,4 @@ impl<'a> Token {
             Ok(Self::parse(scanner))
         }
     }
-}
-
-#[inline(always)]
-pub(crate) fn is_token(b: &u8) -> bool {
-    TOKEN_SPEC_MAP[*b as usize]
 }

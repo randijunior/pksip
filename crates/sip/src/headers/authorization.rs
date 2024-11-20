@@ -1,4 +1,6 @@
-use crate::{auth::credential::Credential, parser::Result, scanner::Scanner};
+use scanner::Scanner;
+
+use crate::{auth::Credential, parser::Result};
 
 use super::SipHeader;
 
@@ -36,17 +38,16 @@ mod tests {
         let auth = Authorization::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.as_ref(), b"\r\n");
-        let cred = auth.credential();
 
-        assert_matches!(cred, Credential::Digest(digest) => {
-            assert_eq!(digest.username, Some("Alice"));
-            assert_eq!(digest.realm, Some("atlanta.com"));
+        assert_matches!(auth.0, Credential::Digest { username, realm, nonce, response, ..} => {
+            assert_eq!(username, Some("Alice"));
+            assert_eq!(realm, Some("atlanta.com"));
             assert_eq!(
-                digest.nonce,
+                nonce,
                 Some("84a4cc6f3082121f32b42a2187831a9e")
             );
             assert_eq!(
-                digest.response,
+                response,
                 Some("7587245234b3434cc3412213e5f113a5432")
             );
         });

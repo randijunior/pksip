@@ -1,10 +1,13 @@
 use std::str;
 
-use crate::{parser::Result, scanner::Scanner, util::is_newline};
+use scanner::util::is_newline;
+use scanner::{space, Scanner};
+
+use crate::parser::Result;
 
 use crate::headers::SipHeader;
 
-use super::space;
+
 
 /// The `Timestamp` SIP header.
 ///

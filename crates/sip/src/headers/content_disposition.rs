@@ -1,5 +1,7 @@
+use scanner::Scanner;
+
 use crate::{
-    macros::parse_header_param, parser::Result, scanner::Scanner, token::Token,
+    macros::parse_header_param, parser::Result,token::Token,
     uri::Params,
 };
 

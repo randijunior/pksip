@@ -1,6 +1,8 @@
 use std::str;
 
-use crate::{parser::Result, scanner::Scanner};
+use scanner::Scanner;
+
+use crate::parser::Result;
 
 use crate::headers::SipHeader;
 

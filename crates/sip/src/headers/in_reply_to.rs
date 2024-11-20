@@ -1,11 +1,11 @@
 use std::str;
 
+use scanner::{read_while, util::not_comma_or_newline, Scanner};
+
 use crate::{
     headers::{call_id::CallId, SipHeader},
-    macros::{parse_header_list, read_while},
+    macros::parse_header_list,
     parser::Result,
-    scanner::Scanner,
-    util::not_comma_or_newline,
 };
 
 /// The `In-Reply-To` SIP header.

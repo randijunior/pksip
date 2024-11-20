@@ -1,8 +1,9 @@
+use scanner::Scanner;
+
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
     macros::{parse_comma_separated, sip_parse_error},
-    parser::Result,
-    scanner::Scanner,
+    parser::Result
 };
 
 use crate::headers::SipHeader;

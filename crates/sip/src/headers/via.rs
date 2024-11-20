@@ -19,15 +19,16 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
+use scanner::util::is_valid_port;
+use scanner::{space, until_byte, Scanner};
+
 use crate::headers::{parse_param_sip, SipHeader};
 use crate::macros::{b_map, parse_param};
 use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
-use crate::util::is_valid_port;
 use crate::{
-    macros::{sip_parse_error, space, until_byte},
+    macros::sip_parse_error,
     message::Transport,
     parser::Result,
-    scanner::Scanner,
     uri::{HostPort, Params},
 };
 use std::str;

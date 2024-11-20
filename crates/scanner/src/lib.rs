@@ -1,7 +1,11 @@
 use std::ops::Range;
 use std::str;
 
-use crate::macros::read_while;
+
+pub mod macros;
+pub mod util;
+
+
 use crate::util::is_digit;
 
 type Result<'a, T> = std::result::Result<T, ScannerError<'a>>;
@@ -20,17 +24,17 @@ pub enum ErrorKind {
 
 #[derive(Debug, PartialEq)]
 pub struct ScannerError<'a> {
-    pub(crate) kind: ErrorKind,
-    pub(crate) line: usize,
-    pub(crate) col: usize,
-    pub(crate) src: &'a [u8],
+    pub kind: ErrorKind,
+    pub line: usize,
+    pub col: usize,
+    pub src: &'a [u8],
 }
 
 /// Reading byte slice while keep the line and column.
 #[derive(Debug)]
 pub struct Scanner<'a> {
     /// The input bytes slice to be read.
-    pub(crate) src: &'a [u8],
+    pub src: &'a [u8],
     /// Indicates if the reading is complete.
     finished: bool,
     /// Total length of the input slice.

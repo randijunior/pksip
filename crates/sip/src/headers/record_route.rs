@@ -1,7 +1,8 @@
+use scanner::Scanner;
+
 use crate::{
     macros::parse_header_param,
     parser::Result,
-    scanner::Scanner,
     uri::{NameAddr, Params},
 };
 

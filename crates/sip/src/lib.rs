@@ -8,9 +8,7 @@ pub mod uri;
 pub(crate) mod auth;
 pub(crate) mod macros;
 pub(crate) mod params;
-pub(crate) mod scanner;
 pub(crate) mod token;
-pub(crate) mod util;
 
 #[cfg(test)]
 #[macro_use]

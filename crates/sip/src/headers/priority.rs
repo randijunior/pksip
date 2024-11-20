@@ -1,7 +1,9 @@
 use std::str;
 
+use scanner::Scanner;
+
 use crate::token::Token;
-use crate::{parser::Result, scanner::Scanner};
+use crate::parser::Result;
 
 use crate::headers::SipHeader;
 

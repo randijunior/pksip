@@ -1,9 +1,10 @@
 use std::str;
 
+use scanner::{space, until_byte, Scanner};
+
 use crate::{
-    macros::{sip_parse_error, space, until_byte},
+    macros::sip_parse_error,
     parser::Result,
-    scanner::Scanner,
     uri::is_host,
 };
 

@@ -1,7 +1,8 @@
+use scanner::{until_byte, Scanner};
+
 use crate::{
-    macros::{sip_parse_error, until_byte},
+    macros::sip_parse_error,
     parser::Result,
-    scanner::Scanner,
 };
 
 use super::{SIP, SIPS};

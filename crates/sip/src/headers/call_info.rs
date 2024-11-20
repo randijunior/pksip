@@ -1,7 +1,8 @@
+use scanner::{until_byte, Scanner};
+
 use crate::{
-    macros::{parse_header_param, until_byte},
+    macros::parse_header_param,
     parser::Result,
-    scanner::Scanner,
     uri::Params,
 };
 

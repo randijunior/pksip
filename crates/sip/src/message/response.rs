@@ -1,10 +1,10 @@
 use std::str;
 
+use scanner::{digits, newline, space, until_newline, Scanner};
+
 use crate::{
     headers::Headers,
-    macros::{digits, newline, space, until_newline},
     parser::{self, SipParser, SipParserError},
-    scanner::Scanner,
 };
 
 use super::SipStatusCode;

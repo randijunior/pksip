@@ -82,6 +82,7 @@ pub use reply_to::ReplyTo;
 pub use require::Require;
 pub use retry_after::RetryAfter;
 pub use route::Route;
+use scanner::Scanner;
 pub use server::Server;
 pub use subject::Subject;
 pub use supported::Supported;
@@ -96,13 +97,7 @@ pub use www_authenticate::WWWAuthenticate;
 use std::str;
 
 use crate::{
-    macros::{
-        newline, remaing, sip_parse_error, space, until_byte, until_newline,
-    },
-    parser::Result,
-    scanner::Scanner,
-    token::{is_token, Token},
-    uri::Params,
+    macros::sip_parse_error, parser::{Result, SipParserContext}, token::Token, uri::Params
 };
 
 /// An Header param
@@ -134,7 +129,7 @@ fn parse_q(param: &str) -> Option<Q> {
 pub(crate) fn parse_header_param<'a>(
     scanner: &mut Scanner<'a>,
 ) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(scanner, is_token) }
+    unsafe { parse_param_sip(scanner, Token::is_token) }
 }
 
 pub(crate) unsafe fn parse_param_sip<'a, F>(
@@ -144,7 +139,7 @@ pub(crate) unsafe fn parse_param_sip<'a, F>(
 where
     F: Fn(&u8) -> bool,
 {
-    space!(scanner);
+    scanner::space!(scanner);
     let name = unsafe { scanner.read_and_convert_to_str(&func) };
     let Some(&b'=') = scanner.peek() else {
         return Ok((name, None));
@@ -152,7 +147,7 @@ where
     scanner.next();
     let value = if let Some(&b'"') = scanner.peek() {
         scanner.next();
-        let value = until_byte!(scanner, &b'"');
+        let value = scanner::until_byte!(scanner, &b'"');
         scanner.next();
 
         str::from_utf8(value)?
@@ -183,7 +178,7 @@ pub trait SipHeader<'a>: Sized {
     }
 
     fn parse_as_str(scanner: &mut Scanner<'a>) -> Result<&'a str> {
-        let str = until_newline!(scanner);
+        let str = scanner::until_newline!(scanner);
 
         Ok(str::from_utf8(str)?)
     }
@@ -388,18 +383,18 @@ impl<'a> Headers<'a> {
     /// Each parsed header will be pushed into the internal header list. The return value
     /// will be the body of the message in bytes if the [`Header::ContentType`]
     /// is found.
-    pub(crate) fn parses_and_return_body(
+    pub(crate) fn parse(
         &mut self,
-        scanner: &mut Scanner<'a>,
-    ) -> Result<Option<&'a [u8]>> {
-        let mut has_body = false;
+        ctx: &mut SipParserContext<'a>
+    ) -> Result<()> {
+        let scanner = &mut ctx.scanner;
         'headers: loop {
             let name = Token::parse(scanner);
 
             if scanner.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
             }
-            space!(scanner);
+            scanner::space!(scanner);
 
             match name {
                 error_info if ErrorInfo::match_name(error_info) => {
@@ -548,7 +543,7 @@ impl<'a> Headers<'a> {
 
                 content_type if ContentType::match_name(content_type) => {
                     let content_type = ContentType::parse(scanner)?;
-                    has_body = true;
+                    ctx.should_parse_body = true;
                     self.push(Header::ContentType(content_type))
                 }
 
@@ -659,18 +654,14 @@ impl<'a> Headers<'a> {
                 }
             };
 
-            newline!(scanner);
+            scanner::newline!(scanner);
             if !scanner.is_eof() {
                 continue;
             }
             break 'headers;
         }
 
-        Ok(if has_body {
-            Some(remaing!(scanner))
-        } else {
-            None
-        })
+        Ok(())
     }
 }
 

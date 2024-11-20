@@ -1,8 +1,8 @@
+use scanner::{alpha, space, Scanner};
+
 use crate::{
-    macros::{alpha, space},
     message::SipMethod,
     parser::Result,
-    scanner::Scanner,
 };
 
 use crate::headers::SipHeader;

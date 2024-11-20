@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sip"]
+members = [ "crates/scanner","crates/sip"]
 
 [workspace.dependencies]
 sip = { path = "crates/sip" }

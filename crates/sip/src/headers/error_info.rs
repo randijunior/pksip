@@ -1,9 +1,10 @@
 use std::str;
 
+use scanner::Scanner;
+
 use crate::{
     macros::{parse_header_list, parse_header_param},
     parser::Result,
-    scanner::Scanner,
     token::Token,
     uri::{is_uri, GenericUri, Params},
 };

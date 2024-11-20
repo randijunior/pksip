@@ -1,8 +1,10 @@
 use std::str;
 
+use scanner::Scanner;
+
 use crate::{
     headers::SipHeader, macros::parse_header_param, parser::Result,
-    scanner::Scanner, token::Token,
+    token::Token,
 };
 
 use super::MediaType;

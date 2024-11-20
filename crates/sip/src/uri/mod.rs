@@ -5,17 +5,17 @@ use std::str::{self};
 
 pub(crate) use crate::params::Params;
 pub(crate) use host::HostPort;
+use scanner::{space, until_byte, Scanner};
 pub(crate) use scheme::Scheme;
 pub(crate) use user::UserInfo;
 
 use crate::{
     headers::{parse_param_sip, Param},
-    macros::{b_map, parse_param, space, until_byte},
+    macros::{b_map, parse_param},
     parser::{
         Result, ALPHA_NUM, ESCAPED, GENERIC_URI, HOST, PASS, UNRESERVED,
         USER_UNRESERVED,
     },
-    scanner::Scanner,
     token::Token,
 };
 

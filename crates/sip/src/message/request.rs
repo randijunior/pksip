@@ -2,11 +2,11 @@
 //!
 //! The module provide the [`SipRequest`]
 
+use scanner::{alpha, newline, space, Scanner};
+
 use crate::{
     headers::Headers,
-    macros::{alpha, newline, space},
     parser::{self, SipParser, SipParserError},
-    scanner::Scanner,
     uri::Uri,
 };
 

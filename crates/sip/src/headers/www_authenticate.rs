@@ -1,6 +1,7 @@
+use scanner::Scanner;
+
 use crate::{
-    auth::challenge::Challenge, headers::SipHeader, parser::Result,
-    scanner::Scanner,
+    auth::Challenge, headers::SipHeader, parser::Result
 };
 
 /// The `WWW-Authenticate` SIP header.
@@ -34,14 +35,14 @@ mod tests {
         let www_auth = WWWAuthenticate::parse(&mut scanner);
         let www_auth = www_auth.unwrap();
 
-        assert_matches!(www_auth.0, Challenge::Digest(digest) => {
-            assert_eq!(digest.realm, Some("atlanta.com"));
-            assert_eq!(digest.algorithm, Some("MD5"));
-            assert_eq!(digest.domain, Some("sip:boxesbybob.com"));
-            assert_eq!(digest.qop, Some("auth"));
-            assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
-            assert_eq!(digest.opaque, Some(""));
-            assert_eq!(digest.stale, Some("FALSE"));
+        assert_matches!(www_auth.0, Challenge::Digest { realm, domain, nonce, opaque, stale, algorithm, qop, .. } => {
+            assert_eq!(realm, Some("atlanta.com"));
+            assert_eq!(algorithm, Some("MD5"));
+            assert_eq!(domain, Some("sip:boxesbybob.com"));
+            assert_eq!(qop, Some("auth"));
+            assert_eq!(nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
+            assert_eq!(opaque, Some(""));
+            assert_eq!(stale, Some("FALSE"));
         });
     }
 }

@@ -1,11 +1,12 @@
 use std::str;
 use std::{net::IpAddr, str::FromStr};
 
+use scanner::util::is_valid_port;
+use scanner::{until_byte, Scanner};
+
 use crate::{
-    macros::{sip_parse_error, until_byte},
+    macros::sip_parse_error,
     parser::Result,
-    scanner::Scanner,
-    util::is_valid_port,
 };
 
 use super::is_host;

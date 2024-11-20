@@ -1,4 +1,6 @@
-use crate::{auth::challenge::Challenge, parser::Result, scanner::Scanner};
+use scanner::Scanner;
+
+use crate::{auth::Challenge, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -30,14 +32,14 @@ mod tests {
         let mut scanner = Scanner::new(src);
         let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
 
-        assert_matches!(proxy_auth.0, Challenge::Digest(digest) => {
-            assert_eq!(digest.realm, Some("atlanta.com"));
-            assert_eq!(digest.algorithm, Some("MD5"));
-            assert_eq!(digest.domain, Some("sip:ss1.carrier.com"));
-            assert_eq!(digest.qop, Some("auth"));
-            assert_eq!(digest.nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
-            assert_eq!(digest.opaque, Some(""));
-            assert_eq!(digest.stale, Some("FALSE"));
+        assert_matches!(proxy_auth.0, Challenge::Digest { realm, domain, nonce, opaque, stale, algorithm, qop, .. } => {
+            assert_eq!(realm, Some("atlanta.com"));
+            assert_eq!(algorithm, Some("MD5"));
+            assert_eq!(domain, Some("sip:ss1.carrier.com"));
+            assert_eq!(qop, Some("auth"));
+            assert_eq!(nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
+            assert_eq!(opaque, Some(""));
+            assert_eq!(stale, Some("FALSE"));
         });
     }
 }

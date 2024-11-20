@@ -1,10 +1,10 @@
+use scanner::{util::is_alphabetic, Scanner};
+
 use crate::{
     headers::{self, Q_PARAM},
     macros::{parse_header_list, parse_header_param},
     parser::Result,
-    scanner::Scanner,
     uri::Params,
-    util::is_alphabetic,
 };
 
 use crate::headers::SipHeader;

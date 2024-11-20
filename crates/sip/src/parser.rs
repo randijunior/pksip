@@ -1,27 +1,24 @@
 //! SIP Parser
 
+use scanner::peek_while;
+use scanner::util::is_alphabetic;
+use scanner::Scanner;
+use scanner::ScannerError;
+
 use crate::macros::sip_parse_error;
-use crate::scanner::Scanner;
 use crate::uri::SIP;
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
-use std::num::ParseFloatError;
-use std::num::ParseIntError;
 use std::str;
 use std::str::Utf8Error;
 
 use crate::headers::Headers;
-use crate::scanner::ScannerError;
-
-use crate::macros::peek_while;
 
 use crate::message::SipMessage;
 use crate::message::StatusLine;
 use crate::message::{RequestLine, SipRequest, SipResponse};
-
-use crate::util::is_alphabetic;
 
 pub(crate) const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
@@ -37,33 +34,61 @@ pub(crate) const PASS: &[u8] = b"&=+$,";
 pub(crate) const HOST: &[u8] = b"_-.";
 pub(crate) const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 
+#[derive(Default)]
+pub enum ParserState {
+    #[default]
+    StartLine,
+    Headers,
+    Body,
+}
+
+pub struct SipParserContext<'a> {
+    pub state: ParserState,
+    pub should_parse_body: bool,
+    pub scanner: Scanner<'a>,
+}
+
+impl<'a> SipParserContext<'a> {
+    pub fn from_buff(buff: &'a [u8]) -> Self {
+        SipParserContext {
+            scanner: Scanner::new(buff),
+            should_parse_body: false,
+            state: ParserState::default(),
+        }
+    }
+}
+
 pub struct SipParser;
 
 impl SipParser {
     /// Parse a buff of bytes into sip message
     pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
-        let mut scanner = Scanner::new(buff);
+        let mut ctx = SipParserContext::from_buff(buff);
 
-        let msg = if !Self::is_sip_version(&scanner) {
-            let req_line = RequestLine::parse(&mut scanner)?;
-            let (headers, body) = Self::parse_headers_and_body(&mut scanner)?;
-            let request = SipRequest::new(req_line, headers, body);
+        if Self::is_sip_version(&ctx) {
+            let status_line = StatusLine::parse(&mut ctx.scanner)?;
+            let headers = Self::parse_headers(&mut ctx)?;
+            let body = Self::parse_body(&mut ctx);
 
-            SipMessage::Request(request)
-        } else {
-            let status_line = StatusLine::parse(&mut scanner)?;
-            let (headers, body) = Self::parse_headers_and_body(&mut scanner)?;
-            let response = SipResponse::new(status_line, headers, body);
-
-            SipMessage::Response(response)
+            return Ok(SipMessage::Response(SipResponse::new(
+                status_line,
+                headers,
+                body,
+            )));
         };
 
-        Ok(msg)
+        let req_line = RequestLine::parse(&mut ctx.scanner)?;
+        let headers = Self::parse_headers(&mut ctx)?;
+        let body = Self::parse_body(&mut ctx);
+
+        Ok(SipMessage::Request(SipRequest::new(
+            req_line, headers, body,
+        )))
     }
 
-    fn is_sip_version(scanner: &Scanner) -> bool {
-        let tag = peek_while!(scanner, is_alphabetic);
-        let next = scanner.src.get(tag.len());
+    fn is_sip_version(ctx: &SipParserContext) -> bool {
+        let tag = peek_while!(ctx.scanner, is_alphabetic);
+        let next = ctx.scanner.src.get(tag.len());
 
         next.is_some_and(|next| tag == SIP && next == &b'/')
     }
@@ -76,13 +101,25 @@ impl SipParser {
         sip_parse_error!("Sip Version Invalid")
     }
 
-    fn parse_headers_and_body<'a>(
-        scanner: &mut Scanner<'a>,
-    ) -> Result<(Headers<'a>, Option<&'a [u8]>)> {
-        let mut headers = Headers::new();
-        let body = headers.parses_and_return_body(scanner)?;
+    fn parse_headers<'a>(
+        ctx: &mut SipParserContext<'a>,
+    ) -> Result<Headers<'a>> {
+        ctx.state = ParserState::Headers;
 
-        Ok((headers, body))
+        let mut headers = Headers::new();
+        headers.parse(ctx)?;
+
+        Ok(headers)
+    }
+
+    fn parse_body<'a>(ctx: &mut SipParserContext<'a>) -> Option<&'a [u8]> {
+        ctx.state = ParserState::Body;
+        if ctx.should_parse_body {
+            let idx = ctx.scanner.idx();
+            Some(&ctx.scanner.src[idx..])
+        } else {
+            None
+        }
     }
 }
 
@@ -120,22 +157,6 @@ impl From<Utf8Error> for SipParserError {
     }
 }
 
-impl From<ParseIntError> for SipParserError {
-    fn from(value: ParseIntError) -> Self {
-        SipParserError {
-            message: format!("{:#?}", value),
-        }
-    }
-}
-
-impl From<ParseFloatError> for SipParserError {
-    fn from(value: ParseFloatError) -> Self {
-        SipParserError {
-            message: format!("{:#?}", value),
-        }
-    }
-}
-
 impl<'a> From<ScannerError<'a>> for SipParserError {
     fn from(err: ScannerError) -> Self {
         SipParserError {
@@ -167,10 +188,10 @@ mod tests {
         CSeq: 1826 REGISTER\r\n\
         Expires: 7200\r\n\
         Content-Length: 0\r\n\r\n";
-        let mut scanner = Scanner::new(headers);
+        let mut ctx = SipParserContext::from_buff(headers);
         let mut sip_headers = Headers::new();
-        let body = sip_headers.parses_and_return_body(&mut scanner);
-        assert_eq!(body.unwrap(), None);
+
+        assert!(sip_headers.parse(&mut ctx).is_ok());
 
         assert_eq!(sip_headers.len(), 5);
     }

@@ -1,8 +1,9 @@
+use scanner::Scanner;
+
 use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
     parser::Result,
-    scanner::Scanner,
     uri::{Params, SipUri},
 };
 

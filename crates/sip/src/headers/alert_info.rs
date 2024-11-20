@@ -1,9 +1,9 @@
+use scanner::{space, until_byte, Scanner};
+
 use crate::headers::SipHeader;
-use crate::macros::until_byte;
 use crate::{
-    macros::{parse_header_param, space},
+    macros::parse_header_param,
     parser::Result,
-    scanner::Scanner,
     uri::Params,
 };
 use std::str;

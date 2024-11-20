@@ -1,7 +1,9 @@
 use std::str;
 
+use scanner::Scanner;
+
 use crate::headers::accept_language::is_lang;
-use crate::{macros::parse_header_list, parser::Result, scanner::Scanner};
+use crate::{macros::parse_header_list, parser::Result};
 
 use crate::headers::SipHeader;
 

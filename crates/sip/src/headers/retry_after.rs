@@ -1,10 +1,13 @@
 use std::str;
 use std::u32;
 
+use scanner::space;
+use scanner::until_byte;
+use scanner::Scanner;
+
 use crate::{
-    macros::{parse_header_param, space, until_byte},
+    macros::parse_header_param,
     parser::Result,
-    scanner::Scanner,
     uri::Params,
 };
 

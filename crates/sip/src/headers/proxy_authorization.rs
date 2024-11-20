@@ -1,6 +1,7 @@
+use scanner::Scanner;
+
 use crate::{
-    auth::credential::Credential, headers::SipHeader, parser::Result,
-    scanner::Scanner,
+    auth::Credential, headers::SipHeader, parser::Result
 };
 
 /// The `Proxy-Authorization` SIP header.
@@ -30,12 +31,12 @@ mod tests {
         let mut scanner = Scanner::new(src);
         let proxy_auth = ProxyAuthorization::parse(&mut scanner).unwrap();
 
-        assert_matches!(proxy_auth.0, Credential::Digest(digest) => {
-            assert_eq!(digest.username, Some("Alice"));
-            assert_eq!(digest.realm, Some("atlanta.com"));
-            assert_eq!(digest.nonce, Some("c60f3082ee1212b402a21831ae"));
+        assert_matches!(proxy_auth.0, Credential::Digest { realm, username, nonce, response, .. } => {
+            assert_eq!(username, Some("Alice"));
+            assert_eq!(realm, Some("atlanta.com"));
+            assert_eq!(nonce, Some("c60f3082ee1212b402a21831ae"));
             assert_eq!(
-                digest.response,
+                response,
                 Some("245f23415f11432b3434341c022")
             );
         });

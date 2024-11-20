@@ -1,13 +1,13 @@
 use std::str;
 
+use scanner::{util::is_newline, Scanner};
+
 use crate::{
     headers::{self, Q_PARAM},
     macros::{parse_header_list, parse_header_param},
     parser::Result,
-    scanner::Scanner,
     token::Token,
     uri::Params,
-    util::is_newline,
 };
 
 use crate::headers::SipHeader;

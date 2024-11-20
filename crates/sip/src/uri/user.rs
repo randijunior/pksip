@@ -1,6 +1,8 @@
 use std::str;
 
-use crate::{macros::read_while, parser::SipParserError, scanner::Scanner};
+use scanner::{read_while, Scanner};
+
+use crate::parser::SipParserError;
 
 use super::{is_pass, is_user};
 #[derive(Debug)]
