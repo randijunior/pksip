@@ -11,7 +11,7 @@ mod response;
 
 use std::str;
 
-use crate::headers::Headers;
+use crate::headers::{Header, Headers};
 
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),
@@ -21,16 +21,26 @@ pub enum SipMessage<'a> {
 impl<'a> SipMessage<'a> {
     pub fn headers(&self) -> &Headers<'a> {
         match self {
-            SipMessage::Request(sip_request) => &sip_request.headers,
-            SipMessage::Response(sip_response) => &sip_response.headers,
+            SipMessage::Request(req) => &req.headers,
+            SipMessage::Response(res) => &res.headers,
+        }
+    }
+    pub fn headers_mut(&mut self) -> &mut Headers<'a> {
+        match self {
+            SipMessage::Request(req) => &mut req.headers,
+            SipMessage::Response(res) => &mut res.headers,
         }
     }
 
-    pub fn body(&self) -> Option<&'a [u8]> {
+    pub fn set_body(&mut self, body: Option<&'a [u8]>) {
         match self {
-            SipMessage::Request(sip_request) => sip_request.body,
-            SipMessage::Response(sip_response) => sip_response.body,
+            SipMessage::Request(req) => req.body = body,
+            SipMessage::Response(res) => res.body = body,
         }
+    }
+
+    pub fn push_header(&mut self, header: Header<'a>) {
+        self.headers_mut().push(header);
     }
 }
 
