@@ -4,7 +4,7 @@ use scanner::{digits, newline, space, until_newline, Scanner};
 
 use crate::{
     headers::Headers,
-    parser::{self, SipParser, error::SipParserError},
+    parser::{self, SipParser, SipParserError},
 };
 
 use super::SipStatusCode;

@@ -82,7 +82,7 @@ pub use reply_to::ReplyTo;
 pub use require::Require;
 pub use retry_after::RetryAfter;
 pub use route::Route;
-use scanner::Scanner;
+use scanner::{space, Scanner};
 pub use server::Server;
 pub use subject::Subject;
 pub use supported::Supported;
@@ -125,13 +125,13 @@ fn parse_q(param: &str) -> Option<Q> {
     }
 }
 
-// Parses a `name=value` parameter in a SIP message.
 pub(crate) fn parse_header_param<'a>(
     scanner: &mut Scanner<'a>,
 ) -> Result<Param<'a>> {
     unsafe { parse_param_sip(scanner, Token::is_token) }
 }
 
+// Parses a `name=value` parameter in a SIP message.
 pub(crate) unsafe fn parse_param_sip<'a, F>(
     scanner: &mut Scanner<'a>,
     func: F,
@@ -139,7 +139,7 @@ pub(crate) unsafe fn parse_param_sip<'a, F>(
 where
     F: Fn(&u8) -> bool,
 {
-    scanner::space!(scanner);
+    space!(scanner);
     let name = unsafe { scanner.read_and_convert_to_str(&func) };
     let Some(&b'=') = scanner.peek() else {
         return Ok((name, None));
@@ -395,7 +395,7 @@ impl<'a> Headers<'a> {
             if scanner.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
             }
-            scanner::space!(scanner);
+            space!(scanner);
 
             match name {
                 error_info if ErrorInfo::match_name(error_info) => {

@@ -8,7 +8,7 @@ pub mod util;
 
 use crate::util::is_digit;
 
-type Result<'a, T> = std::result::Result<T, ScannerError<'a>>;
+type Result<'a, T> = std::result::Result<T, Error<'a>>;
 
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -23,7 +23,7 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ScannerError<'a> {
+pub struct Error<'a> {
     pub kind: ErrorKind,
     pub line: usize,
     pub col: usize,
@@ -234,7 +234,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn error<T>(&self, kind: ErrorKind) -> Result<T> {
-        Err(ScannerError {
+        Err(Error {
             kind,
             line: self.line,
             col: self.col,

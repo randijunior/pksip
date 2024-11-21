@@ -1,11 +1,12 @@
 //! SIP Parser
 
-use error::SipParserError;
+
+use std::str::Utf8Error;
+
 use scanner::peek_while;
 use scanner::util::is_alphabetic;
 use scanner::Scanner;
 
-pub mod error;
 
 use crate::macros::sip_parse_error;
 use crate::uri::SIP;
@@ -63,7 +64,6 @@ impl SipParser {
     /// Parse a buff of bytes into sip message
     pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
         let mut ctx = SipParserContext::from_bytes(buff);
-
         if Self::is_sip_version(&ctx) {
             let status_line = StatusLine::parse(&mut ctx.scanner)?;
             let headers = Self::parse_headers(&mut ctx)?;
@@ -113,11 +113,61 @@ impl SipParser {
 
     fn parse_body<'a>(ctx: &mut SipParserContext<'a>) -> Option<&'a [u8]> {
         ctx.state = ParserState::Body;
-        if ctx.should_parse_body {
-            let idx = ctx.scanner.idx();
-            Some(&ctx.scanner.src[idx..])
-        } else {
-            None
+
+        if !ctx.should_parse_body { 
+            return None;
+        }
+        let idx = ctx.scanner.idx();
+        Some(&ctx.scanner.src[idx..])
+    }
+}
+
+
+/// Error on parsing
+#[derive(Debug)]
+pub struct SipParserError {
+    /// Message in error
+    pub message: String,
+}
+
+#[allow(missing_docs)]
+impl SipParserError {
+    pub fn new(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl From<&str> for SipParserError {
+    fn from(value: &str) -> Self {
+        Self::new(value.to_string())
+    }
+}
+
+impl From<String> for SipParserError {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<Utf8Error> for SipParserError {
+    fn from(value: Utf8Error) -> Self {
+        SipParserError {
+            message: format!("{:#?}", value),
+        }
+    }
+}
+
+impl<'a> From<scanner::Error<'a>> for SipParserError {
+    fn from(err: scanner::Error) -> Self {
+        SipParserError {
+            message: format!(
+                "Failed to parse at line:{} column:{} kind:{:?}
+                {}",
+                err.line,
+                err.col,
+                err.kind,
+                String::from_utf8_lossy(err.src)
+            ),
         }
     }
 }
@@ -217,10 +267,7 @@ mod tests {
                     host: "registrar.biloxi.com",
                     port: None
             },
-            user: None,
-            header_params: None,
-            params: None,
-            other_params: None
+            ..Default::default()
         }
     }
 

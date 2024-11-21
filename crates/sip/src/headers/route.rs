@@ -53,7 +53,7 @@ mod tests {
                 port: None
             }
         );
-        assert!(r.addr.uri.params.is_some());
+        assert!(r.addr.uri.lr_param.is_some());
 
         let src = b"<sip:server10.biloxi.com;lr>;foo=bar\r\n";
         let mut scanner = Scanner::new(src);

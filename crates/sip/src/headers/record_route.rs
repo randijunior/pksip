@@ -50,7 +50,7 @@ mod tests {
                 port: None
             }
         );
-        assert!(rr.addr.uri.params.is_some());
+        assert!(rr.addr.uri.lr_param.is_some());
 
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>;foo=bar\r\n";
         let mut scanner = Scanner::new(src);

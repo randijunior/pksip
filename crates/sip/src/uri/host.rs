@@ -1,13 +1,11 @@
+use std::net::Ipv4Addr;
 use std::str;
 use std::{net::IpAddr, str::FromStr};
 
 use scanner::util::is_valid_port;
 use scanner::{until_byte, Scanner};
 
-use crate::{
-    macros::sip_parse_error,
-    parser::Result,
-};
+use crate::{macros::sip_parse_error, parser::Result};
 
 use super::is_host;
 
@@ -15,6 +13,15 @@ use super::is_host;
 pub enum HostPort<'a> {
     DomainName { host: &'a str, port: Option<u16> },
     IpAddr { host: IpAddr, port: Option<u16> },
+}
+
+impl Default for HostPort<'_> {
+    fn default() -> Self {
+        Self::IpAddr {
+            host: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            port: None,
+        }
+    }
 }
 
 impl<'a> HostPort<'a> {

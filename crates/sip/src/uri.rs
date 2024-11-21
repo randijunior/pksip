@@ -83,7 +83,9 @@ pub(crate) fn is_uri(b: &u8) -> bool {
 }
 
 fn parse_uri_param<'a>(scanner: &mut Scanner<'a>) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(scanner, is_param) }
+    let (name, value) = unsafe { parse_param_sip(scanner, is_param)? };
+
+    Ok((name, Some(value.unwrap_or(""))))
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -107,14 +109,19 @@ impl<'a> SipUri<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Uri<'a> {
     pub(crate) scheme: Scheme,
     pub(crate) user: Option<UserInfo<'a>>,
     pub(crate) host: HostPort<'a>,
-    pub(crate) params: Option<UriParams<'a>>,
-    pub(crate) other_params: Option<Params<'a>>,
-    pub(crate) header_params: Option<Params<'a>>,
+    pub(crate) user_param: Option<&'a str>,
+    pub(crate) method_param: Option<&'a str>,
+    pub(crate) transport_param: Option<&'a str>,
+    pub(crate) ttl_param: Option<&'a str>,
+    pub(crate) lr_param: Option<&'a str>,
+    pub(crate) maddr_param: Option<&'a str>,
+    pub(crate) params: Option<Params<'a>>,
+    pub(crate) hdr_params: Option<Params<'a>>,
 }
 
 impl<'a> Uri<'a> {
@@ -134,50 +141,29 @@ impl<'a> Uri<'a> {
                 scheme,
                 user,
                 host,
-                params: None,
-                other_params: None,
-                header_params: None,
+                ..Default::default()
             });
         }
 
         let mut user_param = None;
-        let mut method = None;
-        let mut transport = None;
-        let mut ttl = None;
-        let mut lr = None;
-        let mut maddr = None;
+        let mut method_param = None;
+        let mut transport_param = None;
+        let mut ttl_param = None;
+        let mut lr_param = None;
+        let mut maddr_param = None;
 
-        let others = parse_param!(
+        let params = parse_param!(
             scanner,
             parse_uri_param,
             USER_PARAM = user_param,
-            METHOD_PARAM = method,
-            TRANSPORT_PARAM = transport,
-            TTL_PARAM = ttl,
-            LR_PARAM = lr,
-            MADDR_PARAM = maddr
+            METHOD_PARAM = method_param,
+            TRANSPORT_PARAM = transport_param,
+            TTL_PARAM = ttl_param,
+            LR_PARAM = lr_param,
+            MADDR_PARAM = maddr_param
         );
 
-        let uri_params = if user_param.is_some()
-            || method.is_some()
-            || transport.is_some()
-            || ttl.is_some()
-            || lr.is_some()
-            || maddr.is_some()
-        {
-            Some(UriParams {
-                user: user_param,
-                method,
-                transport,
-                ttl,
-                lr,
-                maddr,
-            })
-        } else {
-            None
-        };
-
-        let mut header_params = None;
+        let mut hdr_params = None;
         if scanner.peek() == Some(&b'?') {
             let mut params = Params::new();
             loop {
@@ -191,28 +177,23 @@ impl<'a> Uri<'a> {
                 }
             }
 
-            header_params = Some(params)
+            hdr_params = Some(params)
         }
 
         Ok(Uri {
             scheme,
             user,
             host,
-            params: uri_params,
-            other_params: others,
-            header_params,
+            user_param,
+            method_param,
+            transport_param,
+            ttl_param,
+            lr_param,
+            maddr_param,
+            params,
+            hdr_params,
         })
     }
-}
-
-#[derive(Default, Debug, PartialEq, Eq)]
-pub struct UriParams<'a> {
-    pub(crate) user: Option<&'a str>,
-    pub(crate) method: Option<&'a str>,
-    pub(crate) transport: Option<&'a str>,
-    pub(crate) ttl: Option<&'a str>,
-    pub(crate) lr: Option<&'a str>,
-    pub(crate) maddr: Option<&'a str>,
 }
 
 // SIP name-addr, which typically appear in From, To, and Contact header.
