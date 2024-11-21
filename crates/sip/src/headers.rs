@@ -379,11 +379,9 @@ impl<'a> Headers<'a> {
         self.0.get(index)
     }
 
-    /// Parse all the sip headers in the buffer of scanner.
+    /// Parse all the sip headers.
     ///
-    /// Each parsed header will be pushed into the internal header list. The return value
-    /// will be the body of the message in bytes if the [`Header::ContentType`]
-    /// is found.
+    /// Each parsed header will be pushed into the internal header list.
     pub(crate) fn parse(
         &mut self,
         ctx: &mut SipParserContext<'a>
