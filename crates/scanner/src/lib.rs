@@ -161,7 +161,7 @@ impl<'a> Scanner<'a> {
     /// # Safety
     ///
     /// Caller must ensures that `func` valid that bytes are valid UTF-8.
-    pub unsafe fn read_and_convert_to_str<F>(&mut self, func: F) -> &'a str
+    pub unsafe fn read_and_convert_to_str_while<F>(&mut self, func: F) -> &'a str
     where
         F: Fn(&u8) -> bool,
     {

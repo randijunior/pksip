@@ -15,7 +15,7 @@ impl<'a> Token {
     #[inline]
     pub(crate) fn parse(scanner: &mut Scanner<'a>) -> &'a str {
         // is_token ensures that is valid UTF-8
-        unsafe { scanner.read_and_convert_to_str(Self::is_token) }
+        unsafe { scanner.read_and_convert_to_str_while(Self::is_token) }
     }
 
     #[inline(always)]

@@ -140,7 +140,7 @@ where
     F: Fn(&u8) -> bool,
 {
     space!(scanner);
-    let name = unsafe { scanner.read_and_convert_to_str(&func) };
+    let name = unsafe { scanner.read_and_convert_to_str_while(&func) };
     let Some(&b'=') = scanner.peek() else {
         return Ok((name, None));
     };
@@ -152,7 +152,7 @@ where
 
         str::from_utf8(value)?
     } else {
-        unsafe { scanner.read_and_convert_to_str(func) }
+        unsafe { scanner.read_and_convert_to_str_while(func) }
     };
 
     Ok((name, Some(value)))

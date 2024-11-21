@@ -1,9 +1,8 @@
 use std::str;
 
-use scanner::{read_while, Scanner};
+use scanner::Scanner;
 
 use crate::parser::SipParserError;
-
 
 use super::{is_pass, is_user};
 #[derive(Debug, PartialEq, Eq)]
@@ -13,33 +12,22 @@ pub struct UserInfo<'a> {
 }
 
 impl<'a> UserInfo<'a> {
-    fn has_user(scanner: &Scanner) -> bool {
-        let mut matched = None;
-        for &byte in scanner.as_ref().iter() {
-            if matches!(byte, b'@' | b' ' | b'\n' | b'>') {
-                matched = Some(byte);
-                break;
-            }
-        }
-        matched == Some(b'@')
-    }
-
     pub(crate) fn parse(
         scanner: &mut Scanner<'a>,
     ) -> Result<Option<Self>, SipParserError> {
-        if !Self::has_user(scanner) {
+        let haystack = scanner.as_ref();
+        let p = memchr::memchr3(b'@', b'\n', b'>', haystack);
+        if !p.is_some_and(|b| haystack[b] == b'@') {
             return Ok(None);
         }
-        let b = read_while!(scanner, is_user);
-        let user = str::from_utf8(b)?;
+        let user = unsafe { scanner.read_and_convert_to_str_while(is_user) };
         let mut user = UserInfo {
             user,
             password: None,
         };
 
         if scanner.next() == Some(&b':') {
-            let b = read_while!(scanner, is_pass);
-            let b = str::from_utf8(b)?;
+            let b = unsafe { scanner.read_and_convert_to_str_while(is_pass) };
             scanner.next();
             user.password = Some(b);
         }

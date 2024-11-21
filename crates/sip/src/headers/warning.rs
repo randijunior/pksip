@@ -25,7 +25,7 @@ impl<'a> SipHeader<'a> for Warning<'a> {
     fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
         let code = scanner.read_num()?;
         space!(scanner);
-        let host = unsafe { scanner.read_and_convert_to_str(is_host) };
+        let host = unsafe { scanner.read_and_convert_to_str_while(is_host) };
         space!(scanner);
         let Some(&b'"') = scanner.peek() else {
             return sip_parse_error!("invalid warning header!");

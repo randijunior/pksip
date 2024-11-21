@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 scanner = { path = "../scanner" }
+memchr = { version = "2", default-features = false }
 
 
 [dev-dependencies]

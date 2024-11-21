@@ -46,7 +46,7 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<AcceptLanguage<'a>> {
         let languages = parse_header_list!(scanner => {
-            let language = unsafe { scanner.read_and_convert_to_str(is_lang) };
+            let language = unsafe { scanner.read_and_convert_to_str_while(is_lang) };
             let mut q_param = None;
             let param = parse_header_param!(scanner, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));
