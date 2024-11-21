@@ -20,18 +20,14 @@ impl<'a> UserInfo<'a> {
         if !p.is_some_and(|b| haystack[b] == b'@') {
             return Ok(None);
         }
-        let user = unsafe { scanner.read_and_convert_to_str_while(is_user) };
-        let mut user = UserInfo {
-            user,
-            password: None,
-        };
-
+        let user = unsafe { scanner.read_while_as_str(is_user) };
+        let mut password = None;
         if scanner.next() == Some(&b':') {
-            let b = unsafe { scanner.read_and_convert_to_str_while(is_pass) };
+            let b = unsafe { scanner.read_while_as_str(is_pass) };
             scanner.next();
-            user.password = Some(b);
+            password = Some(b);
         }
 
-        Ok(Some(user))
+        Ok(Some(UserInfo { user, password }))
     }
 }

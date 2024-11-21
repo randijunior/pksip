@@ -70,7 +70,7 @@ impl<'a> HostPort<'a> {
             return Self::parse_ipv6(scanner);
         }
 
-        let host = unsafe { scanner.read_and_convert_to_str_while(is_host) };
+        let host = unsafe { scanner.read_while_as_str(is_host) };
         match IpAddr::from_str(host) {
             Ok(addr) => Self::with_addr(addr, scanner),
             Err(_) => Self::with_domain(host, scanner),

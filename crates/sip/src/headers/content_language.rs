@@ -18,7 +18,7 @@ impl<'a> SipHeader<'a> for ContentLanguage<'a> {
 
     fn parse(scanner: &mut Scanner<'a>) -> Result<ContentLanguage<'a>> {
         let languages = parse_header_list!(scanner => unsafe {
-            scanner.read_and_convert_to_str_while(is_lang)
+            scanner.read_while_as_str(is_lang)
         });
 
         Ok(ContentLanguage(languages))

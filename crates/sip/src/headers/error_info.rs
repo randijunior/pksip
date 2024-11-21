@@ -31,7 +31,7 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
             scanner.must_read(b'<')?;
             let scheme = Token::parse(scanner);
             scanner.must_read(b':')?;
-            let content = unsafe { scanner.read_and_convert_to_str_while(is_uri) };
+            let content = unsafe { scanner.read_while_as_str(is_uri) };
             // must be an '>'
             scanner.must_read(b'>')?;
             let params = parse_header_param!(scanner);
