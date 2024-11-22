@@ -1,14 +1,21 @@
 use std::ops::Range;
 use std::str;
 
-
 pub mod macros;
 pub mod util;
-
 
 use crate::util::is_digit;
 
 type Result<'a, T> = std::result::Result<T, Error<'a>>;
+
+#[derive(Debug)]
+pub struct Position {
+    /// Current line.
+    line: usize,
+    /// Current column.
+    col: usize,
+}
+
 
 /// Reading byte slice while keep the line and column.
 #[derive(Debug)]
@@ -19,10 +26,8 @@ pub struct Reader<'a> {
     finished: bool,
     /// Total length of the input slice.
     len: usize,
-    /// Current line.
-    line: usize,
-    /// Current column.
-    col: usize,
+    /// Current position
+    pos: Position,
     /// Current index.
     idx: usize,
 }
@@ -36,8 +41,7 @@ impl<'a> Reader<'a> {
             src,
             len: src.len(),
             finished: false,
-            line: 1,
-            col: 1,
+            pos: Position { line: 1, col: 1 },
             idx: 0,
         }
     }
@@ -203,10 +207,10 @@ impl<'a> Reader<'a> {
     fn advance(&mut self) -> &'a u8 {
         let byte = &self.src[self.idx];
         if byte == &b'\n' {
-            self.col = 1;
-            self.line += 1;
+            self.pos.col = 1;
+            self.pos.line += 1;
         } else {
-            self.col += 1;
+            self.pos.col += 1;
         }
         self.idx += 1;
 
@@ -216,8 +220,8 @@ impl<'a> Reader<'a> {
     fn error<T>(&self, kind: ErrorKind) -> Result<T> {
         Err(Error {
             kind,
-            line: self.line,
-            col: self.col,
+            line: self.pos.line,
+            col: self.pos.col,
             src: self.src,
         })
     }
@@ -302,8 +306,8 @@ mod tests {
         let range = reader.read_while(is_newline);
         assert_eq!(&src[range], "\r\n".as_bytes());
 
-        assert_eq!(reader.line, 2);
-        assert_eq!(reader.col, 1);
+        assert_eq!(reader.pos.line, 2);
+        assert_eq!(reader.pos.col, 1);
     }
 
     #[test]
