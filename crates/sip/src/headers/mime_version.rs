@@ -16,7 +16,7 @@ impl<'a> SipHeader<'a> for MimeVersion<'a> {
     const NAME: &'static str = "MIME-Version";
 
     fn parse(reader: &mut Reader<'a>) -> Result<MimeVersion<'a>> {
-        let expires = reader.scan_number_as_str();
+        let expires = reader.read_number_as_str();
 
         Ok(MimeVersion(expires))
     }

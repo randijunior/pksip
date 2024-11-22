@@ -16,7 +16,6 @@ pub struct Position {
     col: usize,
 }
 
-
 /// Reading byte slice while keep the line and column.
 #[derive(Debug)]
 pub struct Reader<'a> {
@@ -171,10 +170,10 @@ impl<'a> Reader<'a> {
         }
     }
 
-    pub fn scan_number_as_str(&mut self) -> &'a str {
+    pub fn read_number_as_str(&mut self) -> &'a str {
         let mut range = self.read_while(is_digit);
 
-        if let Some(&b'.') = self.peek() {
+        while let Some(&b'.') = self.peek() {
             self.next();
             range.end = self.read_while(is_digit).end;
         }

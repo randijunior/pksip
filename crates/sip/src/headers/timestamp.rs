@@ -22,12 +22,12 @@ impl<'a> SipHeader<'a> for Timestamp<'a> {
     const NAME: &'static str = "Timestamp";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let time = reader.scan_number_as_str();
+        let time = reader.read_number_as_str();
         space!(reader);
         let has_delay = reader.peek().is_some_and(|b| !is_newline(b));
 
         let delay = if has_delay {
-            Some(reader.scan_number_as_str())
+            Some(reader.read_number_as_str())
         } else {
             None
         };
