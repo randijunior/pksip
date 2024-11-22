@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{auth::Challenge, parser::Result};
 
@@ -13,8 +13,8 @@ pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
     const NAME: &'static str = "Proxy-Authenticate";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let challenge = Challenge::parse(scanner)?;
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let challenge = Challenge::parse(reader)?;
 
         Ok(ProxyAuthenticate(challenge))
     }
@@ -30,8 +30,8 @@ mod tests {
         domain=\"sip:ss1.carrier.com\", qop=\"auth\", \
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\", \
         opaque=\"\", stale=FALSE, algorithm=MD5\r\n";
-        let mut scanner = Scanner::new(src);
-        let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let proxy_auth = ProxyAuthenticate::parse(&mut reader).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest { realm, domain, nonce, opaque, stale, algorithm, qop, .. } => {
             assert_eq!(realm, Some("atlanta.com"));

@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
@@ -25,11 +25,11 @@ pub struct AuthenticationInfo<'a> {
 impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     const NAME: &'static str = "Authentication-Info";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<AuthenticationInfo<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<AuthenticationInfo<'a>> {
         let mut auth_info = AuthenticationInfo::default();
 
-        parse_comma_separated!(scanner => {
-            let (name, value) = super::parse_header_param(scanner)?;
+        parse_comma_separated!(reader => {
+            let (name, value) = super::parse_header_param(reader)?;
             match name {
                 NEXTNONCE => auth_info.nextnonce = value,
                 QOP => auth_info.qop = value,
@@ -51,20 +51,20 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"nextnonce=\"47364c23432d2e131a5fb210812c\"\r\n";
-        let mut scanner = Scanner::new(src);
-        let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let auth_info = AuthenticationInfo::parse(&mut reader).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(auth_info.nextnonce, Some("47364c23432d2e131a5fb210812c"));
 
         let src = b"nextnonce=\"5ccc069c403ebaf9f0171e9517f40e41\", \
         cnonce=\"0a4f113b\", nc=00000001, \
         qop=\"auth\", \
         rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
-        let mut scanner = Scanner::new(src);
-        let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let auth_info = AuthenticationInfo::parse(&mut reader).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(
             auth_info.nextnonce,
             Some("5ccc069c403ebaf9f0171e9517f40e41")

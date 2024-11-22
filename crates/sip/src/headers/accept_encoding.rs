@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::{util::is_newline, Scanner};
+use reader::{util::is_newline, Reader};
 
 use crate::{
     headers::{self, Q_PARAM},
@@ -41,14 +41,14 @@ impl<'a> AcceptEncoding<'a> {
 impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
     const NAME: &'static str = "Accept-Encoding";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<AcceptEncoding<'a>> {
-        if scanner.peek().is_some_and(|b| is_newline(b)) {
+    fn parse(reader: &mut Reader<'a>) -> Result<AcceptEncoding<'a>> {
+        if reader.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }
-        let codings = parse_header_list!(scanner => {
-            let coding = Token::parse(scanner);
+        let codings = parse_header_list!(reader => {
+            let coding = Token::parse(reader);
             let mut q_param = None;
-            let param = parse_header_param!(scanner, Q_PARAM = q_param);
+            let param = parse_header_param!(reader, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));
 
             Coding { coding, q, param }
@@ -65,12 +65,12 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"compress, gzip\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_encoding = AcceptEncoding::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let accept_encoding = AcceptEncoding::parse(&mut reader);
         let accept_encoding = accept_encoding.unwrap();
 
         assert!(accept_encoding.len() == 2);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "compress");
@@ -80,23 +80,23 @@ mod tests {
         assert_eq!(coding.coding, "gzip");
         assert_eq!(coding.q, None);
 
-        let mut scanner = Scanner::new(b"*\r\n");
-        let accept_encoding = AcceptEncoding::parse(&mut scanner);
+        let mut reader = Reader::new(b"*\r\n");
+        let accept_encoding = AcceptEncoding::parse(&mut reader);
         let accept_encoding = accept_encoding.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "*");
         assert_eq!(coding.q, None);
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
-        let mut scanner = Scanner::new(src);
-        let accept_encoding = AcceptEncoding::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let accept_encoding = AcceptEncoding::parse(&mut reader);
         let accept_encoding = accept_encoding.unwrap();
 
         assert!(accept_encoding.len() == 3);
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
         assert_eq!(coding.coding, "gzip");

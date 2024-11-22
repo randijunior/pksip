@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     macros::{parse_header_param, sip_parse_error},
@@ -21,9 +21,9 @@ pub struct Route<'a> {
 impl<'a> SipHeader<'a> for Route<'a> {
     const NAME: &'static str = "Route";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        if let SipUri::NameAddr(addr) = SipUri::parse(scanner)? {
-            let param = parse_header_param!(scanner);
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        if let SipUri::NameAddr(addr) = SipUri::parse(reader)? {
+            let param = parse_header_param!(reader);
             Ok(Route { addr, param })
         } else {
             sip_parse_error!("Invalid Route Header!")
@@ -40,8 +40,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>\r\n";
-        let mut scanner = Scanner::new(src);
-        let r = Route::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let r = Route::parse(&mut reader);
         let r = r.unwrap();
 
         assert_eq!(r.addr.display, None);
@@ -56,8 +56,8 @@ mod tests {
         assert!(r.addr.uri.lr_param.is_some());
 
         let src = b"<sip:server10.biloxi.com;lr>;foo=bar\r\n";
-        let mut scanner = Scanner::new(src);
-        let r = Route::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let r = Route::parse(&mut reader);
         let r = r.unwrap();
 
         assert_eq!(r.addr.display, None);

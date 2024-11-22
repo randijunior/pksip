@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::Result;
 
@@ -17,8 +17,8 @@ pub struct Server<'a>(&'a str);
 impl<'a> SipHeader<'a> for Server<'a> {
     const NAME: &'static str = "Server";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let server = Self::parse_as_str(scanner)?;
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let server = Self::parse_as_str(reader)?;
 
         Ok(Server(server))
     }
@@ -31,11 +31,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"HomeServer v2\r\n";
-        let mut scanner = Scanner::new(src);
-        let server = Server::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let server = Server::parse(&mut reader);
         let server = server.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(server.0, "HomeServer v2");
     }
 }

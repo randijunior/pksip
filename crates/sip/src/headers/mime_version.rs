@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::Result;
 
@@ -15,8 +15,8 @@ pub struct MimeVersion<'a>(&'a str);
 impl<'a> SipHeader<'a> for MimeVersion<'a> {
     const NAME: &'static str = "MIME-Version";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<MimeVersion<'a>> {
-        let expires = scanner.scan_number_as_str();
+    fn parse(reader: &mut Reader<'a>) -> Result<MimeVersion<'a>> {
+        let expires = reader.scan_number_as_str();
 
         Ok(MimeVersion(expires))
     }
@@ -29,8 +29,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"1.0";
-        let mut scanner = Scanner::new(src);
-        let mime_version = MimeVersion::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let mime_version = MimeVersion::parse(&mut reader).unwrap();
 
         assert_eq!(mime_version.0, "1.0");
     }

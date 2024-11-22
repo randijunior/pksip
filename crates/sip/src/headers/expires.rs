@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::Result;
 
@@ -21,8 +21,8 @@ impl Expires {
 impl<'a> SipHeader<'a> for Expires {
     const NAME: &'static str = "Expires";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Expires> {
-        let expires = scanner.read_num()?;
+    fn parse(reader: &mut Reader<'a>) -> Result<Expires> {
+        let expires = reader.read_num()?;
 
         Ok(Expires(expires))
     }
@@ -35,9 +35,9 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"5\r\n";
-        let mut scanner = Scanner::new(src);
-        let expires = Expires::parse(&mut scanner).unwrap();
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        let mut reader = Reader::new(src);
+        let expires = Expires::parse(&mut reader).unwrap();
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(expires.0, 5);
     }
 }

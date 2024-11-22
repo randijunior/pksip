@@ -1,4 +1,4 @@
-use scanner::{until_byte, Scanner};
+use reader::{until_byte, Reader};
 
 use crate::{
     macros::sip_parse_error,
@@ -15,8 +15,8 @@ pub enum Scheme {
 }
 
 impl Scheme {
-    pub(crate) fn parse(scanner: &mut Scanner) -> Result<Self> {
-        match until_byte!(scanner, &b':') {
+    pub(crate) fn parse(reader: &mut Reader) -> Result<Self> {
+        match until_byte!(reader, &b':') {
             SIP => Ok(Self::Sip),
             SIPS => Ok(Self::Sips),
             // Unsupported URI scheme

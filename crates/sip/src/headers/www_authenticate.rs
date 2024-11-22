@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     auth::Challenge, headers::SipHeader, parser::Result
@@ -15,8 +15,8 @@ pub struct WWWAuthenticate<'a>(Challenge<'a>);
 impl<'a> SipHeader<'a> for WWWAuthenticate<'a> {
     const NAME: &'static str = "WWW-Authenticate";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let challenge = Challenge::parse(scanner)?;
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let challenge = Challenge::parse(reader)?;
 
         Ok(WWWAuthenticate(challenge))
     }
@@ -32,8 +32,8 @@ mod tests {
         domain=\"sip:boxesbybob.com\", qop=\"auth\",\
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\",\
         opaque=\"\", stale=FALSE, algorithm=MD5";
-        let mut scanner = Scanner::new(src);
-        let www_auth = WWWAuthenticate::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let www_auth = WWWAuthenticate::parse(&mut reader);
         let www_auth = www_auth.unwrap();
 
         assert_matches!(www_auth.0, Challenge::Digest { realm, domain, nonce, opaque, stale, algorithm, qop, .. } => {

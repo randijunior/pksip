@@ -16,16 +16,16 @@ macro_rules! b_map {
 }
 
 macro_rules! parse_header_param {
-    ($scanner:ident) => (
+    ($reader:ident) => (
         $crate::macros::parse_param!(
-            $scanner,
+            $reader,
             $crate::headers::parse_header_param,
         )
     );
 
-    ($scanner:ident, $($name:ident = $var:expr),*) => (
+    ($reader:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
-            $scanner,
+            $reader,
             $crate::headers::parse_header_param,
             $($name = $var),*
         )
@@ -34,27 +34,27 @@ macro_rules! parse_header_param {
 
 macro_rules! parse_param {
     (
-        $scanner:ident,
+        $reader:ident,
         $func:expr,
         $($name:ident = $var:expr),*
     ) =>  {{
-        scanner::space!($scanner);
-        match $scanner.peek() {
+        reader::space!($reader);
+        match $reader.peek() {
             Some(&b';') => {
                 let mut params = $crate::uri::Params::new();
-                while let Some(&b';') = $scanner.peek() {
+                while let Some(&b';') = $reader.peek() {
                         // take ';' character
-                        $scanner.next();
-                        let param = $func($scanner)?;
+                        $reader.next();
+                        let param = $func($reader)?;
                         $(
                             if param.0 == $name {
                                 $var = param.1;
-                                scanner::space!($scanner);
+                                reader::space!($reader);
                                 continue;
                             }
                         )*
                         params.set(param.0, param.1.unwrap_or(""));
-                        scanner::space!($scanner);
+                        reader::space!($reader);
                     }
                     if params.is_empty() {
                         None
@@ -70,9 +70,9 @@ macro_rules! parse_param {
     }
 
 macro_rules! parse_header_list {
-    ($scanner:ident => $body:expr) => {{
+    ($reader:ident => $body:expr) => {{
         let mut hdr_itens = Vec::new();
-        $crate::macros::parse_comma_separated!($scanner => {
+        $crate::macros::parse_comma_separated!($reader => {
             hdr_itens.push($body);
         });
         hdr_itens
@@ -80,13 +80,13 @@ macro_rules! parse_header_list {
 }
 
 macro_rules! parse_comma_separated {
-    ($scanner:ident => $body:expr) => {{
-        scanner::space!($scanner);
+    ($reader:ident => $body:expr) => {{
+        reader::space!($reader);
         $body
 
-        while let Some(b',') = $scanner.peek() {
-            $scanner.next();
-            scanner::space!($scanner);
+        while let Some(b',') = $reader.peek() {
+            $reader.next();
+            reader::space!($reader);
             $body
         }
     }};

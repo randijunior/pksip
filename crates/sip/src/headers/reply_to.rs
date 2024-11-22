@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     macros::parse_header_param,
@@ -20,9 +20,9 @@ pub struct ReplyTo<'a> {
 impl<'a> SipHeader<'a> for ReplyTo<'a> {
     const NAME: &'static str = "Reply-To";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let uri = SipUri::parse(scanner)?;
-        let param = parse_header_param!(scanner);
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let uri = SipUri::parse(reader)?;
+        let param = parse_header_param!(reader);
 
         Ok(ReplyTo { uri, param })
     }
@@ -37,8 +37,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>\r\n";
-        let mut scanner = Scanner::new(src);
-        let reply_to = ReplyTo::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let reply_to = ReplyTo::parse(&mut reader);
         let reply_to = reply_to.unwrap();
 
         assert_matches!(reply_to, ReplyTo {

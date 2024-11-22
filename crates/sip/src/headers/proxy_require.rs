@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::macros::parse_header_list;
 use crate::token::Token;
@@ -17,8 +17,8 @@ pub struct ProxyRequire<'a>(Vec<&'a str>);
 impl<'a> SipHeader<'a> for ProxyRequire<'a> {
     const NAME: &'static str = "Proxy-Require";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let tags = parse_header_list!(scanner => Token::parse(scanner));
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let tags = parse_header_list!(reader => Token::parse(reader));
 
         Ok(ProxyRequire(tags))
     }
@@ -31,10 +31,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"foo, bar\r\n";
-        let mut scanner = Scanner::new(src);
-        let proxy_require = ProxyRequire::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let proxy_require = ProxyRequire::parse(&mut reader).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
 
         assert_eq!(proxy_require.0.get(0), Some(&"foo"));
         assert_eq!(proxy_require.0.get(1), Some(&"bar"));

@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     headers, macros::parse_comma_separated, parser::Result,
@@ -43,9 +43,9 @@ pub enum Challenge<'a> {
 }
 
 impl<'a> Challenge<'a> {
-    ///  Use `scanner` to parse a `Challenge`.
-    pub fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let scheme = Token::parse_quoted(scanner)?;
+    ///  Use `reader` to parse a `Challenge`.
+    pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let scheme = Token::parse_quoted(reader)?;
         let mut param = Params::new();
 
         if scheme == DIGEST {
@@ -57,8 +57,8 @@ impl<'a> Challenge<'a> {
             let mut qop = None;
             let mut stale = None;
 
-            parse_comma_separated!(scanner => {
-                let (name, value) = headers::parse_header_param(scanner)?;
+            parse_comma_separated!(reader => {
+                let (name, value) = headers::parse_header_param(reader)?;
 
                 match name {
                     REALM => realm = value,
@@ -87,8 +87,8 @@ impl<'a> Challenge<'a> {
             });
         }
 
-        parse_comma_separated!(scanner => {
-            let (name, value) = headers::parse_header_param(scanner)?;
+        parse_comma_separated!(reader => {
+            let (name, value) = headers::parse_header_param(reader)?;
 
             param.set(name, value.unwrap_or(""));
 
@@ -122,9 +122,9 @@ pub enum Credential<'a> {
 }
 
 impl<'a> Credential<'a> {
-    ///  Use `scanner` to parse a `Credential`.
-    pub fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let scheme = Token::parse_quoted(scanner)?;
+    ///  Use `reader` to parse a `Credential`.
+    pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let scheme = Token::parse_quoted(reader)?;
         let mut param = Params::new();
 
         if scheme == DIGEST {
@@ -139,8 +139,8 @@ impl<'a> Credential<'a> {
             let mut qop = None;
             let mut nc = None;
 
-            parse_comma_separated!(scanner => {
-                let (name, value) = headers::parse_header_param(scanner)?;
+            parse_comma_separated!(reader => {
+                let (name, value) = headers::parse_header_param(reader)?;
 
                 match name {
                     REALM => realm = value,
@@ -175,8 +175,8 @@ impl<'a> Credential<'a> {
             });
         }
 
-        parse_comma_separated!(scanner => {
-            let (name, value) = headers::parse_header_param(scanner)?;
+        parse_comma_separated!(reader => {
+            let (name, value) = headers::parse_header_param(reader)?;
             param.set(name, value.unwrap_or(""));
 
         });

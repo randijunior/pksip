@@ -1,4 +1,4 @@
-use scanner::{alpha, space, Scanner};
+use reader::{alpha, space, Reader};
 
 use crate::{
     message::SipMethod,
@@ -27,11 +27,11 @@ impl<'a> CSeq<'a> {
 impl<'a> SipHeader<'a> for CSeq<'a> {
     const NAME: &'static str = "CSeq";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<CSeq<'a>> {
-        let cseq = scanner.read_num()?;
+    fn parse(reader: &mut Reader<'a>) -> Result<CSeq<'a>> {
+        let cseq = reader.read_num()?;
 
-        space!(scanner);
-        let b_method = alpha!(scanner);
+        space!(reader);
+        let b_method = alpha!(reader);
         let method = SipMethod::from(b_method);
 
         Ok(CSeq { cseq, method })
@@ -44,10 +44,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"4711 INVITE\r\n";
-        let mut scanner = Scanner::new(src);
-        let c_length = CSeq::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let c_length = CSeq::parse(&mut reader).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(c_length.method, SipMethod::Invite);
         assert_eq!(c_length.cseq, 4711);
     }

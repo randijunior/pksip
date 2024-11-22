@@ -1,9 +1,9 @@
 use std::str;
 use std::u32;
 
-use scanner::space;
-use scanner::until_byte;
-use scanner::Scanner;
+use reader::space;
+use reader::until_byte;
+use reader::Reader;
 
 use crate::{
     macros::parse_header_param,
@@ -28,18 +28,18 @@ pub struct RetryAfter<'a> {
 impl<'a> SipHeader<'a> for RetryAfter<'a> {
     const NAME: &'static str = "Retry-After";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let digits = scanner.read_num()?;
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let digits = reader.read_num()?;
         let mut comment = None;
 
-        space!(scanner);
-        if let Some(&b'(') = scanner.peek() {
-            scanner.next();
-            let b = until_byte!(scanner, &b')');
-            scanner.must_read(b')')?;
+        space!(reader);
+        if let Some(&b'(') = reader.peek() {
+            reader.next();
+            let b = until_byte!(reader, &b')');
+            reader.must_read(b')')?;
             comment = Some(str::from_utf8(b)?);
         }
-        let param = parse_header_param!(scanner);
+        let param = parse_header_param!(reader);
 
         Ok(RetryAfter {
             seconds: digits,
@@ -57,20 +57,20 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"18000;duration=3600\r\n";
-        let mut scanner = Scanner::new(src);
-        let retry_after = RetryAfter::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let retry_after = RetryAfter::parse(&mut reader);
         let retry_after = retry_after.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 18000);
         assert_eq!(retry_after.param.unwrap().get("duration"), Some(&"3600"));
 
         let src = b"120 (I'm in a meeting)\r\n";
-        let mut scanner = Scanner::new(src);
-        let retry_after = RetryAfter::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let retry_after = RetryAfter::parse(&mut reader);
         let retry_after = retry_after.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 120);
         assert_eq!(retry_after.comment, Some("I'm in a meeting"));
     }

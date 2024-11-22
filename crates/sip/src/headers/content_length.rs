@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::Result;
 
@@ -22,8 +22,8 @@ impl<'a> SipHeader<'a> for ContentLength {
     const NAME: &'static str = "Content-Length";
     const SHORT_NAME: Option<&'static str> = Some("l");
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<ContentLength> {
-        let l = scanner.read_num()?;
+    fn parse(reader: &mut Reader<'a>) -> Result<ContentLength> {
+        let l = reader.read_num()?;
 
         Ok(ContentLength(l))
     }
@@ -36,11 +36,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"349\r\n";
-        let mut scanner = Scanner::new(src);
-        let length = ContentLength::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let length = ContentLength::parse(&mut reader);
         let length = length.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(length.0, 349)
     }
 }

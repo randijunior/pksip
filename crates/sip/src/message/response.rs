@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::{digits, newline, space, until_newline, Scanner};
+use reader::{digits, newline, space, until_newline, Reader};
 
 use crate::{
     headers::Headers,
@@ -29,26 +29,26 @@ impl<'sl> StatusLine<'sl> {
 
 impl<'a> StatusLine<'a> {
     pub fn from_bytes(src: &'a [u8]) -> Result<StatusLine, SipParserError> {
-        let mut scanner = Scanner::new(src);
+        let mut reader = Reader::new(src);
 
-        Self::parse(&mut scanner)
+        Self::parse(&mut reader)
     }
 
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        reader: &mut Reader<'a>,
     ) -> Result<StatusLine<'a>, SipParserError> {
-        SipParser::parse_sip_v2(scanner)?;
+        SipParser::parse_sip_v2(reader)?;
 
-        space!(scanner);
-        let digits = digits!(scanner);
-        space!(scanner);
+        space!(reader);
+        let digits = digits!(reader);
+        space!(reader);
 
         let status_code = SipStatusCode::from(digits);
-        let b = until_newline!(scanner);
+        let b = until_newline!(reader);
 
         let rp = str::from_utf8(b)?;
 
-        newline!(scanner);
+        newline!(reader);
 
         Ok(StatusLine::new(status_code, rp))
     }

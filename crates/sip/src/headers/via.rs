@@ -19,8 +19,8 @@ sent-by           =  host [ COLON port ]
 ttl               =  1*3DIGIT ; 0 to 255
 */
 
-use scanner::util::is_valid_port;
-use scanner::{space, until_byte, Scanner};
+use reader::util::is_valid_port;
+use reader::{space, until_byte, Reader};
 
 use crate::headers::{parse_param_sip, SipHeader};
 use crate::macros::{b_map, parse_param};
@@ -49,8 +49,8 @@ fn is_via_param(b: &u8) -> bool {
 }
 
 // Parses a via param.
-fn parse_via_param<'a>(scanner: &mut Scanner<'a>) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(scanner, is_via_param) }
+fn parse_via_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+    unsafe { parse_param_sip(reader, is_via_param) }
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -102,25 +102,25 @@ impl<'a> SipHeader<'a> for Via<'a> {
     const NAME: &'static str = "Via";
     const SHORT_NAME: Option<&'static str> = Some("v");
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         //@TODO: handle LWS
-        SipParser::parse_sip_v2(scanner)?;
+        SipParser::parse_sip_v2(reader)?;
 
-        if scanner.next() != Some(&b'/') {
+        if reader.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let b = until_byte!(scanner, &b' ');
+        let b = until_byte!(reader, &b' ');
         let transport = Transport::from(b);
 
-        space!(scanner);
+        space!(reader);
 
-        let sent_by = HostPort::parse(scanner)?;
-        let (params, others_params) = Self::parse_params(scanner)?;
+        let sent_by = HostPort::parse(reader)?;
+        let (params, others_params) = Self::parse_params(reader)?;
 
-        let comment = if scanner.peek() == Some(&b'(') {
-            scanner.next();
-            let comment = until_byte!(scanner, &b')');
-            scanner.next();
+        let comment = if reader.peek() == Some(&b'(') {
+            reader.next();
+            let comment = until_byte!(reader, &b')');
+            reader.next();
             Some(str::from_utf8(comment)?)
         } else {
             None
@@ -138,16 +138,16 @@ impl<'a> SipHeader<'a> for Via<'a> {
 
 impl<'a> Via<'a> {
     pub(crate) fn parse_params(
-        scanner: &mut Scanner<'a>,
+        reader: &mut Reader<'a>,
     ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
-        space!(scanner);
-        if scanner.peek() != Some(&b';') {
+        space!(reader);
+        if reader.peek() != Some(&b';') {
             return Ok((None, None));
         }
         let mut params = ViaParams::default();
         let mut rport_p = None;
         let others = parse_param!(
-            scanner,
+            reader,
             parse_via_param,
             BRANCH_PARAM = params.branch,
             TTL_PARAM = params.ttl,
@@ -180,8 +180,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"SIP/2.0/UDP bobspc.biloxi.com:5060;received=192.0.2.4\r\n";
-        let mut scanner = Scanner::new(src);
-        let via = Via::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let via = Via::parse(&mut reader);
         let via = via.unwrap();
 
         assert_eq!(via.transport, Transport::UDP);
@@ -197,8 +197,8 @@ mod tests {
 
         let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
-        let mut scanner = Scanner::new(src);
-        let via = Via::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let via = Via::parse(&mut reader);
         let via = via.unwrap();
 
         assert_eq!(via.transport, Transport::UDP);

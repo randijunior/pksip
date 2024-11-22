@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::Result;
 
@@ -15,8 +15,8 @@ pub struct UserAgent<'a>(&'a str);
 impl<'a> SipHeader<'a> for UserAgent<'a> {
     const NAME: &'static str = "User-Agent";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let agent = Self::parse_as_str(scanner)?;
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let agent = Self::parse_as_str(reader)?;
 
         Ok(UserAgent(agent))
     }
@@ -29,11 +29,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Softphone Beta1.5\r\n";
-        let mut scanner = Scanner::new(src);
-        let ua = UserAgent::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let ua = UserAgent::parse(&mut reader);
         let ua = ua.unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(ua.0, "Softphone Beta1.5");
     }
 }

@@ -82,7 +82,7 @@ pub use reply_to::ReplyTo;
 pub use require::Require;
 pub use retry_after::RetryAfter;
 pub use route::Route;
-use scanner::{space, Scanner};
+use reader::{space, Reader};
 pub use server::Server;
 pub use subject::Subject;
 pub use supported::Supported;
@@ -126,33 +126,33 @@ fn parse_q(param: &str) -> Option<Q> {
 }
 
 pub(crate) fn parse_header_param<'a>(
-    scanner: &mut Scanner<'a>,
+    reader: &mut Reader<'a>,
 ) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(scanner, Token::is_token) }
+    unsafe { parse_param_sip(reader, Token::is_token) }
 }
 
 // Parses a `name=value` parameter in a SIP message.
 pub(crate) unsafe fn parse_param_sip<'a, F>(
-    scanner: &mut Scanner<'a>,
+    reader: &mut Reader<'a>,
     func: F,
 ) -> Result<Param<'a>>
 where
     F: Fn(&u8) -> bool,
 {
-    space!(scanner);
-    let name = unsafe { scanner.read_while_as_str(&func) };
-    let Some(&b'=') = scanner.peek() else {
+    space!(reader);
+    let name = unsafe { reader.read_while_as_str(&func) };
+    let Some(&b'=') = reader.peek() else {
         return Ok((name, None));
     };
-    scanner.next();
-    let value = if let Some(&b'"') = scanner.peek() {
-        scanner.next();
-        let value = scanner::until_byte!(scanner, &b'"');
-        scanner.next();
+    reader.next();
+    let value = if let Some(&b'"') = reader.peek() {
+        reader.next();
+        let value = reader::until_byte!(reader, &b'"');
+        reader.next();
 
         str::from_utf8(value)?
     } else {
-        unsafe { scanner.read_while_as_str(func) }
+        unsafe { reader.read_while_as_str(func) }
     };
 
     Ok((name, Some(value)))
@@ -167,18 +167,18 @@ pub trait SipHeader<'a>: Sized {
     /// The header short name(if exists) in bytes
     const SHORT_NAME: Option<&'static str> = None;
 
-    /// Use the `scanner` to parse into this type.
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self>;
+    /// Use the `reader` to parse into this type.
+    fn parse(reader: &mut Reader<'a>) -> Result<Self>;
 
     /// Get this type from `src`
     fn from_bytes(src: &'a [u8]) -> Result<Self> {
-        let mut scanner = Scanner::new(src);
+        let mut reader = Reader::new(src);
 
-        Self::parse(&mut scanner)
+        Self::parse(&mut reader)
     }
 
-    fn parse_as_str(scanner: &mut Scanner<'a>) -> Result<&'a str> {
-        let str = scanner::until_newline!(scanner);
+    fn parse_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
+        let str = reader::until_newline!(reader);
 
         Ok(str::from_utf8(str)?)
     }

@@ -2,7 +2,7 @@
 //!
 //! The module provide the [`SipRequest`]
 
-use scanner::{alpha, newline, space, Scanner};
+use reader::{alpha, newline, space, Reader};
 
 use crate::{
     headers::Headers,
@@ -21,23 +21,23 @@ pub struct RequestLine<'a> {
 
 impl<'a> RequestLine<'a> {
     pub fn from_bytes(src: &'a [u8]) -> Result<Self, SipParserError> {
-        let mut scanner = Scanner::new(src);
+        let mut reader = Reader::new(src);
 
-        Self::parse(&mut scanner)
+        Self::parse(&mut reader)
     }
 
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        reader: &mut Reader<'a>,
     ) -> Result<Self, SipParserError> {
-        let method = alpha!(scanner);
+        let method = alpha!(reader);
         let method = SipMethod::from(method);
 
-        space!(scanner);
-        let uri = Uri::parse(scanner, true)?;
-        space!(scanner);
+        space!(reader);
+        let uri = Uri::parse(reader, true)?;
+        space!(reader);
 
-        SipParser::parse_sip_v2(scanner)?;
-        newline!(scanner);
+        SipParser::parse_sip_v2(reader)?;
+        newline!(reader);
 
         Ok(RequestLine { method, uri })
     }

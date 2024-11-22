@@ -1,4 +1,4 @@
-use scanner::{alpha, Scanner};
+use reader::{alpha, Reader};
 
 use crate::{
     macros::parse_header_list,
@@ -26,9 +26,9 @@ impl<'a> Allow<'a> {
 impl<'a> SipHeader<'a> for Allow<'a> {
     const NAME: &'static str = "Allow";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Allow<'a>> {
-        let allow = parse_header_list!(scanner => {
-            let b_method = alpha!(scanner);
+    fn parse(reader: &mut Reader<'a>) -> Result<Allow<'a>> {
+        let allow = parse_header_list!(reader => {
+            let b_method = alpha!(reader);
 
             SipMethod::from(b_method)
         });
@@ -44,10 +44,10 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"INVITE, ACK, OPTIONS, CANCEL, BYE\r\n";
-        let mut scanner = Scanner::new(src);
-        let allow = Allow::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let allow = Allow::parse(&mut reader).unwrap();
 
-        assert_eq!(scanner.as_ref(), b"\r\n");
+        assert_eq!(reader.as_ref(), b"\r\n");
 
         assert_eq!(allow.get(0), Some(&SipMethod::Invite));
         assert_eq!(allow.get(1), Some(&SipMethod::Ack));

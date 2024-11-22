@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     macros::parse_header_param, parser::Result,token::Token,
@@ -19,9 +19,9 @@ pub struct ContentDisposition<'a> {
 impl<'a> SipHeader<'a> for ContentDisposition<'a> {
     const NAME: &'static str = "Content-Disposition";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<ContentDisposition<'a>> {
-        let _type = Token::parse(scanner);
-        let params = parse_header_param!(scanner);
+    fn parse(reader: &mut Reader<'a>) -> Result<ContentDisposition<'a>> {
+        let _type = Token::parse(reader);
+        let params = parse_header_param!(reader);
 
         Ok(ContentDisposition { _type, params })
     }
@@ -34,21 +34,21 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"session\r\n";
-        let mut scanner = Scanner::new(src);
-        let disp = ContentDisposition::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let disp = ContentDisposition::parse(&mut reader);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
 
         let src = b"session;handling=optional\r\n";
-        let mut scanner = Scanner::new(src);
-        let disp = ContentDisposition::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let disp = ContentDisposition::parse(&mut reader);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
         assert_eq!(disp.params.unwrap().get("handling"), Some(&"optional"));
 
         let src = b"attachment; filename=smime.p7s;handling=required\r\n";
-        let mut scanner = Scanner::new(src);
-        let disp = ContentDisposition::parse(&mut scanner);
+        let mut reader = Reader::new(src);
+        let disp = ContentDisposition::parse(&mut reader);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "attachment");
         let params = disp.params.unwrap();

@@ -10,29 +10,9 @@ use crate::util::is_digit;
 
 type Result<'a, T> = std::result::Result<T, Error<'a>>;
 
-/// Errors that can occur while reading the src.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ErrorKind {
-    /// End of file reached.
-    Eof,
-    Char {
-        expected: u8,
-        found: u8,
-    },
-    Num,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Error<'a> {
-    pub kind: ErrorKind,
-    pub line: usize,
-    pub col: usize,
-    pub src: &'a [u8],
-}
-
 /// Reading byte slice while keep the line and column.
 #[derive(Debug)]
-pub struct Scanner<'a> {
+pub struct Reader<'a> {
     /// The input bytes slice to be read.
     pub src: &'a [u8],
     /// Indicates if the reading is complete.
@@ -47,12 +27,12 @@ pub struct Scanner<'a> {
     idx: usize,
 }
 
-impl<'a> Scanner<'a> {
-    /// Create a `Scanner` from a byte slice.
+impl<'a> Reader<'a> {
+    /// Create a `Reader` from a byte slice.
     ///
     /// The `line` and `col` will always start from 1.
     pub fn new(src: &'a [u8]) -> Self {
-        Scanner {
+        Reader {
             src,
             len: src.len(),
             finished: false,
@@ -89,7 +69,7 @@ impl<'a> Scanner<'a> {
         Some(&self.src[self.idx])
     }
 
-    /// Same as [Scanner::peek] but will return an `Result` instead a `Option`.
+    /// Same as [Reader::peek] but will return an `Result` instead a `Option`.
     pub fn lookahead(&self) -> Result<&u8> {
         self.peek()
             .ok_or_else(|| self.error::<&u8>(ErrorKind::Eof).unwrap_err())
@@ -156,7 +136,7 @@ impl<'a> Scanner<'a> {
         Ok(())
     }
 
-    /// Same as [Scanner::read_while] but will return the slice of bytes converted to a string slice.
+    /// Same as [Reader::read_while] but will return the slice of bytes converted to a string slice.
     ///
     /// # Safety
     ///
@@ -243,13 +223,33 @@ impl<'a> Scanner<'a> {
     }
 }
 
-impl<'a> AsRef<[u8]> for Scanner<'a> {
+/// Errors that can occur while reading the src.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ErrorKind {
+    /// End of file reached.
+    Eof,
+    Char {
+        expected: u8,
+        found: u8,
+    },
+    Num,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Error<'a> {
+    pub kind: ErrorKind,
+    pub line: usize,
+    pub col: usize,
+    pub src: &'a [u8],
+}
+
+impl<'a> AsRef<[u8]> for Reader<'a> {
     fn as_ref(&self) -> &[u8] {
         &self.src[self.idx..]
     }
 }
 
-impl<'a> Iterator for Scanner<'a> {
+impl<'a> Iterator for Reader<'a> {
     type Item = &'a u8;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -273,65 +273,65 @@ mod tests {
     #[test]
     fn test_peek() {
         let src = "Hello, world!".as_bytes();
-        let scanner = Scanner::new(src);
+        let reader = Reader::new(src);
 
-        assert_eq!(scanner.peek(), Some(&b'H'));
-        assert_eq!(scanner.peek_n(6), Some("Hello,".as_bytes()));
+        assert_eq!(reader.peek(), Some(&b'H'));
+        assert_eq!(reader.peek_n(6), Some("Hello,".as_bytes()));
 
-        let range = scanner.peek_while(is_alphabetic);
+        let range = reader.peek_while(is_alphabetic);
         assert_eq!(range, "Hello".len());
     }
 
     #[test]
     fn test_read() {
         let src = "Input to\r\nread".as_bytes();
-        let mut scanner = Scanner::new(src);
+        let mut reader = Reader::new(src);
 
-        let range = scanner.read_while(|b| b == &b'I');
+        let range = reader.read_while(|b| b == &b'I');
         assert_eq!(&src[range], "I".as_bytes());
 
-        let range = scanner.read_while(is_alphabetic);
+        let range = reader.read_while(is_alphabetic);
         assert_eq!(&src[range], "nput".as_bytes());
 
-        let range = scanner.read_while(is_space);
+        let range = reader.read_while(is_space);
         assert_eq!(&src[range], " ".as_bytes());
 
-        assert_eq!(scanner.read_if(is_alphabetic), Ok(Some(&b't')));
-        assert_eq!(scanner.next(), Some(&b'o'));
+        assert_eq!(reader.read_if(is_alphabetic), Ok(Some(&b't')));
+        assert_eq!(reader.next(), Some(&b'o'));
 
-        let range = scanner.read_while(is_newline);
+        let range = reader.read_while(is_newline);
         assert_eq!(&src[range], "\r\n".as_bytes());
 
-        assert_eq!(scanner.line, 2);
-        assert_eq!(scanner.col, 1);
+        assert_eq!(reader.line, 2);
+        assert_eq!(reader.col, 1);
     }
 
     #[test]
     fn test_read_num() {
-        let mut scanner = Scanner::new("12345".as_bytes());
-        assert_eq!(scanner.read_num(), Ok(12345));
+        let mut reader = Reader::new("12345".as_bytes());
+        assert_eq!(reader.read_num(), Ok(12345));
 
-        let mut scanner = Scanner::new("NaN".as_bytes());
-        assert!(scanner.read_num::<u32>().is_err());
-        assert_eq!(scanner.as_ref(), b"NaN");
+        let mut reader = Reader::new("NaN".as_bytes());
+        assert!(reader.read_num::<u32>().is_err());
+        assert_eq!(reader.as_ref(), b"NaN");
 
-        let mut scanner = Scanner::new("9123Test".as_bytes());
-        assert_eq!(scanner.read_num(), Ok(9123));
-        assert_eq!(scanner.as_ref(), b"Test");
+        let mut reader = Reader::new("9123Test".as_bytes());
+        assert_eq!(reader.read_num(), Ok(9123));
+        assert_eq!(reader.as_ref(), b"Test");
     }
 
     #[test]
     fn test_lookahead() {
-        let mut scanner = Scanner::new("Hello".as_bytes());
+        let mut reader = Reader::new("Hello".as_bytes());
 
-        assert_eq!(scanner.lookahead(), Ok(&b'H'));
-        scanner.next();
-        assert_eq!(scanner.lookahead(), Ok(&b'e'));
-        scanner.next();
-        assert_eq!(scanner.lookahead(), Ok(&b'l'));
+        assert_eq!(reader.lookahead(), Ok(&b'H'));
+        reader.next();
+        assert_eq!(reader.lookahead(), Ok(&b'e'));
+        reader.next();
+        assert_eq!(reader.lookahead(), Ok(&b'l'));
 
-        scanner.read_while(|_| true);
+        reader.read_while(|_| true);
 
-        assert!(scanner.lookahead().is_err());
+        assert!(reader.lookahead().is_err());
     }
 }

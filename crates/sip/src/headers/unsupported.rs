@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::{
     macros::parse_header_list, parser::Result,token::Token,
@@ -17,8 +17,8 @@ pub struct Unsupported<'a>(Vec<&'a str>);
 impl<'a> SipHeader<'a> for Unsupported<'a> {
     const NAME: &'static str = "Unsupported";
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<Self> {
-        let tags = parse_header_list!(scanner => Token::parse(scanner));
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+        let tags = parse_header_list!(reader => Token::parse(reader));
 
         Ok(Unsupported(tags))
     }

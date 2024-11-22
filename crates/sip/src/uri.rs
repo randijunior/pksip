@@ -5,7 +5,7 @@ use std::str::{self};
 
 pub(crate) use crate::params::Params;
 pub(crate) use host::HostPort;
-use scanner::{space, until_byte, Scanner};
+use reader::{space, until_byte, Reader};
 pub(crate) use scheme::Scheme;
 pub(crate) use user::UserInfo;
 
@@ -82,8 +82,8 @@ pub(crate) fn is_uri(b: &u8) -> bool {
     URI_SPEC_MAP[*b as usize]
 }
 
-fn parse_uri_param<'a>(scanner: &mut Scanner<'a>) -> Result<Param<'a>> {
-    let (name, value) = unsafe { parse_param_sip(scanner, is_param)? };
+fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+    let (name, value) = unsafe { parse_param_sip(reader, is_param)? };
 
     Ok((name, Some(value.unwrap_or(""))))
 }
@@ -95,16 +95,16 @@ pub enum SipUri<'a> {
 }
 
 impl<'a> SipUri<'a> {
-    pub(crate) fn parse(scanner: &mut Scanner<'a>) -> Result<SipUri<'a>> {
-        space!(scanner);
+    pub(crate) fn parse(reader: &mut Reader<'a>) -> Result<SipUri<'a>> {
+        space!(reader);
 
-        if matches!(scanner.peek_n(3), Some(SIP) | Some(SIPS)) {
-            let uri = Uri::parse(scanner, false)?;
+        if matches!(reader.peek_n(3), Some(SIP) | Some(SIPS)) {
+            let uri = Uri::parse(reader, false)?;
 
             return Ok(SipUri::Uri(uri));
         }
 
-        let addr = NameAddr::parse(scanner)?;
+        let addr = NameAddr::parse(reader)?;
         Ok(SipUri::NameAddr(addr))
     }
 }
@@ -126,15 +126,15 @@ pub struct Uri<'a> {
 
 impl<'a> Uri<'a> {
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        reader: &mut Reader<'a>,
         parse_params: bool,
     ) -> Result<Self> {
-        let scheme = Scheme::parse(scanner)?;
+        let scheme = Scheme::parse(reader)?;
         // take ':'
-        scanner.next();
+        reader.next();
 
-        let user = UserInfo::parse(scanner)?;
-        let host = HostPort::parse(scanner)?;
+        let user = UserInfo::parse(reader)?;
+        let host = HostPort::parse(reader)?;
 
         if !parse_params {
             return Ok(Uri {
@@ -153,7 +153,7 @@ impl<'a> Uri<'a> {
         let mut maddr_param = None;
 
         let params = parse_param!(
-            scanner,
+            reader,
             parse_uri_param,
             USER_PARAM = user_param,
             METHOD_PARAM = method_param,
@@ -164,15 +164,15 @@ impl<'a> Uri<'a> {
         );
 
         let mut hdr_params = None;
-        if scanner.peek() == Some(&b'?') {
+        if reader.peek() == Some(&b'?') {
             let mut params = Params::new();
             loop {
                 // take '?' or '&'
-                scanner.next();
+                reader.next();
                 let (name, value) =
-                    unsafe { parse_param_sip(scanner, is_hdr)? };
+                    unsafe { parse_param_sip(reader, is_hdr)? };
                 params.set(name, value.unwrap_or(""));
-                if scanner.peek() != Some(&b'&') {
+                if reader.peek() != Some(&b'&') {
                     break;
                 }
             }
@@ -206,30 +206,30 @@ pub struct NameAddr<'a> {
 }
 
 impl<'a> NameAddr<'a> {
-    pub fn parse(scanner: &mut Scanner<'a>) -> Result<NameAddr<'a>> {
-        space!(scanner);
-        let display = match scanner.lookahead()? {
+    pub fn parse(reader: &mut Reader<'a>) -> Result<NameAddr<'a>> {
+        space!(reader);
+        let display = match reader.lookahead()? {
             &b'"' => {
-                scanner.next();
-                let display = until_byte!(scanner, &b'"');
-                scanner.must_read(b'"')?;
+                reader.next();
+                let display = until_byte!(reader, &b'"');
+                reader.must_read(b'"')?;
 
                 Some(str::from_utf8(display)?)
             }
             &b'<' => None,
             _ => {
-                let d = Token::parse(scanner);
-                space!(scanner);
+                let d = Token::parse(reader);
+                space!(reader);
 
                 Some(d)
             }
         };
-        space!(scanner);
+        space!(reader);
         // must be an '<'
-        scanner.must_read(b'<')?;
-        let uri = Uri::parse(scanner, true)?;
+        reader.must_read(b'<')?;
+        let uri = Uri::parse(reader, true)?;
         // must be an '>'
-        scanner.must_read(b'>')?;
+        reader.must_read(b'>')?;
 
         Ok(NameAddr { display, uri })
     }

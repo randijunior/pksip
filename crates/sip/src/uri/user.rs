@@ -1,6 +1,6 @@
 use std::str;
 
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::SipParserError;
 
@@ -13,18 +13,18 @@ pub struct UserInfo<'a> {
 
 impl<'a> UserInfo<'a> {
     pub(crate) fn parse(
-        scanner: &mut Scanner<'a>,
+        reader: &mut Reader<'a>,
     ) -> Result<Option<Self>, SipParserError> {
-        let haystack = scanner.as_ref();
+        let haystack = reader.as_ref();
         let p = memchr::memchr3(b'@', b'\n', b'>', haystack);
         if !p.is_some_and(|b| haystack[b] == b'@') {
             return Ok(None);
         }
-        let user = unsafe { scanner.read_while_as_str(is_user) };
+        let user = unsafe { reader.read_while_as_str(is_user) };
         let mut password = None;
-        if scanner.next() == Some(&b':') {
-            let b = unsafe { scanner.read_while_as_str(is_pass) };
-            scanner.next();
+        if reader.next() == Some(&b':') {
+            let b = unsafe { reader.read_while_as_str(is_pass) };
+            reader.next();
             password = Some(b);
         }
 

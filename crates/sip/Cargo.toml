@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-scanner = { path = "../scanner" }
+reader = { path = "../reader" }
 memchr = { version = "2", default-features = false }
 
 

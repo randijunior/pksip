@@ -1,4 +1,4 @@
-use scanner::Scanner;
+use reader::Reader;
 
 use crate::parser::Result;
 
@@ -31,8 +31,8 @@ impl<'a> SipHeader<'a> for CallId<'a> {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: Option<&'static str> = Some("i");
 
-    fn parse(scanner: &mut Scanner<'a>) -> Result<CallId<'a>> {
-        let id = Self::parse_as_str(scanner)?;
+    fn parse(reader: &mut Reader<'a>) -> Result<CallId<'a>> {
+        let id = Self::parse_as_str(reader)?;
 
         Ok(CallId(id))
     }
@@ -45,8 +45,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"bs9ki9iqbee8k5kal8mpqb\r\n";
-        let mut scanner = Scanner::new(src);
-        let cid = CallId::parse(&mut scanner).unwrap();
+        let mut reader = Reader::new(src);
+        let cid = CallId::parse(&mut reader).unwrap();
 
         assert_eq!(cid.id(), "bs9ki9iqbee8k5kal8mpqb");
     }
