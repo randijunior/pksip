@@ -19,24 +19,25 @@ impl Default for HostPort<'_> {
     fn default() -> Self {
         Self::IpAddr {
             host: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            port: None,
+            port: Some(5060),
         }
     }
 }
 
 impl<'a> HostPort<'a> {
-    fn with_addr(addr: IpAddr, reader: &mut Reader<'a>) -> Result<Self> {
-        Ok(Self::IpAddr {
-            host: addr,
-            port: Self::parse_port(reader)?,
-        })
+    fn with_addr(host: IpAddr, port: Option<u16>) -> Self {
+        Self::IpAddr { host, port }
     }
 
-    fn with_domain(domain: &'a str, reader: &mut Reader<'a>) -> Result<Self> {
-        Ok(Self::DomainName {
-            host: domain,
-            port: Self::parse_port(reader)?,
-        })
+    fn with_domain(host: &'a str, port: Option<u16>) -> Self {
+        Self::DomainName { host, port }
+    }
+
+    pub fn host_as_string(&self) -> String {
+        match self {
+            HostPort::DomainName { host, .. } => host.to_string(),
+            HostPort::IpAddr { host, .. } => host.to_string(),
+        }
     }
 
     fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
@@ -60,7 +61,7 @@ impl<'a> HostPort<'a> {
         reader.must_read(b']')?;
 
         match host.parse() {
-            Ok(host) => Self::with_addr(host, reader),
+            Ok(host) => Ok(Self::with_addr(host, Self::parse_port(reader)?)),
             Err(_) => sip_parse_error!("Error parsing Ipv6 HostPort!"),
         }
     }
@@ -70,10 +71,10 @@ impl<'a> HostPort<'a> {
             return Self::parse_ipv6(reader);
         }
 
-        let host = unsafe { reader.read_while_as_str(is_host) };
+        let host = unsafe { reader.read_as_str(is_host) };
         match IpAddr::from_str(host) {
-            Ok(addr) => Self::with_addr(addr, reader),
-            Err(_) => Self::with_domain(host, reader),
+            Ok(addr) => Ok(Self::with_addr(addr, Self::parse_port(reader)?)),
+            Err(_) => Ok(Self::with_domain(host, Self::parse_port(reader)?)),
         }
     }
 }

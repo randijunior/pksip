@@ -2,11 +2,7 @@ use std::str;
 
 use reader::{space, until_byte, Reader};
 
-use crate::{
-    macros::sip_parse_error,
-    parser::Result,
-    uri::is_host,
-};
+use crate::{macros::sip_parse_error, parser::Result, uri::is_host};
 
 use crate::headers::SipHeader;
 
@@ -25,7 +21,7 @@ impl<'a> SipHeader<'a> for Warning<'a> {
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let code = reader.read_num()?;
         space!(reader);
-        let host = unsafe { reader.read_while_as_str(is_host) };
+        let host = unsafe { reader.read_as_str(is_host) };
         space!(reader);
         let Some(&b'"') = reader.peek() else {
             return sip_parse_error!("invalid warning header!");

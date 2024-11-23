@@ -2,8 +2,8 @@ use std::str;
 
 use reader::Reader;
 
-use crate::token::Token;
 use crate::parser::Result;
+use crate::token::Token;
 
 use crate::headers::SipHeader;
 
@@ -17,7 +17,7 @@ impl<'a> SipHeader<'a> for Priority<'a> {
     const NAME: &'static str = "Priority";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let priority = Token::parse(reader);
+        let priority = Token::parse(reader)?;
 
         Ok(Priority(priority))
     }

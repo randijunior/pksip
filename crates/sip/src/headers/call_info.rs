@@ -1,10 +1,6 @@
 use reader::{until_byte, Reader};
 
-use crate::{
-    macros::parse_header_param,
-    parser::Result,
-    uri::Params,
-};
+use crate::{macros::parse_header_param, parser::Result, uri::Params};
 
 use crate::headers::SipHeader;
 

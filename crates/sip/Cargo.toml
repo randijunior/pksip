@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 reader = { path = "../reader" }
-memchr = { version = "2", default-features = false }
 
 
 [dev-dependencies]

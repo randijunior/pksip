@@ -1,5 +1,6 @@
 [workspace]
 members = [ "crates/reader","crates/sip"]
+resolver = "1"
 
 [workspace.dependencies]
 sip = { path = "crates/sip" }

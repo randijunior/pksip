@@ -7,8 +7,6 @@ use crate::parser::Result;
 
 use crate::headers::SipHeader;
 
-
-
 /// The `Timestamp` SIP header.
 ///
 /// Describes when the `UAC` sent the request to the `UAS`.

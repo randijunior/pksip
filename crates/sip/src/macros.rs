@@ -69,17 +69,17 @@ macro_rules! parse_param {
         }};
     }
 
-macro_rules! parse_header_list {
+macro_rules! hdr_list {
     ($reader:ident => $body:expr) => {{
         let mut hdr_itens = Vec::new();
-        $crate::macros::parse_comma_separated!($reader => {
+        $crate::macros::comma_sep!($reader => {
             hdr_itens.push($body);
         });
         hdr_itens
     }};
 }
 
-macro_rules! parse_comma_separated {
+macro_rules! comma_sep {
     ($reader:ident => $body:expr) => {{
         reader::space!($reader);
         $body
@@ -99,10 +99,9 @@ macro_rules! sip_parse_error {
 }
 
 pub(crate) use b_map;
-pub(crate) use parse_comma_separated;
-pub(crate) use parse_header_list;
+pub(crate) use comma_sep;
+pub(crate) use hdr_list;
 pub(crate) use parse_header_param;
 pub(crate) use parse_param;
 
 pub(crate) use sip_parse_error;
-

@@ -12,11 +12,11 @@ use crate::{
 
 use super::SipMethod;
 
-/// Represents an SIP Request-Line
-
+/// Represents an SIP Request-Line.
+#[derive(Debug)]
 pub struct RequestLine<'a> {
-    pub(crate) method: SipMethod<'a>,
-    pub(crate) uri: Uri<'a>,
+    pub method: SipMethod<'a>,
+    pub uri: Uri<'a>,
 }
 
 impl<'a> RequestLine<'a> {
@@ -26,7 +26,7 @@ impl<'a> RequestLine<'a> {
         Self::parse(&mut reader)
     }
 
-    pub(crate) fn parse(
+    pub fn parse(
         reader: &mut Reader<'a>,
     ) -> Result<Self, SipParserError> {
         let method = alpha!(reader);
@@ -42,11 +42,11 @@ impl<'a> RequestLine<'a> {
         Ok(RequestLine { method, uri })
     }
 }
-
+#[derive(Debug)]
 pub struct SipRequest<'a> {
-    pub(crate) req_line: RequestLine<'a>,
-    pub(crate) headers: Headers<'a>,
-    pub(crate) body: Option<&'a [u8]>,
+    pub req_line: RequestLine<'a>,
+    pub headers: Headers<'a>,
+    pub body: Option<&'a [u8]>,
 }
 
 impl<'a> SipRequest<'a> {

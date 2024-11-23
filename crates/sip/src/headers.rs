@@ -77,12 +77,12 @@ pub use priority::Priority;
 pub use proxy_authenticate::ProxyAuthenticate;
 pub use proxy_authorization::ProxyAuthorization;
 pub use proxy_require::ProxyRequire;
+use reader::{space, Reader};
 pub use record_route::RecordRoute;
 pub use reply_to::ReplyTo;
 pub use require::Require;
 pub use retry_after::RetryAfter;
 pub use route::Route;
-use reader::{space, Reader};
 pub use server::Server;
 pub use subject::Subject;
 pub use supported::Supported;
@@ -96,9 +96,7 @@ pub use www_authenticate::WWWAuthenticate;
 
 use std::str;
 
-use crate::{
-    parser::Result, token::Token, uri::Params
-};
+use crate::{parser::Result, token::Token, uri::Params};
 
 /// An Header param
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
@@ -140,7 +138,7 @@ where
     F: Fn(&u8) -> bool,
 {
     space!(reader);
-    let name = unsafe { reader.read_while_as_str(&func) };
+    let name = unsafe { reader.read_as_str(&func) };
     let Some(&b'=') = reader.peek() else {
         return Ok((name, None));
     };
@@ -152,7 +150,7 @@ where
 
         str::from_utf8(value)?
     } else {
-        unsafe { reader.read_while_as_str(func) }
+        unsafe { reader.read_as_str(func) }
     };
 
     Ok((name, Some(value)))
@@ -307,10 +305,11 @@ impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
 /// assert_eq!(headers.len(), 1);
 ///
 /// ```
+#[derive(Debug)]
 pub struct Headers<'a>(Vec<Header<'a>>);
 
 impl<'a> Headers<'a> {
-    /// Create a new empty collection of headers
+    /// Create a new empty collection of headers.
     ///
     /// # Examples
     /// ```
@@ -321,7 +320,7 @@ impl<'a> Headers<'a> {
         Self(Vec::new())
     }
 
-    /// Applies function to the headers and return the first no-none result
+    /// Applies function to the headers and return the first no-none result.
     ///
     /// # Examples
     /// ```rust
@@ -347,12 +346,12 @@ impl<'a> Headers<'a> {
         self.0.iter().find_map(f)
     }
 
-    /// Returns an iterator over headers
+    /// Returns an iterator over headers.
     pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
         self.0.iter()
     }
 
-    /// Push an new header
+    /// Push an new header.
     ///
     /// # Example
     /// ```
@@ -369,12 +368,12 @@ impl<'a> Headers<'a> {
         self.0.push(hdr);
     }
 
-    /// Returns the number of headers in the collection
+    /// Returns the number of headers in the collection.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Get an reference to an header at the index specified
+    /// Get an reference to an header at the index specified.
     pub fn get(&self, index: usize) -> Option<&Header> {
         self.0.get(index)
     }

@@ -3,7 +3,7 @@ use std::str;
 use reader::Reader;
 
 use crate::headers::accept_language::is_lang;
-use crate::{macros::parse_header_list, parser::Result};
+use crate::{macros::hdr_list, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -17,8 +17,8 @@ impl<'a> SipHeader<'a> for ContentLanguage<'a> {
     const NAME: &'static str = "Content-Language";
 
     fn parse(reader: &mut Reader<'a>) -> Result<ContentLanguage<'a>> {
-        let languages = parse_header_list!(reader => unsafe {
-            reader.read_while_as_str(is_lang)
+        let languages = hdr_list!(reader => unsafe {
+            reader.read_as_str(is_lang)
         });
 
         Ok(ContentLanguage(languages))

@@ -111,17 +111,17 @@ impl<'a> SipUri<'a> {
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct Uri<'a> {
-    pub(crate) scheme: Scheme,
-    pub(crate) user: Option<UserInfo<'a>>,
-    pub(crate) host: HostPort<'a>,
-    pub(crate) user_param: Option<&'a str>,
-    pub(crate) method_param: Option<&'a str>,
-    pub(crate) transport_param: Option<&'a str>,
-    pub(crate) ttl_param: Option<&'a str>,
-    pub(crate) lr_param: Option<&'a str>,
-    pub(crate) maddr_param: Option<&'a str>,
-    pub(crate) params: Option<Params<'a>>,
-    pub(crate) hdr_params: Option<Params<'a>>,
+    pub scheme: Scheme,
+    pub user: Option<UserInfo<'a>>,
+    pub host: HostPort<'a>,
+    pub user_param: Option<&'a str>,
+    pub method_param: Option<&'a str>,
+    pub transport_param: Option<&'a str>,
+    pub ttl_param: Option<&'a str>,
+    pub lr_param: Option<&'a str>,
+    pub maddr_param: Option<&'a str>,
+    pub params: Option<Params<'a>>,
+    pub hdr_params: Option<Params<'a>>,
 }
 
 impl<'a> Uri<'a> {
@@ -169,8 +169,7 @@ impl<'a> Uri<'a> {
             loop {
                 // take '?' or '&'
                 reader.next();
-                let (name, value) =
-                    unsafe { parse_param_sip(reader, is_hdr)? };
+                let (name, value) = unsafe { parse_param_sip(reader, is_hdr)? };
                 params.set(name, value.unwrap_or(""));
                 if reader.peek() != Some(&b'&') {
                     break;
@@ -218,7 +217,7 @@ impl<'a> NameAddr<'a> {
             }
             &b'<' => None,
             _ => {
-                let d = Token::parse(reader);
+                let d = Token::parse(reader)?;
                 space!(reader);
 
                 Some(d)

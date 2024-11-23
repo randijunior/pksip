@@ -1,9 +1,6 @@
 use reader::{alpha, space, Reader};
 
-use crate::{
-    message::SipMethod,
-    parser::Result,
-};
+use crate::{message::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 

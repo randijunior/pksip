@@ -2,7 +2,7 @@ use std::str;
 
 use reader::Reader;
 
-use crate::macros::parse_header_list;
+use crate::macros::hdr_list;
 use crate::{parser::Result, token::Token};
 
 use crate::headers::SipHeader;
@@ -18,7 +18,7 @@ impl<'a> SipHeader<'a> for Supported<'a> {
     const SHORT_NAME: Option<&'static str> = Some("k");
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let tags = parse_header_list!(reader => Token::parse(reader));
+        let tags = hdr_list!(reader => Token::parse(reader)?);
 
         Ok(Supported(tags))
     }

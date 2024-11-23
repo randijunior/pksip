@@ -2,7 +2,7 @@ use reader::{util::is_alphabetic, Reader};
 
 use crate::{
     headers::{self, Q_PARAM},
-    macros::{parse_header_list, parse_header_param},
+    macros::{hdr_list, parse_header_param},
     parser::Result,
     uri::Params,
 };
@@ -45,8 +45,8 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
     const NAME: &'static str = "Accept-Language";
 
     fn parse(reader: &mut Reader<'a>) -> Result<AcceptLanguage<'a>> {
-        let languages = parse_header_list!(reader => {
-            let language = unsafe { reader.read_while_as_str(is_lang) };
+        let languages = hdr_list!(reader => {
+            let language = unsafe { reader.read_as_str(is_lang) };
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));

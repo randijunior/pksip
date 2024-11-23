@@ -1,10 +1,6 @@
 use reader::{alpha, Reader};
 
-use crate::{
-    macros::parse_header_list,
-    message::SipMethod,
-    parser::Result,
-};
+use crate::{macros::hdr_list, message::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 /// The `Allow` SIP header
@@ -27,7 +23,7 @@ impl<'a> SipHeader<'a> for Allow<'a> {
     const NAME: &'static str = "Allow";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Allow<'a>> {
-        let allow = parse_header_list!(reader => {
+        let allow = hdr_list!(reader => {
             let b_method = alpha!(reader);
 
             SipMethod::from(b_method)

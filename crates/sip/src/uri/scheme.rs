@@ -1,9 +1,6 @@
 use reader::{until_byte, Reader};
 
-use crate::{
-    macros::sip_parse_error,
-    parser::Result,
-};
+use crate::{macros::sip_parse_error, parser::Result};
 
 use super::{SIP, SIPS};
 

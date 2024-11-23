@@ -4,7 +4,7 @@ use reader::{util::is_newline, Reader};
 
 use crate::{
     headers::{self, Q_PARAM},
-    macros::{parse_header_list, parse_header_param},
+    macros::{hdr_list, parse_header_param},
     parser::Result,
     token::Token,
     uri::Params,
@@ -45,8 +45,8 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
         if reader.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }
-        let codings = parse_header_list!(reader => {
-            let coding = Token::parse(reader);
+        let codings = hdr_list!(reader => {
+            let coding = Token::parse(reader)?;
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));

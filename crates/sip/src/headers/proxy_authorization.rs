@@ -1,8 +1,6 @@
 use reader::Reader;
 
-use crate::{
-    auth::Credential, headers::SipHeader, parser::Result
-};
+use crate::{auth::Credential, headers::SipHeader, parser::Result};
 
 /// The `Proxy-Authorization` SIP header.
 ///

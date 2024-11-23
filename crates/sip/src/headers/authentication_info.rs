@@ -2,8 +2,8 @@ use reader::Reader;
 
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
-    macros::{parse_comma_separated, sip_parse_error},
-    parser::Result
+    macros::{comma_sep, sip_parse_error},
+    parser::Result,
 };
 
 use crate::headers::SipHeader;
@@ -28,7 +28,7 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     fn parse(reader: &mut Reader<'a>) -> Result<AuthenticationInfo<'a>> {
         let mut auth_info = AuthenticationInfo::default();
 
-        parse_comma_separated!(reader => {
+        comma_sep!(reader => {
             let (name, value) = super::parse_header_param(reader)?;
             match name {
                 NEXTNONCE => auth_info.nextnonce = value,

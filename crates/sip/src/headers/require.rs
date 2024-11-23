@@ -2,9 +2,9 @@ use std::str;
 
 use reader::Reader;
 
-use crate::macros::parse_header_list;
-use crate::token::Token;
+use crate::macros::hdr_list;
 use crate::parser::Result;
+use crate::token::Token;
 
 use crate::headers::SipHeader;
 
@@ -20,7 +20,7 @@ impl<'a> SipHeader<'a> for Require<'a> {
     const NAME: &'static str = "Require";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let tags = parse_header_list!(reader => Token::parse(reader));
+        let tags = hdr_list!(reader => Token::parse(reader)?);
 
         Ok(Require(tags))
     }

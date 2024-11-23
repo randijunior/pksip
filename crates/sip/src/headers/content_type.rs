@@ -20,9 +20,9 @@ impl<'a> SipHeader<'a> for ContentType<'a> {
     const SHORT_NAME: Option<&'static str> = Some("c");
 
     fn parse(reader: &mut Reader<'a>) -> Result<ContentType<'a>> {
-        let mtype = Token::parse(reader);
+        let mtype = Token::parse(reader)?;
         reader.must_read(b'/')?;
-        let subtype = Token::parse(reader);
+        let subtype = Token::parse(reader)?;
         let param = parse_header_param!(reader);
         let media_type = MediaType::new(mtype, subtype, param);
 

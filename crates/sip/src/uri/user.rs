@@ -2,7 +2,7 @@ use std::str;
 
 use reader::Reader;
 
-use crate::parser::SipParserError;
+use crate::parser::Result;
 
 use super::{is_pass, is_user};
 #[derive(Debug, PartialEq, Eq)]
@@ -12,18 +12,27 @@ pub struct UserInfo<'a> {
 }
 
 impl<'a> UserInfo<'a> {
-    pub(crate) fn parse(
-        reader: &mut Reader<'a>,
-    ) -> Result<Option<Self>, SipParserError> {
-        let haystack = reader.as_ref();
-        let p = memchr::memchr3(b'@', b'\n', b'>', haystack);
-        if !p.is_some_and(|b| haystack[b] == b'@') {
+    fn exist_user(reader: &mut Reader<'a>) -> bool {
+        reader.peek_while(|b| !matches!(b, &b'@' | &b'\n' | &b'>' | &b' '))
+            == Some(&b'@')
+    }
+
+    fn read_user(reader: &mut Reader<'a>) -> &'a str {
+        unsafe { reader.read_as_str(is_user) }
+    }
+
+    fn read_pass(reader: &mut Reader<'a>) -> &'a str {
+        unsafe { reader.read_as_str(is_pass) }
+    }
+
+    pub(crate) fn parse(reader: &mut Reader<'a>) -> Result<Option<Self>> {
+        if !Self::exist_user(reader) {
             return Ok(None);
         }
-        let user = unsafe { reader.read_while_as_str(is_user) };
+        let user = Self::read_user(reader);
         let mut password = None;
         if reader.next() == Some(&b':') {
-            let b = unsafe { reader.read_while_as_str(is_pass) };
+            let b = Self::read_pass(reader);
             reader.next();
             password = Some(b);
         }

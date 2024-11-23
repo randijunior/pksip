@@ -88,16 +88,16 @@ impl<'a> Reader<'a> {
     ///
     /// # Returns
     ///
-    /// The number of processed elements.
-    pub fn peek_while<F>(&self, func: F) -> usize
+    /// The byte right after last peek-ed.
+    pub fn peek_while<F>(&self, func: F) -> Option<&u8>
     where
         F: Fn(&u8) -> bool,
     {
-        let iter = self.as_ref().iter();
-        let iter = iter.take_while(|&b| func(b));
-        let processed = self.idx + iter.count();
+        let src = self.as_ref();
+        let iter = src.iter().take_while(|&b| func(b));
+        let pos = iter.count();
 
-        processed
+        src.get(pos)
     }
 
     /// `read_while()` will call the `func` clousure for each element in the slice and advance
@@ -144,7 +144,7 @@ impl<'a> Reader<'a> {
     /// # Safety
     ///
     /// Caller must ensures that `func` valid that bytes are valid UTF-8.
-    pub unsafe fn read_while_as_str<F>(&mut self, func: F) -> &'a str
+    pub unsafe fn read_as_str<F>(&mut self, func: F) -> &'a str
     where
         F: Fn(&u8) -> bool,
     {
@@ -281,8 +281,8 @@ mod tests {
         assert_eq!(reader.peek(), Some(&b'H'));
         assert_eq!(reader.peek_n(6), Some("Hello,".as_bytes()));
 
-        let range = reader.peek_while(is_alphabetic);
-        assert_eq!(range, "Hello".len());
+        let b = reader.peek_while(|b| b != &b',');
+        assert_eq!(b, Some(&b','));
     }
 
     #[test]

@@ -1,8 +1,6 @@
 use reader::Reader;
 
-use crate::{
-    auth::Challenge, headers::SipHeader, parser::Result
-};
+use crate::{auth::Challenge, headers::SipHeader, parser::Result};
 
 /// The `WWW-Authenticate` SIP header.
 ///

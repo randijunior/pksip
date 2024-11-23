@@ -4,7 +4,7 @@ use reader::{read_while, util::not_comma_or_newline, Reader};
 
 use crate::{
     headers::{call_id::CallId, SipHeader},
-    macros::parse_header_list,
+    macros::hdr_list,
     parser::Result,
 };
 
@@ -18,7 +18,7 @@ impl<'a> SipHeader<'a> for InReplyTo<'a> {
     const NAME: &'static str = "In-Reply-To";
 
     fn parse(reader: &mut Reader<'a>) -> Result<InReplyTo<'a>> {
-        let ids = parse_header_list!(reader => {
+        let ids = hdr_list!(reader => {
             let id = read_while!(reader, not_comma_or_newline);
             let id = str::from_utf8(id)?;
 

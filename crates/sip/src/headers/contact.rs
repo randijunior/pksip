@@ -22,7 +22,7 @@ pub struct ContactUri<'a> {
 /// The `Contact` SIP header.
 ///
 /// Specifies the `URI` for the user or `UA` sending the message.
-#[derive(Debug,PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Contact<'a> {
     Star,
     Uri(ContactUri<'a>),

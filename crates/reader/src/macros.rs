@@ -41,7 +41,7 @@ macro_rules! peek_while {
     ($reader:expr, $func:expr) => {{
         let processed = $reader.peek_while($func);
 
-        (&$reader.src[$reader.idx()..processed])
+        processed
     }};
 }
 #[macro_export]
@@ -59,12 +59,11 @@ macro_rules! alpha {
     }};
 }
 
-
+pub use alpha;
+pub use digits;
+pub use newline;
+pub use peek_while;
+pub use read_while;
 pub use space;
 pub use until_byte;
 pub use until_newline;
-pub use peek_while;
-pub use read_while;
-pub use digits;
-pub use newline;
-pub use alpha;

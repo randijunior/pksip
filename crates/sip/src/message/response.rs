@@ -4,18 +4,18 @@ use reader::{digits, newline, space, until_newline, Reader};
 
 use crate::{
     headers::Headers,
-    parser::{self, SipParser, SipParserError},
+    parser::{Result, SipParser},
 };
 
 use super::SipStatusCode;
 
-/// Represents an SIP Status-Line
-
+/// Represents an SIP Status-Line.
+#[derive(Debug)]
 pub struct StatusLine<'sl> {
     // Status Code
-    pub(crate) status_code: SipStatusCode,
+    pub status_code: SipStatusCode,
     // Reason String
-    pub(crate) reason_phrase: &'sl str,
+    pub reason_phrase: &'sl str,
 }
 
 impl<'sl> StatusLine<'sl> {
@@ -28,15 +28,13 @@ impl<'sl> StatusLine<'sl> {
 }
 
 impl<'a> StatusLine<'a> {
-    pub fn from_bytes(src: &'a [u8]) -> Result<StatusLine, SipParserError> {
+    pub fn from_bytes(src: &'a [u8]) -> Result<StatusLine> {
         let mut reader = Reader::new(src);
 
         Self::parse(&mut reader)
     }
 
-    pub(crate) fn parse(
-        reader: &mut Reader<'a>,
-    ) -> Result<StatusLine<'a>, SipParserError> {
+    pub fn parse(reader: &mut Reader<'a>) -> Result<StatusLine<'a>> {
         SipParser::parse_sip_v2(reader)?;
 
         space!(reader);
@@ -53,11 +51,11 @@ impl<'a> StatusLine<'a> {
         Ok(StatusLine::new(status_code, rp))
     }
 }
-
+#[derive(Debug)]
 pub struct SipResponse<'a> {
-    pub(crate) st_line: StatusLine<'a>,
-    pub(crate) headers: Headers<'a>,
-    pub(crate) body: Option<&'a [u8]>,
+    pub st_line: StatusLine<'a>,
+    pub headers: Headers<'a>,
+    pub body: Option<&'a [u8]>,
 }
 
 impl<'a> SipResponse<'a> {

@@ -13,6 +13,7 @@ use std::str;
 
 use crate::headers::{Header, Headers};
 
+#[derive(Debug)]
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),
     Response(SipResponse<'a>),
@@ -52,7 +53,15 @@ pub enum SipMethod<'a> {
     Cancel,
     Register,
     Options,
-    Other(&'a [u8]),
+    Info,
+    Notify,
+    Subscribe,
+    Update,
+    Refer,
+    Prack,
+    Message,
+    Publish,
+    Other(&'a [u8])
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,12 +90,20 @@ impl From<&[u8]> for Transport {
     }
 }
 
-const SIP_INVITE: &[u8] = "INVITE".as_bytes();
-const SIP_CANCEL: &[u8] = "CANCEL".as_bytes();
-const SIP_ACK: &[u8] = "ACK".as_bytes();
-const SIP_BYE: &[u8] = "BYE".as_bytes();
-const SIP_REGISTER: &[u8] = "REGISTER".as_bytes();
-const SIP_OPTIONS: &[u8] = "OPTIONS".as_bytes();
+const SIP_INVITE: &[u8] = b"INVITE";
+const SIP_CANCEL: &[u8] = b"CANCEL";
+const SIP_ACK: &[u8] = b"ACK";
+const SIP_BYE: &[u8] = b"BYE";
+const SIP_REGISTER: &[u8] = b"REGISTER";
+const SIP_OPTIONS: &[u8] = b"OPTIONS";
+const SIP_INFO: &[u8] = b"INFO";
+const SIP_NOTIFY: &[u8] = b"NOTIFY";
+const SIP_SUBSCRIBE: &[u8] = b"SUBSCRIBE";
+const SIP_UPDATE: &[u8] = b"UPDATE";
+const SIP_REFER: &[u8] = b"REFER";
+const SIP_PRACK: &[u8] = b"PRACK";
+const SIP_MESSAGE: &[u8] = b"MESSAGE";
+const SIP_PUBLISH: &[u8] = b"PUBLISH";
 
 impl<'a> From<&'a [u8]> for SipMethod<'a> {
     fn from(value: &'a [u8]) -> Self {
@@ -97,6 +114,14 @@ impl<'a> From<&'a [u8]> for SipMethod<'a> {
             SIP_BYE => SipMethod::Bye,
             SIP_REGISTER => SipMethod::Register,
             SIP_OPTIONS => SipMethod::Options,
+            SIP_INFO => SipMethod::Info,
+            SIP_NOTIFY => SipMethod::Notify,
+            SIP_SUBSCRIBE => SipMethod::Subscribe,
+            SIP_UPDATE => SipMethod::Update,
+            SIP_REFER => SipMethod::Refer,
+            SIP_PRACK => SipMethod::Prack,
+            SIP_MESSAGE => SipMethod::Message,
+            SIP_PUBLISH => SipMethod::Publish,
             _ => SipMethod::Other(value),
         }
     }

@@ -3,7 +3,7 @@ use std::str;
 use reader::Reader;
 
 use crate::{
-    macros::{parse_header_list, parse_header_param},
+    macros::{hdr_list, parse_header_param},
     parser::Result,
     token::Token,
     uri::{is_uri, GenericUri, Params},
@@ -26,12 +26,12 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
     const NAME: &'static str = "Error-Info";
 
     fn parse(reader: &mut Reader<'a>) -> Result<ErrorInfo<'a>> {
-        let infos = parse_header_list!(reader => {
+        let infos = hdr_list!(reader => {
             // must be an '<'
             reader.must_read(b'<')?;
-            let scheme = Token::parse(reader);
+            let scheme = Token::parse(reader)?;
             reader.must_read(b':')?;
-            let content = unsafe { reader.read_while_as_str(is_uri) };
+            let content = unsafe { reader.read_as_str(is_uri) };
             // must be an '>'
             reader.must_read(b'>')?;
             let params = parse_header_param!(reader);

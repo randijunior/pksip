@@ -103,7 +103,7 @@ impl SipParser {
         let reader = &mut reader;
 
         'headers: loop {
-            let name = Token::parse(reader);
+            let name = Token::parse(reader)?;
 
             if reader.next() != Some(&b':') {
                 return sip_parse_error!("Invalid sip Header!");
@@ -368,7 +368,7 @@ impl SipParser {
                 }
 
                 _ => {
-                    let value = Token::parse(reader);
+                    let value = Token::parse(reader)?;
 
                     msg.push_header(Header::Other { name, value });
                 }
@@ -389,10 +389,9 @@ impl SipParser {
     }
 
     fn is_sip_version(reader: &Reader) -> bool {
-        let tag = peek_while!(reader, is_alphabetic);
-        let next = reader.src.get(tag.len());
+        let tag = reader.peek_n(4);
 
-        next.is_some_and(|next| tag == SIP && next == &b'/')
+        tag.is_some_and(|next| tag == Some(SIP) && &next[3] == &b'/')
     }
 
     pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
@@ -453,4 +452,47 @@ impl<'a> From<reader::Error<'a>> for SipParserError {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::{
+        message::{SipMethod, Transport},
+        uri::{Scheme, SipUri},
+    };
 
+    use super::*;
+
+    #[test]
+    fn test_msg_1() {
+        assert_matches!(SipParser::parse(
+            b"INVITE sip:bob@biloxi.com SIP/2.0\r\n\
+        Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKkjshdyff\r\n\
+        To: Bob <sip:bob@biloxi.com>\r\n\
+        From: Alice <sip:alice@atlanta.com>;tag=88sja8x\r\n\
+        Max-Forwards: 70\r\n\
+        Call-ID: 987asjd97y7atg\r\n\
+        CSeq: 986759 INVITE\r\n",
+        )
+        .unwrap(), SipMessage::Request(req) => {
+            assert_eq!(req.req_line.method, SipMethod::Invite);
+            assert_eq!(req.req_line.uri.scheme, Scheme::Sip);
+            assert_eq!(req.req_line.uri.user.unwrap().user, "bob");
+            assert_eq!(req.req_line.uri.host.host_as_string(), String::from("biloxi.com"));
+
+            assert!(req.headers.len() == 6);
+            let mut iter = req.headers.iter();
+            assert_matches!(iter.next().unwrap(), Header::Via(via) => {
+                assert_eq!(via.transport, Transport::UDP);
+                assert_eq!(via.sent_by.host_as_string(), "pc33.atlanta.com");
+                assert_eq!(via.params.as_ref().unwrap().branch(), Some("z9hG4bKkjshdyff"));
+            });
+
+            assert_matches!(iter.next().unwrap(), Header::To(to) => {
+                assert_matches!(&to.uri, SipUri::NameAddr(addr) => {
+                    assert_eq!(addr.display, Some("Bob"));
+                    assert_eq!(addr.uri.scheme, Scheme::Sip);
+                    assert_eq!(addr.uri.user.as_ref().unwrap().user, "bob");
+                });
+            });
+        })
+    }
+}
