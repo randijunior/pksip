@@ -2,7 +2,7 @@ use std::str;
 
 use reader::{space, until_byte, Reader};
 
-use crate::{macros::sip_parse_error, parser::Result, uri::is_host};
+use crate::{macros::sip_parse_error, message::is_host, parser::Result};
 
 use crate::headers::SipHeader;
 

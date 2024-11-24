@@ -4,9 +4,9 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
+    message::Token,
+    message::{is_uri, GenericUri, Params},
     parser::Result,
-    token::Token,
-    uri::{is_uri, GenericUri, Params},
 };
 
 use crate::headers::SipHeader;

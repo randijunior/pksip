@@ -3,8 +3,8 @@ use reader::Reader;
 use crate::{
     headers::{self, EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
+    message::{Params, SipUri},
     parser::Result,
-    uri::{Params, SipUri},
 };
 
 use crate::headers::SipHeader;
@@ -58,7 +58,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::uri::{HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 
@@ -80,10 +80,10 @@ mod tests {
             assert_eq!(addr.uri.user.unwrap().user, "watson");
             assert_eq!(
                 addr.uri.host,
-                HostPort::DomainName {
-                    host: "worcester.bell-telephone.com",
+                HostPort {
+                    host: Host::DomainName("worcester.bell-telephone.com"),
                     port: None
-                }
+                },
             );
             assert_eq!(addr.uri.scheme, Scheme::Sip);
             assert_eq!(q, Some(Q(0, 7)));
@@ -116,8 +116,8 @@ mod tests {
             assert_eq!(uri.user.unwrap().user, "caller");
             assert_eq!(
                 uri.host,
-                HostPort::DomainName {
-                    host: "u1.example.com",
+                HostPort {
+                    host: Host::DomainName("u1.example.com"),
                     port: None
                 }
             );
@@ -140,8 +140,8 @@ mod tests {
             "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
         assert_eq!(
             uri.host,
-            HostPort::IpAddr {
-                host: addr,
+            HostPort {
+                host: Host::IpAddr(addr),
                 port: None
             }
         );
@@ -162,8 +162,8 @@ mod tests {
         }) => {
             assert_eq!(
                 uri.host,
-                HostPort::IpAddr {
-                    host: IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213)),
+                HostPort {
+                    host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213))),
                     port: None
                 }
             );
@@ -188,8 +188,8 @@ mod tests {
             let addr = Ipv4Addr::new(192, 168, 1, 1);
             assert_eq!(
                 uri.host,
-                HostPort::IpAddr {
-                    host: IpAddr::V4(addr),
+                HostPort {
+                    host: Host::IpAddr(IpAddr::V4(addr)),
                     port: Some(5060)
                 }
             );

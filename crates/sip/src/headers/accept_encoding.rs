@@ -5,9 +5,9 @@ use reader::{util::is_newline, Reader};
 use crate::{
     headers::{self, Q_PARAM},
     macros::{hdr_list, parse_header_param},
+    message::Params,
+    message::Token,
     parser::Result,
-    token::Token,
-    uri::Params,
 };
 
 use crate::headers::SipHeader;

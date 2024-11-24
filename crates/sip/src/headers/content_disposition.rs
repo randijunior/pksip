@@ -1,7 +1,7 @@
 use reader::Reader;
 
 use crate::{
-    macros::parse_header_param, parser::Result, token::Token, uri::Params,
+    macros::parse_header_param, message::Params, message::Token, parser::Result,
 };
 
 use crate::headers::SipHeader;

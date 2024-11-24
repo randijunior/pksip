@@ -2,8 +2,8 @@ use reader::Reader;
 
 use crate::{
     macros::parse_header_param,
+    message::{NameAddr, Params},
     parser::Result,
-    uri::{NameAddr, Params},
 };
 
 use crate::headers::SipHeader;
@@ -30,7 +30,7 @@ impl<'a> SipHeader<'a> for RecordRoute<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::uri::{HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 
@@ -45,8 +45,8 @@ mod tests {
         assert_eq!(rr.addr.uri.scheme, Scheme::Sip);
         assert_eq!(
             rr.addr.uri.host,
-            HostPort::DomainName {
-                host: "server10.biloxi.com",
+            HostPort {
+                host: Host::DomainName("server10.biloxi.com"),
                 port: None
             }
         );
@@ -61,8 +61,8 @@ mod tests {
         assert_eq!(rr.addr.uri.scheme, Scheme::Sip);
         assert_eq!(
             rr.addr.uri.host,
-            HostPort::DomainName {
-                host: "bigbox3.site3.atlanta.com",
+            HostPort {
+                host: Host::DomainName("bigbox3.site3.atlanta.com"),
                 port: None
             }
         );

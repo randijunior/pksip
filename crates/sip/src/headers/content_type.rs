@@ -3,8 +3,8 @@ use std::str;
 use reader::Reader;
 
 use crate::{
-    headers::SipHeader, macros::parse_header_param, parser::Result,
-    token::Token,
+    headers::SipHeader, macros::parse_header_param, message::Token,
+    parser::Result,
 };
 
 use super::MediaType;

@@ -28,8 +28,8 @@ use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
 use crate::{
     macros::sip_parse_error,
     message::Transport,
+    message::{HostPort, Params},
     parser::Result,
-    uri::{HostPort, Params},
 };
 use std::str;
 
@@ -175,6 +175,8 @@ impl<'a> Via<'a> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
+    use crate::message::Host;
+
     use super::*;
 
     #[test]
@@ -187,8 +189,8 @@ mod tests {
         assert_eq!(via.transport, Transport::UDP);
         assert_eq!(
             via.sent_by,
-            HostPort::DomainName {
-                host: "bobspc.biloxi.com",
+            HostPort {
+                host: Host::DomainName("bobspc.biloxi.com"),
                 port: Some(5060)
             }
         );
@@ -204,8 +206,8 @@ mod tests {
         assert_eq!(via.transport, Transport::UDP);
         assert_eq!(
             via.sent_by,
-            HostPort::IpAddr {
-                host: IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)),
+            HostPort {
+                host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))),
                 port: Some(5060)
             }
         );

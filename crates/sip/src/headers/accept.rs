@@ -4,8 +4,8 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
+    message::Token,
     parser::Result,
-    token::Token,
 };
 
 use crate::headers::SipHeader;

@@ -2,7 +2,7 @@ use std::str;
 
 use reader::Reader;
 
-use crate::{macros::hdr_list, parser::Result, token::Token};
+use crate::{macros::hdr_list, message::Token, parser::Result};
 
 use crate::headers::SipHeader;
 

@@ -3,8 +3,8 @@ use reader::Reader;
 use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
+    message::{Params, SipUri},
     parser::Result,
-    uri::{Params, SipUri},
 };
 
 use crate::headers::SipHeader;
@@ -36,7 +36,7 @@ impl<'a> SipHeader<'a> for To<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::uri::{HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 
@@ -58,8 +58,8 @@ mod tests {
                 assert_eq!(addr.uri.user.unwrap().user, "bob");
                 assert_eq!(
                     addr.uri.host,
-                    HostPort::DomainName {
-                        host: "biloxi.com",
+                    HostPort {
+                        host: Host::DomainName("biloxi.com"),
                         port: None
                     }
                 );

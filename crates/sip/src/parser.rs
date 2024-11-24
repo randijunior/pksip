@@ -52,8 +52,8 @@ use crate::headers::Via;
 use crate::headers::WWWAuthenticate;
 use crate::headers::Warning;
 use crate::macros::sip_parse_error;
-use crate::token::Token;
-use crate::uri::SIP;
+use crate::message::Token;
+use crate::message::SIP;
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
@@ -375,10 +375,9 @@ impl SipParser {
             };
 
             newline!(reader);
-            if !reader.is_eof() {
-                continue;
+            if reader.is_eof() {
+                break 'headers;
             }
-            break 'headers;
         }
 
         if has_content_type {
@@ -455,8 +454,8 @@ impl<'a> From<reader::Error<'a>> for SipParserError {
 #[cfg(test)]
 mod tests {
     use crate::{
+        message::{Scheme, SipUri},
         message::{SipMethod, Transport},
-        uri::{Scheme, SipUri},
     };
 
     use super::*;

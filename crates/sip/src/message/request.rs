@@ -7,10 +7,9 @@ use reader::{alpha, newline, space, Reader};
 use crate::{
     headers::Headers,
     parser::{SipParser, SipParserError},
-    uri::Uri,
 };
 
-use super::SipMethod;
+use super::{SipMethod, Uri};
 
 /// Represents an SIP Request-Line.
 #[derive(Debug)]
@@ -26,9 +25,7 @@ impl<'a> RequestLine<'a> {
         Self::parse(&mut reader)
     }
 
-    pub fn parse(
-        reader: &mut Reader<'a>,
-    ) -> Result<Self, SipParserError> {
+    pub fn parse(reader: &mut Reader<'a>) -> Result<Self, SipParserError> {
         let method = alpha!(reader);
         let method = SipMethod::from(method);
 

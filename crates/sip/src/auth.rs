@@ -1,7 +1,7 @@
 use reader::Reader;
 
 use crate::{
-    headers, macros::comma_sep, parser::Result, token::Token, uri::Params,
+    headers, macros::comma_sep, message::Params, message::Token, parser::Result,
 };
 
 pub(crate) const CNONCE: &str = "cnonce";
