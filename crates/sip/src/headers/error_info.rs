@@ -4,9 +4,9 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
-    message::Token,
-    message::{is_uri, GenericUri, Params},
-    parser::Result,
+    
+    message::{GenericUri, Params},
+    parser::{self, is_uri, Result},
 };
 
 use crate::headers::SipHeader;
@@ -29,7 +29,7 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
         let infos = hdr_list!(reader => {
             // must be an '<'
             reader.must_read(b'<')?;
-            let scheme = Token::parse(reader)?;
+            let scheme = parser::parse_token(reader)?;
             reader.must_read(b':')?;
             let content = unsafe { reader.read_as_str(is_uri) };
             // must be an '>'

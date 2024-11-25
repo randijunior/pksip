@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use sip::parser::SipParser;
+use sip::parser;
 
 const INVITE: &[u8] = b"INVITE sip:bob@biloxi.com SIP/2.0\r\n
 Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKkjshdyff\r\n
@@ -12,7 +12,7 @@ CSeq: 986759 INVITE\r\n";
 fn request(c: &mut Criterion) {
     c.bench_function("request", |b| {
         b.iter(|| {
-            _ = SipParser::parse(black_box(INVITE)).unwrap();
+            _ = parser::parse(black_box(INVITE)).unwrap();
         });
     });
 }

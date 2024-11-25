@@ -2,7 +2,8 @@ use std::str;
 
 use reader::Reader;
 
-use crate::{macros::hdr_list, message::Token, parser::Result};
+use crate::parser;
+use crate::{macros::hdr_list,  parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -16,7 +17,7 @@ impl<'a> SipHeader<'a> for Unsupported<'a> {
     const NAME: &'static str = "Unsupported";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let tags = hdr_list!(reader => Token::parse(reader)?);
+        let tags = hdr_list!(reader => parser::parse_token(reader)?);
 
         Ok(Unsupported(tags))
     }

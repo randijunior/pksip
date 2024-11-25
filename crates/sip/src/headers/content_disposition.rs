@@ -1,7 +1,8 @@
 use reader::Reader;
 
+use crate::parser;
 use crate::{
-    macros::parse_header_param, message::Params, message::Token, parser::Result,
+    macros::parse_header_param, message::Params,  parser::Result,
 };
 
 use crate::headers::SipHeader;
@@ -19,7 +20,7 @@ impl<'a> SipHeader<'a> for ContentDisposition<'a> {
     const NAME: &'static str = "Content-Disposition";
 
     fn parse(reader: &mut Reader<'a>) -> Result<ContentDisposition<'a>> {
-        let _type = Token::parse(reader)?;
+        let _type = parser::parse_token(reader)?;
         let params = parse_header_param!(reader);
 
         Ok(ContentDisposition { _type, params })

@@ -1,4 +1,4 @@
-use reader::{space, until_byte, Reader};
+use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
 use crate::{macros::parse_header_param, message::Params, parser::Result};
@@ -20,7 +20,7 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
         space!(reader);
 
         reader.must_read(b'<')?;
-        let url = until_byte!(reader, &b'>');
+        let url = until!(reader, &b'>');
         reader.must_read(b'>')?;
 
         let url = str::from_utf8(url)?;

@@ -3,7 +3,7 @@ use reader::Reader;
 use crate::{
     macros::parse_header_param,
     message::{NameAddr, Params},
-    parser::Result,
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -21,7 +21,7 @@ impl<'a> SipHeader<'a> for RecordRoute<'a> {
     const NAME: &'static str = "Record-Route";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let addr = NameAddr::parse(reader)?;
+        let addr = parser::parse_name_addr(reader)?;
         let param = parse_header_param!(reader);
         Ok(RecordRoute { addr, param })
     }

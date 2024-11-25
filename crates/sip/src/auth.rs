@@ -1,7 +1,7 @@
 use reader::Reader;
 
 use crate::{
-    headers, macros::comma_sep, message::Params, message::Token, parser::Result,
+    headers, macros::comma_sep, message::Params, parser::{self, Result},
 };
 
 pub(crate) const CNONCE: &str = "cnonce";
@@ -43,7 +43,7 @@ pub enum Challenge<'a> {
 impl<'a> Challenge<'a> {
     ///  Use `reader` to parse a `Challenge`.
     pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let scheme = Token::parse(reader)?;
+        let scheme = parser::parse_token(reader)?;
         let mut param = Params::new();
 
         if scheme == DIGEST {
@@ -120,7 +120,7 @@ pub enum Credential<'a> {
 impl<'a> Credential<'a> {
     ///  Use `reader` to parse a `Credential`.
     pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let scheme = Token::parse(reader)?;
+        let scheme = parser::parse_token(reader)?;
         let mut param = Params::new();
 
         if scheme == DIGEST {

@@ -1,4 +1,4 @@
-use reader::{until_byte, Reader};
+use reader::{until, Reader};
 
 use crate::{macros::parse_header_param, message::Params, parser::Result};
 
@@ -24,7 +24,7 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
         let mut purpose: Option<&'a str> = None;
         // must be an '<'
         reader.must_read(b'<')?;
-        let url = until_byte!(reader, &b'>');
+        let url = until!(reader, &b'>');
         // must be an '>'
         reader.must_read(b'>')?;
         let url = str::from_utf8(url)?;

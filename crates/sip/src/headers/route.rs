@@ -3,7 +3,7 @@ use reader::Reader;
 use crate::{
     macros::{parse_header_param, sip_parse_error},
     message::{NameAddr, Params, SipUri},
-    parser::Result,
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -22,12 +22,9 @@ impl<'a> SipHeader<'a> for Route<'a> {
     const NAME: &'static str = "Route";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        if let SipUri::NameAddr(addr) = SipUri::parse(reader)? {
-            let param = parse_header_param!(reader);
-            Ok(Route { addr, param })
-        } else {
-            sip_parse_error!("Invalid Route Header!")
-        }
+        let addr = parser::parse_name_addr(reader)?;
+        let param = parse_header_param!(reader);
+        Ok(Route { addr, param })
     }
 }
 

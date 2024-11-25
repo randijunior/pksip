@@ -21,7 +21,7 @@ macro_rules! read_while {
     }};
 }
 #[macro_export]
-macro_rules! until_byte {
+macro_rules! until {
     ($reader:expr, $byte:expr) => {{
         let range = $reader.read_while(|b| b != $byte);
 
@@ -65,5 +65,5 @@ pub use newline;
 pub use peek_while;
 pub use read_while;
 pub use space;
-pub use until_byte;
+pub use until;
 pub use until_newline;

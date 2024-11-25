@@ -3,7 +3,8 @@ use std::str;
 use reader::Reader;
 
 use crate::macros::hdr_list;
-use crate::{message::Token, parser::Result};
+use crate::parser;
+use crate::parser::Result;
 
 use crate::headers::SipHeader;
 
@@ -29,7 +30,7 @@ impl<'a> SipHeader<'a> for ContentEncoding<'a> {
     const SHORT_NAME: Option<&'static str> = Some("e");
 
     fn parse(reader: &mut Reader<'a>) -> Result<ContentEncoding<'a>> {
-        let codings = hdr_list!(reader => Token::parse(reader)?);
+        let codings = hdr_list!(reader => parser::parse_token(reader)?);
 
         Ok(ContentEncoding(codings))
     }

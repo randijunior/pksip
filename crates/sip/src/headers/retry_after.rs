@@ -2,7 +2,7 @@ use std::str;
 use std::u32;
 
 use reader::space;
-use reader::until_byte;
+use reader::until;
 use reader::Reader;
 
 use crate::{macros::parse_header_param, message::Params, parser::Result};
@@ -31,7 +31,7 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
         space!(reader);
         if let Some(&b'(') = reader.peek() {
             reader.next();
-            let b = until_byte!(reader, &b')');
+            let b = until!(reader, &b')');
             reader.must_read(b')')?;
             comment = Some(str::from_utf8(b)?);
         }

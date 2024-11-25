@@ -6,8 +6,7 @@ use crate::{
     headers::{self, Q_PARAM},
     macros::{hdr_list, parse_header_param},
     message::Params,
-    message::Token,
-    parser::Result,
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -46,7 +45,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
             return Ok(AcceptEncoding::default());
         }
         let codings = hdr_list!(reader => {
-            let coding = Token::parse(reader)?;
+            let coding = parser::parse_token(reader)?;
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
             let q = q_param.and_then(|q| headers::parse_q(q));

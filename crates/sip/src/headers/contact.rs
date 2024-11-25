@@ -4,7 +4,7 @@ use crate::{
     headers::{self, EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::Result,
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -37,7 +37,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
             reader.next();
             return Ok(Contact::Star);
         }
-        let uri = SipUri::parse(reader)?;
+        let uri = parser::parse_sip_uri(reader)?;
         let mut q = None;
         let mut expires = None;
         let param =

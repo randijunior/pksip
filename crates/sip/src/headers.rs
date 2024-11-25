@@ -96,7 +96,7 @@ pub use www_authenticate::WWWAuthenticate;
 
 use std::str;
 
-use crate::{message::Params, message::Token, parser::Result};
+use crate::{message::Params, parser::{self, Result}};
 
 /// An Header param
 pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
@@ -126,7 +126,7 @@ fn parse_q(param: &str) -> Option<Q> {
 pub(crate) fn parse_header_param<'a>(
     reader: &mut Reader<'a>,
 ) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(reader, Token::is_token) }
+    unsafe { parse_param_sip(reader, parser::is_token) }
 }
 
 // Parses a `name=value` parameter in a SIP message.
@@ -145,7 +145,7 @@ where
     reader.next();
     let value = if let Some(&b'"') = reader.peek() {
         reader.next();
-        let value = reader::until_byte!(reader, &b'"');
+        let value = reader::until!(reader, &b'"');
         reader.next();
 
         str::from_utf8(value)?

@@ -4,7 +4,7 @@ use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::Result,
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -26,7 +26,7 @@ impl<'a> SipHeader<'a> for From<'a> {
     const SHORT_NAME: Option<&'static str> = Some("f");
 
     fn parse(reader: &mut Reader<'a>) -> Result<From<'a>> {
-        let uri = SipUri::parse(reader)?;
+        let uri = parser::parse_sip_uri(reader)?;
         let mut tag = None;
         let params = parse_header_param!(reader, TAG_PARAM = tag);
 

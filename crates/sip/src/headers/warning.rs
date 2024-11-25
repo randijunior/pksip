@@ -1,8 +1,9 @@
 use std::str;
 
-use reader::{space, until_byte, Reader};
+use reader::{space, until, Reader};
 
-use crate::{macros::sip_parse_error, message::is_host, parser::Result};
+use crate::parser::is_host;
+use crate::{macros::sip_parse_error, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -27,7 +28,7 @@ impl<'a> SipHeader<'a> for Warning<'a> {
             return sip_parse_error!("invalid warning header!");
         };
         reader.next();
-        let text = until_byte!(reader, &b'"');
+        let text = until!(reader, &b'"');
         reader.next();
         let text = str::from_utf8(text)?;
 

@@ -4,8 +4,8 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
-    message::Token,
-    parser::Result,
+    
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -33,9 +33,9 @@ impl<'a> SipHeader<'a> for Accept<'a> {
 
     fn parse(reader: &mut Reader<'a>) -> Result<Accept<'a>> {
         let mtypes = hdr_list!(reader => {
-            let mtype = Token::parse(reader)?;
+            let mtype = parser::parse_token(reader)?;
             reader.must_read(b'/')?;
-            let subtype = Token::parse(reader)?;
+            let subtype = parser::parse_token(reader)?;
 
             let param = parse_header_param!(reader);
 

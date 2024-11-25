@@ -20,11 +20,11 @@ ttl               =  1*3DIGIT ; 0 to 255
 */
 
 use reader::util::is_valid_port;
-use reader::{space, until_byte, Reader};
+use reader::{space, until, Reader};
 
 use crate::headers::{parse_param_sip, SipHeader};
 use crate::macros::{b_map, parse_param};
-use crate::parser::{SipParser, ALPHA_NUM, TOKEN};
+use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::{
     macros::sip_parse_error,
     message::Transport,
@@ -104,22 +104,22 @@ impl<'a> SipHeader<'a> for Via<'a> {
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         //@TODO: handle LWS
-        SipParser::parse_sip_v2(reader)?;
+        parser::parse_sip_v2(reader)?;
 
         if reader.next() != Some(&b'/') {
             return sip_parse_error!("Invalid via Hdr!");
         }
-        let b = until_byte!(reader, &b' ');
+        let b = until!(reader, &b' ');
         let transport = Transport::from(b);
 
         space!(reader);
 
-        let sent_by = HostPort::parse(reader)?;
+        let sent_by = parser::parse_host(reader)?;
         let (params, others_params) = Self::parse_params(reader)?;
 
         let comment = if reader.peek() == Some(&b'(') {
             reader.next();
-            let comment = until_byte!(reader, &b')');
+            let comment = until!(reader, &b')');
             reader.next();
             Some(str::from_utf8(comment)?)
         } else {

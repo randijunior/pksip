@@ -3,7 +3,7 @@ use reader::Reader;
 use crate::{
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::Result,
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
@@ -21,7 +21,7 @@ impl<'a> SipHeader<'a> for ReplyTo<'a> {
     const NAME: &'static str = "Reply-To";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let uri = SipUri::parse(reader)?;
+        let uri = parser::parse_sip_uri(reader)?;
         let param = parse_header_param!(reader);
 
         Ok(ReplyTo { uri, param })

@@ -3,8 +3,7 @@ use std::str;
 use reader::Reader;
 
 use crate::macros::hdr_list;
-use crate::message::Token;
-use crate::parser::Result;
+use crate::parser::{self, Result};
 
 use crate::headers::SipHeader;
 
@@ -18,7 +17,7 @@ impl<'a> SipHeader<'a> for ProxyRequire<'a> {
     const NAME: &'static str = "Proxy-Require";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let tags = hdr_list!(reader => Token::parse(reader)?);
+        let tags = hdr_list!(reader => parser::parse_token(reader)?);
 
         Ok(ProxyRequire(tags))
     }
