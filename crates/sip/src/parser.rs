@@ -6,7 +6,7 @@ use std::str::{self, FromStr, Utf8Error};
 use reader::newline;
 use reader::space;
 use reader::until;
-use reader::util::is_valid_port;
+use reader::util::{is_newline, is_valid_port};
 use reader::Reader;
 use reader::{alpha, digits, until_newline};
 
@@ -149,13 +149,33 @@ pub(crate) fn is_token(b: &u8) -> bool {
 }
 
 fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-    let (name, value) = unsafe { parse_param_sip(reader, is_param)? };
+    let Param(name, value) = unsafe { parse_param_sip(reader, is_param)? };
 
-    Ok((name, Some(value.unwrap_or(""))))
+    Ok(Param(name, Some(value.unwrap_or(""))))
+}
+
+fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+    Ok(unsafe { parse_param_sip(reader, is_hdr)? })
+}
+
+fn read_user_str<'a>(reader: &mut Reader<'a>) -> &'a str {
+    unsafe { reader.read_as_str(is_user) }
+}
+
+fn read_pass_str<'a>(reader: &mut Reader<'a>) -> &'a str {
+    unsafe { reader.read_as_str(is_pass) }
+}
+
+fn read_host_str<'a>(reader: &mut Reader<'a>) -> &'a str {
+    unsafe { reader.read_as_str(is_host) }
+}
+
+fn read_token_str<'a>(reader: &mut Reader<'a>) -> &'a str {
+    unsafe { reader.read_as_str(is_token) }
 }
 
 /// Parse a buff of bytes into sip message
-pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
+pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
     let mut reader = Reader::new(buff);
 
     let mut msg = if is_sip_version(&reader) {
@@ -449,17 +469,19 @@ pub fn parse<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 }
 
 fn is_sip_version(reader: &Reader) -> bool {
-    let tag = reader.peek_n(4);
-
-    tag.is_some_and(|next| tag == Some(SIP) && &next[3] == &b'/')
+    reader
+        .peek_n(4)
+        .is_some_and(|sip| sip == SIP && &sip[3] == &b'/')
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
-    if let Some(SIPV2) = reader.peek_n(7) {
-        reader.nth(6);
-        return Ok(());
+    match reader.peek_n(7) {
+        Some(SIPV2) => {
+            reader.nth(6);
+            Ok(())
+        }
+        _ => sip_parse_error!("Sip Version Invalid"),
     }
-    sip_parse_error!("Sip Version Invalid")
 }
 
 fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
@@ -474,25 +496,28 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
     }
 }
 
-pub(crate) fn parse_user<'a>(
+pub(crate) fn parse_user_info<'a>(
     reader: &mut Reader<'a>,
 ) -> Result<Option<UserInfo<'a>>> {
-    let has_user_in_uri = reader
-        .peek_while(|b| !matches!(b, &b'@' | &b'\n' | &b'>' | &b' '))
-        == Some(&b'@');
+    let peeked =
+        reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
 
-    if !has_user_in_uri {
-        return Ok(None);
-    }
-    let user = unsafe { reader.read_as_str(is_user) };
-    let mut password = None;
-    if reader.next() == Some(&b':') {
-        let b = unsafe { reader.read_as_str(is_pass) };
-        reader.next();
-        password = Some(b);
-    }
+    match peeked {
+        Some(&b'@') => {
+            let user = read_user_str(reader);
+            let pass = match reader.peek() {
+                Some(&b':') => {
+                    reader.next();
+                    Some(read_pass_str(reader))
+                }
+                _ => None,
+            };
+            reader.must_read(b'@')?;
 
-    Ok(Some(UserInfo { user, password }))
+            Ok(Some(UserInfo { user, pass }))
+        }
+        _ => Ok(None),
+    }
 }
 
 fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
@@ -508,32 +533,51 @@ fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
     }
 }
 
-fn parse_host_ipv6<'a>(reader: &mut Reader<'a>) -> Result<HostPort<'a>> {
-    reader.must_read(b'[')?;
-    // the '[' and ']' characters are removed from the host
-    let host = until!(reader, &b']');
-    let host = str::from_utf8(host)?;
-    reader.must_read(b']')?;
-    let host = match host.parse() {
-        Ok(addr) => Host::IpAddr(addr),
-        Err(_) => return sip_parse_error!("Error parsing Ipv6 HostPort!"),
+pub(crate) fn parse_host_port<'a>(
+    reader: &mut Reader<'a>,
+) -> Result<HostPort<'a>> {
+    let host = match reader.peek() {
+        Some(&b'[') => {
+            // Is a Ipv6 host
+            reader.must_read(b'[')?;
+            // the '[' and ']' characters are removed from the host
+            let host = until!(reader, &b']');
+            let host = str::from_utf8(host)?;
+            reader.must_read(b']')?;
+
+            match host.parse() {
+                Ok(addr) => Host::IpAddr(addr),
+                Err(_) => {
+                    return sip_parse_error!("Error parsing Ipv6 HostPort!")
+                }
+            }
+        }
+        _ => {
+            let host = read_host_str(reader);
+            match host.parse() {
+                Ok(addr) => Host::IpAddr(addr),
+                Err(_) => Host::DomainName(host),
+            }
+        }
     };
+
     let port = parse_port(reader)?;
     Ok(HostPort { host, port })
 }
 
-pub(crate) fn parse_host<'a>(reader: &mut Reader<'a>) -> Result<HostPort<'a>> {
-    if let Some(&b'[') = reader.peek() {
-        return parse_host_ipv6(reader);
+fn parse_header_params_in_sip_uri<'a>(
+    reader: &mut Reader<'a>,
+) -> Result<Params<'a>> {
+    reader.must_read(b'?')?;
+    let mut params = Params::new();
+    while let Some(b'?') = reader.peek() {
+        // take '?' or '&'
+        reader.next();
+        let Param(name, value) = parse_hdr_in_uri(reader)?;
+        let value = value.unwrap_or("");
+        params.set(name, value);
     }
-    let host = unsafe { reader.read_as_str(is_host) };
-    let host = match IpAddr::from_str(host) {
-        Ok(addr) => Host::IpAddr(addr),
-        Err(_) => Host::DomainName(host),
-    };
-    let port = parse_port(reader)?;
-
-    Ok(HostPort { host, port })
+    Ok(params)
 }
 
 pub(crate) fn parse_uri<'a>(
@@ -542,10 +586,9 @@ pub(crate) fn parse_uri<'a>(
 ) -> Result<Uri<'a>> {
     let scheme = parse_scheme(reader)?;
     // take ':'
-    reader.next();
-
-    let user = parse_user(reader)?;
-    let host = parse_host(reader)?;
+    reader.must_read(b':')?;
+    let user = parse_user_info(reader)?;
+    let host = parse_host_port(reader)?;
 
     if !parse_params {
         return Ok(Uri {
@@ -574,21 +617,11 @@ pub(crate) fn parse_uri<'a>(
         MADDR_PARAM = maddr_param
     );
 
-    let mut hdr_params = None;
-    if reader.peek() == Some(&b'?') {
-        let mut params = Params::new();
-        loop {
-            // take '?' or '&'
-            reader.next();
-            let (name, value) = unsafe { parse_param_sip(reader, is_hdr)? };
-            params.set(name, value.unwrap_or(""));
-            if reader.peek() != Some(&b'&') {
-                break;
-            }
-        }
-
-        hdr_params = Some(params)
-    }
+    let hdr_params = if let Some(&b'?') = reader.peek() {
+        Some(parse_header_params_in_sip_uri(reader)?)
+    } else {
+        None
+    };
 
     Ok(Uri {
         scheme,
@@ -607,7 +640,6 @@ pub(crate) fn parse_uri<'a>(
 
 pub(crate) fn parse_sip_uri<'a>(reader: &mut Reader<'a>) -> Result<SipUri<'a>> {
     space!(reader);
-
     match reader.peek_n(3) {
         Some(SIP) | Some(SIPS) => {
             let uri = parse_uri(reader, false)?;
@@ -693,7 +725,7 @@ pub(crate) fn parse_token<'a>(reader: &mut Reader<'a>) -> Result<&'a str> {
         Ok(str::from_utf8(value)?)
     } else {
         // is_token ensures that is valid UTF-8
-        Ok(unsafe { reader.read_as_str(is_token) })
+        Ok(read_token_str(reader))
     }
 }
 
@@ -748,45 +780,297 @@ impl<'a> From<reader::Error<'a>> for SipParserError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        message::{Scheme, SipUri},
-        message::{SipMethod, Transport},
-    };
-
     use super::*;
 
-    #[test]
-    fn test_msg_1() {
-        assert_matches!(parse(
-            b"INVITE sip:bob@biloxi.com SIP/2.0\r\n\
-        Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKkjshdyff\r\n\
-        To: Bob <sip:bob@biloxi.com>\r\n\
-        From: Alice <sip:alice@atlanta.com>;tag=88sja8x\r\n\
-        Max-Forwards: 70\r\n\
-        Call-ID: 987asjd97y7atg\r\n\
-        CSeq: 986759 INVITE\r\n",
-        )
-        .unwrap(), SipMessage::Request(req) => {
-            assert_eq!(req.req_line.method, SipMethod::Invite);
-            assert_eq!(req.req_line.uri.scheme, Scheme::Sip);
-            assert_eq!(req.req_line.uri.user.unwrap().user, "bob");
-            assert_eq!(req.req_line.uri.host.host_as_string(), String::from("biloxi.com"));
+    macro_rules! st_line {
+        ($name:ident,$bytes:expr,$code:expr) => {
+            #[test]
+            fn $name() {
+                let mut reader = Reader::new($bytes);
+                let parsed = parse_status_line(&mut reader);
+                let parsed = parsed.unwrap();
 
-            assert!(req.headers.len() == 6);
-            let mut iter = req.headers.iter();
-            assert_matches!(iter.next().unwrap(), Header::Via(via) => {
-                assert_eq!(via.transport, Transport::UDP);
-                assert_eq!(via.sent_by.host_as_string(), "pc33.atlanta.com");
-                assert_eq!(via.params.as_ref().unwrap().branch(), Some("z9hG4bKkjshdyff"));
-            });
+                assert!(reader.is_eof());
+                assert_eq!(parsed.code, $code);
+                assert_eq!(parsed.rphrase, $code.reason_phrase());
+            }
+        };
+    }
 
-            assert_matches!(iter.next().unwrap(), Header::To(to) => {
-                assert_matches!(&to.uri, SipUri::NameAddr(addr) => {
-                    assert_eq!(addr.display, Some("Bob"));
-                    assert_eq!(addr.uri.scheme, Scheme::Sip);
-                    assert_eq!(addr.uri.user.as_ref().unwrap().user, "bob");
-                });
-            });
-        })
+
+    st_line! {
+        test_st_line_1,
+        b"SIP/2.0 100 Trying\r\n",
+        SipStatusCode::Trying
+    }
+
+    st_line! {
+        test_st_line_2,
+        b"SIP/2.0 180 Ringing\r\n",
+        SipStatusCode::Ringing
+    }
+
+    st_line! {
+        test_st_line_3,
+        b"SIP/2.0 181 Call Is Being Forwarded\r\n",
+        SipStatusCode::CallIsBeingForwarded
+    }
+
+    st_line! {
+        test_st_line_4,
+        b"SIP/2.0 182 Queued\r\n",
+        SipStatusCode::Queued
+    }
+
+    st_line! {
+        test_st_line_5,
+        b"SIP/2.0 183 Session Progress\r\n",
+        SipStatusCode::SessionProgress
+    }
+
+    st_line! {
+        test_st_line_6,
+        b"SIP/2.0 200 OK\r\n",
+        SipStatusCode::Ok
+    }
+
+    st_line! {
+        test_st_line_7,
+        b"SIP/2.0 202 Accepted\r\n",
+        SipStatusCode::Accepted
+    }
+
+    st_line! {
+        test_st_line_8,
+        b"SIP/2.0 300 Multiple Choices\r\n",
+        SipStatusCode::MultipleChoices
+    }
+
+    st_line! {
+        test_st_line_9,
+        b"SIP/2.0 301 Moved Permanently\r\n",
+        SipStatusCode::MovedPermanently
+    }
+
+    st_line! {
+        test_st_line_10,
+        b"SIP/2.0 302 Moved Temporarily\r\n",
+        SipStatusCode::MovedTemporarily
+    }
+
+    st_line! {
+        test_st_line_11,
+        b"SIP/2.0 305 Use Proxy\r\n",
+        SipStatusCode::UseProxy
+    }
+
+    st_line! {
+        test_st_line_12,
+        b"SIP/2.0 380 Alternative Service\r\n",
+        SipStatusCode::AlternativeService
+    }
+
+    st_line! {
+        test_st_line_13,
+        b"SIP/2.0 400 Bad Request\r\n",
+        SipStatusCode::BadRequest
+    }
+
+    st_line! {
+        test_st_line_14,
+        b"SIP/2.0 401 Unauthorized\r\n",
+        SipStatusCode::Unauthorized
+    }
+
+    st_line! {
+        test_st_line_15,
+        b"SIP/2.0 403 Forbidden\r\n",
+        SipStatusCode::Forbidden
+    }
+
+    st_line! {
+        test_st_line_16,
+        b"SIP/2.0 404 Not Found\r\n",
+        SipStatusCode::NotFound
+    }
+
+    st_line! {
+        test_st_line_17,
+        b"SIP/2.0 405 Method Not Allowed\r\n",
+        SipStatusCode::MethodNotAllowed
+    }
+
+    st_line! {
+        test_st_line_18,
+        b"SIP/2.0 406 Not Acceptable\r\n",
+        SipStatusCode::NotAcceptable
+    }
+
+    st_line! {
+        test_st_line_19,
+        b"SIP/2.0 407 Proxy Authentication Required\r\n",
+        SipStatusCode::ProxyAuthenticationRequired
+    }
+
+    st_line! {
+        test_st_line_20,
+        b"SIP/2.0 408 Request Timeout\r\n",
+        SipStatusCode::RequestTimeout
+    }
+
+    st_line! {
+        test_st_line_21,
+        b"SIP/2.0 410 Gone\r\n",
+        SipStatusCode::Gone
+    }
+
+    st_line! {
+        test_st_line_22,
+        b"SIP/2.0 413 Request Entity Too Large\r\n",
+        SipStatusCode::RequestEntityTooLarge
+    }
+
+    st_line! {
+        test_st_line_23,
+        b"SIP/2.0 414 Request-URI Too Long\r\n",
+        SipStatusCode::RequestUriTooLong
+    }
+
+    st_line! {
+        test_st_line_24,
+        b"SIP/2.0 415 Unsupported Media Type\r\n",
+        SipStatusCode::UnsupportedMediaType
+    }
+
+    st_line! {
+        test_st_line_25,
+        b"SIP/2.0 416 Unsupported URI Scheme\r\n",
+        SipStatusCode::UnsupportedUriScheme
+    }
+
+    st_line! {
+        test_st_line_26,
+        b"SIP/2.0 420 Bad Extension\r\n",
+        SipStatusCode::BadExtension
+    }
+
+    st_line! {
+        test_st_line_27,
+        b"SIP/2.0 421 Extension Required\r\n",
+        SipStatusCode::ExtensionRequired
+    }
+
+    st_line! {
+        test_st_line_28,
+        b"SIP/2.0 423 Interval Too Brief\r\n",
+        SipStatusCode::IntervalTooBrief
+    }
+
+    st_line! {
+        test_st_line_29,
+        b"SIP/2.0 480 Temporarily Unavailable\r\n",
+        SipStatusCode::TemporarilyUnavailable
+    }
+
+    st_line! {
+        test_st_line_30,
+        b"SIP/2.0 481 Call/Transaction Does Not Exist\r\n",
+        SipStatusCode::CallOrTransactionDoesNotExist
+    }
+
+    st_line! {
+        test_st_line_31,
+        b"SIP/2.0 482 Loop Detected\r\n",
+        SipStatusCode::LoopDetected
+    }
+
+    st_line! {
+        test_st_line_32,
+        b"SIP/2.0 483 Too Many Hops\r\n",
+        SipStatusCode::TooManyHops
+    }
+
+    st_line! {
+        test_st_line_33,
+        b"SIP/2.0 484 Address Incomplete\r\n",
+        SipStatusCode::AddressIncomplete
+    }
+
+    st_line! {
+        test_st_line_34,
+        b"SIP/2.0 485 Ambiguous\r\n",
+        SipStatusCode::Ambiguous
+    }
+
+    st_line! {
+        test_st_line_35,
+        b"SIP/2.0 486 Busy Here\r\n",
+        SipStatusCode::BusyHere
+    }
+
+    st_line! {
+        test_st_line_36,
+        b"SIP/2.0 487 Request Terminated\r\n",
+        SipStatusCode::RequestTerminated
+    }
+
+    st_line! {
+        test_st_line_37,
+        b"SIP/2.0 488 Not Acceptable Here\r\n",
+        SipStatusCode::NotAcceptableHere
+    }
+
+    st_line! {
+        test_st_line_38,
+        b"SIP/2.0 500 Server Internal Error\r\n",
+        SipStatusCode::ServerInternalError
+    }
+
+    st_line! {
+        test_st_line_39,
+        b"SIP/2.0 501 Not Implemented\r\n",
+        SipStatusCode::NotImplemented
+    }
+
+    st_line! {
+        test_st_line_40,
+        b"SIP/2.0 503 Service Unavailable\r\n",
+        SipStatusCode::ServiceUnavailable
+    }
+
+    st_line! {
+        test_st_line_41,
+        b"SIP/2.0 504 Server Time-out\r\n",
+        SipStatusCode::ServerTimeout
+    }
+
+    st_line! {
+        test_st_line_42,
+        b"SIP/2.0 505 Version Not Supported\r\n",
+        SipStatusCode::VersionNotSupported
+    }
+
+    st_line! {
+        test_st_line_43,
+        b"SIP/2.0 600 Busy Everywhere\r\n",
+        SipStatusCode::BusyEverywhere
+    }
+
+    st_line! {
+        test_st_line_44,
+        b"SIP/2.0 603 Decline\r\n",
+        SipStatusCode::Decline
+    }
+
+    st_line! {
+        test_st_line_45,
+        b"SIP/2.0 604 Does Not Exist Anywhere\r\n",
+        SipStatusCode::DoesNotExistAnywhere
+    }
+
+    st_line! {
+        test_st_line_46,
+        b"SIP/2.0 606 Not Acceptable\r\n",
+        SipStatusCode::NotAcceptableAnywhere
     }
 }

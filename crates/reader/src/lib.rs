@@ -226,6 +226,12 @@ impl<'a> Reader<'a> {
     }
 }
 
+impl ToString for Reader<'_> {
+    fn to_string(&self) -> String {
+        String::from_utf8_lossy(self.as_ref()).into()
+    }
+}
+
 /// Errors that can occur while reading the src.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ErrorKind {

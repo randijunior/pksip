@@ -98,8 +98,8 @@ use std::str;
 
 use crate::{message::Params, parser::{self, Result}};
 
-/// An Header param
-pub(crate) type Param<'a> = (&'a str, Option<&'a str>);
+/// A Header param
+pub struct Param<'a>(pub &'a str, pub Option<&'a str>);
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
@@ -140,7 +140,7 @@ where
     space!(reader);
     let name = unsafe { reader.read_as_str(&func) };
     let Some(&b'=') = reader.peek() else {
-        return Ok((name, None));
+        return Ok(Param (name, None));
     };
     reader.next();
     let value = if let Some(&b'"') = reader.peek() {
@@ -153,7 +153,7 @@ where
         unsafe { reader.read_as_str(func) }
     };
 
-    Ok((name, Some(value)))
+    Ok(Param (name, Some(value)))
 }
 
 /// Trait to parse SIP headers.

@@ -114,7 +114,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
 
         space!(reader);
 
-        let sent_by = parser::parse_host(reader)?;
+        let sent_by = parser::parse_host_port(reader)?;
         let (params, others_params) = Self::parse_params(reader)?;
 
         let comment = if reader.peek() == Some(&b'(') {

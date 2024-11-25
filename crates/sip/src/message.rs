@@ -14,7 +14,6 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use crate::headers::{Header, Headers};
 
-
 #[derive(Debug)]
 pub enum SipMessage<'a> {
     Request(SipRequest<'a>),
@@ -183,7 +182,7 @@ pub enum SipStatusCode {
     BadInfoPackage = 469,
     ConsentNeeded = 470,
     TemporarilyUnavailable = 480,
-    CallTsxDoesNotExist = 481,
+    CallOrTransactionDoesNotExist = 481,
     LoopDetected = 482,
     TooManyHops = 483,
     AddressIncomplete = 484,
@@ -197,7 +196,7 @@ pub enum SipStatusCode {
     Undecipherable = 493,
     SecurityAgreementNeeded = 494,
 
-    InternalServerError = 500,
+    ServerInternalError = 500,
     NotImplemented = 501,
     BadGateway = 502,
     ServiceUnavailable = 503,
@@ -224,7 +223,7 @@ impl SipStatusCode {
             // 1xx — Provisional Responses
             SipStatusCode::Trying => "Trying",
             SipStatusCode::Ringing => "Ringing",
-            SipStatusCode::CallIsBeingForwarded => "Call is Being Forwarded",
+            SipStatusCode::CallIsBeingForwarded => "Call Is Being Forwarded",
             SipStatusCode::Queued => "Queued",
             SipStatusCode::SessionProgress => "Session Progress",
 
@@ -235,15 +234,59 @@ impl SipStatusCode {
 
             // 3xx — Redirection Responses
             SipStatusCode::MultipleChoices => "Multiple Choices",
+            SipStatusCode::MovedPermanently => "Moved Permanently",
+            SipStatusCode::MovedTemporarily => "Moved Temporarily",
+            SipStatusCode::UseProxy => "Use Proxy",
+            SipStatusCode::AlternativeService => "Alternative Service",
 
-            // 4xx - Client Failure Responses
+            // 4xx — Client Failure Responses
+            SipStatusCode::BadRequest => "Bad Request",
+            SipStatusCode::Unauthorized => "Unauthorized",
+            SipStatusCode::PaymentRequired => "Payment Required",
+            SipStatusCode::Forbidden => "Forbidden",
             SipStatusCode::NotFound => "Not Found",
-            _ => "Unknow",
-        }
-    }
+            SipStatusCode::MethodNotAllowed => "Method Not Allowed",
+            SipStatusCode::NotAcceptable => "Not Acceptable",
+            SipStatusCode::ProxyAuthenticationRequired => "Proxy Authentication Required",
+            SipStatusCode::RequestTimeout => "Request Timeout",
+            SipStatusCode::Gone => "Gone",
+            SipStatusCode::RequestEntityTooLarge => "Request Entity Too Large",
+            SipStatusCode::RequestUriTooLong => "Request-URI Too Long",
+            SipStatusCode::UnsupportedMediaType => "Unsupported Media Type",
+            SipStatusCode::UnsupportedUriScheme => "Unsupported URI Scheme",
+            SipStatusCode::BadExtension => "Bad Extension",
+            SipStatusCode::ExtensionRequired => "Extension Required",
+            SipStatusCode::IntervalTooBrief => "Interval Too Brief",
+            SipStatusCode::TemporarilyUnavailable => "Temporarily Unavailable",
+            SipStatusCode::CallOrTransactionDoesNotExist => "Call/Transaction Does Not Exist",
+            SipStatusCode::LoopDetected => "Loop Detected",
+            SipStatusCode::TooManyHops => "Too Many Hops",
+            SipStatusCode::AddressIncomplete => "Address Incomplete",
+            SipStatusCode::Ambiguous => "Ambiguous",
+            SipStatusCode::BusyHere => "Busy Here",
+            SipStatusCode::RequestTerminated => "Request Terminated",
+            SipStatusCode::NotAcceptableHere => "Not Acceptable Here",
+            SipStatusCode::RequestPending => "Request Pending",
+            SipStatusCode::Undecipherable => "Undecipherable",
 
-    pub fn reason_phrase_bytes(&self) -> &[u8] {
-        self.reason_phrase().as_bytes()
+            // 5xx — Server Failure Responses
+            SipStatusCode::ServerInternalError => "Server Internal Error",
+            SipStatusCode::NotImplemented => "Not Implemented",
+            SipStatusCode::BadGateway => "Bad Gateway",
+            SipStatusCode::ServiceUnavailable => "Service Unavailable",
+            SipStatusCode::ServerTimeout => "Server Time-out",
+            SipStatusCode::VersionNotSupported => "Version Not Supported",
+            SipStatusCode::MessageTooLarge => "Message Too Large",
+
+            // 6xx — Global Failure Responses
+            SipStatusCode::BusyEverywhere => "Busy Everywhere",
+            SipStatusCode::Decline => "Decline",
+            SipStatusCode::DoesNotExistAnywhere => "Does Not Exist Anywhere",
+            SipStatusCode::NotAcceptableAnywhere => "Not Acceptable",
+
+            // Unknown or custom status
+            _ => "Unknown",
+        }
     }
 }
 
@@ -299,7 +342,7 @@ impl From<&[u8]> for SipStatusCode {
             b"469" => SipStatusCode::BadInfoPackage,
             b"470" => SipStatusCode::ConsentNeeded,
             b"480" => SipStatusCode::TemporarilyUnavailable,
-            b"481" => SipStatusCode::CallTsxDoesNotExist,
+            b"481" => SipStatusCode::CallOrTransactionDoesNotExist,
             b"482" => SipStatusCode::LoopDetected,
             b"483" => SipStatusCode::TooManyHops,
             b"484" => SipStatusCode::AddressIncomplete,
@@ -312,7 +355,7 @@ impl From<&[u8]> for SipStatusCode {
             b"491" => SipStatusCode::RequestPending,
             b"493" => SipStatusCode::Undecipherable,
             b"494" => SipStatusCode::SecurityAgreementNeeded,
-            b"500" => SipStatusCode::InternalServerError,
+            b"500" => SipStatusCode::ServerInternalError,
             b"501" => SipStatusCode::NotImplemented,
             b"502" => SipStatusCode::BadGateway,
             b"503" => SipStatusCode::ServiceUnavailable,
@@ -348,7 +391,7 @@ pub enum Scheme {
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserInfo<'a> {
     pub(crate) user: &'a str,
-    pub(crate) password: Option<&'a str>,
+    pub(crate) pass: Option<&'a str>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -411,7 +454,6 @@ pub struct GenericUri<'a> {
     pub(crate) content: &'a str,
 }
 
-
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, &'a str>,
@@ -441,7 +483,3 @@ impl<'a> Params<'a> {
         self.inner.is_empty()
     }
 }
-
-
-
-

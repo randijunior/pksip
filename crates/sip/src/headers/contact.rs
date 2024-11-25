@@ -170,7 +170,7 @@ mod tests {
             assert_eq!(uri.scheme, Scheme::Sip);
             let user = uri.user.unwrap();
             assert_eq!(user.user, "thks.ashwin");
-            assert_eq!(user.password, Some("pass"));
+            assert_eq!(user.pass, Some("pass"));
         });
     }
 
