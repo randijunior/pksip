@@ -475,28 +475,31 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
     }
 }
 
+fn parse_user<'a>(reader: &mut Reader<'a>) -> Result<UserInfo<'a>> {
+    let user = read_user_str(reader);
+    let pass = match reader.peek() {
+        Some(&b':') => {
+            reader.next();
+            Some(read_pass_str(reader))
+        }
+        _ => None,
+    };
+    reader.must_read(b'@')?;
+
+    Ok(UserInfo { user, pass })
+}
+
 pub(crate) fn parse_user_info<'a>(
     reader: &mut Reader<'a>,
 ) -> Result<Option<UserInfo<'a>>> {
     let peeked =
         reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
 
-    match peeked {
-        Some(&b'@') => {
-            let user = read_user_str(reader);
-            let pass = match reader.peek() {
-                Some(&b':') => {
-                    reader.next();
-                    Some(read_pass_str(reader))
-                }
-                _ => None,
-            };
-            reader.must_read(b'@')?;
+    let Some(&b'@') = peeked else {
+        return Ok(None)
+    };
 
-            Ok(Some(UserInfo { user, pass }))
-        }
-        _ => Ok(None),
-    }
+    Ok(Some(parse_user(reader)?))
 }
 
 fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
