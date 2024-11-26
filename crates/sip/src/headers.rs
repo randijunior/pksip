@@ -96,7 +96,10 @@ pub use www_authenticate::WWWAuthenticate;
 
 use std::str;
 
-use crate::{msg::Params, parser::{self, Result}};
+use crate::{
+    msg::Params,
+    parser::{self, Result},
+};
 
 /// A Header param
 pub struct Param<'a>(pub &'a str, pub Option<&'a str>);
@@ -109,17 +112,25 @@ const Q_PARAM: &str = "q";
 /// The expires parameter that is used normaly in [`Contact`] headers.
 const EXPIRES_PARAM: &str = "expires";
 
-// Parse the `q` param used in SIP header
-fn parse_q(param: &str) -> Option<Q> {
-    match param.rsplit_once(".") {
-        Some((first, second)) => match (first.parse(), second.parse()) {
-            (Ok(a), Ok(b)) => Some(Q(a, b)),
-            _ => None,
-        },
-        None => match param.parse() {
-            Ok(n) => Some(Q(n, 0)),
-            Err(_) => None,
-        },
+/// This type represents a `q` parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
+/// and [`AcceptLanguage`] headers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Q(u8, u8);
+
+impl Q {
+    /// Parse the `q` param used in SIP header
+    //TODO: change to result
+    pub fn parse(src: &str) -> Option<Q> {
+        match src.rsplit_once(".") {
+            Some((first, second)) => match (first.parse(), second.parse()) {
+                (Ok(a), Ok(b)) => Some(Q(a, b)),
+                _ => None,
+            },
+            None => match src.parse() {
+                Ok(n) => Some(Q(n, 0)),
+                Err(_) => None,
+            },
+        }
     }
 }
 
@@ -140,7 +151,7 @@ where
     space!(reader);
     let name = unsafe { reader.read_as_str(&func) };
     let Some(&b'=') = reader.peek() else {
-        return Ok(Param (name, None));
+        return Ok(Param(name, None));
     };
     reader.next();
     let value = if let Some(&b'"') = reader.peek() {
@@ -153,7 +164,7 @@ where
         unsafe { reader.read_as_str(func) }
     };
 
-    Ok(Param (name, Some(value)))
+    Ok(Param(name, Some(value)))
 }
 
 /// Trait to parse SIP headers.
@@ -405,8 +416,3 @@ impl<'a> MediaType<'a> {
         }
     }
 }
-
-/// This type represents a `q` parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
-/// and [`AcceptLanguage`] headers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Q(u8, u8);

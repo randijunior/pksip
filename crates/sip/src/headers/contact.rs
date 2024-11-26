@@ -42,7 +42,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
         let mut expires = None;
         let param =
             parse_header_param!(reader, Q_PARAM = q, EXPIRES_PARAM = expires);
-        let q = q.and_then(|q| headers::parse_q(q));
+        let q = q.and_then(|q| Q::parse(q));
         let expires = expires.and_then(|expires| expires.parse().ok());
 
         Ok(Contact::Uri(ContactUri {

@@ -48,7 +48,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
             let coding = parser::parse_token(reader)?;
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
-            let q = q_param.and_then(|q| headers::parse_q(q));
+            let q = q_param.and_then(|q| Q::parse(q));
 
             Coding { coding, q, param }
         });

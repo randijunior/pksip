@@ -474,7 +474,11 @@ fn is_sip_version(reader: &Reader) -> bool {
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
-    Ok(reader.must_read_tag(SIPV2)?)
+    let Some(SIPV2) = reader.peek_n(7) else {
+        return sip_parse_error!("Sip Version Invalid")
+    };
+    reader.nth(6);
+    Ok(())
 }
 
 fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {

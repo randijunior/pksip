@@ -49,7 +49,7 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
             let language = unsafe { reader.read_as_str(is_lang) };
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
-            let q = q_param.and_then(|q| headers::parse_q(q));
+            let q = q_param.and_then(|q| Q::parse(q));
 
             Language { language, q, param }
         });
