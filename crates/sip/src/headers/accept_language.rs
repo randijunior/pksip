@@ -3,7 +3,7 @@ use reader::{util::is_alphabetic, Reader};
 use crate::{
     headers::{self, Q_PARAM},
     macros::{hdr_list, parse_header_param},
-    message::Params,
+    msg::Params,
     parser::Result,
 };
 

@@ -3,7 +3,7 @@ use reader::Reader;
 use crate::{
     headers::{self, EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
-    message::{Params, SipUri},
+    msg::{Params, SipUri},
     parser::{self, Result},
 };
 
@@ -58,7 +58,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::message::{Host, HostPort, Scheme};
+    use crate::msg::{Host, HostPort, Scheme};
 
     use super::*;
 

@@ -1,7 +1,7 @@
 //! SIP types and parser
 
 pub mod headers;
-pub mod message;
+pub mod msg;
 pub mod parser;
 
 pub(crate) mod auth;

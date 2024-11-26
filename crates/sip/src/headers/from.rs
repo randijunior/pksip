@@ -3,7 +3,7 @@ use reader::Reader;
 use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
-    message::{Params, SipUri},
+    msg::{Params, SipUri},
     parser::{self, Result},
 };
 
@@ -36,7 +36,7 @@ impl<'a> SipHeader<'a> for From<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::message::{Host, HostPort, Scheme};
+    use crate::msg::{Host, HostPort, Scheme};
 
     use super::*;
 

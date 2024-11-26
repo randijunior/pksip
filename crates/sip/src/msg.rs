@@ -46,6 +46,115 @@ impl<'a> SipMessage<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum SipUri<'a> {
+    Uri(Uri<'a>),
+    NameAddr(NameAddr<'a>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub enum Scheme {
+    #[default]
+    Sip,
+    Sips,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct UserInfo<'a> {
+    pub(crate) user: &'a str,
+    pub(crate) pass: Option<&'a str>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Host<'a> {
+    DomainName(&'a str),
+    IpAddr(IpAddr),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct HostPort<'a> {
+    pub host: Host<'a>,
+    pub port: Option<u16>,
+}
+
+impl Default for HostPort<'_> {
+    fn default() -> Self {
+        Self {
+            host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
+            port: Some(5060),
+        }
+    }
+}
+
+impl<'a> HostPort<'a> {
+    pub fn host_as_string(&self) -> String {
+        match self.host {
+            Host::DomainName(host) => host.to_string(),
+            Host::IpAddr(host) => host.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
+pub struct Uri<'a> {
+    pub scheme: Scheme,
+    pub user: Option<UserInfo<'a>>,
+    pub host: HostPort<'a>,
+    pub user_param: Option<&'a str>,
+    pub method_param: Option<&'a str>,
+    pub transport_param: Option<&'a str>,
+    pub ttl_param: Option<&'a str>,
+    pub lr_param: Option<&'a str>,
+    pub maddr_param: Option<&'a str>,
+    pub params: Option<Params<'a>>,
+    pub hdr_params: Option<Params<'a>>,
+}
+
+// SIP name-addr, which typically appear in From, To, and Contact header.
+// display optional display part
+// Struct Uri uri
+#[derive(Debug, PartialEq, Eq)]
+pub struct NameAddr<'a> {
+    pub(crate) display: Option<&'a str>,
+    pub(crate) uri: Uri<'a>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct GenericUri<'a> {
+    pub(crate) scheme: &'a str,
+    pub(crate) content: &'a str,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct Params<'a> {
+    pub(crate) inner: HashMap<&'a str, &'a str>,
+}
+
+impl<'a> From<HashMap<&'a str, &'a str>> for Params<'a> {
+    fn from(value: HashMap<&'a str, &'a str>) -> Self {
+        Self { inner: value }
+    }
+}
+
+impl<'a> Params<'a> {
+    pub fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
+        self.inner.insert(k, v)
+    }
+    pub fn get(&self, k: &'a str) -> Option<&&str> {
+        self.inner.get(k)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SipMethod<'a> {
     Invite,
@@ -372,114 +481,5 @@ impl From<&[u8]> for SipStatusCode {
             b"608" => SipStatusCode::Rejected,
             _ => SipStatusCode::Unknow,
         }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SipUri<'a> {
-    Uri(Uri<'a>),
-    NameAddr(NameAddr<'a>),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub enum Scheme {
-    #[default]
-    Sip,
-    Sips,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct UserInfo<'a> {
-    pub(crate) user: &'a str,
-    pub(crate) pass: Option<&'a str>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Host<'a> {
-    DomainName(&'a str),
-    IpAddr(IpAddr),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct HostPort<'a> {
-    pub host: Host<'a>,
-    pub port: Option<u16>,
-}
-
-impl Default for HostPort<'_> {
-    fn default() -> Self {
-        Self {
-            host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
-            port: Some(5060),
-        }
-    }
-}
-
-impl<'a> HostPort<'a> {
-    pub fn host_as_string(&self) -> String {
-        match self.host {
-            Host::DomainName(host) => host.to_string(),
-            Host::IpAddr(host) => host.to_string(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct Uri<'a> {
-    pub scheme: Scheme,
-    pub user: Option<UserInfo<'a>>,
-    pub host: HostPort<'a>,
-    pub user_param: Option<&'a str>,
-    pub method_param: Option<&'a str>,
-    pub transport_param: Option<&'a str>,
-    pub ttl_param: Option<&'a str>,
-    pub lr_param: Option<&'a str>,
-    pub maddr_param: Option<&'a str>,
-    pub params: Option<Params<'a>>,
-    pub hdr_params: Option<Params<'a>>,
-}
-
-// SIP name-addr, which typically appear in From, To, and Contact header.
-// display optional display part
-// Struct Uri uri
-#[derive(Debug, PartialEq, Eq)]
-pub struct NameAddr<'a> {
-    pub(crate) display: Option<&'a str>,
-    pub(crate) uri: Uri<'a>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct GenericUri<'a> {
-    pub(crate) scheme: &'a str,
-    pub(crate) content: &'a str,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Params<'a> {
-    pub(crate) inner: HashMap<&'a str, &'a str>,
-}
-
-impl<'a> From<HashMap<&'a str, &'a str>> for Params<'a> {
-    fn from(value: HashMap<&'a str, &'a str>) -> Self {
-        Self { inner: value }
-    }
-}
-
-impl<'a> Params<'a> {
-    pub fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
-    }
-
-    pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
-        self.inner.insert(k, v)
-    }
-    pub fn get(&self, k: &'a str) -> Option<&&str> {
-        self.inner.get(k)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
     }
 }

@@ -139,6 +139,18 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
+    pub fn must_read_tag(&mut self, tag: &[u8]) -> Result<()> {
+        let len = tag.len();
+        match self.peek_n(len) {
+            Some(peeked) if tag == peeked => {
+                self.nth(len - 1);
+                Ok(())
+            },
+            Some(_) => self.error(ErrorKind::Tag),
+            None => self.error(ErrorKind::Eof),
+        }
+    }
+
     /// Same as [Reader::read_while] but will return the slice of bytes converted to a string slice.
     ///
     /// # Safety
@@ -241,6 +253,7 @@ pub enum ErrorKind {
         expected: u8,
         found: u8,
     },
+    Tag,
     Num,
 }
 

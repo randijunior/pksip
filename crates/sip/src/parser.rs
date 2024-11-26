@@ -1,7 +1,6 @@
 //! SIP Parser
 
-use std::net::IpAddr;
-use std::str::{self, FromStr, Utf8Error};
+use std::str::{self, Utf8Error};
 
 use reader::newline;
 use reader::space;
@@ -58,22 +57,22 @@ use crate::headers::Warning;
 use crate::macros::b_map;
 use crate::macros::parse_param;
 use crate::macros::sip_parse_error;
-use crate::message::HostPort;
-use crate::message::Params;
-use crate::message::Scheme;
-use crate::message::SipMethod;
-use crate::message::Uri;
-use crate::message::{Host, NameAddr, SipStatusCode, SipUri};
+use crate::msg::HostPort;
+use crate::msg::Params;
+use crate::msg::Scheme;
+use crate::msg::SipMethod;
+use crate::msg::Uri;
+use crate::msg::{Host, NameAddr, SipStatusCode, SipUri};
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
 use crate::headers::Headers;
 
-use crate::message::SipMessage;
-use crate::message::StatusLine;
-use crate::message::UserInfo;
-use crate::message::{RequestLine, SipRequest, SipResponse};
+use crate::msg::SipMessage;
+use crate::msg::StatusLine;
+use crate::msg::UserInfo;
+use crate::msg::{RequestLine, SipRequest, SipResponse};
 
 pub(crate) const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
 
@@ -471,17 +470,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 fn is_sip_version(reader: &Reader) -> bool {
     reader
         .peek_n(4)
-        .is_some_and(|sip| sip == SIP && &sip[3] == &b'/')
+        .is_some_and(|peeked| peeked == SIP && &peeked[3] == &b'/')
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
-    match reader.peek_n(7) {
-        Some(SIPV2) => {
-            reader.nth(6);
-            Ok(())
-        }
-        _ => sip_parse_error!("Sip Version Invalid"),
-    }
+    Ok(reader.must_read_tag(SIPV2)?)
 }
 
 fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
@@ -570,12 +563,16 @@ fn parse_header_params_in_sip_uri<'a>(
 ) -> Result<Params<'a>> {
     reader.must_read(b'?')?;
     let mut params = Params::new();
-    while let Some(b'?') = reader.peek() {
+    loop {
         // take '?' or '&'
         reader.next();
         let Param(name, value) = parse_hdr_in_uri(reader)?;
         let value = value.unwrap_or("");
         params.set(name, value);
+
+        let Some(b'&') = reader.peek() else {
+            break
+        };
     }
     Ok(params)
 }

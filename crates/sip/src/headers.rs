@@ -96,7 +96,7 @@ pub use www_authenticate::WWWAuthenticate;
 
 use std::str;
 
-use crate::{message::Params, parser::{self, Result}};
+use crate::{msg::Params, parser::{self, Result}};
 
 /// A Header param
 pub struct Param<'a>(pub &'a str, pub Option<&'a str>);

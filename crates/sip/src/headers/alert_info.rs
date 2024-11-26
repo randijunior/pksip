@@ -1,7 +1,7 @@
 use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
-use crate::{macros::parse_header_param, message::Params, parser::Result};
+use crate::{macros::parse_header_param, msg::Params, parser::Result};
 use std::str;
 
 /// The `Alert-Info` SIP header.

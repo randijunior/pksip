@@ -1,6 +1,6 @@
 use reader::{until, Reader};
 
-use crate::{macros::parse_header_param, message::Params, parser::Result};
+use crate::{macros::parse_header_param, msg::Params, parser::Result};
 
 use crate::headers::SipHeader;
 

@@ -1,6 +1,6 @@
 use reader::{alpha, Reader};
 
-use crate::{macros::hdr_list, message::SipMethod, parser::Result};
+use crate::{macros::hdr_list, msg::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 /// The `Allow` SIP header

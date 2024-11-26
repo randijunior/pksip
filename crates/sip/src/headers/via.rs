@@ -27,8 +27,8 @@ use crate::macros::{b_map, parse_param};
 use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::{
     macros::sip_parse_error,
-    message::Transport,
-    message::{HostPort, Params},
+    msg::Transport,
+    msg::{HostPort, Params},
     parser::Result,
 };
 use std::str;
@@ -175,7 +175,7 @@ impl<'a> Via<'a> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::message::Host;
+    use crate::msg::Host;
 
     use super::*;
 

@@ -2,7 +2,7 @@ use reader::Reader;
 
 use crate::{
     macros::parse_header_param,
-    message::{NameAddr, Params},
+    msg::{NameAddr, Params},
     parser::{self, Result},
 };
 
@@ -30,7 +30,7 @@ impl<'a> SipHeader<'a> for RecordRoute<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::message::{Host, HostPort, Scheme};
+    use crate::msg::{Host, HostPort, Scheme};
 
     use super::*;
 
