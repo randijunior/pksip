@@ -21,7 +21,7 @@ impl<'a> SipHeader<'a> for ReplyTo<'a> {
     const NAME: &'static str = "Reply-To";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let uri = parser::parse_sip_uri(reader)?;
+        let uri = parser::parse_sip_uri(reader, false)?;
         let param = parse_header_param!(reader);
 
         Ok(ReplyTo { uri, param })

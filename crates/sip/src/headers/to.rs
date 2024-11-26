@@ -26,7 +26,7 @@ impl<'a> SipHeader<'a> for To<'a> {
     const SHORT_NAME: &'static str = "t";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let uri = parser::parse_sip_uri(reader)?;
+        let uri = parser::parse_sip_uri(reader, false)?;
         let mut tag = None;
         let params = parse_header_param!(reader, TAG_PARAM = tag);
 

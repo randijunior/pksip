@@ -37,7 +37,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
             reader.next();
             return Ok(Contact::Star);
         }
-        let uri = parser::parse_sip_uri(reader)?;
+        let uri = parser::parse_sip_uri(reader, false)?;
         let mut q = None;
         let mut expires = None;
         let param =

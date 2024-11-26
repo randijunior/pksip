@@ -77,6 +77,12 @@ pub struct HostPort<'a> {
     pub port: Option<u16>,
 }
 
+impl<'a> From<Host<'a>> for HostPort<'a> {
+    fn from(host: Host<'a>) -> Self {
+        Self { host, port: None }
+    }
+}
+
 impl Default for HostPort<'_> {
     fn default() -> Self {
         Self {
@@ -87,6 +93,9 @@ impl Default for HostPort<'_> {
 }
 
 impl<'a> HostPort<'a> {
+    pub fn new(host: Host<'a>, port: Option<u16>) -> Self {
+        Self { host, port }
+    }
     pub fn host_as_string(&self) -> String {
         match self.host {
             Host::DomainName(host) => host.to_string(),
@@ -108,6 +117,68 @@ pub struct Uri<'a> {
     pub maddr_param: Option<&'a str>,
     pub params: Option<Params<'a>>,
     pub hdr_params: Option<Params<'a>>,
+}
+
+#[derive(Default)]
+pub struct UriBuilder<'a> {
+    uri: Uri<'a>,
+}
+
+impl<'a> UriBuilder<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn scheme(mut self, scheme: Scheme) -> Self {
+        self.uri.scheme = scheme;
+        self
+    }
+
+    pub fn user(mut self, user: UserInfo<'a>) -> Self {
+        self.uri.user = Some(user);
+        self
+    }
+
+    pub fn host(mut self, host: HostPort<'a>) -> Self {
+        self.uri.host = host;
+        self
+    }
+
+    pub fn user_param(mut self, user_param: &'a str) -> Self {
+        self.uri.user_param = Some(user_param);
+        self
+    }
+
+    pub fn method_param(mut self, method_param: &'a str) -> Self {
+        self.uri.method_param = Some(method_param);
+        self
+    }
+    pub fn transport_param(mut self, transport_param: &'a str) -> Self {
+        self.uri.transport_param = Some(transport_param);
+        self
+    }
+
+    pub fn ttl_param(mut self, ttl_param: &'a str) -> Self {
+        self.uri.ttl_param = Some(ttl_param);
+        self
+    }
+    pub fn lr_param(mut self, lr_param: &'a str) -> Self {
+        self.uri.lr_param = Some(lr_param);
+        self
+    }
+
+    pub fn maddr_param(mut self, maddr_param: &'a str) -> Self {
+        self.uri.maddr_param = Some(maddr_param);
+        self
+    }
+
+    pub fn params(mut self, params: Params<'a>) -> Self {
+        self.uri.params = Some(params);
+        self
+    }
+
+    pub fn get(self) -> Uri<'a> {
+        self.uri
+    }
 }
 
 // SIP name-addr, which typically appear in From, To, and Contact header.

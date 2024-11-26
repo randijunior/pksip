@@ -533,6 +533,10 @@ pub(crate) fn parse_host_port<'a>(
         }
         _ => {
             let host = read_host_str(reader);
+
+            if host.is_empty() {
+                return sip_parse_error!("Can't parse the host!");
+            }
             match host.parse() {
                 Ok(addr) => Host::IpAddr(addr),
                 Err(_) => Host::DomainName(host),
@@ -619,11 +623,14 @@ pub(crate) fn parse_uri<'a>(
     })
 }
 
-pub(crate) fn parse_sip_uri<'a>(reader: &mut Reader<'a>) -> Result<SipUri<'a>> {
+pub(crate) fn parse_sip_uri<'a>(
+    reader: &mut Reader<'a>,
+    parse_params: bool,
+) -> Result<SipUri<'a>> {
     space!(reader);
     match reader.peek_n(3) {
         Some(SIP) | Some(SIPS) => {
-            let uri = parse_uri(reader, false)?;
+            let uri = parse_uri(reader, parse_params)?;
             Ok(SipUri::Uri(uri))
         }
         _ => {
@@ -711,7 +718,7 @@ pub(crate) fn parse_token<'a>(reader: &mut Reader<'a>) -> Result<&'a str> {
 }
 
 /// Error on parsing
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SipParserError {
     /// Message in error
     pub message: String,
@@ -748,8 +755,7 @@ impl<'a> From<reader::Error<'a>> for SipParserError {
     fn from(err: reader::Error) -> Self {
         SipParserError {
             message: format!(
-                "Failed to parse at line:{} column:{} kind:{:?}
-                {}",
+                "Failed to parse at line:{} column:{} kind:{:?}\n{}",
                 err.line,
                 err.col,
                 err.kind,
@@ -761,6 +767,8 @@ impl<'a> From<reader::Error<'a>> for SipParserError {
 
 #[cfg(test)]
 mod tests {
+    use crate::msg::UriBuilder;
+
     use super::*;
 
     macro_rules! st_line {
@@ -776,6 +784,93 @@ mod tests {
                 assert_eq!(parsed.rphrase, $code.reason_phrase());
             }
         };
+    }
+
+    macro_rules! uri {
+        ($name:ident,$bytes:expr,$uri:expr) => {
+            #[test]
+            fn $name() {
+                let mut reader = Reader::new($bytes);
+                let parsed = parse_sip_uri(&mut reader, true);
+                let parsed = parsed;
+
+                assert_eq!(parsed, $uri);
+            }
+        };
+    }
+
+    uri! {
+        test_uri_1,
+        b"sip:bob@biloxi.com",
+        Ok(SipUri::Uri(
+            UriBuilder::new()
+            .scheme(Scheme::Sip)
+            .user(UserInfo { user: "bob", pass: None })
+            .host(HostPort::from(Host::DomainName("biloxi.com")))
+            .get()
+        ))
+    }
+
+    uri! {
+        test_uri_2,
+        b"sip:watson@bell-telephone.com",
+        Ok(SipUri::Uri(
+            UriBuilder::new()
+            .scheme(Scheme::Sip)
+            .user(UserInfo { user: "watson", pass: None })
+            .host(HostPort::from(Host::DomainName("bell-telephone.com")))
+            .get()
+        ))
+    }
+
+    uri! {
+        test_uri_3,
+        b"sip:bob@192.0.2.4",
+        Ok(SipUri::Uri(
+            UriBuilder::new()
+            .scheme(Scheme::Sip)
+            .user(UserInfo { user: "bob", pass: None })
+            .host(HostPort::from(Host::IpAddr("192.0.2.4".parse().unwrap())))
+            .get()
+        ))
+    }
+
+    uri! {
+        test_uri_4,
+        b"sip:user:password@localhost:5060",
+        Ok(SipUri::Uri(
+            UriBuilder::new()
+            .scheme(Scheme::Sip)
+            .user(UserInfo { user: "user", pass: Some("password") })
+            .host(HostPort::new(Host::DomainName("localhost"), Some(5060)))
+            .get()
+        ))
+    }
+
+    uri! {
+        test_uri_5,
+        b"sip:alice@atlanta.com;maddr=239.255.255.1;ttl=15",
+        Ok(SipUri::Uri(
+            UriBuilder::new()
+            .scheme(Scheme::Sip)
+            .user(UserInfo { user: "alice", pass: None })
+            .host(HostPort::from(Host::DomainName("atlanta.com")))
+            .ttl_param("15")
+            .maddr_param("239.255.255.1")
+            .get()
+        ))
+    }
+
+    uri! {
+        test_uri_6,
+        b"sip:support:pass",
+        sip_parse_error!("Failed to parse at line:1 column:13 kind:Num\nsip:support:pass")
+    }
+
+    uri! {
+        test_uri_7,
+        b"sip:support:pass@",
+        sip_parse_error!("Can't parse the host!")
     }
 
     st_line! {
