@@ -30,7 +30,7 @@ pub enum Contact<'a> {
 
 impl<'a> SipHeader<'a> for Contact<'a> {
     const NAME: &'static str = "Contact";
-    const SHORT_NAME: Option<&'static str> = Some("m");
+    const SHORT_NAME: &'static str = "m";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Contact<'a>> {
         if reader.peek() == Some(&b'*') {

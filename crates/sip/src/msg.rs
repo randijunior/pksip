@@ -356,7 +356,9 @@ impl SipStatusCode {
             SipStatusCode::NotFound => "Not Found",
             SipStatusCode::MethodNotAllowed => "Method Not Allowed",
             SipStatusCode::NotAcceptable => "Not Acceptable",
-            SipStatusCode::ProxyAuthenticationRequired => "Proxy Authentication Required",
+            SipStatusCode::ProxyAuthenticationRequired => {
+                "Proxy Authentication Required"
+            }
             SipStatusCode::RequestTimeout => "Request Timeout",
             SipStatusCode::Gone => "Gone",
             SipStatusCode::RequestEntityTooLarge => "Request Entity Too Large",
@@ -367,7 +369,9 @@ impl SipStatusCode {
             SipStatusCode::ExtensionRequired => "Extension Required",
             SipStatusCode::IntervalTooBrief => "Interval Too Brief",
             SipStatusCode::TemporarilyUnavailable => "Temporarily Unavailable",
-            SipStatusCode::CallOrTransactionDoesNotExist => "Call/Transaction Does Not Exist",
+            SipStatusCode::CallOrTransactionDoesNotExist => {
+                "Call/Transaction Does Not Exist"
+            }
             SipStatusCode::LoopDetected => "Loop Detected",
             SipStatusCode::TooManyHops => "Too Many Hops",
             SipStatusCode::AddressIncomplete => "Address Incomplete",

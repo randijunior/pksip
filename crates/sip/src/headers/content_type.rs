@@ -3,7 +3,8 @@ use std::str;
 use reader::Reader;
 
 use crate::{
-    headers::SipHeader, macros::parse_header_param, 
+    headers::SipHeader,
+    macros::parse_header_param,
     parser::{self, Result},
 };
 
@@ -17,7 +18,7 @@ pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> SipHeader<'a> for ContentType<'a> {
     const NAME: &'static str = "Content-Type";
-    const SHORT_NAME: Option<&'static str> = Some("c");
+    const SHORT_NAME: &'static str = "c";
 
     fn parse(reader: &mut Reader<'a>) -> Result<ContentType<'a>> {
         let mtype = parser::parse_token(reader)?;

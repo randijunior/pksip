@@ -174,7 +174,8 @@ pub trait SipHeader<'a>: Sized {
     /// The header name in bytes
     const NAME: &'static str;
     /// The header short name(if exists) in bytes
-    const SHORT_NAME: Option<&'static str> = None;
+    const SHORT_NAME: &'static str =
+        panic!("This header not have a short name!");
 
     /// Use the `reader` to parse into this type.
     fn parse(reader: &mut Reader<'a>) -> Result<Self>;
@@ -190,13 +191,6 @@ pub trait SipHeader<'a>: Sized {
         let str = reader::until_newline!(reader);
 
         Ok(str::from_utf8(str)?)
-    }
-
-    /// Returns `true` if `name` matches this header `name` or `short_name`
-    #[inline]
-    fn match_name(name: &str) -> bool {
-        name == Self::NAME
-            || Self::SHORT_NAME.is_some_and(|s_name| name == s_name)
     }
 }
 

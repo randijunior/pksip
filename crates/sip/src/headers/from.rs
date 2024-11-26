@@ -23,7 +23,7 @@ pub struct From<'a> {
 
 impl<'a> SipHeader<'a> for From<'a> {
     const NAME: &'static str = "From";
-    const SHORT_NAME: Option<&'static str> = Some("f");
+    const SHORT_NAME: &'static str = "f";
 
     fn parse(reader: &mut Reader<'a>) -> Result<From<'a>> {
         let uri = parser::parse_sip_uri(reader)?;

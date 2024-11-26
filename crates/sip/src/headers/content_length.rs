@@ -20,7 +20,7 @@ impl ContentLength {
 
 impl<'a> SipHeader<'a> for ContentLength {
     const NAME: &'static str = "Content-Length";
-    const SHORT_NAME: Option<&'static str> = Some("l");
+    const SHORT_NAME: &'static str = "l";
 
     fn parse(reader: &mut Reader<'a>) -> Result<ContentLength> {
         let l = reader.read_num()?;

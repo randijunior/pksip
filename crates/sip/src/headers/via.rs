@@ -100,7 +100,7 @@ pub struct Via<'a> {
 
 impl<'a> SipHeader<'a> for Via<'a> {
     const NAME: &'static str = "Via";
-    const SHORT_NAME: Option<&'static str> = Some("v");
+    const SHORT_NAME: &'static str = "v";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         //@TODO: handle LWS

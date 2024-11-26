@@ -3,7 +3,7 @@ use std::str;
 use reader::Reader;
 
 use crate::parser;
-use crate::{macros::hdr_list,  parser::Result};
+use crate::{macros::hdr_list, parser::Result};
 
 use crate::headers::SipHeader;
 

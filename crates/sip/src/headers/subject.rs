@@ -14,7 +14,7 @@ pub struct Subject<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Subject<'a> {
     const NAME: &'static str = "Subject";
-    const SHORT_NAME: Option<&'static str> = Some("s");
+    const SHORT_NAME: &'static str = "s";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let subject = Self::parse_as_str(reader)?;

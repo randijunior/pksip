@@ -1,7 +1,10 @@
 use reader::Reader;
 
 use crate::{
-    auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH}, headers::Param, macros::{comma_sep, sip_parse_error}, parser::Result
+    auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
+    headers::Param,
+    macros::{comma_sep, sip_parse_error},
+    parser::Result,
 };
 
 use crate::headers::SipHeader;

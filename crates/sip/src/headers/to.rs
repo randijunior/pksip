@@ -23,7 +23,7 @@ pub struct To<'a> {
 
 impl<'a> SipHeader<'a> for To<'a> {
     const NAME: &'static str = "To";
-    const SHORT_NAME: Option<&'static str> = Some("t");
+    const SHORT_NAME: &'static str = "t";
 
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let uri = parser::parse_sip_uri(reader)?;

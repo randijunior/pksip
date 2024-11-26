@@ -4,7 +4,6 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
-    
     msg::{GenericUri, Params},
     parser::{self, is_uri, Result},
 };
