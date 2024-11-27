@@ -30,7 +30,7 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
         let mut auth_info = AuthenticationInfo::default();
 
         comma_sep!(reader => {
-            let Param (name, value) = super::parse_header_param(reader)?;
+            let Param (name, value) = Param::parse(reader)?;
             match name {
                 NEXTNONCE => auth_info.nextnonce = value,
                 QOP => auth_info.qop = value,

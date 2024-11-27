@@ -22,7 +22,7 @@ ttl               =  1*3DIGIT ; 0 to 255
 use reader::util::is_valid_port;
 use reader::{space, until, Reader};
 
-use crate::headers::{parse_param_sip, SipHeader};
+use crate::headers::SipHeader;
 use crate::macros::{b_map, parse_param};
 use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::{
@@ -50,7 +50,7 @@ fn is_via_param(b: &u8) -> bool {
 
 // Parses a via param.
 fn parse_via_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(reader, is_via_param) }
+    unsafe { Param::parse_unchecked(reader, is_via_param) }
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]

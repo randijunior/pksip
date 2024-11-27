@@ -101,9 +101,6 @@ use crate::{
     parser::{self, Result},
 };
 
-/// A Header param
-pub struct Param<'a>(pub &'a str, pub Option<&'a str>);
-
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
 /// The q parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
@@ -134,37 +131,39 @@ impl Q {
     }
 }
 
-pub(crate) fn parse_header_param<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<Param<'a>> {
-    unsafe { parse_param_sip(reader, parser::is_token) }
-}
+/// A Header param
+pub struct Param<'a>(pub &'a str, pub Option<&'a str>);
 
-// Parses a `name=value` parameter in a SIP message.
-pub(crate) unsafe fn parse_param_sip<'a, F>(
-    reader: &mut Reader<'a>,
-    func: F,
-) -> Result<Param<'a>>
-where
-    F: Fn(&u8) -> bool,
-{
-    space!(reader);
-    let name = unsafe { reader.read_as_str(&func) };
-    let Some(&b'=') = reader.peek() else {
-        return Ok(Param(name, None));
-    };
-    reader.next();
-    let value = if let Some(&b'"') = reader.peek() {
+impl<'a> Param<'a> {
+    pub unsafe fn parse_unchecked<F>(
+        reader: &mut Reader<'a>,
+        func: F,
+    ) -> Result<Param<'a>>
+    where
+        F: Fn(&u8) -> bool,
+    {
+        space!(reader);
+        let name = unsafe { reader.read_as_str(&func) };
+        let Some(&b'=') = reader.peek() else {
+            return Ok(Param(name, None));
+        };
         reader.next();
-        let value = reader::until!(reader, &b'"');
-        reader.next();
+        let value = if let Some(&b'"') = reader.peek() {
+            reader.next();
+            let value = reader::until!(reader, &b'"');
+            reader.next();
 
-        str::from_utf8(value)?
-    } else {
-        unsafe { reader.read_as_str(func) }
-    };
+            str::from_utf8(value)?
+        } else {
+            unsafe { reader.read_as_str(func) }
+        };
 
-    Ok(Param(name, Some(value)))
+        Ok(Param(name, Some(value)))
+    }
+
+    pub fn parse(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+        unsafe { Self::parse_unchecked(reader, parser::is_token) }
+    }
 }
 
 /// Trait to parse SIP headers.

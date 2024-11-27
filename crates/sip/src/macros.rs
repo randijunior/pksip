@@ -15,18 +15,26 @@ macro_rules! b_map {
     };
 }
 
+macro_rules! assert_return {
+    ( $e:expr , $v:ident, $r:expr ) => {
+        if let $v = $e {
+            return $r;
+        }
+    };
+}
+
 macro_rules! parse_header_param {
     ($reader:ident) => (
         $crate::macros::parse_param!(
             $reader,
-            $crate::headers::parse_header_param,
+            $crate::headers::Param::parse,
         )
     );
 
     ($reader:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $reader,
-            $crate::headers::parse_header_param,
+            $crate::headers::Param::parse,
             $($name = $var),*
         )
     );
@@ -98,6 +106,7 @@ macro_rules! sip_parse_error {
     }};
 }
 
+pub(crate) use assert_return;
 pub(crate) use b_map;
 pub(crate) use comma_sep;
 pub(crate) use hdr_list;

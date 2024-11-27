@@ -80,7 +80,18 @@ impl<'a> Reader<'a> {
 
     /// Get `n` bytes without advance.
     pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
-        self.as_ref().get(..n)
+        self.src.get(self.idx..n)
+    }
+
+    /// Get `n` bytes and advance.
+    pub fn read_n(&mut self, n: usize) -> Result<&[u8]> {
+        let start = self.idx;
+        for _ in 0..n {
+            self.next();
+        }
+        let end = self.idx;
+
+        Ok(&self.src[start..end])
     }
 
     /// Call the clousore `func` for each next byte in the slice, and process the element

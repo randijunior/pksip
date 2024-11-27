@@ -59,7 +59,7 @@ impl<'a> Challenge<'a> {
             let mut stale = None;
 
             comma_sep!(reader => {
-                let Param (name, value) = headers::parse_header_param(reader)?;
+                let Param (name, value) = Param::parse(reader)?;
 
                 match name {
                     REALM => realm = value,
@@ -89,7 +89,7 @@ impl<'a> Challenge<'a> {
         }
 
         comma_sep!(reader => {
-            let Param (name, value) = headers::parse_header_param(reader)?;
+            let Param (name, value) = Param::parse(reader)?;
             param.set(name, value.unwrap_or(""));
 
         });
@@ -139,7 +139,7 @@ impl<'a> Credential<'a> {
             let mut nc = None;
 
             comma_sep!(reader => {
-                let Param (name, value) = headers::parse_header_param(reader)?;
+                let Param (name, value) = Param::parse(reader)?;
 
                 match name {
                     REALM => realm = value,
@@ -175,7 +175,7 @@ impl<'a> Credential<'a> {
         }
 
         comma_sep!(reader => {
-            let Param (name, value) = headers::parse_header_param(reader)?;
+            let Param (name, value) = Param::parse(reader)?;
             param.set(name, value.unwrap_or(""));
 
         });

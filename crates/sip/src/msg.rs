@@ -119,6 +119,21 @@ pub struct Uri<'a> {
     pub hdr_params: Option<Params<'a>>,
 }
 
+impl<'a> Uri<'a> {
+    pub fn without_params(
+        scheme: Scheme,
+        user: Option<UserInfo<'a>>,
+        host: HostPort<'a>,
+    ) -> Self {
+        Uri {
+            scheme,
+            user,
+            host,
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct UriBuilder<'a> {
     uri: Uri<'a>,

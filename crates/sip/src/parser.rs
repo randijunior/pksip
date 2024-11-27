@@ -9,7 +9,6 @@ use reader::util::{is_newline, is_valid_port};
 use reader::Reader;
 use reader::{alpha, digits, until_newline};
 
-use crate::headers::parse_param_sip;
 use crate::headers::Accept;
 use crate::headers::AcceptEncoding;
 use crate::headers::AcceptLanguage;
@@ -54,6 +53,7 @@ use crate::headers::UserAgent;
 use crate::headers::Via;
 use crate::headers::WWWAuthenticate;
 use crate::headers::Warning;
+use crate::macros::assert_return;
 use crate::macros::b_map;
 use crate::macros::parse_param;
 use crate::macros::sip_parse_error;
@@ -148,13 +148,14 @@ pub(crate) fn is_token(b: &u8) -> bool {
 }
 
 fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-    let Param(name, value) = unsafe { parse_param_sip(reader, is_param)? };
+    let Param(name, value) =
+        unsafe { Param::parse_unchecked(reader, is_param)? };
 
     Ok(Param(name, Some(value.unwrap_or(""))))
 }
 
 fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-    Ok(unsafe { parse_param_sip(reader, is_hdr)? })
+    Ok(unsafe { Param::parse_unchecked(reader, is_hdr)? })
 }
 
 fn read_user_str<'a>(reader: &mut Reader<'a>) -> &'a str {
@@ -456,26 +457,30 @@ fn is_sip_version(reader: &Reader) -> bool {
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
-    let Some(SIPV2) = reader.peek_n(7) else {
+    let Ok(SIPV2) = reader.read_n(7) else {
         return sip_parse_error!("Sip Version Invalid");
     };
-    reader.nth(6);
     Ok(())
 }
 
 fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
-    match until!(reader, &b':') {
-        SIP => Ok(Scheme::Sip),
-        SIPS => Ok(Scheme::Sips),
-        // Unsupported URI scheme
-        other => sip_parse_error!(format!(
-            "Unsupported URI scheme: {}",
-            String::from_utf8_lossy(other)
-        )),
-    }
+    let b = until!(reader, &b':');
+    assert_return!(b, SIP, Ok(Scheme::Sip));
+    assert_return!(b, SIPS, Ok(Scheme::Sips));
+
+    sip_parse_error!(format!(
+        "Unsupported URI scheme: {}",
+        String::from_utf8_lossy(b)
+    ))
 }
 
-fn parse_user<'a>(reader: &mut Reader<'a>) -> Result<UserInfo<'a>> {
+pub(crate) fn parse_user_info<'a>(
+    reader: &mut Reader<'a>,
+) -> Result<Option<UserInfo<'a>>> {
+    let peeked =
+        reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
+
+    let Some(&b'@') = peeked else { return Ok(None) };
     let user = read_user_str(reader);
     let pass = match reader.peek() {
         Some(&b':') => {
@@ -486,20 +491,7 @@ fn parse_user<'a>(reader: &mut Reader<'a>) -> Result<UserInfo<'a>> {
     };
     reader.must_read(b'@')?;
 
-    Ok(UserInfo { user, pass })
-}
-
-pub(crate) fn parse_user_info<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<Option<UserInfo<'a>>> {
-    let peeked =
-        reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
-
-    let Some(&b'@') = peeked else {
-        return Ok(None)
-    };
-
-    Ok(Some(parse_user(reader)?))
+    Ok(Some(UserInfo { user, pass }))
 }
 
 fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
@@ -579,12 +571,7 @@ pub(crate) fn parse_uri<'a>(
     let host = parse_host_port(reader)?;
 
     if !parse_params {
-        return Ok(Uri {
-            scheme,
-            user,
-            host,
-            ..Default::default()
-        });
+        return Ok(Uri::without_params(scheme, user, host));
     }
 
     let mut user_param = None;
