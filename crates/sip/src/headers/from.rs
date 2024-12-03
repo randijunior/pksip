@@ -16,9 +16,9 @@ use std::str;
 /// Indicates the initiator of the request.
 #[derive(Debug, PartialEq, Eq)]
 pub struct From<'a> {
-    pub(crate) uri: SipUri<'a>,
-    pub(crate) tag: Option<&'a str>,
-    pub(crate) params: Option<Params<'a>>,
+    pub uri: SipUri<'a>,
+    pub tag: Option<&'a str>,
+    pub params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeader<'a> for From<'a> {
@@ -52,9 +52,9 @@ mod tests {
             ..
         } => {
             assert_eq!(addr.display, Some("A. G. Bell"));
-            assert_eq!(addr.uri.user.unwrap().user, "agb");
+            assert_eq!(addr.uri.user.unwrap().get_user(), "agb");
             assert_eq!(
-                addr.uri.host,
+                addr.uri.host_port,
                 HostPort {
                     host: Host::DomainName("bell-telephone.com"),
                     port: None
@@ -73,9 +73,9 @@ mod tests {
             tag,
             ..
         } => {
-            assert_eq!(uri.user.unwrap().user, "+12125551212");
+            assert_eq!(uri.user.unwrap().get_user(), "+12125551212");
             assert_eq!(
-                uri.host,
+                uri.host_port,
                 HostPort {
                     host: Host::DomainName("server.phone2net.com"),
                     port: None
@@ -95,9 +95,9 @@ mod tests {
             ..
         } => {
             assert_eq!(addr.display, Some("Anonymous"));
-            assert_eq!(addr.uri.user.unwrap().user, "c8oqz84zk7z");
+            assert_eq!(addr.uri.user.unwrap().get_user(), "c8oqz84zk7z");
             assert_eq!(
-                addr.uri.host,
+                addr.uri.host_port,
                 HostPort {
                     host: Host::DomainName("privacy.org"),
                     port: None

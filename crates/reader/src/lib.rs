@@ -80,7 +80,7 @@ impl<'a> Reader<'a> {
 
     /// Get `n` bytes without advance.
     pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
-        self.src.get(self.idx..n)
+        self.as_ref().get(..n)
     }
 
     /// Get `n` bytes and advance.
@@ -239,7 +239,7 @@ impl<'a> Reader<'a> {
 
 impl ToString for Reader<'_> {
     fn to_string(&self) -> String {
-        String::from_utf8_lossy(self.as_ref()).into()
+        String::from_utf8_lossy(&self.src[self.idx..]).into()
     }
 }
 

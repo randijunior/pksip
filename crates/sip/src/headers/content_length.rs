@@ -10,7 +10,7 @@ use crate::headers::SipHeader;
 ///
 /// Indicates the size of the `message-body`.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ContentLength(u32);
+pub struct ContentLength(pub u32);
 
 impl ContentLength {
     pub fn new(c_len: u32) -> Self {

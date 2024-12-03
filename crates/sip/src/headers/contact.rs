@@ -13,10 +13,10 @@ use super::Q;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContactUri<'a> {
-    uri: SipUri<'a>,
-    q: Option<Q>,
-    expires: Option<u32>,
-    param: Option<Params<'a>>,
+    pub uri: SipUri<'a>,
+    pub q: Option<Q>,
+    pub expires: Option<u32>,
+    pub param: Option<Params<'a>>,
 }
 
 /// The `Contact` SIP header.
@@ -26,6 +26,16 @@ pub struct ContactUri<'a> {
 pub enum Contact<'a> {
     Star,
     Uri(ContactUri<'a>),
+}
+
+impl<'a> Contact<'a> {
+    pub fn uri(&self) -> Option<&ContactUri> {
+        if let Contact::Uri(uri) = self {
+            Some(uri)
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> SipHeader<'a> for Contact<'a> {
@@ -77,9 +87,9 @@ mod tests {
             ..
         }) => {
             assert_eq!(addr.display, Some("Mr. Watson"));
-            assert_eq!(addr.uri.user.unwrap().user, "watson");
+            assert_eq!(addr.uri.user.unwrap().get_user(), "watson");
             assert_eq!(
-                addr.uri.host,
+                addr.uri.host_port,
                 HostPort {
                     host: Host::DomainName("worcester.bell-telephone.com"),
                     port: None
@@ -113,9 +123,9 @@ mod tests {
             uri: SipUri::Uri(uri),
             ..
         }) => {
-            assert_eq!(uri.user.unwrap().user, "caller");
+            assert_eq!(uri.user.unwrap().get_user(), "caller");
             assert_eq!(
-                uri.host,
+                uri.host_port,
                 HostPort {
                     host: Host::DomainName("u1.example.com"),
                     port: None
@@ -139,7 +149,7 @@ mod tests {
             let addr: IpAddr =
             "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
         assert_eq!(
-            uri.host,
+            uri.host_port,
             HostPort {
                 host: Host::IpAddr(addr),
                 port: None
@@ -161,7 +171,7 @@ mod tests {
             ..
         }) => {
             assert_eq!(
-                uri.host,
+                uri.host_port,
                 HostPort {
                     host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(212, 123, 1, 213))),
                     port: None
@@ -169,8 +179,8 @@ mod tests {
             );
             assert_eq!(uri.scheme, Scheme::Sip);
             let user = uri.user.unwrap();
-            assert_eq!(user.user, "thks.ashwin");
-            assert_eq!(user.pass, Some("pass"));
+            assert_eq!(user.get_user(), "thks.ashwin");
+            assert_eq!(user.get_pass(), Some("pass"));
         });
     }
 
@@ -187,7 +197,7 @@ mod tests {
         }) => {
             let addr = Ipv4Addr::new(192, 168, 1, 1);
             assert_eq!(
-                uri.host,
+                uri.host_port,
                 HostPort {
                     host: Host::IpAddr(IpAddr::V4(addr)),
                     port: Some(5060)

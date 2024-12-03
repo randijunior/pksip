@@ -11,8 +11,8 @@ use std::str;
 /// Ensures order and tracking of SIP transactions within a session.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CSeq<'a> {
-    cseq: i32,
-    method: SipMethod<'a>,
+    pub cseq: i32,
+    pub method: SipMethod<'a>,
 }
 
 impl<'a> CSeq<'a> {

@@ -21,6 +21,13 @@ pub enum SipMessage<'a> {
 }
 
 impl<'a> SipMessage<'a> {
+    pub fn request(&self) -> Option<&SipRequest> {
+        if let SipMessage::Request(req) = self {
+            Some(req)
+        } else {
+            None
+        }
+    }
     pub fn headers(&self) -> &Headers<'a> {
         match self {
             SipMessage::Request(req) => &req.headers,
@@ -52,6 +59,24 @@ pub enum SipUri<'a> {
     NameAddr(NameAddr<'a>),
 }
 
+impl<'a> SipUri<'a> {
+    pub fn uri(&self) -> Option<&Uri> {
+        if let SipUri::Uri(uri) = self {
+            Some(uri)
+        } else {
+            None
+        }
+    }
+
+    pub fn name_addr(&self) -> Option<&NameAddr> {
+        if let SipUri::NameAddr(addr) = self {
+            Some(addr)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum Scheme {
     #[default]
@@ -61,8 +86,20 @@ pub enum Scheme {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserInfo<'a> {
-    pub(crate) user: &'a str,
-    pub(crate) pass: Option<&'a str>,
+    user: &'a str,
+    pass: Option<&'a str>,
+}
+
+impl<'a> UserInfo<'a> {
+    pub fn new(user: &'a str, pass: Option<&'a str>) -> Self {
+        Self { user, pass}
+    }
+    pub fn get_user(&self) -> &'a str {
+        self.user
+    }
+    pub fn get_pass(&self) -> Option<&'a str> {
+        self.pass
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -96,7 +133,15 @@ impl<'a> HostPort<'a> {
     pub fn new(host: Host<'a>, port: Option<u16>) -> Self {
         Self { host, port }
     }
-    pub fn host_as_string(&self) -> String {
+
+    pub fn is_domain(&self) -> bool {
+        if let Host::DomainName(_) = self.host {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn host_as_str(&self) -> String {
         match self.host {
             Host::DomainName(host) => host.to_string(),
             Host::IpAddr(host) => host.to_string(),
@@ -108,7 +153,7 @@ impl<'a> HostPort<'a> {
 pub struct Uri<'a> {
     pub scheme: Scheme,
     pub user: Option<UserInfo<'a>>,
-    pub host: HostPort<'a>,
+    pub host_port: HostPort<'a>,
     pub user_param: Option<&'a str>,
     pub method_param: Option<&'a str>,
     pub transport_param: Option<&'a str>,
@@ -123,12 +168,12 @@ impl<'a> Uri<'a> {
     pub fn without_params(
         scheme: Scheme,
         user: Option<UserInfo<'a>>,
-        host: HostPort<'a>,
+        host_port: HostPort<'a>,
     ) -> Self {
         Uri {
             scheme,
             user,
-            host,
+            host_port,
             ..Default::default()
         }
     }
@@ -153,8 +198,8 @@ impl<'a> UriBuilder<'a> {
         self
     }
 
-    pub fn host(mut self, host: HostPort<'a>) -> Self {
-        self.uri.host = host;
+    pub fn host(mut self, host_port: HostPort<'a>) -> Self {
+        self.uri.host_port = host_port;
         self
     }
 
@@ -201,8 +246,8 @@ impl<'a> UriBuilder<'a> {
 // Struct Uri uri
 #[derive(Debug, PartialEq, Eq)]
 pub struct NameAddr<'a> {
-    pub(crate) display: Option<&'a str>,
-    pub(crate) uri: Uri<'a>,
+    pub display: Option<&'a str>,
+    pub uri: Uri<'a>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -260,7 +305,7 @@ pub enum SipMethod<'a> {
     Unknow(&'a [u8]),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Transport {
     UDP,
     TCP,

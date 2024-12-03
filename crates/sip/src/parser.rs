@@ -431,18 +431,24 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             }
 
             _ => {
-                let value = parse_token(reader)?;
+                let value = Header::parse_header_value_as_str(reader)?;
 
                 msg.push_header(Header::Other { name, value });
             }
         };
 
-        newline!(reader);
-        if reader.is_eof() {
+        if !matches!(reader.next(), Some(&b'\r') | Some(&b'\n')) {
+            return sip_parse_error!("Invalid Header end!");
+        }
+        reader.read_if(|b| b == &b'\r')?;
+        reader.read_if(|b| b == &b'\n')?;
+
+        if reader.is_eof() || reader.peek().is_some_and(is_newline) {
             break 'headers;
         }
     }
 
+    newline!(reader);
     if has_content_type {
         msg.set_body(Some(&buff[reader.idx()..]));
     }
@@ -491,7 +497,7 @@ pub(crate) fn parse_user_info<'a>(
     };
     reader.must_read(b'@')?;
 
-    Ok(Some(UserInfo { user, pass }))
+    Ok(Some(UserInfo::new(user, pass)))
 }
 
 fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
@@ -568,10 +574,10 @@ pub(crate) fn parse_uri<'a>(
     // take ':'
     reader.must_read(b':')?;
     let user = parse_user_info(reader)?;
-    let host = parse_host_port(reader)?;
+    let host_port = parse_host_port(reader)?;
 
     if !parse_params {
-        return Ok(Uri::without_params(scheme, user, host));
+        return Ok(Uri::without_params(scheme, user, host_port));
     }
 
     let mut user_param = None;
@@ -601,7 +607,7 @@ pub(crate) fn parse_uri<'a>(
     Ok(Uri {
         scheme,
         user,
-        host,
+        host_port,
         user_param,
         method_param,
         transport_param,
@@ -795,7 +801,7 @@ mod tests {
         Ok(SipUri::Uri(
             UriBuilder::new()
             .scheme(Scheme::Sip)
-            .user(UserInfo { user: "bob", pass: None })
+            .user(UserInfo::new("bob", None))
             .host(HostPort::from(Host::DomainName("biloxi.com")))
             .get()
         ))
@@ -807,7 +813,7 @@ mod tests {
         Ok(SipUri::Uri(
             UriBuilder::new()
             .scheme(Scheme::Sip)
-            .user(UserInfo { user: "watson", pass: None })
+            .user(UserInfo::new("watson", None))
             .host(HostPort::from(Host::DomainName("bell-telephone.com")))
             .get()
         ))
@@ -819,7 +825,7 @@ mod tests {
         Ok(SipUri::Uri(
             UriBuilder::new()
             .scheme(Scheme::Sip)
-            .user(UserInfo { user: "bob", pass: None })
+            .user(UserInfo::new("bob", None))
             .host(HostPort::from(Host::IpAddr("192.0.2.4".parse().unwrap())))
             .get()
         ))
@@ -831,7 +837,7 @@ mod tests {
         Ok(SipUri::Uri(
             UriBuilder::new()
             .scheme(Scheme::Sip)
-            .user(UserInfo { user: "user", pass: Some("password") })
+            .user(UserInfo::new("user", Some("password")))
             .host(HostPort::new(Host::DomainName("localhost"), Some(5060)))
             .get()
         ))
@@ -843,7 +849,7 @@ mod tests {
         Ok(SipUri::Uri(
             UriBuilder::new()
             .scheme(Scheme::Sip)
-            .user(UserInfo { user: "alice", pass: None })
+            .user(UserInfo::new("alice", None))
             .host(HostPort::from(Host::DomainName("atlanta.com")))
             .ttl_param("15")
             .maddr_param("239.255.255.1")

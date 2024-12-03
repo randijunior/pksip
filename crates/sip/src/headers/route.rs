@@ -44,7 +44,7 @@ mod tests {
         assert_eq!(r.addr.display, None);
         assert_eq!(r.addr.uri.scheme, Scheme::Sip);
         assert_eq!(
-            r.addr.uri.host,
+            r.addr.uri.host_port,
             HostPort {
                 host: Host::DomainName("bigbox3.site3.atlanta.com"),
                 port: None
@@ -60,7 +60,7 @@ mod tests {
         assert_eq!(r.addr.display, None);
         assert_eq!(r.addr.uri.scheme, Scheme::Sip);
         assert_eq!(
-            r.addr.uri.host,
+            r.addr.uri.host_port,
             HostPort {
                 host: Host::DomainName("server10.biloxi.com"),
                 port: None
