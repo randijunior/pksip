@@ -187,9 +187,7 @@ pub trait SipHeader<'a>: Sized {
     }
 
     fn parse_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
-        let str = reader::until_newline!(reader);
-
-        Ok(str::from_utf8(str)?)
+        Header::parse_header_value_as_str(reader)
     }
 }
 
@@ -205,7 +203,7 @@ pub enum Header<'a> {
     /// `Alert-Info` Header.
     AlertInfo(AlertInfo<'a>),
     /// `Allow` Header
-    Allow(Allow<'a>),
+    Allow(Allow),
     /// `Authentication-Info` Header
     AuthenticationInfo(AuthenticationInfo<'a>),
     /// `Authorization` Header
@@ -227,7 +225,7 @@ pub enum Header<'a> {
     /// `Content-Type` Header
     ContentType(ContentType<'a>),
     /// `CSeq` Header
-    CSeq(CSeq<'a>),
+    CSeq(CSeq),
     /// `Date` Header
     Date(Date<'a>),
     /// `Error-Info` Header
@@ -286,6 +284,14 @@ pub enum Header<'a> {
     WWWAuthenticate(WWWAuthenticate<'a>),
     /// Other Generic Header
     Other { name: &'a str, value: &'a str },
+}
+
+impl<'a> Header<'a> {
+    pub fn parse_header_value_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
+        let str = reader::until_newline!(reader);
+
+        Ok(str::from_utf8(str)?)
+    }
 }
 
 impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {

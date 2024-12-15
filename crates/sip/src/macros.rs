@@ -15,13 +15,6 @@ macro_rules! b_map {
     };
 }
 
-macro_rules! assert_return {
-    ( $e:expr , $v:ident, $r:expr ) => {
-        if let $v = $e {
-            return $r;
-        }
-    };
-}
 
 macro_rules! parse_header_param {
     ($reader:ident) => (
@@ -106,7 +99,7 @@ macro_rules! sip_parse_error {
     }};
 }
 
-pub(crate) use assert_return;
+
 pub(crate) use b_map;
 pub(crate) use comma_sep;
 pub(crate) use hdr_list;

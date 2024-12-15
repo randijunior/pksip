@@ -46,9 +46,9 @@ mod tests {
             ..
         } => {
             assert_eq!(addr.uri.scheme, Scheme::Sip);
-            assert_eq!(addr.uri.user.unwrap().user, "bob");
+            assert_eq!(addr.uri.user.unwrap().get_user(), "bob");
             assert_eq!(
-                addr.uri.host,
+                addr.uri.host_port,
                 HostPort {
                     host: Host::DomainName("biloxi.com"),
                     port: None

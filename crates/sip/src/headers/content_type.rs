@@ -14,7 +14,7 @@ use super::MediaType;
 ///
 /// Indicates the media type of the `message-body` sent to the recipient.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ContentType<'a>(MediaType<'a>);
+pub struct ContentType<'a>(pub MediaType<'a>);
 
 impl<'a> SipHeader<'a> for ContentType<'a> {
     const NAME: &'static str = "Content-Type";

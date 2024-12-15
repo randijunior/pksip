@@ -10,7 +10,7 @@ use crate::headers::SipHeader;
 ///
 /// Gives the relative time after which the message (or content) expires.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Expires(i32);
+pub struct Expires(pub i32);
 
 impl Expires {
     pub fn new(expires: i32) -> Self {

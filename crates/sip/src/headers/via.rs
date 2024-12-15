@@ -27,7 +27,7 @@ use crate::macros::{b_map, parse_param};
 use crate::parser::{self, ALPHA_NUM, TOKEN};
 use crate::{
     macros::sip_parse_error,
-    msg::Transport,
+    msg::TransportProtocol,
     msg::{HostPort, Params},
     parser::Result,
 };
@@ -89,13 +89,17 @@ impl<'a> ViaParams<'a> {
 ///
 /// Indicates the path taken by the request so far and the
 /// path that should be followed in routing responses.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Via<'a> {
-    pub(crate) transport: Transport,
-    pub(crate) sent_by: HostPort<'a>,
-    pub(crate) params: Option<ViaParams<'a>>,
-    pub(crate) comment: Option<&'a str>,
-    pub(crate) others_params: Option<Params<'a>>,
+    pub transport: TransportProtocol,
+    pub sent_by: HostPort<'a>,
+    pub ttl: Option<&'a str>,
+    pub maddr: Option<&'a str>,
+    pub received: Option<&'a str>,
+    pub branch: Option<&'a str>,
+    pub rport: Option<u16>,
+    pub comment: Option<&'a str>,
+    pub params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeader<'a> for Via<'a> {
@@ -110,12 +114,38 @@ impl<'a> SipHeader<'a> for Via<'a> {
             return sip_parse_error!("Invalid via Hdr!");
         }
         let b = until!(reader, &b' ');
-        let transport = Transport::from(b);
+        let transport = b.into();
 
         space!(reader);
 
         let sent_by = parser::parse_host_port(reader)?;
-        let (params, others_params) = Self::parse_params(reader)?;
+        let mut branch = None;
+        let mut ttl = None;
+        let mut maddr = None;
+        let mut received = None;
+        let mut rport_p = None;
+        let params = parse_param!(
+            reader,
+            parse_via_param,
+            BRANCH_PARAM = branch,
+            TTL_PARAM = ttl,
+            MADDR_PARAM = maddr,
+            RECEIVED_PARAM = received,
+            RPORT_PARAM = rport_p
+        );
+
+        let rport = if let Some(rport) = rport_p
+            .filter(|rport| !rport.is_empty())
+            .and_then(|rpot| rpot.parse().ok())
+        {
+            if is_valid_port(rport) {
+                Some(rport)
+            } else {
+                return sip_parse_error!("Via param rport is invalid!");
+            }
+        } else {
+            None
+        };
 
         let comment = if reader.peek() == Some(&b'(') {
             reader.next();
@@ -130,44 +160,13 @@ impl<'a> SipHeader<'a> for Via<'a> {
             transport,
             sent_by,
             params,
-            others_params,
             comment,
+            ttl,
+            maddr,
+            received,
+            branch,
+            rport,
         })
-    }
-}
-
-impl<'a> Via<'a> {
-    pub(crate) fn parse_params(
-        reader: &mut Reader<'a>,
-    ) -> Result<(Option<ViaParams<'a>>, Option<Params<'a>>)> {
-        space!(reader);
-        if reader.peek() != Some(&b';') {
-            return Ok((None, None));
-        }
-        let mut params = ViaParams::default();
-        let mut rport_p = None;
-        let others = parse_param!(
-            reader,
-            parse_via_param,
-            BRANCH_PARAM = params.branch,
-            TTL_PARAM = params.ttl,
-            MADDR_PARAM = params.maddr,
-            RECEIVED_PARAM = params.received,
-            RPORT_PARAM = rport_p
-        );
-
-        if let Some(rport) = rport_p
-            .filter(|rport| !rport.is_empty())
-            .and_then(|rpot| rpot.parse().ok())
-        {
-            if is_valid_port(rport) {
-                params.set_rport(rport);
-            } else {
-                return sip_parse_error!("Via param rport is invalid!");
-            }
-        }
-
-        Ok((Some(params), others))
     }
 }
 
@@ -186,7 +185,7 @@ mod tests {
         let via = Via::parse(&mut reader);
         let via = via.unwrap();
 
-        assert_eq!(via.transport, Transport::UDP);
+        assert_eq!(via.transport, TransportProtocol::UDP);
         assert_eq!(
             via.sent_by,
             HostPort {
@@ -194,8 +193,7 @@ mod tests {
                 port: Some(5060)
             }
         );
-        let params = via.params.unwrap();
-        assert_eq!(params.received, Some("192.0.2.4"));
+        assert_eq!(via.received, Some("192.0.2.4"));
 
         let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
@@ -203,7 +201,7 @@ mod tests {
         let via = Via::parse(&mut reader);
         let via = via.unwrap();
 
-        assert_eq!(via.transport, Transport::UDP);
+        assert_eq!(via.transport, TransportProtocol::UDP);
         assert_eq!(
             via.sent_by,
             HostPort {
@@ -211,8 +209,8 @@ mod tests {
                 port: Some(5060)
             }
         );
-        let params = via.params.unwrap();
-        assert_eq!(params.received, Some("192.0.2.207"));
-        assert_eq!(params.branch, Some("z9hG4bK77asjd"));
+
+        assert_eq!(via.received, Some("192.0.2.207"));
+        assert_eq!(via.branch, Some("z9hG4bK77asjd"));
     }
 }

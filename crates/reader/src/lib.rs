@@ -80,7 +80,7 @@ impl<'a> Reader<'a> {
 
     /// Get `n` bytes without advance.
     pub fn peek_n(&self, n: usize) -> Option<&[u8]> {
-        self.src.get(self.idx..n)
+        self.as_ref().get(..n)
     }
 
     /// Get `n` bytes and advance.
@@ -213,6 +213,13 @@ impl<'a> Reader<'a> {
         Ok(self.next())
     }
 
+    pub fn cur_is_some_and<F>(&self, func: F) -> bool
+    where
+    F: FnOnce(&u8) -> bool, {
+        self.peek().is_some_and(func)
+    }
+    
+
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
         let byte = &self.src[self.idx];
@@ -239,7 +246,7 @@ impl<'a> Reader<'a> {
 
 impl ToString for Reader<'_> {
     fn to_string(&self) -> String {
-        String::from_utf8_lossy(self.as_ref()).into()
+        String::from_utf8_lossy(&self.src[self.idx..]).into()
     }
 }
 

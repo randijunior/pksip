@@ -7,10 +7,13 @@ use crate::headers::SipHeader;
 ///
 /// Indicates what methods is supported by the `UA`.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Allow<'a>(Vec<SipMethod<'a>>);
+pub struct Allow(Vec<SipMethod>);
 
-impl<'a> Allow<'a> {
-    pub fn get(&self, index: usize) -> Option<&SipMethod<'a>> {
+impl Allow {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+    pub fn get(&self, index: usize) -> Option<&SipMethod> {
         self.0.get(index)
     }
 
@@ -19,10 +22,10 @@ impl<'a> Allow<'a> {
     }
 }
 
-impl<'a> SipHeader<'a> for Allow<'a> {
+impl<'a> SipHeader<'a> for Allow {
     const NAME: &'static str = "Allow";
 
-    fn parse(reader: &mut Reader<'a>) -> Result<Allow<'a>> {
+    fn parse(reader: &mut Reader) -> Result<Allow> {
         let allow = hdr_list!(reader => {
             let b_method = alpha!(reader);
 

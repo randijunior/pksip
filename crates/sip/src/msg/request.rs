@@ -9,7 +9,7 @@ use super::{SipMethod, Uri};
 /// Represents an SIP Request-Line.
 #[derive(Debug)]
 pub struct RequestLine<'a> {
-    pub method: SipMethod<'a>,
+    pub method: SipMethod,
     pub uri: Uri<'a>,
 }
 

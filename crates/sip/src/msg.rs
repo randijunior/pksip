@@ -9,6 +9,7 @@ pub(crate) use response::*;
 mod request;
 mod response;
 
+use core::fmt;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -21,6 +22,13 @@ pub enum SipMessage<'a> {
 }
 
 impl<'a> SipMessage<'a> {
+    pub fn request(&self) -> Option<&SipRequest> {
+        if let SipMessage::Request(req) = self {
+            Some(req)
+        } else {
+            None
+        }
+    }
     pub fn headers(&self) -> &Headers<'a> {
         match self {
             SipMessage::Request(req) => &req.headers,
@@ -52,7 +60,45 @@ pub enum SipUri<'a> {
     NameAddr(NameAddr<'a>),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+impl<'a> SipUri<'a> {
+    pub fn uri(&self) -> Option<&Uri> {
+        if let SipUri::Uri(uri) = self {
+            Some(uri)
+        } else {
+            None
+        }
+    }
+
+    pub fn scheme(&self) -> Scheme {
+        match self {
+            SipUri::Uri(uri) => uri.scheme,
+            SipUri::NameAddr(name_addr) => name_addr.uri.scheme,
+        }
+    }
+
+    pub fn host_port(&self) -> &HostPort {
+        match self {
+            SipUri::Uri(uri) => &uri.host_port,
+            SipUri::NameAddr(name_addr) => &name_addr.uri.host_port,
+        }
+    }
+    pub fn transport_param(&self) -> Option<TransportProtocol> {
+        match self {
+            SipUri::Uri(uri) => uri.transport_param,
+            SipUri::NameAddr(name_addr) => name_addr.uri.transport_param,
+        }
+    }
+
+    pub fn name_addr(&self) -> Option<&NameAddr> {
+        if let SipUri::NameAddr(addr) = self {
+            Some(addr)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Default, Copy)]
 pub enum Scheme {
     #[default]
     Sip,
@@ -61,8 +107,20 @@ pub enum Scheme {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserInfo<'a> {
-    pub(crate) user: &'a str,
-    pub(crate) pass: Option<&'a str>,
+    user: &'a str,
+    pass: Option<&'a str>,
+}
+
+impl<'a> UserInfo<'a> {
+    pub fn new(user: &'a str, pass: Option<&'a str>) -> Self {
+        Self { user, pass}
+    }
+    pub fn get_user(&self) -> &'a str {
+        self.user
+    }
+    pub fn get_pass(&self) -> Option<&'a str> {
+        self.pass
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -77,11 +135,21 @@ pub struct HostPort<'a> {
     pub port: Option<u16>,
 }
 
+impl<'a> HostPort<'a> {
+    pub fn ip_addr(&self) -> Option<IpAddr> {
+        match self.host {
+            Host::DomainName(_) => None,
+            Host::IpAddr(ip_addr) => Some(ip_addr),
+        }
+    }
+}
+
 impl<'a> From<Host<'a>> for HostPort<'a> {
     fn from(host: Host<'a>) -> Self {
         Self { host, port: None }
     }
 }
+
 
 impl Default for HostPort<'_> {
     fn default() -> Self {
@@ -96,7 +164,15 @@ impl<'a> HostPort<'a> {
     pub fn new(host: Host<'a>, port: Option<u16>) -> Self {
         Self { host, port }
     }
-    pub fn host_as_string(&self) -> String {
+
+    pub fn is_domain(&self) -> bool {
+        if let Host::DomainName(_) = self.host {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn host_as_str(&self) -> String {
         match self.host {
             Host::DomainName(host) => host.to_string(),
             Host::IpAddr(host) => host.to_string(),
@@ -108,10 +184,10 @@ impl<'a> HostPort<'a> {
 pub struct Uri<'a> {
     pub scheme: Scheme,
     pub user: Option<UserInfo<'a>>,
-    pub host: HostPort<'a>,
+    pub host_port: HostPort<'a>,
     pub user_param: Option<&'a str>,
     pub method_param: Option<&'a str>,
-    pub transport_param: Option<&'a str>,
+    pub transport_param: Option<TransportProtocol>,
     pub ttl_param: Option<&'a str>,
     pub lr_param: Option<&'a str>,
     pub maddr_param: Option<&'a str>,
@@ -123,12 +199,12 @@ impl<'a> Uri<'a> {
     pub fn without_params(
         scheme: Scheme,
         user: Option<UserInfo<'a>>,
-        host: HostPort<'a>,
+        host_port: HostPort<'a>,
     ) -> Self {
         Uri {
             scheme,
             user,
-            host,
+            host_port,
             ..Default::default()
         }
     }
@@ -153,8 +229,8 @@ impl<'a> UriBuilder<'a> {
         self
     }
 
-    pub fn host(mut self, host: HostPort<'a>) -> Self {
-        self.uri.host = host;
+    pub fn host(mut self, host_port: HostPort<'a>) -> Self {
+        self.uri.host_port = host_port;
         self
     }
 
@@ -167,7 +243,7 @@ impl<'a> UriBuilder<'a> {
         self.uri.method_param = Some(method_param);
         self
     }
-    pub fn transport_param(mut self, transport_param: &'a str) -> Self {
+    pub fn transport_param(mut self, transport_param: TransportProtocol) -> Self {
         self.uri.transport_param = Some(transport_param);
         self
     }
@@ -201,8 +277,8 @@ impl<'a> UriBuilder<'a> {
 // Struct Uri uri
 #[derive(Debug, PartialEq, Eq)]
 pub struct NameAddr<'a> {
-    pub(crate) display: Option<&'a str>,
-    pub(crate) uri: Uri<'a>,
+    pub display: Option<&'a str>,
+    pub uri: Uri<'a>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -242,7 +318,7 @@ impl<'a> Params<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SipMethod<'a> {
+pub enum SipMethod {
     Invite,
     Ack,
     Bye,
@@ -257,31 +333,74 @@ pub enum SipMethod<'a> {
     Prack,
     Message,
     Publish,
-    Unknow(&'a [u8]),
+    Unknow
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Transport {
-    UDP,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum TransportProtocol {
+    #[default] UDP,
     TCP,
     TLS,
     SCTP,
     Unknow,
 }
 
-const TRANSPORT_UDP: &[u8] = "UDP".as_bytes();
-const TRANSPORT_TCP: &[u8] = "TCP".as_bytes();
-const TRANSPORT_TLS: &[u8] = "TLS".as_bytes();
-const TRANSPORT_SCTP: &[u8] = "SCTP".as_bytes();
+impl fmt::Display for TransportProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TransportProtocol::UDP => write!(f,"{}", TP_UDP),
+            TransportProtocol::TCP => write!(f, "{}", TP_TCP),
+            TransportProtocol::TLS => write!(f, "{}", TP_TLS),
+            TransportProtocol::SCTP => write!(f, "{}", TP_SCTP),
+            TransportProtocol::Unknow => write!(f, "{}", TP_UNKNOW),
+        }
+    }
+}
 
-impl From<&[u8]> for Transport {
+
+impl TransportProtocol {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TransportProtocol::UDP => TP_UDP,
+            TransportProtocol::TCP => TP_TCP,
+            TransportProtocol::TLS => TP_TLS,
+            TransportProtocol::SCTP => TP_SCTP,
+            TransportProtocol::Unknow => TP_UNKNOW,
+        }
+    }
+}
+
+const TP_UDP: &str = "UDP";
+const TP_TCP: &str = "TCP";
+const TP_TLS: &str = "TLS";
+const TP_SCTP: &str = "SCTP";
+const TP_UNKNOW: &str = "UNKNOW-TP";
+
+const B_UDP: &[u8] = TP_UDP.as_bytes();
+const B_TCP: &[u8] = TP_TCP.as_bytes();
+const B_TLS: &[u8] = TP_TLS.as_bytes();
+const B_SCTP: &[u8] = TP_SCTP.as_bytes();
+
+impl From<&str> for TransportProtocol {
+    fn from(value: &str) -> Self {
+        match value {
+            TP_UDP => TransportProtocol::UDP,
+            TP_TCP => TransportProtocol::TCP,
+            TP_TLS => TransportProtocol::TLS,
+            TP_SCTP => TransportProtocol::SCTP,
+            _ => TransportProtocol::Unknow,
+        }
+    }
+}
+
+impl From<&[u8]> for TransportProtocol {
     fn from(value: &[u8]) -> Self {
         match value {
-            TRANSPORT_UDP => Transport::UDP,
-            TRANSPORT_TCP => Transport::TCP,
-            TRANSPORT_TLS => Transport::TLS,
-            TRANSPORT_SCTP => Transport::SCTP,
-            _ => Transport::Unknow,
+            B_UDP => TransportProtocol::UDP,
+            B_TCP => TransportProtocol::TCP,
+            B_TLS => TransportProtocol::TLS,
+            B_SCTP => TransportProtocol::SCTP,
+            _ => TransportProtocol::Unknow,
         }
     }
 }
@@ -301,8 +420,8 @@ const SIP_PRACK: &[u8] = b"PRACK";
 const SIP_MESSAGE: &[u8] = b"MESSAGE";
 const SIP_PUBLISH: &[u8] = b"PUBLISH";
 
-impl<'a> From<&'a [u8]> for SipMethod<'a> {
-    fn from(value: &'a [u8]) -> Self {
+impl From<&[u8]> for SipMethod {
+    fn from(value: &[u8]) -> Self {
         match value {
             SIP_INVITE => SipMethod::Invite,
             SIP_CANCEL => SipMethod::Cancel,
@@ -318,7 +437,7 @@ impl<'a> From<&'a [u8]> for SipMethod<'a> {
             SIP_PRACK => SipMethod::Prack,
             SIP_MESSAGE => SipMethod::Message,
             SIP_PUBLISH => SipMethod::Publish,
-            _ => SipMethod::Unknow(value),
+            _ => SipMethod::Unknow,
         }
     }
 }

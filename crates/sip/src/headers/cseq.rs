@@ -10,21 +10,21 @@ use std::str;
 ///
 /// Ensures order and tracking of SIP transactions within a session.
 #[derive(Debug, PartialEq, Eq)]
-pub struct CSeq<'a> {
-    cseq: i32,
-    method: SipMethod<'a>,
+pub struct CSeq {
+    pub cseq: i32,
+    pub method: SipMethod,
 }
 
-impl<'a> CSeq<'a> {
-    pub fn new(cseq: i32, method: SipMethod<'a>) -> Self {
+impl<'a> CSeq{
+    pub fn new(cseq: i32, method: SipMethod) -> Self {
         Self { cseq, method }
     }
 }
 
-impl<'a> SipHeader<'a> for CSeq<'a> {
+impl<'a> SipHeader<'a> for CSeq {
     const NAME: &'static str = "CSeq";
 
-    fn parse(reader: &mut Reader<'a>) -> Result<CSeq<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<CSeq> {
         let cseq = reader.read_num()?;
 
         space!(reader);

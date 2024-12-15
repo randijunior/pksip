@@ -10,7 +10,7 @@ use std::str;
 ///
 /// Uniquely identifies a particular invitation or all registrations of a particular client.
 #[derive(Debug, PartialEq, Eq)]
-pub struct CallId<'a>(&'a str);
+pub struct CallId<'a>(pub &'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {
     fn from(value: &'a str) -> Self {
