@@ -13,8 +13,8 @@ use crate::{
 
 use super::{IncomingMessage, Packet, SipTransport, Transport};
 
-const KEEP_ALIVE_REQUEST: &[u8] = b"\r\n\r\n";
-const KEEP_ALIVE_RESPONSE: &[u8] = b"\r\n";
+const CRLF: &[u8] = b"\r\n\r\n";
+const END: &[u8] = b"\r\n";
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ConnectionKey {
@@ -125,11 +125,11 @@ impl TransportManager {
         endpt: Endpoint,
     ) -> io::Result<()> {
         let msg = match pkt.payload.as_ref() {
-            KEEP_ALIVE_REQUEST => {
-                transport.send(KEEP_ALIVE_RESPONSE, pkt.addr).await?;
+            CRLF => {
+                transport.send(END, pkt.addr).await?;
                 return Ok(());
             }
-            KEEP_ALIVE_RESPONSE => {
+            END => {
                 return Ok(());
             }
             bytes => match parse_sip_msg(bytes) {
