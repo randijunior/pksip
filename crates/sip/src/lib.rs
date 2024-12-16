@@ -9,6 +9,7 @@ pub mod transport;
 pub(crate) mod auth;
 pub(crate) mod macros;
 pub(crate) mod resolver;
+pub(crate) mod service;
 
 #[cfg(test)]
 #[macro_use]

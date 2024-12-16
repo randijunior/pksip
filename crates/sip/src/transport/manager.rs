@@ -69,7 +69,7 @@ impl TransportManager {
         );
     }
 
-    pub fn find_tp(
+    pub fn find(
         &self,
         dst: SocketAddr,
         protocol: TransportProtocol,
