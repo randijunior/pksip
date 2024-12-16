@@ -124,7 +124,7 @@ impl TransportManager {
         pkt: Packet,
         endpt: Endpoint,
     ) -> io::Result<()> {
-        let msg = match pkt.buf.as_ref() {
+        let msg = match pkt.payload.as_ref() {
             KEEP_ALIVE_REQUEST => {
                 transport.send(KEEP_ALIVE_RESPONSE, pkt.addr).await?;
                 return Ok(());
@@ -140,7 +140,7 @@ impl TransportManager {
         };
         let msg = IncomingMessage {
             packet: Packet {
-                buf: Arc::clone(&pkt.buf),
+                payload: Arc::clone(&pkt.payload),
                 ..pkt
             },
             msg,

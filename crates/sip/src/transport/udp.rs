@@ -71,7 +71,7 @@ impl Udp {
             let buf = &buf[..len];
             let packet = Packet {
                 time: SystemTime::now(),
-                buf: buf.into(),
+                payload: buf.into(),
                 addr,
             };
             sender.send((self.clone().into(), packet)).await.unwrap();

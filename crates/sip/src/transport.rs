@@ -69,14 +69,14 @@ impl From<Udp> for Transport {
 }
 
 pub struct Packet {
-    buf: Arc<[u8]>,
+    payload: Arc<[u8]>,
     addr: SocketAddr,
     time: SystemTime,
 }
 
 impl Packet {
-    pub fn buf(&self) -> &[u8] {
-        &self.buf
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
     }
 }
 
