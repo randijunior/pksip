@@ -13,8 +13,8 @@ use crate::{
 
 use super::{IncomingMessage, Packet, SipTransport, Transport};
 
-const CRLF: &[u8] = b"\r\n\r\n";
-const END: &[u8] = b"\r\n";
+const CRLF: &[u8] = b"\r\n";
+const END: &[u8] = b"\r\n\r\n";
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ConnectionKey {
