@@ -1,9 +1,7 @@
 use std::{
-    cmp::Ordering,
     collections::HashMap,
     io,
     net::SocketAddr,
-    ops::Deref,
     sync::{Arc, Mutex},
 };
 
@@ -13,58 +11,16 @@ use crate::{
     endpoint::Endpoint, msg::TransportProtocol, parser::parse_sip_msg,
 };
 
-use super::{udp::Udp, IncomingMessage, Packet, SipTransport};
+use super::{IncomingMessage, Packet, SipTransport, Transport};
 
 const KEEP_ALIVE_REQUEST: &[u8] = b"\r\n\r\n";
 const KEEP_ALIVE_RESPONSE: &[u8] = b"\r\n";
-
-#[derive(Clone)]
-pub struct Transport {
-    inner: Arc<dyn SipTransport>,
-}
-
-impl PartialOrd for Transport {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Transport {
-    fn cmp(&self, other: &Self) -> Ordering {
-        Arc::strong_count(&self.inner).cmp(&Arc::strong_count(&other.inner))
-    }
-}
-
-impl Eq for Transport {}
-
-impl PartialEq for Transport {
-    fn eq(&self, other: &Self) -> bool {
-        self.get_key() == other.get_key()
-    }
-}
-
-impl Deref for Transport {
-    type Target = dyn SipTransport;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
-    }
-}
-
-impl From<Udp> for Transport {
-    fn from(value: Udp) -> Self {
-        Transport {
-            inner: Arc::new(value),
-        }
-    }
-}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ConnectionKey {
     addr: SocketAddr,
     protocol: TransportProtocol,
 }
-
 
 impl ConnectionKey {
     pub fn new(addr: SocketAddr, protocol: TransportProtocol) -> Self {
@@ -149,7 +105,7 @@ impl TransportManager {
         rx
     }
 
-    pub async fn receive_packet(&self, endpt: &Endpoint) -> io::Result<()> {
+    pub async fn recv(&self, endpt: &Endpoint) -> io::Result<()> {
         let mut rx = self.start();
         while let Some(tp_msg) = rx.recv().await {
             let (tp, packet) = tp_msg;

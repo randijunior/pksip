@@ -2,11 +2,8 @@ use std::{io, sync::Arc};
 
 use crate::{
     headers::Headers,
-    transport::{
-        manager::{Transport, TransportManager},
-        resolver::Resolver,
-        IncomingMessage,
-    },
+    resolver::Resolver,
+    transport::{manager::TransportManager, IncomingMessage, Transport},
 };
 
 pub struct EndpointBuilder {
@@ -61,7 +58,7 @@ pub struct Endpoint(Arc<Inner>);
 
 impl Endpoint {
     pub async fn run(&self) -> io::Result<()> {
-        self.0.manager.receive_packet(self).await?;
+        self.0.manager.recv(self).await?;
 
         Ok(())
     }

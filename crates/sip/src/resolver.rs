@@ -22,7 +22,7 @@ impl Resolver {
             let host_port = target.host_port();
             if let Some(_addr) = host_port.ip_addr() {
                 match target.scheme() {
-                    Scheme::Sip =>  TransportProtocol::UDP,
+                    Scheme::Sip => TransportProtocol::UDP,
                     Scheme::Sips => TransportProtocol::TCP,
                 }
             } else {
@@ -38,8 +38,8 @@ impl Default for Resolver {
     fn default() -> Self {
         Self {
             dns_resolver:
-            hickory_resolver::AsyncResolver::tokio_from_system_conf()
-                .expect("Failed to get DNS resolver"),
+                hickory_resolver::AsyncResolver::tokio_from_system_conf()
+                    .expect("Failed to get DNS resolver"),
         }
     }
 }

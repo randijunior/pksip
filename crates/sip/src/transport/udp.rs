@@ -1,12 +1,14 @@
 use async_trait::async_trait;
 use std::{io, net::SocketAddr, sync::Arc, time::SystemTime};
-use tokio::{net::{ToSocketAddrs, UdpSocket}, sync::mpsc};
+use tokio::{
+    net::{ToSocketAddrs, UdpSocket},
+    sync::mpsc,
+};
 
 use crate::msg::TransportProtocol;
 
 use super::{
-    manager::{ConnectionKey, Transport},
-    Packet, SipTransport, MAX_PACKET_SIZE,
+    manager::ConnectionKey, Packet, SipTransport, Transport, MAX_PACKET_SIZE,
 };
 
 #[derive(Debug)]

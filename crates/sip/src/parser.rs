@@ -475,7 +475,7 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
         other => sip_parse_error!(format!(
             "Unsupported URI scheme: {}",
             String::from_utf8_lossy(other)
-        ))
+        )),
     }
 }
 

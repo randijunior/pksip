@@ -15,7 +15,6 @@ macro_rules! b_map {
     };
 }
 
-
 macro_rules! parse_header_param {
     ($reader:ident) => (
         $crate::macros::parse_param!(
@@ -98,7 +97,6 @@ macro_rules! sip_parse_error {
         Err(crate::parser::SipParserError::from($message))
     }};
 }
-
 
 pub(crate) use b_map;
 pub(crate) use comma_sep;

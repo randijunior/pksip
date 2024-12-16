@@ -15,7 +15,7 @@ pub struct CSeq {
     pub method: SipMethod,
 }
 
-impl<'a> CSeq{
+impl<'a> CSeq {
     pub fn new(cseq: i32, method: SipMethod) -> Self {
         Self { cseq, method }
     }

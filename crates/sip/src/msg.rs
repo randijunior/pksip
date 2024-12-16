@@ -113,7 +113,7 @@ pub struct UserInfo<'a> {
 
 impl<'a> UserInfo<'a> {
     pub fn new(user: &'a str, pass: Option<&'a str>) -> Self {
-        Self { user, pass}
+        Self { user, pass }
     }
     pub fn get_user(&self) -> &'a str {
         self.user
@@ -149,7 +149,6 @@ impl<'a> From<Host<'a>> for HostPort<'a> {
         Self { host, port: None }
     }
 }
-
 
 impl Default for HostPort<'_> {
     fn default() -> Self {
@@ -243,7 +242,10 @@ impl<'a> UriBuilder<'a> {
         self.uri.method_param = Some(method_param);
         self
     }
-    pub fn transport_param(mut self, transport_param: TransportProtocol) -> Self {
+    pub fn transport_param(
+        mut self,
+        transport_param: TransportProtocol,
+    ) -> Self {
         self.uri.transport_param = Some(transport_param);
         self
     }
@@ -333,12 +335,13 @@ pub enum SipMethod {
     Prack,
     Message,
     Publish,
-    Unknow
+    Unknow,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum TransportProtocol {
-    #[default] UDP,
+    #[default]
+    UDP,
     TCP,
     TLS,
     SCTP,
@@ -348,7 +351,7 @@ pub enum TransportProtocol {
 impl fmt::Display for TransportProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TransportProtocol::UDP => write!(f,"{}", TP_UDP),
+            TransportProtocol::UDP => write!(f, "{}", TP_UDP),
             TransportProtocol::TCP => write!(f, "{}", TP_TCP),
             TransportProtocol::TLS => write!(f, "{}", TP_TLS),
             TransportProtocol::SCTP => write!(f, "{}", TP_SCTP),
@@ -356,7 +359,6 @@ impl fmt::Display for TransportProtocol {
         }
     }
 }
-
 
 impl TransportProtocol {
     pub fn as_str(&self) -> &'static str {

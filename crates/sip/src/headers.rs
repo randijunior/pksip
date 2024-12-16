@@ -287,7 +287,9 @@ pub enum Header<'a> {
 }
 
 impl<'a> Header<'a> {
-    pub fn parse_header_value_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
+    pub fn parse_header_value_as_str(
+        reader: &mut Reader<'a>,
+    ) -> Result<&'a str> {
         let str = reader::until_newline!(reader);
 
         Ok(str::from_utf8(str)?)

@@ -215,10 +215,10 @@ impl<'a> Reader<'a> {
 
     pub fn cur_is_some_and<F>(&self, func: F) -> bool
     where
-    F: FnOnce(&u8) -> bool, {
+        F: FnOnce(&u8) -> bool,
+    {
         self.peek().is_some_and(func)
     }
-    
 
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
