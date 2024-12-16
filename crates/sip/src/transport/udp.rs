@@ -26,11 +26,7 @@ impl SipTransport for Udp {
         self.0.sock.send_to(buf, dest).await
     }
 
-    async fn recv(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.0.sock.recv_from(buf).await
-    }
-
-    fn spawn(&self, sender: tokio::sync::mpsc::Sender<(Transport, Packet)>) {
+    fn spawn(&self, sender: mpsc::Sender<(Transport, Packet)>) {
         tokio::spawn(Udp::receive_packet(self.clone(), sender));
     }
 
@@ -67,7 +63,7 @@ impl Udp {
     ) -> io::Result<()> {
         let mut buf = [0u8; MAX_PACKET_SIZE];
         loop {
-            let (len, addr) = self.recv(&mut buf).await?;
+            let (len, addr) = self.0.sock.recv_from(&mut buf).await?;
             let buf = &buf[..len];
             let packet = Packet {
                 time: SystemTime::now(),
@@ -83,14 +79,28 @@ impl Udp {
 mod tests {
     use super::*;
 
-    const ADDR: &str = "127.0.0.1:0";
-
-    async fn test_udp(addr: SocketAddr) {
-        let udp = Udp::bind(addr).await.unwrap();
-    }
-
     #[tokio::test]
-    async fn test_create_udp() {
-        test_udp(ADDR.parse().unwrap()).await
+    async fn test_udp() {
+        let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+        let udp_transport = Udp::bind(addr).await.unwrap();
+        let ipv4_addr = "192.168.0.1:8080".parse().unwrap();
+
+        assert!(udp_transport.is_same_address_family(&ipv4_addr));
+        assert_eq!(udp_transport.get_protocol(), TransportProtocol::UDP);
+
+        let client = UdpSocket::bind(addr).await.unwrap();
+        let client_addr = client.local_addr().unwrap();
+        let buf = b"hello world";
+
+        let (tx, mut rx) = mpsc::channel(100);
+
+        udp_transport.spawn(tx);
+
+        client.send_to(buf, udp_transport.get_addr()).await.unwrap();
+        let (transport, packet) = rx.recv().await.unwrap();
+
+        assert!(transport == udp_transport);
+        assert_eq!(packet.payload(), buf);
+        assert_eq!(packet.addr, client_addr);
     }
 }

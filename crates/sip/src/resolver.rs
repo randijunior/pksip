@@ -1,6 +1,11 @@
+use std::net::SocketAddr;
+
 use crate::msg::{Scheme, SipUri, TransportProtocol};
 
-pub struct ServerAddresses {}
+pub struct ServerAddresses {
+    protocol: TransportProtocol,
+    addr: SocketAddr
+}
 
 pub struct Resolver {
     dns_resolver: hickory_resolver::TokioAsyncResolver,

@@ -17,7 +17,6 @@ const MAX_PACKET_SIZE: usize = 4000;
 #[async_trait]
 pub trait SipTransport: Sync + Send + 'static {
     async fn send(&self, pkt: &[u8], dest: SocketAddr) -> io::Result<usize>;
-    async fn recv(&self, pkt: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
 
     fn spawn(&self, sender: mpsc::Sender<(Transport, Packet)>);
     fn get_protocol(&self) -> TransportProtocol;
