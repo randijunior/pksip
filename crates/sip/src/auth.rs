@@ -1,4 +1,5 @@
 use reader::Reader;
+use std::fmt;
 
 use crate::{
     headers::{self, Param},
@@ -37,7 +38,6 @@ pub enum Challenge<'a> {
         stale: Option<&'a str>,
         algorithm: Option<&'a str>,
         qop: Option<&'a str>,
-        param: Params<'a>,
     },
     /// Other scheme not specified.
     Other { scheme: &'a str, param: Params<'a> },
@@ -69,9 +69,8 @@ impl<'a> Challenge<'a> {
                     OPAQUE => opaque = value,
                     QOP => qop = value,
                     STALE => stale = value,
-                    other => {
-                        param
-                            .set(other, value.unwrap_or(""));
+                    _other => {
+                        // return err?
                     }
                 }
             });
@@ -84,7 +83,6 @@ impl<'a> Challenge<'a> {
                 stale,
                 algorithm,
                 qop,
-                param,
             });
         }
 
@@ -95,6 +93,48 @@ impl<'a> Challenge<'a> {
         });
 
         Ok(Challenge::Other { scheme, param })
+    }
+}
+
+impl fmt::Display for Challenge<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Challenge::Digest {
+                realm,
+                domain,
+                nonce,
+                opaque,
+                stale,
+                algorithm,
+                qop,
+            } => {
+                write!(f, "Digest ")?;
+                if let Some(realm) = realm {
+                    write!(f, "realm={realm}")?;
+                }
+                if let Some(domain) = domain {
+                    write!(f, ", domain={domain}")?;
+                }
+                if let Some(nonce) = nonce {
+                    write!(f, ", nonce={nonce}")?;
+                }
+                if let Some(opaque) = opaque {
+                    write!(f, ", opaque={opaque}")?;
+                }
+                if let Some(stale) = stale {
+                    write!(f, ", stale={stale}")?;
+                }
+                if let Some(algorithm) = algorithm {
+                    write!(f, ", algorithm={algorithm}")?;
+                }
+                if let Some(qop) = qop {
+                    write!(f, ", qop={qop}")?;
+                }
+
+                Ok(())
+            }
+            Challenge::Other { scheme, param } => todo!(),
+        }
     }
 }
 
@@ -114,10 +154,63 @@ pub enum Credential<'a> {
         opaque: Option<&'a str>,
         qop: Option<&'a str>,
         nc: Option<&'a str>,
-        param: Params<'a>,
     },
     /// Other scheme not specified.
     Other { scheme: &'a str, param: Params<'a> },
+}
+
+impl fmt::Display for Credential<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Credential::Digest {
+                realm,
+                username,
+                nonce,
+                uri,
+                response,
+                algorithm,
+                cnonce,
+                opaque,
+                qop,
+                nc,
+            } => {
+                write!(f, "Digest ")?;
+                if let Some(realm) = realm {
+                    write!(f, "realm={realm}")?;
+                }
+                if let Some(username) = username {
+                    write!(f, ", username={username}")?;
+                }
+                if let Some(nonce) = nonce {
+                    write!(f, ", nonce={nonce}")?;
+                }
+                if let Some(uri) = uri {
+                    write!(f, ", uri={uri}")?;
+                }
+                if let Some(response) = response {
+                    write!(f, ", response={response}")?;
+                }
+                if let Some(algorithm) = algorithm {
+                    write!(f, ", algorithm={algorithm}")?;
+                }
+                if let Some(cnonce) = cnonce {
+                    write!(f, ", cnonce={cnonce}")?;
+                }
+                if let Some(qop) = qop {
+                    write!(f, ", qop={qop}")?;
+                }
+                if let Some(nc) = nc {
+                    write!(f, ", nc={nc}")?;
+                }
+                if let Some(opaque) = opaque {
+                    write!(f, ", opaque={opaque}")?;
+                }
+
+                Ok(())
+            }
+            Credential::Other { scheme, param } => todo!(),
+        }
+    }
 }
 
 impl<'a> Credential<'a> {
@@ -152,9 +245,8 @@ impl<'a> Credential<'a> {
                     OPAQUE => opaque = value,
                     QOP => qop = value,
                     NC => nc = value,
-                    other => {
-                        param
-                            .set(other, value.unwrap_or(""));
+                    _other => {
+                        // return err?
                     }
                 }
             });
@@ -170,7 +262,6 @@ impl<'a> Credential<'a> {
                 opaque,
                 qop,
                 nc,
-                param,
             });
         }
 

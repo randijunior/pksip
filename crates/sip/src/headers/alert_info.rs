@@ -2,7 +2,7 @@ use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
 use crate::{macros::parse_header_param, msg::Params, parser::Result};
-use std::str;
+use std::{fmt, str};
 
 /// The `Alert-Info` SIP header.
 ///
@@ -27,6 +27,16 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
         let params = parse_header_param!(reader);
 
         Ok(AlertInfo { url, params })
+    }
+}
+
+impl fmt::Display for AlertInfo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<{}>", self.url)?;
+        if let Some(params) = &self.params {
+            write!(f, ";{}", params)?;
+        }
+        Ok(())
     }
 }
 

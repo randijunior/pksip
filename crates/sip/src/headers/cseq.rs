@@ -4,15 +4,22 @@ use crate::{msg::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 
+use core::fmt;
 use std::str;
 
 /// The `CSeq` SIP header.
 ///
 /// Ensures order and tracking of SIP transactions within a session.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CSeq {
     pub cseq: i32,
     pub method: SipMethod,
+}
+
+impl fmt::Display for CSeq {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.cseq, self.method)
+    }
 }
 
 impl<'a> CSeq {

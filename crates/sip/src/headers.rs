@@ -94,7 +94,11 @@ pub use via::Via;
 pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
-use std::str;
+use core::fmt;
+use std::{
+    iter::{Filter, FilterMap},
+    str,
+};
 
 use crate::{
     msg::Params,
@@ -363,6 +367,26 @@ impl<'a> Headers<'a> {
         self.0.iter()
     }
 
+    pub fn filter_map<'b, T: 'a, F>(
+        &'b self,
+        f: F,
+    ) -> FilterMap<impl Iterator<Item = &Header<'a>>, F>
+    where
+        F: FnMut(&'b Header) -> Option<&'a T>,
+    {
+        self.0.iter().filter_map(f)
+    }
+
+    pub fn filter<'b, T: 'a, F>(
+        &'b self,
+        f: F,
+    ) -> Filter<impl Iterator<Item = &Header<'a>>, F>
+    where
+        F: FnMut(&&'b Header) -> bool,
+    {
+        self.0.iter().filter(f)
+    }
+
     /// Push an new header.
     ///
     /// # Example
@@ -391,6 +415,12 @@ impl<'a> Headers<'a> {
     }
 }
 
+impl Default for Headers<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// This type reprents an MIME type that indicates an content format.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct MimeType<'a> {
@@ -403,6 +433,17 @@ pub struct MimeType<'a> {
 pub struct MediaType<'a> {
     pub mimetype: MimeType<'a>,
     pub param: Option<Params<'a>>,
+}
+
+impl fmt::Display for MediaType<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let MediaType { mimetype, param } = self;
+        write!(f, "{}/{}", mimetype.mtype, mimetype.subtype)?;
+        if let Some(param) = &param {
+            write!(f, ";{}", param)?;
+        }
+        Ok(())
+    }
 }
 
 impl<'a> MediaType<'a> {

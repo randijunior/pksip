@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reader::Reader;
 
 use crate::{auth::Credential, parser::Result};
@@ -23,6 +25,12 @@ impl<'a> SipHeader<'a> for Authorization<'a> {
         let credential = Credential::parse(reader)?;
 
         Ok(Authorization(credential))
+    }
+}
+
+impl fmt::Display for Authorization<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

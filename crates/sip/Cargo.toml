@@ -8,6 +8,7 @@ reader = { path = "../reader" }
 async-trait = "0.1.83"
 tokio = { version = "1.41.1", features = ["full"] }
 hickory-resolver = "0.24.1"
+itertools = "0.13.0"
 
 
 [dev-dependencies]

@@ -1,9 +1,11 @@
+use core::fmt;
 use std::str;
 
+use itertools::Itertools;
 use reader::{util::is_newline, Reader};
 
 use crate::{
-    headers::{self, Q_PARAM},
+    headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
     msg::Params,
     parser::{self, Result},
@@ -19,6 +21,20 @@ pub struct Coding<'a> {
     coding: &'a str,
     q: Option<Q>,
     param: Option<Params<'a>>,
+}
+
+impl fmt::Display for Coding<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Coding { coding, q, param } = self;
+        write!(f, "{}", coding)?;
+        if let Some(q) = q {
+            write!(f, ";q={}.{}", q.0, q.1)?;
+        }
+        if let Some(param) = param {
+            write!(f, ";{}", param)?;
+        }
+        Ok(())
+    }
 }
 
 /// `Accept-Encoding` SIP header.
@@ -54,6 +70,12 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
         });
 
         Ok(AcceptEncoding(codings))
+    }
+}
+
+impl fmt::Display for AcceptEncoding<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 

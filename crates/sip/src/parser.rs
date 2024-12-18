@@ -73,7 +73,8 @@ use crate::msg::StatusLine;
 use crate::msg::UserInfo;
 use crate::msg::{RequestLine, SipRequest, SipResponse};
 
-pub(crate) const SIPV2: &'static [u8] = "SIP/2.0".as_bytes();
+pub(crate) const SIPV2: &'static str = "SIP/2.0";
+pub(crate) const B_SIPV2: &'static [u8] = SIPV2.as_bytes();
 
 pub(crate) const ALPHA_NUM: &[u8] = b"abcdefghijklmnopqrstuvwxyz\
                                     ABCDEFGHIJKLMNOPQRSTUVWXYZ\
@@ -462,7 +463,7 @@ fn is_sip_version(reader: &Reader) -> bool {
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
-    let Ok(SIPV2) = reader.read_n(7) else {
+    let Ok(B_SIPV2) = reader.read_n(7) else {
         return sip_parse_error!("Sip Version Invalid");
     };
     Ok(())
@@ -554,7 +555,7 @@ fn parse_header_params_in_sip_uri<'a>(
     reader.must_read(b'?')?;
     let mut params = Params::new();
     loop {
-        // take '?' or '&'
+        // take '&'
         reader.next();
         let Param(name, value) = parse_hdr_in_uri(reader)?;
         let value = value.unwrap_or("");

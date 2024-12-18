@@ -24,13 +24,14 @@ use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
 use crate::macros::{b_map, parse_param};
-use crate::parser::{self, ALPHA_NUM, TOKEN};
+use crate::parser::{self, ALPHA_NUM, SIPV2, TOKEN};
 use crate::{
     macros::sip_parse_error,
     msg::TransportProtocol,
     msg::{HostPort, Params},
     parser::Result,
 };
+use core::fmt;
 use std::str;
 
 use super::Param;
@@ -89,7 +90,7 @@ impl<'a> ViaParams<'a> {
 ///
 /// Indicates the path taken by the request so far and the
 /// path that should be followed in routing responses.
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Via<'a> {
     pub transport: TransportProtocol,
     pub sent_by: HostPort<'a>,
@@ -100,6 +101,36 @@ pub struct Via<'a> {
     pub rport: Option<u16>,
     pub comment: Option<&'a str>,
     pub params: Option<Params<'a>>,
+}
+
+impl fmt::Display for Via<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{} {}", SIPV2, self.transport, self.sent_by)?;
+
+        if let Some(rport) = self.rport {
+            write!(f, ";rport={rport}")?;
+        }
+        if let Some(received) = self.received {
+            write!(f, ";received={received}")?;
+        }
+        if let Some(ttl) = self.ttl {
+            write!(f, ";ttl={ttl}")?;
+        }
+        if let Some(maddr) = self.maddr {
+            write!(f, ";maddr={maddr}")?;
+        }
+        if let Some(branch) = self.branch {
+            write!(f, ";branch={branch}")?;
+        }
+        if let Some(params) = &self.params {
+            write!(f, ";{params}")?;
+        }
+        if let Some(comment) = self.comment {
+            write!(f, " ({comment})")?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a> SipHeader<'a> for Via<'a> {

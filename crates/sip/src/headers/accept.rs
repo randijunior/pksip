@@ -1,5 +1,6 @@
-use std::str;
+use std::fmt;
 
+use itertools::Itertools;
 use reader::Reader;
 
 use crate::{
@@ -44,6 +45,13 @@ impl<'a> SipHeader<'a> for Accept<'a> {
         Ok(Accept(mtypes))
     }
 }
+
+impl fmt::Display for Accept<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

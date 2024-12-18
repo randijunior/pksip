@@ -9,7 +9,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use std::str;
+use std::{fmt, str};
 
 /// The `Authentication-Info` SIP header.
 ///
@@ -42,6 +42,28 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
         });
 
         Ok(auth_info)
+    }
+}
+
+impl fmt::Display for AuthenticationInfo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(nextnonce) = self.nextnonce {
+            write!(f, "nextnonce={}", nextnonce)?;
+        }
+        if let Some(qop) = self.qop {
+            write!(f, ", qop={}", qop)?;
+        }
+        if let Some(rspauth) = self.rspauth {
+            write!(f, ", rspauth={}", rspauth)?;
+        }
+        if let Some(cnonce) = self.cnonce {
+            write!(f, ", cnonce={}", cnonce)?;
+        }
+        if let Some(nc) = self.nc {
+            write!(f, ", nc={}", nc)?;
+        }
+
+        Ok(())
     }
 }
 

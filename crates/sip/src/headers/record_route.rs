@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reader::Reader;
 
 use crate::{
@@ -24,6 +26,17 @@ impl<'a> SipHeader<'a> for RecordRoute<'a> {
         let addr = parser::parse_name_addr(reader)?;
         let param = parse_header_param!(reader);
         Ok(RecordRoute { addr, param })
+    }
+}
+
+impl fmt::Display for RecordRoute<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.addr)?;
+        if let Some(param) = &self.param {
+            write!(f, ";{}", param)?;
+        }
+
+        Ok(())
     }
 }
 

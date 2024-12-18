@@ -3,6 +3,7 @@
 //! The module provide the [`SipMessage`] enum that can be
 //! an [`SipMessage::Request`] or [`SipMessage::Response`] and represents an sip message.
 
+use itertools::Itertools;
 pub(crate) use request::*;
 pub(crate) use response::*;
 
@@ -11,6 +12,7 @@ mod response;
 
 use core::fmt;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::net::{IpAddr, Ipv4Addr};
 
 use crate::headers::{Header, Headers};
@@ -54,7 +56,7 @@ impl<'a> SipMessage<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SipUri<'a> {
     Uri(Uri<'a>),
     NameAddr(NameAddr<'a>),
@@ -82,6 +84,7 @@ impl<'a> SipUri<'a> {
             SipUri::NameAddr(name_addr) => &name_addr.uri.host_port,
         }
     }
+
     pub fn transport_param(&self) -> Option<TransportProtocol> {
         match self {
             SipUri::Uri(uri) => uri.transport_param,
@@ -105,7 +108,7 @@ pub enum Scheme {
     Sips,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UserInfo<'a> {
     user: &'a str,
     pass: Option<&'a str>,
@@ -144,6 +147,19 @@ impl<'a> HostPort<'a> {
     }
 }
 
+impl fmt::Display for HostPort<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.host {
+            Host::DomainName(domain) => write!(f, "{domain}")?,
+            Host::IpAddr(ip_addr) => write!(f, "{ip_addr}")?,
+        }
+        if let Some(port) = self.port {
+            write!(f, ":{port}")?;
+        }
+        Ok(())
+    }
+}
+
 impl<'a> From<Host<'a>> for HostPort<'a> {
     fn from(host: Host<'a>) -> Self {
         Self { host, port: None }
@@ -179,7 +195,7 @@ impl<'a> HostPort<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Uri<'a> {
     pub scheme: Scheme,
     pub user: Option<UserInfo<'a>>,
@@ -192,6 +208,55 @@ pub struct Uri<'a> {
     pub maddr_param: Option<&'a str>,
     pub params: Option<Params<'a>>,
     pub hdr_params: Option<Params<'a>>,
+}
+
+impl fmt::Display for Uri<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.scheme {
+            Scheme::Sip => write!(f, "sip")?,
+            Scheme::Sips => write!(f, "sips")?,
+        }
+        write!(f, ":")?;
+
+        if let Some(user) = &self.user {
+            write!(f, "{}", user.get_user())?;
+            if let Some(pass) = user.get_pass() {
+                write!(f, ":{}", pass)?
+            }
+            write!(f, "@")?;
+        }
+        write!(f, "{}", self.host_port)?;
+
+        if let Some(user_param) = self.user_param {
+            write!(f, ";user={}", user_param)?;
+        }
+        if let Some(m_param) = self.method_param {
+            write!(f, ";method={}", m_param)?;
+        }
+        if let Some(m_param) = self.maddr_param {
+            write!(f, ";maddr={}", m_param)?;
+        }
+        if let Some(transport_param) = self.transport_param {
+            write!(f, ";transport={}", transport_param)?;
+        }
+        if let Some(ttl_param) = self.ttl_param {
+            write!(f, ";ttl={}", ttl_param)?;
+        }
+        if let Some(lr_param) = self.lr_param {
+            write!(f, ";lr={}", lr_param)?;
+        }
+        if let Some(params) = &self.params {
+            write!(f, ";{}", params)?;
+        }
+        if let Some(hdr_params) = &self.hdr_params {
+            let formater = hdr_params.iter().format_with("&", |it, f| {
+                f(&format_args!("{}={}", it.0, it.1))
+            });
+            write!(f, "?{}", formater)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a> Uri<'a> {
@@ -277,10 +342,21 @@ impl<'a> UriBuilder<'a> {
 // SIP name-addr, which typically appear in From, To, and Contact header.
 // display optional display part
 // Struct Uri uri
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NameAddr<'a> {
     pub display: Option<&'a str>,
     pub uri: Uri<'a>,
+}
+
+impl fmt::Display for NameAddr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(display) = self.display {
+            write!(f, "{} ", display)?;
+        }
+        write!(f, "<{}>", self.uri)?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -294,6 +370,15 @@ pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, &'a str>,
 }
 
+impl fmt::Display for Params<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let formater = self
+            .iter()
+            .format_with(";", |it, f| f(&format_args!("{}={}", it.0, it.1)));
+        write!(f, "{}", formater)
+    }
+}
+
 impl<'a> From<HashMap<&'a str, &'a str>> for Params<'a> {
     fn from(value: HashMap<&'a str, &'a str>) -> Self {
         Self { inner: value }
@@ -305,6 +390,10 @@ impl<'a> Params<'a> {
         Self {
             inner: HashMap::new(),
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&&str, &&str)> {
+        self.inner.iter()
     }
 
     pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
@@ -338,6 +427,28 @@ pub enum SipMethod {
     Unknow,
 }
 
+impl fmt::Display for SipMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SipMethod::Invite => write!(f, "INVITE"),
+            SipMethod::Ack => write!(f, "ACK"),
+            SipMethod::Bye => write!(f, "BYE"),
+            SipMethod::Cancel => write!(f, "CANCEL"),
+            SipMethod::Register => write!(f, "REGISTER"),
+            SipMethod::Options => write!(f, "OPTIONS"),
+            SipMethod::Info => write!(f, "INFO"),
+            SipMethod::Notify => write!(f, "NOTIFY"),
+            SipMethod::Subscribe => write!(f, "SUBSCRIBE"),
+            SipMethod::Update => write!(f, "UPDATE"),
+            SipMethod::Refer => write!(f, "REFER"),
+            SipMethod::Prack => write!(f, "PRACK"),
+            SipMethod::Message => write!(f, "MESSAGE"),
+            SipMethod::Publish => write!(f, "PUBLISH"),
+            SipMethod::Unknow => write!(f, "UNKNOW-Method"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum TransportProtocol {
     #[default]
@@ -346,6 +457,18 @@ pub enum TransportProtocol {
     TLS,
     SCTP,
     Unknow,
+}
+
+impl TransportProtocol {
+    pub fn get_port(&self) -> u16 {
+        match self {
+            TransportProtocol::UDP
+            | TransportProtocol::TCP
+            | TransportProtocol::SCTP => 5060,
+            TransportProtocol::TLS => 5061,
+            TransportProtocol::Unknow => 0,
+        }
+    }
 }
 
 impl fmt::Display for TransportProtocol {
@@ -444,7 +567,7 @@ impl From<&[u8]> for SipMethod {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum SipStatusCode {
     Trying = 100,
     Ringing = 180,
@@ -534,8 +657,8 @@ pub enum SipStatusCode {
 // https://en.wikipedia.org/wiki/List_of_SIP_response_codes
 //@TODO: complete status codes
 impl SipStatusCode {
-    pub fn reason_phrase(&self) -> &str {
-        match &self {
+    pub fn reason_phrase(&self) -> &'static str {
+        match self {
             // 1xx — Provisional Responses
             SipStatusCode::Trying => "Trying",
             SipStatusCode::Ringing => "Ringing",
@@ -606,6 +729,89 @@ impl SipStatusCode {
 
             // Unknown or custom status
             _ => "Unknown",
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SipStatusCode::Trying => "100",
+            SipStatusCode::Ringing => "180",
+            SipStatusCode::CallIsBeingForwarded => "181",
+            SipStatusCode::Queued => "182",
+            SipStatusCode::SessionProgress => "183",
+            SipStatusCode::EarlyDialogTerminated => "199",
+            SipStatusCode::Ok => "200",
+            SipStatusCode::Accepted => "202",
+            SipStatusCode::NoNotification => "204",
+            SipStatusCode::MultipleChoices => "300",
+            SipStatusCode::MovedPermanently => "301",
+            SipStatusCode::MovedTemporarily => "302",
+            SipStatusCode::UseProxy => "305",
+            SipStatusCode::AlternativeService => "380",
+            SipStatusCode::BadRequest => "400",
+            SipStatusCode::Unauthorized => "401",
+            SipStatusCode::PaymentRequired => "402",
+            SipStatusCode::Forbidden => "403",
+            SipStatusCode::NotFound => "404",
+            SipStatusCode::MethodNotAllowed => "405",
+            SipStatusCode::NotAcceptable => "406",
+            SipStatusCode::ProxyAuthenticationRequired => "407",
+            SipStatusCode::RequestTimeout => "408",
+            SipStatusCode::Conflict => "409",
+            SipStatusCode::Gone => "410",
+            SipStatusCode::LengthRequired => "411",
+            SipStatusCode::ConditionalRequestFailed => "412",
+            SipStatusCode::RequestEntityTooLarge => "413",
+            SipStatusCode::RequestUriTooLong => "414",
+            SipStatusCode::UnsupportedMediaType => "415",
+            SipStatusCode::UnsupportedUriScheme => "416",
+            SipStatusCode::UnknownResourcePriority => "417",
+            SipStatusCode::BadExtension => "420",
+            SipStatusCode::ExtensionRequired => "421",
+            SipStatusCode::SessionTimerTooSmall => "422",
+            SipStatusCode::IntervalTooBrief => "423",
+            SipStatusCode::BadLocationInformation => "424",
+            SipStatusCode::UseIdentityHeader => "428",
+            SipStatusCode::ProvideReferrerHeader => "429",
+            SipStatusCode::FlowFailed => "430",
+            SipStatusCode::AnonimityDisallowed => "433",
+            SipStatusCode::BadIdentityInfo => "436",
+            SipStatusCode::UnsupportedCertificate => "437",
+            SipStatusCode::InvalidIdentityHeader => "438",
+            SipStatusCode::FirstHopLacksOutboundSupport => "439",
+            SipStatusCode::MaxBreadthExceeded => "440",
+            SipStatusCode::BadInfoPackage => "469",
+            SipStatusCode::ConsentNeeded => "470",
+            SipStatusCode::TemporarilyUnavailable => "480",
+            SipStatusCode::CallOrTransactionDoesNotExist => "481",
+            SipStatusCode::LoopDetected => "482",
+            SipStatusCode::TooManyHops => "483",
+            SipStatusCode::AddressIncomplete => "484",
+            SipStatusCode::Ambiguous => "485",
+            SipStatusCode::BusyHere => "486",
+            SipStatusCode::RequestTerminated => "487",
+            SipStatusCode::NotAcceptableHere => "488",
+            SipStatusCode::BadEvent => "489",
+            SipStatusCode::RequestUpdated => "490",
+            SipStatusCode::RequestPending => "491",
+            SipStatusCode::Undecipherable => "493",
+            SipStatusCode::SecurityAgreementNeeded => "494",
+            SipStatusCode::ServerInternalError => "500",
+            SipStatusCode::NotImplemented => "501",
+            SipStatusCode::BadGateway => "502",
+            SipStatusCode::ServiceUnavailable => "503",
+            SipStatusCode::ServerTimeout => "504",
+            SipStatusCode::VersionNotSupported => "505",
+            SipStatusCode::MessageTooLarge => "513",
+            SipStatusCode::PushNotificationServiceNotSupported => "555",
+            SipStatusCode::PreconditionFailure => "580",
+            SipStatusCode::BusyEverywhere => "600",
+            SipStatusCode::Decline => "603",
+            SipStatusCode::DoesNotExistAnywhere => "604",
+            SipStatusCode::NotAcceptableAnywhere => "606",
+            SipStatusCode::Unwanted => "607",
+            SipStatusCode::Rejected => "608",
+            SipStatusCode::Unknow => "Unknow-Code",
         }
     }
 }

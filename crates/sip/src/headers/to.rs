@@ -9,12 +9,12 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use std::str;
+use std::{fmt, str};
 
 /// The `To` SIP header.
 ///
 /// Specifies the logical recipient of the request.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct To<'a> {
     pub uri: SipUri<'a>,
     pub tag: Option<&'a str>,
@@ -31,6 +31,23 @@ impl<'a> SipHeader<'a> for To<'a> {
         let params = parse_header_param!(reader, TAG_PARAM = tag);
 
         Ok(To { tag, uri, params })
+    }
+}
+
+impl fmt::Display for To<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.uri {
+            SipUri::Uri(uri) => write!(f, "{}", uri)?,
+            SipUri::NameAddr(name_addr) => write!(f, "{}", name_addr)?,
+        }
+        if let Some(tag) = self.tag {
+            write!(f, ";tag={}", tag)?;
+        }
+        if let Some(params) = &self.params {
+            write!(f, "{}", params)?;
+        }
+
+        Ok(())
     }
 }
 

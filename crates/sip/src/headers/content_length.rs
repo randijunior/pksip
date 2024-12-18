@@ -1,3 +1,4 @@
+use core::fmt;
 use std::str;
 
 use reader::Reader;
@@ -26,6 +27,12 @@ impl<'a> SipHeader<'a> for ContentLength {
         let l = reader.read_num()?;
 
         Ok(ContentLength(l))
+    }
+}
+
+impl fmt::Display for ContentLength {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

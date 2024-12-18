@@ -4,12 +4,13 @@ use crate::parser::Result;
 
 use crate::headers::SipHeader;
 
+use core::fmt;
 use std::str;
 
 /// The `Call-ID` SIP header.
 ///
 /// Uniquely identifies a particular invitation or all registrations of a particular client.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CallId<'a>(pub &'a str);
 
 impl<'a> From<&'a str> for CallId<'a> {
@@ -35,6 +36,12 @@ impl<'a> SipHeader<'a> for CallId<'a> {
         let id = Self::parse_as_str(reader)?;
 
         Ok(CallId(id))
+    }
+}
+
+impl fmt::Display for CallId<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.id())
     }
 }
 

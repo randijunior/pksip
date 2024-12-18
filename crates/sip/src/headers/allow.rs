@@ -1,3 +1,6 @@
+use std::fmt;
+
+use itertools::Itertools;
 use reader::{alpha, Reader};
 
 use crate::{macros::hdr_list, msg::SipMethod, parser::Result};
@@ -33,6 +36,12 @@ impl<'a> SipHeader<'a> for Allow {
         });
 
         Ok(Allow(allow))
+    }
+}
+
+impl fmt::Display for Allow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 

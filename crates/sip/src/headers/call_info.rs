@@ -4,7 +4,7 @@ use crate::{macros::parse_header_param, msg::Params, parser::Result};
 
 use crate::headers::SipHeader;
 
-use std::str;
+use std::{fmt, str};
 const PURPOSE: &'static str = "purpose";
 
 /// The `Call-Info` SIP header.
@@ -35,6 +35,19 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
             params,
             purpose,
         })
+    }
+}
+
+impl fmt::Display for CallInfo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<{}>", self.url)?;
+        if let Some(purpose) = self.purpose {
+            write!(f, ";{}", purpose)?;
+        }
+        if let Some(params) = &self.params {
+            write!(f, ";{}", params)?;
+        }
+        Ok(())
     }
 }
 

@@ -1,14 +1,15 @@
+use itertools::Itertools;
 use reader::{util::is_alphabetic, Reader};
 
 use crate::{
-    headers::{self, Q_PARAM},
+    headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
     msg::Params,
     parser::Result,
 };
 
 use crate::headers::SipHeader;
-use std::str;
+use std::{fmt, str};
 
 use super::Q;
 
@@ -18,6 +19,20 @@ pub struct Language<'a> {
     language: &'a str,
     q: Option<Q>,
     param: Option<Params<'a>>,
+}
+
+impl fmt::Display for Language<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Language { language, q, param } = self;
+        write!(f, "{}", language)?;
+        if let Some(q) = q {
+            write!(f, ";q={}.{}", q.0, q.1)?;
+        }
+        if let Some(param) = param {
+            write!(f, ";{}", param)?;
+        }
+        Ok(())
+    }
 }
 
 /// The `Accept-Language` SIP header.
@@ -55,6 +70,12 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
         });
 
         Ok(AcceptLanguage(languages))
+    }
+}
+
+impl fmt::Display for AcceptLanguage<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 
