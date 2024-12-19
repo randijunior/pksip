@@ -8,10 +8,12 @@ use std::{
 use tokio::sync::mpsc::{self};
 
 use crate::{
-    endpoint::Endpoint, msg::TransportProtocol, parser::parse_sip_msg,
+    endpoint::Endpoint,
+    msg::{SipMessage, TransportProtocol},
+    parser::parse_sip_msg,
 };
 
-use super::{IncomingMessage, Packet, SipTransport, Transport};
+use super::{IncomingInfo, IncomingRequest, Packet, SipTransport, Transport};
 
 const CRLF: &[u8] = b"\r\n";
 const END: &[u8] = b"\r\n\r\n";
@@ -138,13 +140,18 @@ impl TransportManager {
                 Err(_) => todo!(),
             },
         };
-        let msg = IncomingMessage {
-            packet: Packet {
-                payload: Arc::clone(&pkt.payload),
-                ..pkt
+        let msg = match msg {
+            SipMessage::Request(req) => IncomingRequest {
+                msg: req,
+                info: IncomingInfo {
+                    packet: Packet {
+                        payload: Arc::clone(&pkt.payload),
+                        ..pkt
+                    },
+                    transport,
+                },
             },
-            msg,
-            transport,
+            SipMessage::Response(res) => todo!(),
         };
         endpt.endpt_recv_msg(msg).await;
         Ok(())

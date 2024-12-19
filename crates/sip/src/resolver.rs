@@ -1,10 +1,10 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
-use crate::msg::{Scheme, SipUri, TransportProtocol};
+use crate::msg::{Host, Scheme, SipUri, TransportProtocol};
 
 pub struct ServerAddresses {
     protocol: TransportProtocol,
-    addr: SocketAddr
+    addr: SocketAddr,
 }
 
 pub struct Resolver {
@@ -12,11 +12,12 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    async fn resolve(&self, target: &SipUri<'_>) -> ServerAddresses {
+    async fn resolve(&self, target: &SipUri<'_>) -> Vec<ServerAddresses> {
         // https://datatracker.ietf.org/doc/html/rfc3263#section-4.1
         // Arcording to RFC 3263, section 4.1:
         // If the URI specifies a transport protocol in the transport parameter,
         // that transport protocol SHOULD be used.
+        let host_port = target.host_port();
         let transport = if let Some(transport_param) = target.transport_param()
         {
             transport_param
@@ -24,14 +25,14 @@ impl Resolver {
             // Otherwise, if no transport protocol is specified, but the TARGET is a
             //numeric IP address, the client SHOULD use UDP for a SIP URI, and TCP
             // for a SIPS URI.
-            let host_port = target.host_port();
-            if let Some(_addr) = host_port.ip_addr() {
+            if host_port.ip_addr().is_some() || host_port.port.is_some() {
                 match target.scheme() {
                     Scheme::Sip => TransportProtocol::UDP,
                     Scheme::Sips => TransportProtocol::TCP,
                 }
             } else {
-                todo!()
+                //TODO: perform a NAPTR query for the domain in the URI
+                TransportProtocol::UDP
             }
         };
 

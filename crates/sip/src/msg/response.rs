@@ -1,6 +1,6 @@
-use std::str;
+use std::{fmt, str};
 
-use crate::headers::Headers;
+use crate::{headers::Headers, parser::SIPV2};
 
 use super::SipStatusCode;
 
@@ -11,6 +11,12 @@ pub struct StatusLine<'sl> {
     pub code: SipStatusCode,
     // Reason String
     pub rphrase: &'sl str,
+}
+
+impl fmt::Display for StatusLine<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{SIPV2} {} {}", self.code.as_str(), self.rphrase)
+    }
 }
 
 impl<'sl> StatusLine<'sl> {

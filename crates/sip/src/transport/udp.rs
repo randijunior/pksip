@@ -39,6 +39,13 @@ impl SipTransport for Udp {
             || (addr.is_ipv6() && self.0.addr.is_ipv6())
     }
 
+    fn reliable(&self) -> bool {
+        false
+    }
+    fn secure(&self) -> bool {
+        false
+    }
+
     fn get_key(&self) -> ConnectionKey {
         ConnectionKey::from_tp(self)
     }

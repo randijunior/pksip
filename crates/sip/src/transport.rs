@@ -1,5 +1,10 @@
 use std::{
-    cmp::Ordering, io, net::SocketAddr, ops::Deref, sync::Arc, time::SystemTime,
+    cmp::Ordering,
+    io::{self},
+    net::SocketAddr,
+    ops::Deref,
+    sync::Arc,
+    time::SystemTime,
 };
 
 pub mod manager;
@@ -10,7 +15,7 @@ use manager::ConnectionKey;
 use tokio::sync::mpsc;
 use udp::Udp;
 
-use crate::msg::{SipMessage, TransportProtocol};
+use crate::msg::{SipMessage, SipRequest, SipResponse, TransportProtocol};
 
 const MAX_PACKET_SIZE: usize = 4000;
 
@@ -22,6 +27,10 @@ pub trait SipTransport: Sync + Send + 'static {
     fn get_protocol(&self) -> TransportProtocol;
     fn get_addr(&self) -> SocketAddr;
     fn is_same_address_family(&self, addr: &SocketAddr) -> bool;
+
+    fn reliable(&self) -> bool;
+
+    fn secure(&self) -> bool;
 
     fn get_key(&self) -> ConnectionKey;
 }
@@ -77,6 +86,34 @@ impl Packet {
     pub fn payload(&self) -> &[u8] {
         &self.payload
     }
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+}
+
+pub struct OutgoingInfo {
+    pub addr: SocketAddr,
+    pub transport: Transport,
+}
+
+pub struct IncomingInfo {
+    packet: Packet,
+    transport: Transport,
+}
+
+pub struct OutGoingRequest<'a> {
+    msg: SipRequest<'a>,
+    info: OutgoingInfo,
+}
+
+pub struct OutGoingResponse<'a> {
+    msg: SipResponse<'a>,
+    info: OutgoingInfo,
+}
+
+pub struct IncomingRequest<'a> {
+    msg: SipRequest<'a>,
+    info: IncomingInfo,
 }
 
 pub struct IncomingMessage<'a> {
@@ -85,9 +122,16 @@ pub struct IncomingMessage<'a> {
     transport: Transport,
 }
 
-impl<'a> IncomingMessage<'a> {
+impl<'a> IncomingRequest<'a> {
     pub fn packet(&self) -> &Packet {
-        &self.packet
+        &self.info.packet
+    }
+    pub fn transport(&self) -> &Transport {
+        &self.info.transport
+    }
+
+    pub fn msg(&self) -> &SipRequest {
+        &self.msg
     }
 }
 

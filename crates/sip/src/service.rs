@@ -1,9 +1,13 @@
 use async_trait::async_trait;
 
-use crate::{endpoint::Endpoint, transport::IncomingMessage};
+use crate::{endpoint::Endpoint, transport::IncomingRequest};
 
 #[async_trait]
-pub trait SipService: Sync + Send + 'static  {
+pub trait SipService: Sync + Send + 'static {
     fn name(&self) -> &str;
-    async fn on_recv_req(&self, endpoint: &Endpoint, inc: &mut Option<IncomingMessage>);
+    async fn on_recv_req(
+        &self,
+        endpoint: &Endpoint,
+        inc: &mut Option<IncomingRequest>,
+    );
 }
