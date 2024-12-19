@@ -4,7 +4,7 @@ use crate::{
     headers::Headers,
     resolver::Resolver,
     service::SipService,
-    transport::{manager::TransportManager, IncomingMessage, Transport},
+    transport::{manager::TransportManager, IncomingMessage, IncomingRequest, Transport},
 };
 
 pub struct EndpointBuilder {
@@ -83,7 +83,7 @@ impl Endpoint {
         Ok(())
     }
 
-    pub async fn endpt_recv_msg<'a>(&self, msg: IncomingMessage<'a>) {
+    pub async fn endpt_recv_msg<'a>(&self, msg: IncomingRequest<'a>) {
         let mut msg = msg.into();
         for svc in self.services.iter() {
             svc.on_recv_req(self, &mut msg).await;
