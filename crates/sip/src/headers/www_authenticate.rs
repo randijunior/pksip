@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reader::Reader;
 
 use crate::{auth::Challenge, headers::SipHeader, parser::Result};
@@ -17,6 +19,12 @@ impl<'a> SipHeader<'a> for WWWAuthenticate<'a> {
         let challenge = Challenge::parse(reader)?;
 
         Ok(WWWAuthenticate(challenge))
+    }
+}
+
+impl fmt::Display for WWWAuthenticate<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

@@ -1,3 +1,4 @@
+use core::fmt;
 use std::str;
 
 use reader::Reader;
@@ -28,6 +29,12 @@ impl<'a> SipHeader<'a> for ContentType<'a> {
         let media_type = MediaType::new(mtype, subtype, param);
 
         Ok(ContentType(media_type))
+    }
+}
+
+impl fmt::Display for ContentType<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

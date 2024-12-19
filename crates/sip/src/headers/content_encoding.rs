@@ -1,5 +1,7 @@
+use core::fmt;
 use std::str;
 
+use itertools::Itertools;
 use reader::Reader;
 
 use crate::macros::hdr_list;
@@ -33,6 +35,12 @@ impl<'a> SipHeader<'a> for ContentEncoding<'a> {
         let codings = hdr_list!(reader => parser::parse_token(reader)?);
 
         Ok(ContentEncoding(codings))
+    }
+}
+
+impl fmt::Display for ContentEncoding<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 

@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::Reader;
 
@@ -25,6 +25,12 @@ impl<'a> SipHeader<'a> for Expires {
         let expires = reader.read_num()?;
 
         Ok(Expires(expires))
+    }
+}
+
+impl fmt::Display for Expires {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

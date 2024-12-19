@@ -4,7 +4,7 @@ use crate::parser::Result;
 
 use crate::headers::SipHeader;
 
-use std::str;
+use std::{fmt, str};
 
 /// The `Date` SIP header.
 ///
@@ -19,6 +19,12 @@ impl<'a> SipHeader<'a> for Date<'a> {
         let date = Self::parse_as_str(reader)?;
 
         Ok(Date(date))
+    }
+}
+
+impl fmt::Display for Date<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

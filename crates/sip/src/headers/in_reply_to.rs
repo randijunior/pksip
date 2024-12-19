@@ -1,5 +1,6 @@
-use std::str;
+use std::{fmt, str};
 
+use itertools::Itertools;
 use reader::{read_while, util::not_comma_or_newline, Reader};
 
 use crate::{
@@ -26,6 +27,12 @@ impl<'a> SipHeader<'a> for InReplyTo<'a> {
         });
 
         Ok(InReplyTo(ids))
+    }
+}
+
+impl fmt::Display for InReplyTo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 

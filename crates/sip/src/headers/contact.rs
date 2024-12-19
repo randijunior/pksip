@@ -1,7 +1,9 @@
+use core::fmt;
+
 use reader::Reader;
 
 use crate::{
-    headers::{self, EXPIRES_PARAM, Q_PARAM},
+    headers::{EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
     msg::{Params, SipUri},
     parser::{self, Result},
@@ -17,6 +19,24 @@ pub struct ContactUri<'a> {
     pub q: Option<Q>,
     pub expires: Option<u32>,
     pub param: Option<Params<'a>>,
+}
+
+impl fmt::Display for ContactUri<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.uri)?;
+
+        if let Some(q) = self.q {
+            write!(f, "{}", q)?;
+        }
+        if let Some(expires) = self.expires {
+            write!(f, "{}", expires)?;
+        }
+        if let Some(param) = &self.param {
+            write!(f, ";{}", param)?;
+        }
+
+        Ok(())
+    }
 }
 
 /// The `Contact` SIP header.
@@ -61,6 +81,15 @@ impl<'a> SipHeader<'a> for Contact<'a> {
             expires,
             param,
         }))
+    }
+}
+
+impl fmt::Display for Contact<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Contact::Star => write!(f, "*"),
+            Contact::Uri(uri) => write!(f, "{}", uri),
+        }
     }
 }
 

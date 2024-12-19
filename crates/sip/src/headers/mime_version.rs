@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::Reader;
 
@@ -19,6 +19,12 @@ impl<'a> SipHeader<'a> for MimeVersion<'a> {
         let expires = reader.read_number_as_str();
 
         Ok(MimeVersion(expires))
+    }
+}
+
+impl fmt::Display for MimeVersion<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

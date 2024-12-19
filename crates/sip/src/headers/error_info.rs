@@ -1,5 +1,6 @@
-use std::str;
+use std::{fmt, str};
 
+use itertools::Itertools;
 use reader::Reader;
 
 use crate::{
@@ -13,6 +14,19 @@ use crate::headers::SipHeader;
 pub struct ErrorInfoUri<'a> {
     url: GenericUri<'a>,
     params: Option<Params<'a>>,
+}
+
+
+impl fmt::Display for ErrorInfoUri<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.url)?;
+
+        if let Some(param) = &self.params {
+            write!(f, ";{}", param)?;
+        }
+
+        Ok(())
+    }
 }
 
 /// The `Error-Info` SIP header.
@@ -41,6 +55,12 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
         });
 
         Ok(ErrorInfo(infos))
+    }
+}
+
+impl fmt::Display for ErrorInfo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 

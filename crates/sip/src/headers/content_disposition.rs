@@ -1,3 +1,5 @@
+use core::fmt;
+
 use reader::Reader;
 
 use crate::parser;
@@ -22,6 +24,18 @@ impl<'a> SipHeader<'a> for ContentDisposition<'a> {
         let params = parse_header_param!(reader);
 
         Ok(ContentDisposition { _type, params })
+    }
+}
+
+impl fmt::Display for ContentDisposition<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self._type)?;
+        
+        if let Some(param) = &self.params {
+            write!(f, ";{}", param)?;
+        }
+
+        Ok(())
     }
 }
 

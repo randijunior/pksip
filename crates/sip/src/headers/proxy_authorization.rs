@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reader::Reader;
 
 use crate::{auth::Credential, headers::SipHeader, parser::Result};
@@ -15,6 +17,12 @@ impl<'a> SipHeader<'a> for ProxyAuthorization<'a> {
         let credential = Credential::parse(reader)?;
 
         Ok(ProxyAuthorization(credential))
+    }
+}
+
+impl fmt::Display for ProxyAuthorization<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

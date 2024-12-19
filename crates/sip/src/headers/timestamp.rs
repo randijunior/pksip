@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::util::is_newline;
 use reader::{space, Reader};
@@ -32,6 +32,19 @@ impl<'a> SipHeader<'a> for Timestamp<'a> {
         Ok(Timestamp { time, delay })
     }
 }
+
+impl fmt::Display for Timestamp<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.time)?;
+
+        if let Some(delay) = self.delay {
+            write!(f, "{}", delay)?;
+        }
+
+        Ok(())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

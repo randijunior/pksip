@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str;
 use std::u32;
 
@@ -42,6 +43,22 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
             param,
             comment,
         })
+    }
+}
+
+impl fmt::Display for RetryAfter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.seconds)?;
+
+        if let Some(param) = &self.param {
+            write!(f, ";{}", param)?;
+        }
+        if let Some(comment) = self.comment {
+            write!(f, "{}", comment)?;
+        }
+
+        Ok(())
+        
     }
 }
 

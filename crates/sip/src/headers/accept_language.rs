@@ -26,7 +26,7 @@ impl fmt::Display for Language<'_> {
         let Language { language, q, param } = self;
         write!(f, "{}", language)?;
         if let Some(q) = q {
-            write!(f, ";q={}.{}", q.0, q.1)?;
+            write!(f, "{}", q)?;
         }
         if let Some(param) = param {
             write!(f, ";{}", param)?;

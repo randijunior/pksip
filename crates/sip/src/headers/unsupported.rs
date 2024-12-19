@@ -1,5 +1,6 @@
-use std::str;
+use std::{fmt, str};
 
+use itertools::Itertools;
 use reader::Reader;
 
 use crate::parser;
@@ -20,5 +21,11 @@ impl<'a> SipHeader<'a> for Unsupported<'a> {
         let tags = hdr_list!(reader => parser::parse_token(reader)?);
 
         Ok(Unsupported(tags))
+    }
+}
+
+impl fmt::Display for Unsupported<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }

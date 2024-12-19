@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reader::Reader;
 
 use crate::{
@@ -25,6 +27,17 @@ impl<'a> SipHeader<'a> for ReplyTo<'a> {
         let param = parse_header_param!(reader);
 
         Ok(ReplyTo { uri, param })
+    }
+}
+
+impl fmt::Display for ReplyTo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.uri)?;
+        if let Some(param) = &self.param {
+            write!(f, ";{}", param)?;
+        }
+
+        Ok(())
     }
 }
 

@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::Reader;
 
@@ -21,6 +21,14 @@ impl<'a> SipHeader<'a> for UserAgent<'a> {
         Ok(UserAgent(agent))
     }
 }
+
+impl fmt::Display for UserAgent<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {

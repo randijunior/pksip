@@ -115,7 +115,7 @@ const EXPIRES_PARAM: &str = "expires";
 
 /// This type represents a `q` parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
 /// and [`AcceptLanguage`] headers.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Q(u8, u8);
 
 impl Q {
@@ -132,6 +132,12 @@ impl Q {
                 Err(_) => None,
             },
         }
+    }
+}
+
+impl fmt::Display for Q {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ";q={}.{}", self.0, self.1)
     }
 }
 

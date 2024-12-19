@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reader::Reader;
 
 use crate::{auth::Challenge, parser::Result};
@@ -17,6 +19,12 @@ impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
         let challenge = Challenge::parse(reader)?;
 
         Ok(ProxyAuthenticate(challenge))
+    }
+}
+
+impl fmt::Display for ProxyAuthenticate<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

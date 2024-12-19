@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::Reader;
 
@@ -19,6 +19,12 @@ impl<'a> SipHeader<'a> for Priority<'a> {
         let priority = parser::parse_token(reader)?;
 
         Ok(Priority(priority))
+    }
+}
+
+impl fmt::Display for Priority<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::Reader;
 
@@ -20,6 +20,12 @@ impl<'a> SipHeader<'a> for Organization<'a> {
         let organization = Self::parse_as_str(reader)?;
 
         Ok(Organization(organization))
+    }
+}
+
+impl fmt::Display for Organization<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

@@ -1,5 +1,6 @@
-use std::str;
+use std::{fmt, str};
 
+use itertools::Itertools;
 use reader::Reader;
 
 use crate::headers::accept_language::is_lang;
@@ -22,6 +23,12 @@ impl<'a> SipHeader<'a> for ContentLanguage<'a> {
         });
 
         Ok(ContentLanguage(languages))
+    }
+}
+
+impl fmt::Display for ContentLanguage<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format(", "))
     }
 }
 

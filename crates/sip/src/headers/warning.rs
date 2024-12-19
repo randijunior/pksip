@@ -1,4 +1,4 @@
-use std::str;
+use std::{fmt, str};
 
 use reader::{space, until, Reader};
 
@@ -33,6 +33,12 @@ impl<'a> SipHeader<'a> for Warning<'a> {
         let text = str::from_utf8(text)?;
 
         Ok(Warning { code, host, text })
+    }
+}
+
+impl fmt::Display for Warning<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} {}", self.code, self.host, self.text)
     }
 }
 

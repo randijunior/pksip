@@ -4,7 +4,7 @@ use crate::parser::Result;
 
 use crate::headers::SipHeader;
 
-use std::str;
+use std::{fmt, str};
 
 /// The `Max-Forwards` SIP header.
 ///
@@ -28,6 +28,12 @@ impl<'a> SipHeader<'a> for MaxForwards {
         let fowards = reader.read_num()?;
 
         Ok(MaxForwards(fowards))
+    }
+}
+
+impl fmt::Display for MaxForwards {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

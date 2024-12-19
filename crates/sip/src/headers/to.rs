@@ -36,10 +36,7 @@ impl<'a> SipHeader<'a> for To<'a> {
 
 impl fmt::Display for To<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.uri {
-            SipUri::Uri(uri) => write!(f, "{}", uri)?,
-            SipUri::NameAddr(name_addr) => write!(f, "{}", name_addr)?,
-        }
+        write!(f, "{}", self.uri)?;
         if let Some(tag) = self.tag {
             write!(f, ";tag={}", tag)?;
         }
