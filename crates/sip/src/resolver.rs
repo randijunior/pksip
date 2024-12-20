@@ -1,12 +1,9 @@
 use std::{
     io,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
 };
 
-use crate::{
-    msg::{Host, Scheme, TransportProtocol},
-    transport::Transport,
-};
+use crate::msg::{Scheme, SipUri, TransportProtocol};
 
 pub struct ServerAddress {
     pub protocol: TransportProtocol,
@@ -20,10 +17,7 @@ pub struct Resolver {
 impl Resolver {
     pub async fn resolve(
         &self,
-        host: &Host<'_>,
-        port: Option<u16>,
-        tp: Option<&Transport>,
-        scheme: Scheme,
+        target: &SipUri<'_>,
     ) -> io::Result<Vec<ServerAddress>> {
         // https://datatracker.ietf.org/doc/html/rfc3263#section-4.1
         // Arcording to RFC 3263, section 4.1:
@@ -32,13 +26,10 @@ impl Resolver {
         // Otherwise, if no transport protocol is specified, but the TARGET is a
         //numeric IP address, the client SHOULD use UDP for a SIP URI, and TCP
         // for a SIPS URI.
-        let is_ip_addr = host.is_ip_addr();
-
-        let protocol = if let Some(tp) = tp {
-            tp.get_protocol()
-        } else {
-            if is_ip_addr || port.is_some() {
-                match scheme {
+        let host_port = target.host_port();
+        let protocol = target.transport_param().unwrap_or_else(|| {
+            if host_port.is_ip_addr() || host_port.port.is_some() {
+                match target.scheme() {
                     Scheme::Sip => TransportProtocol::UDP,
                     Scheme::Sips => TransportProtocol::TCP,
                 }
@@ -46,9 +37,9 @@ impl Resolver {
                 //TODO: perform a NAPTR query for the domain in the URI
                 TransportProtocol::UDP
             }
-        };
+        });
         let port = protocol.get_port();
-        let target = host.as_str();
+        let target = host_port.host_as_str();
         let result =
             self.dns_resolver.lookup_ip(target).await.map_err(|err| {
                 io::Error::other(format!("Failed to lookup dns: {}", err))

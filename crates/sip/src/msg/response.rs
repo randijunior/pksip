@@ -2,13 +2,13 @@ use std::{fmt, str};
 
 use crate::{headers::Headers, parser::SIPV2};
 
-use super::SipStatusCode;
+use super::StatusCode;
 
 /// Represents an SIP Status-Line.
 #[derive(Debug)]
 pub struct StatusLine<'sl> {
     // Status Code
-    pub code: SipStatusCode,
+    pub code: StatusCode,
     // Reason String
     pub rphrase: &'sl str,
 }
@@ -20,7 +20,7 @@ impl fmt::Display for StatusLine<'_> {
 }
 
 impl<'sl> StatusLine<'sl> {
-    pub fn new(st: SipStatusCode, rp: &'sl str) -> Self {
+    pub fn new(st: StatusCode, rp: &'sl str) -> Self {
         StatusLine {
             code: st,
             rphrase: rp,

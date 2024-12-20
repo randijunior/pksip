@@ -7,12 +7,15 @@ use std::{
 
 use crate::{
     headers::{Header, Headers, Via},
-    msg::{HostPort, Scheme, SipResponse, SipStatusCode},
+    msg::{
+        HostPort, SipResponse, SipUri, StatusCode, StatusLine,
+        UriBuilder,
+    },
     resolver::{Resolver, ServerAddress},
     service::SipService,
     transport::{
         manager::TransportManager, IncomingRequest, IncomingResponse,
-        OutgoingInfo, Packet, Transport,
+        OutgoingInfo, Transport,
     },
 };
 
@@ -95,17 +98,22 @@ impl<'a> SipServer {
     pub async fn respond(
         &self,
         msg: &IncomingRequest<'a>,
-        resp: SipResponse<'a>,
+        st_line: StatusLine<'a>,
+        headers: Option<Headers<'a>>,
+        body: Option<&'a [u8]>,
     ) -> io::Result<()> {
-        self.send(msg, resp).await
+        self.send(msg, st_line, headers, body).await
     }
 
     async fn send(
         &self,
         msg: &'a IncomingRequest<'a>,
-        mut resp: SipResponse<'a>,
+        st_line: StatusLine<'a>,
+        headers: Option<Headers<'a>>,
+        body: Option<&'a [u8]>,
     ) -> io::Result<()> {
         let hdrs = &msg.request().headers;
+        let mut headers = headers.unwrap_or(Headers::default());
 
         // The parser check required headers
         let via_hdrs = hdrs.find_via();
@@ -114,26 +122,27 @@ impl<'a> SipServer {
         let mut to = hdrs.find_to().unwrap().clone();
         let cseq = hdrs.find_cseq().unwrap().clone();
 
-        if to.tag.is_none() && resp.st_line.code > SipStatusCode::Trying {
+        if to.tag.is_none() && st_line.code > StatusCode::Trying {
             to.tag = via_hdrs[0].branch;
         }
         let info = self
             .get_outgoing_info(
                 via_hdrs[0],
                 msg.transport(),
-                msg.packet().addr().ip(),
-                to.uri.scheme(),
+                msg.packet().addr()
             )
             .await?;
 
         let via_hdrs: Vec<Header> =
             via_hdrs.iter().map(|&v| Header::Via(v.clone())).collect();
 
-        resp.headers.append(&mut via_hdrs.into());
-        resp.headers.push(Header::CallId(callid));
-        resp.headers.push(Header::From(from));
-        resp.headers.push(Header::To(to));
-        resp.headers.push(Header::CSeq(cseq));
+        headers.append(&mut via_hdrs.into());
+        headers.push(Header::CallId(callid));
+        headers.push(Header::From(from));
+        headers.push(Header::To(to));
+        headers.push(Header::CSeq(cseq));
+
+        let resp = SipResponse::new(st_line, headers, body);
 
         self.manager.send_response(info, resp).await
     }
@@ -143,8 +152,7 @@ impl<'a> SipServer {
         &self,
         via: &Via<'_>,
         tp: &Transport,
-        src_addr: IpAddr,
-        scheme: Scheme,
+        src_addr: SocketAddr,
     ) -> io::Result<OutgoingInfo> {
         if tp.reliable() {
             // Tcp, TLS, etc..
@@ -158,9 +166,14 @@ impl<'a> SipServer {
             // If the address is a multicast address, the response SHOULD be sent
             // using the TTL indicated in the "ttl" parameter, or with a TTL of 1
             // if that parameter is not present.
+            let temp_uri = UriBuilder::new()
+                .host(HostPort::new(maddr.clone(), Some(port)))
+                .transport_param(tp.get_protocol())
+                .get();
+            let temp_uri = SipUri::Uri(temp_uri);
             let addresses = self
                 .dns_resolver
-                .resolve(&maddr, Some(port), None, scheme)
+                .resolve(&temp_uri)
                 .await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
@@ -172,19 +185,15 @@ impl<'a> SipServer {
             Ok(OutgoingInfo { addr, transport })
         } else if let Some(rport) = via.rport {
             // MUST use the "received" and "rport" parameter.
-            let addr = via.received.unwrap_or(src_addr);
+            let addr = via.received.unwrap_or(src_addr.ip());
             let addr = SocketAddr::new(addr, rport);
             Ok(OutgoingInfo {
                 addr,
                 transport: tp.clone(),
             })
         } else {
-            let addr = via.received.unwrap_or(src_addr);
-            let port = via.sent_by.port.unwrap_or(5060);
-            let addr = SocketAddr::new(addr, port);
-
             Ok(OutgoingInfo {
-                addr,
+                addr: src_addr,
                 transport: tp.clone(),
             })
         }
@@ -248,11 +257,9 @@ mod tests {
                 let _ = sip_server
                     .respond(
                         &msg,
-                        SipResponse::new(
-                            SipStatusCode::NotImplemented.into(),
-                            Headers::default(),
-                            None,
-                        ),
+                        StatusCode::NotImplemented.into(),
+                        None,
+                        None,
                     )
                     .await;
             }

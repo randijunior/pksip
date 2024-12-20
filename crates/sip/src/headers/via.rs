@@ -118,9 +118,9 @@ impl fmt::Display for Via<'_> {
         if let Some(ttl) = self.ttl {
             write!(f, ";ttl={ttl}")?;
         }
-        // if let Some(maddr) = self.maddr {
-        //     write!(f, ";maddr={maddr}")?;
-        // }
+        if let Some(maddr) = &self.maddr {
+            write!(f, ";maddr={maddr}")?;
+        }
         if let Some(branch) = self.branch {
             write!(f, ";branch={branch}")?;
         }

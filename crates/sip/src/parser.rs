@@ -61,7 +61,7 @@ use crate::msg::Params;
 use crate::msg::Scheme;
 use crate::msg::SipMethod;
 use crate::msg::Uri;
-use crate::msg::{Host, NameAddr, SipStatusCode, SipUri};
+use crate::msg::{Host, NameAddr, StatusCode, SipUri};
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
@@ -710,7 +710,7 @@ pub fn parse_status_line<'a>(
     let digits = digits!(reader);
     space!(reader);
 
-    let code = SipStatusCode::from(digits);
+    let code = StatusCode::from(digits);
     let b = until_newline!(reader);
 
     let rp = str::from_utf8(b)?;
@@ -893,276 +893,276 @@ mod tests {
     st_line! {
         test_st_line_1,
         b"SIP/2.0 100 Trying\r\n",
-        SipStatusCode::Trying
+        StatusCode::Trying
     }
 
     st_line! {
         test_st_line_2,
         b"SIP/2.0 180 Ringing\r\n",
-        SipStatusCode::Ringing
+        StatusCode::Ringing
     }
 
     st_line! {
         test_st_line_3,
         b"SIP/2.0 181 Call Is Being Forwarded\r\n",
-        SipStatusCode::CallIsBeingForwarded
+        StatusCode::CallIsBeingForwarded
     }
 
     st_line! {
         test_st_line_4,
         b"SIP/2.0 182 Queued\r\n",
-        SipStatusCode::Queued
+        StatusCode::Queued
     }
 
     st_line! {
         test_st_line_5,
         b"SIP/2.0 183 Session Progress\r\n",
-        SipStatusCode::SessionProgress
+        StatusCode::SessionProgress
     }
 
     st_line! {
         test_st_line_6,
         b"SIP/2.0 200 OK\r\n",
-        SipStatusCode::Ok
+        StatusCode::Ok
     }
 
     st_line! {
         test_st_line_7,
         b"SIP/2.0 202 Accepted\r\n",
-        SipStatusCode::Accepted
+        StatusCode::Accepted
     }
 
     st_line! {
         test_st_line_8,
         b"SIP/2.0 300 Multiple Choices\r\n",
-        SipStatusCode::MultipleChoices
+        StatusCode::MultipleChoices
     }
 
     st_line! {
         test_st_line_9,
         b"SIP/2.0 301 Moved Permanently\r\n",
-        SipStatusCode::MovedPermanently
+        StatusCode::MovedPermanently
     }
 
     st_line! {
         test_st_line_10,
         b"SIP/2.0 302 Moved Temporarily\r\n",
-        SipStatusCode::MovedTemporarily
+        StatusCode::MovedTemporarily
     }
 
     st_line! {
         test_st_line_11,
         b"SIP/2.0 305 Use Proxy\r\n",
-        SipStatusCode::UseProxy
+        StatusCode::UseProxy
     }
 
     st_line! {
         test_st_line_12,
         b"SIP/2.0 380 Alternative Service\r\n",
-        SipStatusCode::AlternativeService
+        StatusCode::AlternativeService
     }
 
     st_line! {
         test_st_line_13,
         b"SIP/2.0 400 Bad Request\r\n",
-        SipStatusCode::BadRequest
+        StatusCode::BadRequest
     }
 
     st_line! {
         test_st_line_14,
         b"SIP/2.0 401 Unauthorized\r\n",
-        SipStatusCode::Unauthorized
+        StatusCode::Unauthorized
     }
 
     st_line! {
         test_st_line_15,
         b"SIP/2.0 403 Forbidden\r\n",
-        SipStatusCode::Forbidden
+        StatusCode::Forbidden
     }
 
     st_line! {
         test_st_line_16,
         b"SIP/2.0 404 Not Found\r\n",
-        SipStatusCode::NotFound
+        StatusCode::NotFound
     }
 
     st_line! {
         test_st_line_17,
         b"SIP/2.0 405 Method Not Allowed\r\n",
-        SipStatusCode::MethodNotAllowed
+        StatusCode::MethodNotAllowed
     }
 
     st_line! {
         test_st_line_18,
         b"SIP/2.0 406 Not Acceptable\r\n",
-        SipStatusCode::NotAcceptable
+        StatusCode::NotAcceptable
     }
 
     st_line! {
         test_st_line_19,
         b"SIP/2.0 407 Proxy Authentication Required\r\n",
-        SipStatusCode::ProxyAuthenticationRequired
+        StatusCode::ProxyAuthenticationRequired
     }
 
     st_line! {
         test_st_line_20,
         b"SIP/2.0 408 Request Timeout\r\n",
-        SipStatusCode::RequestTimeout
+        StatusCode::RequestTimeout
     }
 
     st_line! {
         test_st_line_21,
         b"SIP/2.0 410 Gone\r\n",
-        SipStatusCode::Gone
+        StatusCode::Gone
     }
 
     st_line! {
         test_st_line_22,
         b"SIP/2.0 413 Request Entity Too Large\r\n",
-        SipStatusCode::RequestEntityTooLarge
+        StatusCode::RequestEntityTooLarge
     }
 
     st_line! {
         test_st_line_23,
         b"SIP/2.0 414 Request-URI Too Long\r\n",
-        SipStatusCode::RequestUriTooLong
+        StatusCode::RequestUriTooLong
     }
 
     st_line! {
         test_st_line_24,
         b"SIP/2.0 415 Unsupported Media Type\r\n",
-        SipStatusCode::UnsupportedMediaType
+        StatusCode::UnsupportedMediaType
     }
 
     st_line! {
         test_st_line_25,
         b"SIP/2.0 416 Unsupported URI Scheme\r\n",
-        SipStatusCode::UnsupportedUriScheme
+        StatusCode::UnsupportedUriScheme
     }
 
     st_line! {
         test_st_line_26,
         b"SIP/2.0 420 Bad Extension\r\n",
-        SipStatusCode::BadExtension
+        StatusCode::BadExtension
     }
 
     st_line! {
         test_st_line_27,
         b"SIP/2.0 421 Extension Required\r\n",
-        SipStatusCode::ExtensionRequired
+        StatusCode::ExtensionRequired
     }
 
     st_line! {
         test_st_line_28,
         b"SIP/2.0 423 Interval Too Brief\r\n",
-        SipStatusCode::IntervalTooBrief
+        StatusCode::IntervalTooBrief
     }
 
     st_line! {
         test_st_line_29,
         b"SIP/2.0 480 Temporarily Unavailable\r\n",
-        SipStatusCode::TemporarilyUnavailable
+        StatusCode::TemporarilyUnavailable
     }
 
     st_line! {
         test_st_line_30,
         b"SIP/2.0 481 Call/Transaction Does Not Exist\r\n",
-        SipStatusCode::CallOrTransactionDoesNotExist
+        StatusCode::CallOrTransactionDoesNotExist
     }
 
     st_line! {
         test_st_line_31,
         b"SIP/2.0 482 Loop Detected\r\n",
-        SipStatusCode::LoopDetected
+        StatusCode::LoopDetected
     }
 
     st_line! {
         test_st_line_32,
         b"SIP/2.0 483 Too Many Hops\r\n",
-        SipStatusCode::TooManyHops
+        StatusCode::TooManyHops
     }
 
     st_line! {
         test_st_line_33,
         b"SIP/2.0 484 Address Incomplete\r\n",
-        SipStatusCode::AddressIncomplete
+        StatusCode::AddressIncomplete
     }
 
     st_line! {
         test_st_line_34,
         b"SIP/2.0 485 Ambiguous\r\n",
-        SipStatusCode::Ambiguous
+        StatusCode::Ambiguous
     }
 
     st_line! {
         test_st_line_35,
         b"SIP/2.0 486 Busy Here\r\n",
-        SipStatusCode::BusyHere
+        StatusCode::BusyHere
     }
 
     st_line! {
         test_st_line_36,
         b"SIP/2.0 487 Request Terminated\r\n",
-        SipStatusCode::RequestTerminated
+        StatusCode::RequestTerminated
     }
 
     st_line! {
         test_st_line_37,
         b"SIP/2.0 488 Not Acceptable Here\r\n",
-        SipStatusCode::NotAcceptableHere
+        StatusCode::NotAcceptableHere
     }
 
     st_line! {
         test_st_line_38,
         b"SIP/2.0 500 Server Internal Error\r\n",
-        SipStatusCode::ServerInternalError
+        StatusCode::ServerInternalError
     }
 
     st_line! {
         test_st_line_39,
         b"SIP/2.0 501 Not Implemented\r\n",
-        SipStatusCode::NotImplemented
+        StatusCode::NotImplemented
     }
 
     st_line! {
         test_st_line_40,
         b"SIP/2.0 503 Service Unavailable\r\n",
-        SipStatusCode::ServiceUnavailable
+        StatusCode::ServiceUnavailable
     }
 
     st_line! {
         test_st_line_41,
         b"SIP/2.0 504 Server Time-out\r\n",
-        SipStatusCode::ServerTimeout
+        StatusCode::ServerTimeout
     }
 
     st_line! {
         test_st_line_42,
         b"SIP/2.0 505 Version Not Supported\r\n",
-        SipStatusCode::VersionNotSupported
+        StatusCode::VersionNotSupported
     }
 
     st_line! {
         test_st_line_43,
         b"SIP/2.0 600 Busy Everywhere\r\n",
-        SipStatusCode::BusyEverywhere
+        StatusCode::BusyEverywhere
     }
 
     st_line! {
         test_st_line_44,
         b"SIP/2.0 603 Decline\r\n",
-        SipStatusCode::Decline
+        StatusCode::Decline
     }
 
     st_line! {
         test_st_line_45,
         b"SIP/2.0 604 Does Not Exist Anywhere\r\n",
-        SipStatusCode::DoesNotExistAnywhere
+        StatusCode::DoesNotExistAnywhere
     }
 
     st_line! {
         test_st_line_46,
         b"SIP/2.0 606 Not Acceptable\r\n",
-        SipStatusCode::NotAcceptableAnywhere
+        StatusCode::NotAcceptableAnywhere
     }
 }
