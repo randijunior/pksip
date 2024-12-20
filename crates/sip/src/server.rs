@@ -1,21 +1,16 @@
-use std::{
-    io,
-    net::{IpAddr, SocketAddr},
-    ops::Deref,
-    sync::Arc,
-};
+use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
+
+use arrayvec::ArrayVec;
+use std::io::Write;
 
 use crate::{
-    headers::{Header, Headers, Via},
-    msg::{
-        HostPort, SipResponse, SipUri, StatusCode, StatusLine,
-        UriBuilder,
-    },
+    headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
+    msg::{HostPort, SipUri, StatusCode, StatusLine, UriBuilder},
     resolver::{Resolver, ServerAddress},
     service::SipService,
     transport::{
         manager::TransportManager, IncomingRequest, IncomingResponse,
-        OutgoingInfo, Transport,
+        OutgoingInfo, Transport, MAX_PACKET_SIZE,
     },
 };
 
@@ -109,42 +104,59 @@ impl<'a> SipServer {
         &self,
         msg: &'a IncomingRequest<'a>,
         st_line: StatusLine<'a>,
-        headers: Option<Headers<'a>>,
+        extra_headers: Option<Headers<'a>>,
         body: Option<&'a [u8]>,
     ) -> io::Result<()> {
         let hdrs = &msg.request().headers;
-        let mut headers = headers.unwrap_or(Headers::default());
 
         // The parser check required headers
-        let via_hdrs = hdrs.find_via();
-        let callid = hdrs.find_callid().unwrap().clone();
-        let from = hdrs.find_from().unwrap().clone();
-        let mut to = hdrs.find_to().unwrap().clone();
-        let cseq = hdrs.find_cseq().unwrap().clone();
+        let vias = hdrs.find_via();
+        let callid = hdrs.find_callid().unwrap().call_id().unwrap();
+        let from = hdrs.find_from().unwrap().from().unwrap();
+        let to = hdrs.find_to().unwrap().to().unwrap();
+        let cseq = hdrs.find_cseq().unwrap().cseq().unwrap();
+        let top_most_via = vias[0].via().unwrap();
 
-        if to.tag.is_none() && st_line.code > StatusCode::Trying {
-            to.tag = via_hdrs[0].branch;
-        }
         let info = self
             .get_outgoing_info(
-                via_hdrs[0],
+                top_most_via,
                 msg.transport(),
-                msg.packet().addr()
+                msg.packet().addr(),
             )
             .await?;
 
-        let via_hdrs: Vec<Header> =
-            via_hdrs.iter().map(|&v| Header::Via(v.clone())).collect();
+        let mut buf = ArrayVec::<u8, MAX_PACKET_SIZE>::new();
 
-        headers.append(&mut via_hdrs.into());
-        headers.push(Header::CallId(callid));
-        headers.push(Header::From(from));
-        headers.push(Header::To(to));
-        headers.push(Header::CSeq(cseq));
+        write!(buf, "{st_line}")?;
+        write!(buf, "{}: {}\r\n", Via::NAME, top_most_via)?;
+        write!(buf, "{}: {}\r\n", headers::From::NAME, from)?;
 
-        let resp = SipResponse::new(st_line, headers, body);
+        if to.tag.is_none() && st_line.code > StatusCode::Trying {
+            let mut to = to.clone();
+            to.tag = top_most_via.branch;
+            write!(buf, "{}: {}\r\n", To::NAME, to)?;
+        } else {
+            write!(buf, "{}: {}\r\n", To::NAME, to)?;
+        }
+        write!(buf, "{}: {}\r\n", CallId::NAME, callid)?;
+        write!(buf, "{}: {}\r\n", CSeq::NAME, cseq)?;
 
-        self.manager.send_response(info, resp).await
+        if let Some(extra) = extra_headers {
+            write!(buf, "{extra}")?;
+        }
+        write!(buf, "\r\n")?;
+
+        if let Some(body) = body {
+            if let Err(_err) = buf.try_extend_from_slice(body) {
+                return Err(io::Error::other(
+                    "Packet size exceeds MAX_PACKET_SIZE",
+                ));
+            }
+        }
+        let OutgoingInfo { addr, transport } = info;
+        let _ = transport.send(&buf, addr).await?;
+
+        Ok(())
     }
 
     // follow SIP RFC 3261 in section 18.2.2
@@ -171,10 +183,7 @@ impl<'a> SipServer {
                 .transport_param(tp.get_protocol())
                 .get();
             let temp_uri = SipUri::Uri(temp_uri);
-            let addresses = self
-                .dns_resolver
-                .resolve(&temp_uri)
-                .await?;
+            let addresses = self.dns_resolver.resolve(&temp_uri).await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
             //TODO: the transport manager must create a transport if it cannot find

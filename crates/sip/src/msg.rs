@@ -143,7 +143,7 @@ pub enum Host<'a> {
 
 impl fmt::Display for Host<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self{
+        match self {
             Host::DomainName(domain) => write!(f, "{domain}"),
             Host::IpAddr(ip_addr) => write!(f, "{ip_addr}"),
         }

@@ -299,6 +299,7 @@ pub enum Header<'a> {
 impl fmt::Display for Header<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Header::Via(h) => write!(f, "{}: {}", Via::NAME, h),
             Header::Accept(h) => write!(f, "{}: {}", Accept::NAME, h),
             Header::AcceptEncoding(h) => {
                 write!(f, "{}: {}", AcceptEncoding::NAME, h)
@@ -378,7 +379,6 @@ impl fmt::Display for Header<'_> {
                 write!(f, "{}: {}", Unsupported::NAME, h)
             }
             Header::UserAgent(h) => write!(f, "{}: {}", UserAgent::NAME, h),
-            Header::Via(h) => write!(f, "{}: {}", Via::NAME, h),
             Header::Warning(h) => write!(f, "{}: {}", Warning::NAME, h),
             Header::WWWAuthenticate(h) => {
                 write!(f, "{}: {}", WWWAuthenticate::NAME, h)
@@ -398,6 +398,44 @@ impl<'a> Header<'a> {
         let str = reader::until_newline!(reader);
 
         Ok(str::from_utf8(str)?)
+    }
+
+    pub fn via(&self) -> Option<&Via> {
+        if let Header::Via(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn to(&self) -> Option<&To> {
+        if let Header::To(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+    pub fn from(&self) -> Option<&From> {
+        if let Header::From(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn call_id(&self) -> Option<&CallId> {
+        if let Header::CallId(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+    pub fn cseq(&self) -> Option<&CSeq> {
+        if let Header::CSeq(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 
@@ -499,53 +537,47 @@ impl<'a> Headers<'a> {
         self.0.append(&mut other.0);
     }
 
-    pub fn find_via(&self) -> Vec<&Via> {
-        self.filter_map(|hdr| {
-            if let Header::Via(via) = hdr {
-                Some(via)
+    pub fn find_via(&self) -> Vec<&Header> {
+        self.filter(|hdr| {
+            if let Header::Via(_) = hdr {
+                true
             } else {
-                None
+                false
             }
         })
         .collect()
     }
 
-    pub fn find_from(&self) -> Option<&From> {
-        self.find_map(|hdr| {
-            if let Header::From(from) = hdr {
-                Some(from)
+    pub fn find_from(&self) -> Option<&Header> {
+        self.find(|hdr| {
+            if let Header::From(_) = hdr {
+                true
             } else {
-                None
+                false
             }
         })
     }
 
-    pub fn find_to(&self) -> Option<&To> {
-        self.find_map(|hdr| {
-            if let Header::To(to) = hdr {
-                Some(to)
+    pub fn find_to(&self) -> Option<&Header> {
+        self.find(|hdr| if let Header::To(_) = hdr { true } else { false })
+    }
+
+    pub fn find_callid(&self) -> Option<&Header> {
+        self.find(|hdr| {
+            if let Header::CallId(_) = hdr {
+                true
             } else {
-                None
+                false
             }
         })
     }
 
-    pub fn find_callid(&self) -> Option<&CallId> {
-        self.find_map(|hdr| {
-            if let Header::CallId(cid) = hdr {
-                Some(cid)
+    pub fn find_cseq(&self) -> Option<&Header> {
+        self.find(|hdr| {
+            if let Header::CSeq(_) = hdr {
+                true
             } else {
-                None
-            }
-        })
-    }
-
-    pub fn find_cseq(&self) -> Option<&CSeq> {
-        self.find_map(|hdr| {
-            if let Header::CSeq(cid) = hdr {
-                Some(cid)
-            } else {
-                None
+                false
             }
         })
     }
@@ -575,6 +607,15 @@ impl<'a> Headers<'a> {
     /// Get an reference to an header at the index specified.
     pub fn get(&self, index: usize) -> Option<&Header> {
         self.0.get(index)
+    }
+}
+
+impl fmt::Display for Headers<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for hdr in self.iter() {
+            write!(f, "{hdr}")?;
+        }
+        Ok(())
     }
 }
 

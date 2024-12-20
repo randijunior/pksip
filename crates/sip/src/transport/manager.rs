@@ -10,12 +10,12 @@ use tokio::sync::mpsc::{self};
 use crate::{
     msg::{SipMessage, TransportProtocol},
     parser::parse_sip_msg,
-    serializer::Serialize,
     server::SipServer,
 };
 
 use super::{
-    udp::Udp, IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo, Packet, SipResponse, SipTransport, Transport
+    IncomingInfo, IncomingRequest, IncomingResponse, Packet, SipTransport,
+    Transport,
 };
 
 const CRLF: &[u8] = b"\r\n";
@@ -72,21 +72,6 @@ impl TransportManager {
                 inner: Arc::clone(&transport.inner),
             },
         );
-    }
-
-    pub async fn send_response(
-        &self,
-        info: OutgoingInfo,
-        res: SipResponse<'_>,
-    ) -> io::Result<()> {
-        let buf = res.serialize().map_err(|_| {
-            io::Error::other("Packet size exceeds MAX_PACKET_SIZE")
-        })?;
-        let OutgoingInfo { addr, transport } = info;
-
-        let _ = transport.send(&buf, addr).await?;
-
-        Ok(())
     }
 
     pub fn find(

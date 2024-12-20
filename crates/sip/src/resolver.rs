@@ -1,7 +1,4 @@
-use std::{
-    io,
-    net::SocketAddr,
-};
+use std::{io, net::SocketAddr};
 
 use crate::msg::{Scheme, SipUri, TransportProtocol};
 

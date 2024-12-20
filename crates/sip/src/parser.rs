@@ -61,7 +61,7 @@ use crate::msg::Params;
 use crate::msg::Scheme;
 use crate::msg::SipMethod;
 use crate::msg::Uri;
-use crate::msg::{Host, NameAddr, StatusCode, SipUri};
+use crate::msg::{Host, NameAddr, SipUri, StatusCode};
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
@@ -452,11 +452,6 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
                 msg.push_header(Header::Other { name, value });
             }
         };
-
-        if !cid_found || !via_found || !cseq_found || !from_found {
-            return sip_parse_error!("Missing required headers!");
-        }
-
         if !matches!(reader.next(), Some(&b'\r') | Some(&b'\n')) {
             return sip_parse_error!("Invalid Header end!");
         }
@@ -466,6 +461,10 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
         if reader.is_eof() || reader.cur_is_some_and(is_newline) {
             break 'headers;
         }
+    }
+
+    if !cid_found || !via_found || !cseq_found || !from_found {
+        return sip_parse_error!("Missing required headers!");
     }
 
     newline!(reader);
