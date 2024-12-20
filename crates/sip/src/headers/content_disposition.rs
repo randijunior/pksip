@@ -30,7 +30,7 @@ impl<'a> SipHeader<'a> for ContentDisposition<'a> {
 impl fmt::Display for ContentDisposition<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self._type)?;
-        
+
         if let Some(param) = &self.params {
             write!(f, ";{}", param)?;
         }

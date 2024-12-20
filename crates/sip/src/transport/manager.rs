@@ -8,12 +8,15 @@ use std::{
 use tokio::sync::mpsc::{self};
 
 use crate::{
-    endpoint::Endpoint,
     msg::{SipMessage, TransportProtocol},
     parser::parse_sip_msg,
+    serializer::Serialize,
+    server::SipServer,
 };
 
-use super::{IncomingInfo, IncomingRequest, Packet, SipTransport, Transport};
+use super::{
+    udp::Udp, IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo, Packet, SipResponse, SipTransport, Transport
+};
 
 const CRLF: &[u8] = b"\r\n";
 const END: &[u8] = b"\r\n\r\n";
@@ -71,6 +74,21 @@ impl TransportManager {
         );
     }
 
+    pub async fn send_response(
+        &self,
+        info: OutgoingInfo,
+        res: SipResponse<'_>,
+    ) -> io::Result<()> {
+        let buf = res.serialize().map_err(|_| {
+            io::Error::other("Packet size exceeds MAX_PACKET_SIZE")
+        })?;
+        let OutgoingInfo { addr, transport } = info;
+
+        let _ = transport.send(&buf, addr).await?;
+
+        Ok(())
+    }
+
     pub fn find(
         &self,
         dst: SocketAddr,
@@ -86,6 +104,7 @@ impl TransportManager {
         };
 
         // Find by transport protocol and address family
+        // TODO: create transport if tcp or tls
         transports
             .values()
             .filter(|transport| {
@@ -107,14 +126,18 @@ impl TransportManager {
         rx
     }
 
-    pub async fn recv(&self, endpt: &Endpoint) -> io::Result<()> {
+    pub async fn recv(&self, sip_server: &SipServer) -> io::Result<()> {
         let mut rx = self.start();
         while let Some(tp_msg) = rx.recv().await {
             let (tp, packet) = tp_msg;
-            let endpt = endpt.clone();
+            let sip_server = sip_server.clone();
             tokio::spawn(async move {
                 // Process each packet concurrently.
-                Self::process_packet(tp, packet, endpt).await
+                if let Err(err) =
+                    Self::process_packet(tp, packet, sip_server).await
+                {
+                    println!("Error on process packet: {:#?}", err);
+                }
             });
         }
 
@@ -124,7 +147,7 @@ impl TransportManager {
     async fn process_packet(
         transport: Transport,
         pkt: Packet,
-        endpt: Endpoint,
+        sip_server: SipServer,
     ) -> io::Result<()> {
         let msg = match pkt.payload.as_ref() {
             CRLF => {
@@ -135,25 +158,27 @@ impl TransportManager {
                 return Ok(());
             }
             bytes => match parse_sip_msg(bytes) {
-                //Required Headers:  cid, from, to, via, cseq
                 Ok(sip) => sip,
-                Err(_) => todo!(),
+                Err(err) => return Err(io::Error::other(err.message)),
             },
         };
-        let msg = match msg {
-            SipMessage::Request(req) => IncomingRequest {
-                msg: req,
-                info: IncomingInfo {
-                    packet: Packet {
-                        payload: Arc::clone(&pkt.payload),
-                        ..pkt
-                    },
-                    transport,
-                },
+        let info = IncomingInfo {
+            packet: Packet {
+                payload: Arc::clone(&pkt.payload),
+                ..pkt
             },
-            SipMessage::Response(res) => todo!(),
+            transport,
         };
-        endpt.endpt_recv_msg(msg).await;
+        match msg {
+            SipMessage::Request(msg) => {
+                let req = IncomingRequest::new(msg, info);
+                sip_server.sip_server_recv_req(req).await;
+            }
+            SipMessage::Response(msg) => {
+                let msg = IncomingResponse::new(msg, info);
+                sip_server.sip_server_recv_res(msg).await;
+            }
+        }
         Ok(())
     }
 }

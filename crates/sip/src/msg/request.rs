@@ -33,7 +33,7 @@ impl<'a> SipRequest<'a> {
         }
     }
 
-    pub fn request_line(&self) -> &RequestLine {
+    pub fn req_line(&self) -> &RequestLine {
         &self.req_line
     }
 }

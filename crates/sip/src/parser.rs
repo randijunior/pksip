@@ -174,9 +174,21 @@ fn read_token_str<'a>(reader: &mut Reader<'a>) -> &'a str {
     unsafe { reader.read_as_str(is_token) }
 }
 
+pub struct ParseCtx {
+    has_cid_hdr: bool,
+    has_from_hdr: bool,
+    has_to_hdr: bool,
+    has_via_hdr: bool,
+    has_cseq_hdr: bool,
+}
+
 /// Parse a buff of bytes into sip message
 pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
     let mut reader = Reader::new(buff);
+    let mut cid_found = false;
+    let mut from_found = false;
+    let mut via_found = false;
+    let mut cseq_found = false;
 
     let mut msg = if is_sip_version(&reader) {
         SipMessage::Response(SipResponse {
@@ -222,6 +234,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
                 let via = Via::parse(reader)?;
                 msg.push_header(Header::Via(via));
                 let Some(&b',') = reader.peek() else {
+                    via_found = true;
                     break 'via;
                 };
                 reader.next();
@@ -234,7 +247,8 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 
             crate::headers::From::NAME | crate::headers::From::SHORT_NAME => {
                 let from = crate::headers::From::parse(reader)?;
-                msg.push_header(Header::From(from))
+                msg.push_header(Header::From(from));
+                from_found = true;
             }
 
             To::NAME | To::SHORT_NAME => {
@@ -244,12 +258,14 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 
             CallId::NAME | CallId::SHORT_NAME => {
                 let call_id = CallId::parse(reader)?;
-                msg.push_header(Header::CallId(call_id))
+                msg.push_header(Header::CallId(call_id));
+                cid_found = true;
             }
 
             CSeq::NAME => {
                 let cseq = CSeq::parse(reader)?;
-                msg.push_header(Header::CSeq(cseq))
+                msg.push_header(Header::CSeq(cseq));
+                cseq_found = true;
             }
 
             Authorization::NAME => {
@@ -436,6 +452,10 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
                 msg.push_header(Header::Other { name, value });
             }
         };
+
+        if !cid_found || !via_found || !cseq_found || !from_found {
+            return sip_parse_error!("Missing required headers!");
+        }
 
         if !matches!(reader.next(), Some(&b'\r') | Some(&b'\n')) {
             return sip_parse_error!("Invalid Header end!");

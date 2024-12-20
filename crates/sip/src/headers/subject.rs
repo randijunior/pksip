@@ -26,7 +26,6 @@ impl<'a> SipHeader<'a> for Subject<'a> {
 impl fmt::Display for Subject<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
-        
     }
 }
 

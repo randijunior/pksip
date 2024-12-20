@@ -62,6 +62,15 @@ pub enum SipUri<'a> {
     NameAddr(NameAddr<'a>),
 }
 
+impl fmt::Display for SipUri<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SipUri::Uri(uri) => write!(f, "{}", uri),
+            SipUri::NameAddr(name_addr) => write!(f, "{}", name_addr),
+        }
+    }
+}
+
 impl<'a> SipUri<'a> {
     pub fn uri(&self) -> Option<&Uri> {
         if let SipUri::Uri(uri) = self {
@@ -132,6 +141,21 @@ pub enum Host<'a> {
     IpAddr(IpAddr),
 }
 
+impl<'a> Host<'a> {
+    pub fn is_ip_addr(&self) -> bool {
+        match self {
+            Host::DomainName(_) => false,
+            Host::IpAddr(_) => true,
+        }
+    }
+    pub fn as_str(&self) -> String {
+        match self {
+            Host::DomainName(host) => host.to_string(),
+            Host::IpAddr(host) => host.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HostPort<'a> {
     pub host: Host<'a>,
@@ -188,10 +212,7 @@ impl<'a> HostPort<'a> {
         }
     }
     pub fn host_as_str(&self) -> String {
-        match self.host {
-            Host::DomainName(host) => host.to_string(),
-            Host::IpAddr(host) => host.to_string(),
-        }
+        self.host.as_str()
     }
 }
 
@@ -363,6 +384,12 @@ impl fmt::Display for NameAddr<'_> {
 pub struct GenericUri<'a> {
     pub(crate) scheme: &'a str,
     pub(crate) content: &'a str,
+}
+
+impl fmt::Display for GenericUri<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<{}:{}>", self.scheme, self.content)
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -897,6 +924,15 @@ impl From<&[u8]> for SipStatusCode {
             b"607" => SipStatusCode::Unwanted,
             b"608" => SipStatusCode::Rejected,
             _ => SipStatusCode::Unknow,
+        }
+    }
+}
+
+impl From<SipStatusCode> for StatusLine<'_> {
+    fn from(value: SipStatusCode) -> Self {
+        StatusLine {
+            code: value,
+            rphrase: value.reason_phrase(),
         }
     }
 }

@@ -24,6 +24,7 @@ use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
 use crate::macros::{b_map, parse_param};
+use crate::msg::Host;
 use crate::parser::{self, ALPHA_NUM, SIPV2, TOKEN};
 use crate::{
     macros::sip_parse_error,
@@ -32,6 +33,7 @@ use crate::{
     parser::Result,
 };
 use core::fmt;
+use std::net::IpAddr;
 use std::str;
 
 use super::Param;
@@ -95,8 +97,8 @@ pub struct Via<'a> {
     pub transport: TransportProtocol,
     pub sent_by: HostPort<'a>,
     pub ttl: Option<&'a str>,
-    pub maddr: Option<&'a str>,
-    pub received: Option<&'a str>,
+    pub maddr: Option<Host<'a>>,
+    pub received: Option<IpAddr>,
     pub branch: Option<&'a str>,
     pub rport: Option<u16>,
     pub comment: Option<&'a str>,
@@ -116,9 +118,9 @@ impl fmt::Display for Via<'_> {
         if let Some(ttl) = self.ttl {
             write!(f, ";ttl={ttl}")?;
         }
-        if let Some(maddr) = self.maddr {
-            write!(f, ";maddr={maddr}")?;
-        }
+        // if let Some(maddr) = self.maddr {
+        //     write!(f, ";maddr={maddr}")?;
+        // }
         if let Some(branch) = self.branch {
             write!(f, ";branch={branch}")?;
         }
@@ -164,6 +166,11 @@ impl<'a> SipHeader<'a> for Via<'a> {
             RECEIVED_PARAM = received,
             RPORT_PARAM = rport_p
         );
+        let received = received.and_then(|r| r.parse().ok());
+        let maddr = maddr.and_then(|a| match a.parse() {
+            Ok(addr) => Some(Host::IpAddr(addr)),
+            Err(_) => Some(Host::DomainName(a)),
+        });
 
         let rport = if let Some(rport) = rport_p
             .filter(|rport| !rport.is_empty())
@@ -224,7 +231,7 @@ mod tests {
                 port: Some(5060)
             }
         );
-        assert_eq!(via.received, Some("192.0.2.4"));
+        assert_eq!(via.received, Some("192.0.2.4".parse().unwrap()));
 
         let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
@@ -241,7 +248,7 @@ mod tests {
             }
         );
 
-        assert_eq!(via.received, Some("192.0.2.207"));
+        assert_eq!(via.received, Some("192.0.2.207".parse().unwrap()));
         assert_eq!(via.branch, Some("z9hG4bK77asjd"));
     }
 }

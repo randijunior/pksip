@@ -9,6 +9,7 @@ async-trait = "0.1.83"
 tokio = { version = "1.41.1", features = ["full"] }
 hickory-resolver = "0.24.1"
 itertools = "0.13.0"
+arrayvec = "0.7.6"
 
 
 [dev-dependencies]

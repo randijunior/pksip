@@ -1,10 +1,16 @@
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    io,
+    net::{IpAddr, SocketAddr},
+};
 
-use crate::msg::{Host, Scheme, SipUri, TransportProtocol};
+use crate::{
+    msg::{Host, Scheme, TransportProtocol},
+    transport::Transport,
+};
 
-pub struct ServerAddresses {
-    protocol: TransportProtocol,
-    addr: SocketAddr,
+pub struct ServerAddress {
+    pub protocol: TransportProtocol,
+    pub addr: SocketAddr,
 }
 
 pub struct Resolver {
@@ -12,21 +18,27 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    async fn resolve(&self, target: &SipUri<'_>) -> Vec<ServerAddresses> {
+    pub async fn resolve(
+        &self,
+        host: &Host<'_>,
+        port: Option<u16>,
+        tp: Option<&Transport>,
+        scheme: Scheme,
+    ) -> io::Result<Vec<ServerAddress>> {
         // https://datatracker.ietf.org/doc/html/rfc3263#section-4.1
         // Arcording to RFC 3263, section 4.1:
         // If the URI specifies a transport protocol in the transport parameter,
         // that transport protocol SHOULD be used.
-        let host_port = target.host_port();
-        let transport = if let Some(transport_param) = target.transport_param()
-        {
-            transport_param
+        // Otherwise, if no transport protocol is specified, but the TARGET is a
+        //numeric IP address, the client SHOULD use UDP for a SIP URI, and TCP
+        // for a SIPS URI.
+        let is_ip_addr = host.is_ip_addr();
+
+        let protocol = if let Some(tp) = tp {
+            tp.get_protocol()
         } else {
-            // Otherwise, if no transport protocol is specified, but the TARGET is a
-            //numeric IP address, the client SHOULD use UDP for a SIP URI, and TCP
-            // for a SIPS URI.
-            if host_port.ip_addr().is_some() || host_port.port.is_some() {
-                match target.scheme() {
+            if is_ip_addr || port.is_some() {
+                match scheme {
                     Scheme::Sip => TransportProtocol::UDP,
                     Scheme::Sips => TransportProtocol::TCP,
                 }
@@ -35,8 +47,22 @@ impl Resolver {
                 TransportProtocol::UDP
             }
         };
+        let port = protocol.get_port();
+        let target = host.as_str();
+        let result =
+            self.dns_resolver.lookup_ip(target).await.map_err(|err| {
+                io::Error::other(format!("Failed to lookup dns: {}", err))
+            })?;
 
-        todo!()
+        let addresses = result
+            .iter()
+            .map(|addr| {
+                let addr = SocketAddr::new(addr, port);
+                ServerAddress { addr, protocol }
+            })
+            .collect();
+
+        Ok(addresses)
     }
 }
 

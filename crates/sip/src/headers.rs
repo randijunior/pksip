@@ -296,6 +296,101 @@ pub enum Header<'a> {
     Other { name: &'a str, value: &'a str },
 }
 
+impl fmt::Display for Header<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Header::Accept(h) => write!(f, "{}: {}", Accept::NAME, h),
+            Header::AcceptEncoding(h) => {
+                write!(f, "{}: {}", AcceptEncoding::NAME, h)
+            }
+            Header::AcceptLanguage(h) => {
+                write!(f, "{}: {}", AcceptLanguage::NAME, h)
+            }
+            Header::AlertInfo(h) => write!(f, "{}: {}", AlertInfo::NAME, h),
+            Header::Allow(h) => write!(f, "{}: {}", Allow::NAME, h),
+            Header::AuthenticationInfo(h) => {
+                write!(f, "{}: {}", AuthenticationInfo::NAME, h)
+            }
+            Header::Authorization(h) => {
+                write!(f, "{}: {}", Authorization::NAME, h)
+            }
+            Header::CallId(h) => write!(f, "{}: {}", CallId::NAME, h),
+            Header::CallInfo(h) => write!(f, "{}: {}", CallInfo::NAME, h),
+            Header::Contact(h) => write!(f, "{}: {}", Contact::NAME, h),
+            Header::ContentDisposition(h) => {
+                write!(f, "{}: {}", ContentDisposition::NAME, h)
+            }
+            Header::ContentEncoding(h) => {
+                write!(f, "{}: {}", ContentEncoding::NAME, h)
+            }
+            Header::ContentLanguage(h) => {
+                write!(f, "{}: {}", ContentLanguage::NAME, h)
+            }
+            Header::ContentLength(h) => {
+                write!(f, "{}: {}", ContentLength::NAME, h)
+            }
+            Header::ContentType(h) => {
+                write!(f, "{}: {}", ContentType::NAME, h)
+            }
+            Header::CSeq(h) => write!(f, "{}: {}", CSeq::NAME, h),
+            Header::Date(h) => write!(f, "{}: {}", Date::NAME, h),
+            Header::ErrorInfo(h) => write!(f, "{}: {}", ErrorInfo::NAME, h),
+            Header::Expires(h) => write!(f, "{}: {}", Expires::NAME, h),
+            Header::From(h) => write!(f, "{}: {}", From::NAME, h),
+            Header::InReplyTo(h) => write!(f, "{}: {}", InReplyTo::NAME, h),
+            Header::MaxForwards(h) => {
+                write!(f, "{}: {}", MaxForwards::NAME, h)
+            }
+            Header::MinExpires(h) => {
+                write!(f, "{}: {}", MinExpires::NAME, h)
+            }
+            Header::MimeVersion(h) => {
+                write!(f, "{}: {}", MimeVersion::NAME, h)
+            }
+            Header::Organization(h) => {
+                write!(f, "{}: {}", Organization::NAME, h)
+            }
+            Header::Priority(h) => write!(f, "{}: {}", Priority::NAME, h),
+            Header::ProxyAuthenticate(h) => {
+                write!(f, "{}: {}", ProxyAuthenticate::NAME, h)
+            }
+            Header::ProxyAuthorization(h) => {
+                write!(f, "{}: {}", ProxyAuthorization::NAME, h)
+            }
+            Header::ProxyRequire(h) => {
+                write!(f, "{}: {}", ProxyRequire::NAME, h)
+            }
+            Header::RetryAfter(h) => {
+                write!(f, "{}: {}", RetryAfter::NAME, h)
+            }
+            Header::Route(h) => write!(f, "{}: {}", Route::NAME, h),
+            Header::RecordRoute(h) => {
+                write!(f, "{}: {}", RecordRoute::NAME, h)
+            }
+            Header::ReplyTo(h) => write!(f, "{}: {}", ReplyTo::NAME, h),
+            Header::Require(h) => write!(f, "{}: {}", Require::NAME, h),
+            Header::Server(h) => write!(f, "{}: {}", Server::NAME, h),
+            Header::Subject(h) => write!(f, "{}: {}", Subject::NAME, h),
+            Header::Supported(h) => write!(f, "{}: {}", Supported::NAME, h),
+            Header::Timestamp(h) => write!(f, "{}: {}", Timestamp::NAME, h),
+            Header::To(h) => write!(f, "{}: {}", To::NAME, h),
+            Header::Unsupported(h) => {
+                write!(f, "{}: {}", Unsupported::NAME, h)
+            }
+            Header::UserAgent(h) => write!(f, "{}: {}", UserAgent::NAME, h),
+            Header::Via(h) => write!(f, "{}: {}", Via::NAME, h),
+            Header::Warning(h) => write!(f, "{}: {}", Warning::NAME, h),
+            Header::WWWAuthenticate(h) => {
+                write!(f, "{}: {}", WWWAuthenticate::NAME, h)
+            }
+            Header::Other { name, value } => {
+                write!(f, "{}: {}", name, value)
+            }
+        }?;
+        write!(f, "\r\n")
+    }
+}
+
 impl<'a> Header<'a> {
     pub fn parse_header_value_as_str(
         reader: &mut Reader<'a>,
@@ -383,14 +478,76 @@ impl<'a> Headers<'a> {
         self.0.iter().filter_map(f)
     }
 
-    pub fn filter<'b, T: 'a, F>(
-        &'b self,
+    pub fn filter<F>(
+        &self,
         f: F,
     ) -> Filter<impl Iterator<Item = &Header<'a>>, F>
     where
-        F: FnMut(&&'b Header) -> bool,
+        F: FnMut(&&Header) -> bool,
     {
         self.0.iter().filter(f)
+    }
+
+    pub fn find<F>(&self, f: F) -> Option<&Header>
+    where
+        F: FnMut(&&Header) -> bool,
+    {
+        self.0.iter().find(f)
+    }
+
+    pub fn append(&mut self, other: &mut Self) {
+        self.0.append(&mut other.0);
+    }
+
+    pub fn find_via(&self) -> Vec<&Via> {
+        self.filter_map(|hdr| {
+            if let Header::Via(via) = hdr {
+                Some(via)
+            } else {
+                None
+            }
+        })
+        .collect()
+    }
+
+    pub fn find_from(&self) -> Option<&From> {
+        self.find_map(|hdr| {
+            if let Header::From(from) = hdr {
+                Some(from)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn find_to(&self) -> Option<&To> {
+        self.find_map(|hdr| {
+            if let Header::To(to) = hdr {
+                Some(to)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn find_callid(&self) -> Option<&CallId> {
+        self.find_map(|hdr| {
+            if let Header::CallId(cid) = hdr {
+                Some(cid)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn find_cseq(&self) -> Option<&CSeq> {
+        self.find_map(|hdr| {
+            if let Header::CSeq(cid) = hdr {
+                Some(cid)
+            } else {
+                None
+            }
+        })
     }
 
     /// Push an new header.

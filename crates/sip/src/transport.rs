@@ -17,7 +17,7 @@ use udp::Udp;
 
 use crate::msg::{SipMessage, SipRequest, SipResponse, TransportProtocol};
 
-const MAX_PACKET_SIZE: usize = 4000;
+pub(crate) const MAX_PACKET_SIZE: usize = 4000;
 
 #[async_trait]
 pub trait SipTransport: Sync + Send + 'static {
@@ -116,10 +116,21 @@ pub struct IncomingRequest<'a> {
     info: IncomingInfo,
 }
 
-pub struct IncomingMessage<'a> {
-    packet: Packet,
-    msg: SipMessage<'a>,
-    transport: Transport,
+impl<'a> IncomingRequest<'a> {
+    pub fn new(msg: SipRequest<'a>, info: IncomingInfo) -> Self {
+        Self { msg, info }
+    }
+}
+
+pub struct IncomingResponse<'a> {
+    msg: SipResponse<'a>,
+    info: IncomingInfo,
+}
+
+impl<'a> IncomingResponse<'a> {
+    pub fn new(msg: SipResponse<'a>, info: IncomingInfo) -> Self {
+        Self { msg, info }
+    }
 }
 
 impl<'a> IncomingRequest<'a> {
@@ -130,12 +141,7 @@ impl<'a> IncomingRequest<'a> {
         &self.info.transport
     }
 
-    pub fn msg(&self) -> &SipRequest {
+    pub fn request(&self) -> &SipRequest {
         &self.msg
     }
-}
-
-// packetize or encode or serialize
-pub trait Serializable {
-    fn serialize<'a>(&self) -> &'a [u8];
 }

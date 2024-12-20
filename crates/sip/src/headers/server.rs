@@ -27,7 +27,6 @@ impl<'a> SipHeader<'a> for Server<'a> {
 impl fmt::Display for Server<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
-        
     }
 }
 

@@ -58,7 +58,6 @@ impl fmt::Display for RetryAfter<'_> {
         }
 
         Ok(())
-        
     }
 }
 

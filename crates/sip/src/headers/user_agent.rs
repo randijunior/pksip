@@ -28,8 +28,6 @@ impl fmt::Display for UserAgent<'_> {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;

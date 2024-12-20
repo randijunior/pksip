@@ -16,7 +16,6 @@ pub struct ErrorInfoUri<'a> {
     params: Option<Params<'a>>,
 }
 
-
 impl fmt::Display for ErrorInfoUri<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.url)?;

@@ -37,9 +37,8 @@ impl fmt::Display for Route<'_> {
         if let Some(param) = &self.param {
             write!(f, ";{}", param)?;
         }
-        
+
         Ok(())
-        
     }
 }
 

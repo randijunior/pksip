@@ -45,7 +45,6 @@ impl fmt::Display for Timestamp<'_> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
