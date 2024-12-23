@@ -1,15 +1,13 @@
 use std::{
     fmt,
-    io::{self, Write},
+    io::{self},
     str,
 };
-
-use arrayvec::ArrayVec;
 
 use crate::{
     headers::Headers,
     parser::SIPV2,
-    transport::{MsgBuffer, MAX_PACKET_SIZE},
+    transport::MsgBuffer,
 };
 
 use super::StatusCode;
@@ -58,12 +56,12 @@ impl<'a> SipResponse<'a> {
         }
     }
 
-    pub fn encode(&self) -> io::Result<MsgBuffer> {
-        let mut buf = ArrayVec::<u8, MAX_PACKET_SIZE>::new();
+    pub(crate) fn encode(&self) -> io::Result<MsgBuffer> {
+        let mut buf = MsgBuffer::new();
 
-        write!(buf, "{}", self.st_line)?;
-        write!(buf, "{}", self.headers)?;
-        write!(buf, "\r\n")?;
+        buf.write(&self.st_line)?;
+        buf.write(&self.headers)?;
+        buf.write("\r\n")?;
         if let Some(body) = self.body {
             if let Err(_err) = buf.try_extend_from_slice(body) {
                 return Err(io::Error::other(

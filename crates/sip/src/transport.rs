@@ -13,13 +13,47 @@ pub mod udp;
 use arrayvec::ArrayVec;
 use async_trait::async_trait;
 use manager::ConnectionKey;
+use std::io::Write;
 use tokio::sync::mpsc;
 use udp::Udp;
 
 use crate::msg::{SipRequest, SipResponse, TransportProtocol};
 
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
-pub(crate) type MsgBuffer = ArrayVec<u8, MAX_PACKET_SIZE>;
+// pub(crate) type MsgBuffer = ArrayVec<u8, MAX_PACKET_SIZE>;
+
+#[derive(Default)]
+pub(crate) struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
+
+impl Deref for MsgBuffer {
+    type Target = [u8];
+    
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl MsgBuffer {
+    pub fn new() -> Self {
+        Self(ArrayVec::new())
+    }
+
+    pub fn try_extend_from_slice(
+        &mut self,
+        data: &[u8],
+    ) -> Result<(), io::Error> {
+        self.0
+            .try_extend_from_slice(data)
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Buffer full"))
+    }
+
+    pub fn write<T>(&mut self, data: T) -> Result<(), io::Error>
+    where
+        T: std::fmt::Display,
+    {
+        write!(self.0, "{}", data)
+    }
+}
 
 #[async_trait]
 pub trait SipTransport: Sync + Send + 'static {
