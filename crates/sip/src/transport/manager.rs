@@ -14,8 +14,8 @@ use crate::{
 };
 
 use super::{
-    IncomingInfo, IncomingRequest, IncomingResponse, Packet, SipTransport,
-    Transport,
+    IncomingInfo, IncomingRequest, IncomingResponse, OutGoingResponse,
+    OutgoingInfo, Packet, SipTransport, Transport,
 };
 
 const CRLF: &[u8] = b"\r\n";
@@ -72,6 +72,17 @@ impl TransportManager {
                 inner: Arc::clone(&transport.inner),
             },
         );
+    }
+
+    pub async fn send_response<'a>(
+        &self,
+        resp: OutGoingResponse<'a>,
+    ) -> io::Result<()> {
+        let buf = resp.msg.encode()?;
+        let OutgoingInfo { addr, transport } = resp.info;
+        let _sent = transport.send(&buf, addr).await?;
+
+        Ok(())
     }
 
     pub fn find(

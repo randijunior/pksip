@@ -10,14 +10,16 @@ use std::{
 pub mod manager;
 pub mod udp;
 
+use arrayvec::ArrayVec;
 use async_trait::async_trait;
 use manager::ConnectionKey;
 use tokio::sync::mpsc;
 use udp::Udp;
 
-use crate::msg::{SipMessage, SipRequest, SipResponse, TransportProtocol};
+use crate::msg::{SipRequest, SipResponse, TransportProtocol};
 
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
+pub(crate) type MsgBuffer = ArrayVec<u8, MAX_PACKET_SIZE>;
 
 #[async_trait]
 pub trait SipTransport: Sync + Send + 'static {
@@ -107,8 +109,8 @@ pub struct OutGoingRequest<'a> {
 }
 
 pub struct OutGoingResponse<'a> {
-    msg: SipResponse<'a>,
-    info: OutgoingInfo,
+    pub msg: SipResponse<'a>,
+    pub info: OutgoingInfo,
 }
 
 pub struct IncomingRequest<'a> {

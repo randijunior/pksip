@@ -1,16 +1,14 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-use arrayvec::ArrayVec;
-use std::io::Write;
-
 use crate::{
-    headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
-    msg::{HostPort, SipUri, StatusCode, StatusLine, UriBuilder},
+    headers::{Header, Headers, Via},
+    msg::{HostPort, SipResponse, SipUri, StatusCode, StatusLine, UriBuilder},
     resolver::{Resolver, ServerAddress},
     service::SipService,
+    transaction::ServerTransaction,
     transport::{
         manager::TransportManager, IncomingRequest, IncomingResponse,
-        OutgoingInfo, Transport, MAX_PACKET_SIZE,
+        OutGoingResponse, OutgoingInfo, Transport,
     },
 };
 
@@ -100,13 +98,17 @@ impl<'a> SipServer {
         self.send(msg, st_line, headers, body).await
     }
 
-    async fn send(
+    pub fn respond_tsx(&self) -> io::Result<ServerTransaction> {
+        todo!()
+    }
+
+    pub async fn new_response(
         &self,
         msg: &'a IncomingRequest<'a>,
         st_line: StatusLine<'a>,
         extra_headers: Option<Headers<'a>>,
         body: Option<&'a [u8]>,
-    ) -> io::Result<()> {
+    ) -> io::Result<OutGoingResponse<'a>> {
         let hdrs = &msg.request().headers;
 
         // The parser check required headers
@@ -125,38 +127,39 @@ impl<'a> SipServer {
             )
             .await?;
 
-        let mut buf = ArrayVec::<u8, MAX_PACKET_SIZE>::new();
+        let mut headers = Headers::new();
 
-        write!(buf, "{st_line}")?;
-        write!(buf, "{}: {}\r\n", Via::NAME, top_most_via)?;
-        write!(buf, "{}: {}\r\n", headers::From::NAME, from)?;
+        headers.push(Header::Via(top_most_via.clone()));
+        headers.push(Header::From(from.clone()));
 
+        let mut to = to.clone();
         if to.tag.is_none() && st_line.code > StatusCode::Trying {
-            let mut to = to.clone();
             to.tag = top_most_via.branch;
-            write!(buf, "{}: {}\r\n", To::NAME, to)?;
-        } else {
-            write!(buf, "{}: {}\r\n", To::NAME, to)?;
         }
-        write!(buf, "{}: {}\r\n", CallId::NAME, callid)?;
-        write!(buf, "{}: {}\r\n", CSeq::NAME, cseq)?;
+        headers.push(Header::To(to));
+        headers.push(Header::CallId(callid.clone()));
+        headers.push(Header::CSeq(cseq.clone()));
 
-        if let Some(extra) = extra_headers {
-            write!(buf, "{extra}")?;
+        if let Some(mut extra) = extra_headers {
+            headers.append(&mut extra);
         }
-        write!(buf, "\r\n")?;
 
-        if let Some(body) = body {
-            if let Err(_err) = buf.try_extend_from_slice(body) {
-                return Err(io::Error::other(
-                    "Packet size exceeds MAX_PACKET_SIZE",
-                ));
-            }
-        }
-        let OutgoingInfo { addr, transport } = info;
-        let _ = transport.send(&buf, addr).await?;
+        Ok(OutGoingResponse {
+            info,
+            msg: SipResponse::new(st_line, headers, body),
+        })
+    }
 
-        Ok(())
+    async fn send(
+        &self,
+        msg: &IncomingRequest<'a>,
+        st_line: StatusLine<'a>,
+        extra_headers: Option<Headers<'a>>,
+        body: Option<&'a [u8]>,
+    ) -> io::Result<()> {
+        let resp = self.new_response(msg, st_line, extra_headers, body).await?;
+
+        self.manager.send_response(resp).await
     }
 
     // follow SIP RFC 3261 in section 18.2.2
@@ -238,50 +241,4 @@ impl<'a> SipServer {
 }
 
 #[cfg(test)]
-mod tests {
-    use async_trait::async_trait;
-
-    use crate::{
-        msg::SipMethod,
-        transport::{udp::Udp, IncomingRequest},
-    };
-
-    use super::*;
-
-    pub struct MyService;
-
-    #[async_trait]
-    impl SipService for MyService {
-        fn name(&self) -> &str {
-            "MyService"
-        }
-        async fn on_recv_req(
-            &self,
-            sip_server: &SipServer,
-            inc: &mut Option<IncomingRequest>,
-        ) {
-            let msg = inc.take().unwrap();
-
-            if msg.request().req_line.method != SipMethod::Ack {
-                let _ = sip_server
-                    .respond(
-                        &msg,
-                        StatusCode::NotImplemented.into(),
-                        None,
-                        None,
-                    )
-                    .await;
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_req() {
-        let sip_server = SipServerBuilder::new()
-            .with_service(MyService)
-            .with_transport(Udp::bind("127.0.0.1:5060").await.unwrap())
-            .build();
-
-        let _ = sip_server.run().await;
-    }
-}
+mod tests {}

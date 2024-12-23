@@ -1,6 +1,16 @@
-use std::{fmt, str};
+use std::{
+    fmt,
+    io::{self, Write},
+    str,
+};
 
-use crate::{headers::Headers, parser::SIPV2};
+use arrayvec::ArrayVec;
+
+use crate::{
+    headers::Headers,
+    parser::SIPV2,
+    transport::{MsgBuffer, MAX_PACKET_SIZE},
+};
 
 use super::StatusCode;
 
@@ -46,5 +56,22 @@ impl<'a> SipResponse<'a> {
             st_line,
             headers,
         }
+    }
+
+    pub fn encode(&self) -> io::Result<MsgBuffer> {
+        let mut buf = ArrayVec::<u8, MAX_PACKET_SIZE>::new();
+
+        write!(buf, "{}", self.st_line)?;
+        write!(buf, "{}", self.headers)?;
+        write!(buf, "\r\n")?;
+        if let Some(body) = self.body {
+            if let Err(_err) = buf.try_extend_from_slice(body) {
+                return Err(io::Error::other(
+                    "Packet size exceeds MAX_PACKET_SIZE",
+                ));
+            }
+        }
+
+        Ok(buf)
     }
 }

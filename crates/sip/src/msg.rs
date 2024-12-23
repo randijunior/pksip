@@ -37,6 +37,14 @@ impl<'a> SipMessage<'a> {
             SipMessage::Response(res) => &res.headers,
         }
     }
+
+    pub fn body(&self) -> &Option<&[u8]> {
+        match self {
+            SipMessage::Request(req) => &req.body,
+            SipMessage::Response(res) => &res.body,
+        }
+    }
+
     pub fn headers_mut(&mut self) -> &mut Headers<'a> {
         match self {
             SipMessage::Request(req) => &mut req.headers,
