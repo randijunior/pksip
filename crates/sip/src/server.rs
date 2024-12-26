@@ -99,7 +99,8 @@ impl<'a> SipServer {
         msg: &IncomingRequest<'a>,
         res: SipResponse<'a>,
     ) -> io::Result<()> {
-        self.send(msg, res).await
+        let resp = self.new_response_from_request(msg, res).await?;
+        self.manager.send_response(resp).await
     }
 
     pub async fn respond_tsx(
@@ -140,15 +141,6 @@ impl<'a> SipServer {
         })
     }
 
-    async fn send(
-        &self,
-        msg: &IncomingRequest<'a>,
-        res: SipResponse<'a>,
-    ) -> io::Result<()> {
-        let resp = self.new_response_from_request(msg, res).await?;
-
-        self.manager.send_response(resp).await
-    }
 
     // follow SIP RFC 3261 in section 18.2.2
     pub async fn get_outgoing_info(
