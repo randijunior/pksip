@@ -1,27 +1,46 @@
 use std::{
     collections::HashMap,
-    net::SocketAddr,
+    rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use sip_message::msg::SipMethod;
+use sip_message::msg::{HostPort, SipMethod};
 use sip_transport::transport::{
-    IncomingRequest, IncomingResponse, OutgoingInfo,
+    MsgBuffer, OutgoingInfo, RxRequest, RxResponse, TxResponse,
 };
 
 #[derive(PartialEq, Eq, Hash)]
-pub struct TsxKey {
-    branch: String,
-    addr: SocketAddr,
-    method: SipMethod,
+pub struct Rfc2543<'a> {
+    pub cseq: u32,
+    pub from_tag: Option<&'a str>,
+    pub to_tag: Option<&'a str>,
+    pub call_id: &'a str,
+    pub via_host_port: HostPort<'a>,
+    pub method: Option<SipMethod>,
 }
 
-impl TsxKey {
-    pub fn from_req(info: &IncomingRequest) -> Self {
+#[derive(PartialEq, Eq, Hash)]
+pub struct Rfc3261<'a> {
+    branch: &'a str,
+    via_sent_by: HostPort<'a>,
+    method: Option<SipMethod>,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub enum TransactionKey<'a> {
+    Rfc2543(Rfc2543<'a>),
+    Rfc3261(Rfc3261<'a>),
+}
+
+impl<'a> From<&RxResponse<'a>> for TransactionKey<'a> {
+    fn from(value: &RxResponse<'a>) -> Self {
         todo!()
     }
-    pub fn from_res(info: &IncomingResponse) -> Self {
+}
+
+impl<'a> From<&RxRequest<'a>> for TransactionKey<'a> {
+    fn from(value: &RxRequest<'a>) -> Self {
         todo!()
     }
 }
@@ -46,7 +65,7 @@ pub struct ClientTransaction {
 pub struct ServerTransaction<'a> {
     state: TsxState,
     info: OutgoingInfo,
-    last_response: Option<Arc<IncomingResponse<'a>>>,
+    last_msg: Option<Arc<TxResponse<'a>>>,
 }
 
 const T1: Duration = Duration::from_millis(500);
@@ -68,15 +87,15 @@ impl ServerTransaction<'_> {
         ServerTransaction {
             state: TsxState::Trying,
             info,
-            last_response: None,
+            last_msg: None,
         }
     }
 }
 
 #[derive(Clone)]
 pub enum Transaction<'a> {
-    UAC(ClientTransaction),
-    UAS(ServerTransaction<'a>),
+    Client(ClientTransaction),
+    Server(ServerTransaction<'a>),
 }
 
 impl Transaction<'_> {
@@ -107,11 +126,11 @@ impl Transaction<'_> {
     The server transaction MUST be destroyed the instant it enters the
     "Terminated" state.
     */
-    pub fn handle_response(&mut self, resp: &IncomingResponse) {
+    pub fn handle_response(&mut self, resp: &RxResponse) {
         if resp.code().is_provisional() {
             match self {
-                Transaction::UAC(tsx) => todo!(),
-                Transaction::UAS(tsx) => tsx.state = TsxState::Proceeding,
+                Transaction::Client(tsx) => todo!(),
+                Transaction::Server(tsx) => tsx.state = TsxState::Proceeding,
             }
         }
     }
@@ -120,14 +139,16 @@ impl Transaction<'_> {
 const BRANCH_RFC3261: &str = "z9hG4bK";
 
 #[derive(Default)]
-pub struct Transactions<'a>(Mutex<HashMap<TsxKey, Transaction<'a>>>);
+pub struct Transactions<'a>(
+    Mutex<HashMap<TransactionKey<'a>, Transaction<'a>>>,
+);
 
 impl Transactions<'_> {
     pub fn new() -> Self {
         Self(Mutex::new(HashMap::new()))
     }
 
-    pub fn find_tsx(&self, key: TsxKey) -> Option<Transaction> {
+    pub fn find_tsx(&self, key: TransactionKey) -> Option<Transaction> {
         self.0.lock().unwrap().get(&key).cloned()
     }
 }

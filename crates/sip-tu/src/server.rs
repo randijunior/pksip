@@ -5,11 +5,11 @@ use sip_message::{
     msg::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
     parser::parse_sip_msg,
 };
-use sip_transaction::{ServerTransaction, Transactions, TsxKey};
+use sip_transaction::{ServerTransaction, TransactionKey, Transactions};
 use sip_transport::transport::{
-    manager::{TransportManager, CRLF, END},
-    IncomingInfo, IncomingRequest, IncomingResponse, OutGoingResponse,
-    OutgoingInfo, Packet, RequestHeaders, Transport,
+    manager::{TransportLayer, CRLF, END},
+    IncomingInfo, OutgoingInfo, Packet, RequestHeaders, RxRequest, RxResponse,
+    Transport, TxResponse,
 };
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub struct SipServerBuilder {
-    manager: TransportManager,
+    transports: TransportLayer,
     name: String,
     dns_resolver: Resolver,
     transactions: Transactions<'static>,
@@ -30,7 +30,7 @@ pub struct SipServerBuilder {
 impl SipServerBuilder {
     pub fn new() -> Self {
         SipServerBuilder {
-            manager: TransportManager::new(),
+            transports: TransportLayer::new(),
             name: String::new(),
             capabilities: Headers::new(),
             dns_resolver: Resolver::default(),
@@ -40,7 +40,7 @@ impl SipServerBuilder {
     }
 
     pub fn with_transport(mut self, transport: Transport) -> Self {
-        self.manager.add(transport);
+        self.transports.add(transport);
 
         self
     }
@@ -53,7 +53,7 @@ impl SipServerBuilder {
 
     pub fn build(self) -> SipServer {
         let SipServerBuilder {
-            manager,
+            transports,
             name,
             capabilities,
             dns_resolver,
@@ -63,7 +63,7 @@ impl SipServerBuilder {
 
         SipServer(Arc::new(Inner {
             transactions,
-            manager,
+            transports,
             name,
             capabilities,
             dns_resolver,
@@ -72,7 +72,7 @@ impl SipServerBuilder {
     }
 }
 pub struct Inner {
-    manager: TransportManager,
+    transports: TransportLayer,
     name: String,
     capabilities: Headers<'static>,
     dns_resolver: Resolver,
@@ -94,7 +94,7 @@ impl Deref for SipServer {
 
 impl<'a> SipServer {
     pub async fn run(&self) -> io::Result<()> {
-        let mut rx = self.manager.start();
+        let mut rx = self.transports.start();
         while let Some(tp_msg) = rx.recv().await {
             let (transport, packet) = tp_msg;
             let server = self.clone();
@@ -130,11 +130,11 @@ impl<'a> SipServer {
         let info = IncomingInfo::new(pkt, transport);
         match msg {
             SipMessage::Request(msg) => {
-                let req = IncomingRequest::new(msg, info);
+                let req = RxRequest::new(msg, info);
                 self.sip_server_recv_req(req.into()).await;
             }
             SipMessage::Response(msg) => {
-                let msg = IncomingResponse::new(msg, info);
+                let msg = RxResponse::new(msg, info);
                 self.sip_server_recv_res(msg).await;
             }
         }
@@ -143,16 +143,16 @@ impl<'a> SipServer {
 
     pub async fn respond(
         &self,
-        msg: &IncomingRequest<'a>,
+        msg: &RxRequest<'a>,
         res: SipResponse<'a>,
     ) -> io::Result<()> {
-        let resp = self.new_response_from_request(msg, res).await?;
-        self.manager.send_response(resp).await
+        let mut resp = self.new_response_from_request(msg, res).await?;
+        self.transports.send_response(&mut resp).await
     }
 
     pub async fn respond_tsx(
         &self,
-        msg: &'a IncomingRequest<'a>,
+        msg: &'a RxRequest<'a>,
         res: SipResponse<'a>,
     ) -> io::Result<ServerTransaction> {
         let resp = self.new_response_from_request(msg, res).await?;
@@ -162,9 +162,9 @@ impl<'a> SipServer {
 
     pub async fn new_response_from_request(
         &self,
-        msg: &'a IncomingRequest<'a>,
+        msg: &'a RxRequest<'a>,
         res: SipResponse<'a>,
-    ) -> io::Result<OutGoingResponse<'a>> {
+    ) -> io::Result<TxResponse<'a>> {
         let hdrs = &msg.request().headers;
         let mut req_hdrs: RequestHeaders<'a> = hdrs.into();
         let topmost_via = req_hdrs.via.first().unwrap();
@@ -181,10 +181,11 @@ impl<'a> SipServer {
             req_hdrs.to.tag = topmost_via.branch;
         }
 
-        Ok(OutGoingResponse {
+        Ok(TxResponse {
             req_hdrs,
             info,
             msg: res,
+            buf: None,
         })
     }
 
@@ -215,8 +216,8 @@ impl<'a> SipServer {
             let addresses = self.dns_resolver.resolve(&temp_uri).await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
-            //TODO: the transport manager must create a transport if it cannot find
-            let transport = self.manager.find(addr, protocol).ok_or(
+            //TODO: the transport transports must create a transport if it cannot find
+            let transport = self.transports.find(addr, protocol).ok_or(
                 io::Error::other("Coun'd not find a suitable transport!"),
             )?;
 
@@ -237,7 +238,7 @@ impl<'a> SipServer {
         }
     }
 
-    pub async fn sip_server_recv_req(&self, msg: IncomingRequest<'a>) {
+    pub async fn sip_server_recv_req(&self, msg: RxRequest<'a>) {
         let mut msg = msg.into();
         let svcs = self.services.iter();
 
@@ -249,9 +250,9 @@ impl<'a> SipServer {
         }
     }
 
-    pub async fn sip_server_recv_res(&self, msg: IncomingResponse<'a>) {
+    pub async fn sip_server_recv_res(&self, msg: RxResponse<'a>) {
         let svcs = self.services.iter();
-        let key = TsxKey::from_res(&msg);
+        let key = TransactionKey::from(&msg);
 
         if let Some(mut tsx) = self.transactions.find_tsx(key) {
             tsx.handle_response(&msg);

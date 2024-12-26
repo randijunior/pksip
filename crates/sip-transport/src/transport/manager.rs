@@ -7,14 +7,10 @@ use std::{
 
 use tokio::sync::mpsc::{self};
 
-use sip_message::{
-    msg::{SipMessage, TransportProtocol},
-    parser::parse_sip_msg,
-};
+use sip_message::msg::TransportProtocol;
 
 use super::{
-    IncomingInfo, IncomingRequest, IncomingResponse, MsgBuffer,
-    OutGoingResponse, OutgoingInfo, Packet, SipTransport, Transport,
+    MsgBuffer, OutgoingInfo, Packet, SipTransport, Transport, TxResponse,
 };
 
 pub const CRLF: &[u8] = b"\r\n";
@@ -38,11 +34,11 @@ impl ConnectionKey {
     }
 }
 
-pub struct TransportManager {
+pub struct TransportLayer {
     transports: Mutex<HashMap<ConnectionKey, Transport>>,
 }
 
-impl Default for TransportManager {
+impl Default for TransportLayer {
     fn default() -> Self {
         Self {
             transports: Mutex::new(HashMap::new()),
@@ -50,7 +46,7 @@ impl Default for TransportManager {
     }
 }
 
-impl TransportManager {
+impl TransportLayer {
     pub fn new() -> Self {
         Self::default()
     }
@@ -70,7 +66,7 @@ impl TransportManager {
 
     pub async fn send_response<'a>(
         &self,
-        resp: OutGoingResponse<'a>,
+        resp: &mut TxResponse<'a>,
     ) -> io::Result<()> {
         let mut buf = MsgBuffer::new();
 
@@ -85,8 +81,10 @@ impl TransportManager {
                 ));
             }
         }
-        let OutgoingInfo { addr, transport } = resp.info;
-        let _sent = transport.send(&buf, addr).await?;
+        let OutgoingInfo { addr, transport } = &resp.info;
+        let _sent = transport.send(&buf, *addr).await?;
+
+        resp.buf = Some(buf);
 
         Ok(())
     }

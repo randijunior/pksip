@@ -12,7 +12,7 @@ use std::str;
 /// Ensures order and tracking of SIP transactions within a session.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CSeq {
-    pub cseq: i32,
+    pub cseq: u32,
     pub method: SipMethod,
 }
 
@@ -23,7 +23,7 @@ impl fmt::Display for CSeq {
 }
 
 impl<'a> CSeq {
-    pub fn new(cseq: i32, method: SipMethod) -> Self {
+    pub fn new(cseq: u32, method: SipMethod) -> Self {
         Self { cseq, method }
     }
 }

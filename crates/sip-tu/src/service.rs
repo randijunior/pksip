@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sip_transaction::Transaction;
-use sip_transport::transport::{IncomingRequest, IncomingResponse};
+use sip_transport::transport::{RxRequest, RxResponse};
 
 use crate::server::SipServer;
 
@@ -11,21 +11,21 @@ pub trait SipService: Sync + Send + 'static {
     async fn on_recv_req(
         &self,
         server: &SipServer,
-        inc: &mut Option<IncomingRequest>,
+        inc: &mut Option<RxRequest>,
     ) {
     }
 
     async fn on_recv_res(
         &self,
         server: &SipServer,
-        inc: &mut Option<IncomingResponse>,
+        inc: &mut Option<RxResponse>,
     ) {
     }
 
     async fn on_tsx_res(
         &self,
         server: &SipServer,
-        res: &mut Option<IncomingResponse>,
+        res: &mut Option<RxResponse>,
         tsx: &Transaction<'_>,
     ) {
     }

@@ -25,7 +25,7 @@ use sip_message::{
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
 
 #[derive(Default)]
-pub(crate) struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
+pub struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
 
 impl Deref for MsgBuffer {
     type Target = [u8];
@@ -142,7 +142,7 @@ impl IncomingInfo {
     }
 }
 
-pub struct OutGoingRequest<'a> {
+pub struct TxRequest<'a> {
     msg: SipRequest<'a>,
     info: OutgoingInfo,
 }
@@ -181,29 +181,30 @@ impl<'a> From<&'a Headers<'a>> for RequestHeaders<'a> {
     }
 }
 
-pub struct OutGoingResponse<'a> {
+pub struct TxResponse<'a> {
     pub req_hdrs: RequestHeaders<'a>,
     pub msg: SipResponse<'a>,
     pub info: OutgoingInfo,
+    pub buf: Option<MsgBuffer>,
 }
 
-pub struct IncomingRequest<'a> {
+pub struct RxRequest<'a> {
     msg: SipRequest<'a>,
     info: IncomingInfo,
 }
 
-impl<'a> IncomingRequest<'a> {
+impl<'a> RxRequest<'a> {
     pub fn new(msg: SipRequest<'a>, info: IncomingInfo) -> Self {
         Self { msg, info }
     }
 }
 
-pub struct IncomingResponse<'a> {
+pub struct RxResponse<'a> {
     msg: SipResponse<'a>,
     info: IncomingInfo,
 }
 
-impl<'a> IncomingResponse<'a> {
+impl<'a> RxResponse<'a> {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }
@@ -220,13 +221,13 @@ impl<'a> IncomingResponse<'a> {
     }
 }
 
-impl<'a> IncomingResponse<'a> {
+impl<'a> RxResponse<'a> {
     pub fn new(msg: SipResponse<'a>, info: IncomingInfo) -> Self {
         Self { msg, info }
     }
 }
 
-impl<'a> IncomingRequest<'a> {
+impl<'a> RxRequest<'a> {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }

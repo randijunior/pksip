@@ -143,7 +143,7 @@ impl<'a> UserInfo<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Host<'a> {
     DomainName(&'a str),
     IpAddr(IpAddr),
@@ -173,7 +173,7 @@ impl<'a> Host<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct HostPort<'a> {
     pub host: Host<'a>,
     pub port: Option<u16>,
