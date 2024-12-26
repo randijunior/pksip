@@ -68,9 +68,7 @@ impl TransportManager {
 
         tps.insert(
             transport.get_key(),
-            Transport {
-                inner: Arc::clone(&transport.inner),
-            },
+            Transport(Arc::clone(&transport.0)),
         );
     }
 

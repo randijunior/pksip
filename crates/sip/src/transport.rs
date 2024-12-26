@@ -74,9 +74,7 @@ pub trait SipTransport: Sync + Send + 'static {
 }
 
 #[derive(Clone)]
-pub struct Transport {
-    inner: Arc<dyn SipTransport>,
-}
+pub struct Transport(Arc<dyn SipTransport>);
 
 impl PartialOrd for Transport {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -86,7 +84,7 @@ impl PartialOrd for Transport {
 
 impl Ord for Transport {
     fn cmp(&self, other: &Self) -> Ordering {
-        Arc::strong_count(&self.inner).cmp(&Arc::strong_count(&other.inner))
+        Arc::strong_count(&self.0).cmp(&Arc::strong_count(&other.0))
     }
 }
 
@@ -102,15 +100,13 @@ impl Deref for Transport {
     type Target = dyn SipTransport;
 
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
+        self.0.as_ref()
     }
 }
 
 impl From<Udp> for Transport {
     fn from(value: Udp) -> Self {
-        Transport {
-            inner: Arc::new(value),
-        }
+        Transport(Arc::new(value))
     }
 }
 
