@@ -1,14 +1,14 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
 use crate::{
-    headers::{Header, Headers, Via},
-    msg::{HostPort, SipResponse, SipUri, StatusCode, StatusLine, UriBuilder},
+    headers::{Headers, Via},
+    msg::{HostPort, SipResponse, SipUri, StatusCode, UriBuilder},
     resolver::{Resolver, ServerAddress},
     service::SipService,
-    transaction::ServerTransaction,
+    transaction::{ServerTransaction, Transactions, TsxKey},
     transport::{
         manager::TransportManager, IncomingRequest, IncomingResponse,
-        OutGoingResponse, OutgoingInfo, Transport,
+        OutGoingResponse, OutgoingInfo, RequestHeaders, Transport,
     },
 };
 
@@ -16,6 +16,7 @@ pub struct SipServerBuilder {
     manager: TransportManager,
     name: String,
     dns_resolver: Resolver,
+    transactions: Transactions<'static>,
     // Accept, Allow, Supported
     capabilities: Headers<'static>,
     services: Vec<Box<dyn SipService>>,
@@ -29,6 +30,7 @@ impl SipServerBuilder {
             capabilities: Headers::new(),
             dns_resolver: Resolver::default(),
             services: vec![],
+            transactions: Transactions::default(),
         }
     }
 
@@ -51,9 +53,11 @@ impl SipServerBuilder {
             capabilities,
             dns_resolver,
             services,
+            transactions,
         } = self;
 
         SipServer(Arc::new(Inner {
+            transactions,
             manager,
             name,
             capabilities,
@@ -68,6 +72,8 @@ pub struct Inner {
     capabilities: Headers<'static>,
     dns_resolver: Resolver,
     services: Vec<Box<dyn SipService>>,
+    //tsx_handlers
+    transactions: Transactions<'static>,
 }
 
 #[derive(Clone)]
@@ -91,79 +97,61 @@ impl<'a> SipServer {
     pub async fn respond(
         &self,
         msg: &IncomingRequest<'a>,
-        st_line: StatusLine<'a>,
-        headers: Option<Headers<'a>>,
-        body: Option<&'a [u8]>,
+        res: SipResponse<'a>,
     ) -> io::Result<()> {
-        self.send(msg, st_line, headers, body).await
+        self.send(msg, res).await
     }
 
-    pub fn respond_tsx(&self) -> io::Result<ServerTransaction> {
+    pub async fn respond_tsx(
+        &self,
+        msg: &'a IncomingRequest<'a>,
+        res: SipResponse<'a>,
+    ) -> io::Result<ServerTransaction> {
+        let resp = self.new_response_from_request(msg, res).await?;
+
         todo!()
     }
 
-    pub async fn new_response(
+    pub async fn new_response_from_request(
         &self,
         msg: &'a IncomingRequest<'a>,
-        st_line: StatusLine<'a>,
-        extra_headers: Option<Headers<'a>>,
-        body: Option<&'a [u8]>,
+        res: SipResponse<'a>,
     ) -> io::Result<OutGoingResponse<'a>> {
         let hdrs = &msg.request().headers;
-
-        // The parser check required headers
-        let vias = hdrs.find_via();
-        let callid = hdrs.find_callid().unwrap().call_id().unwrap();
-        let from = hdrs.find_from().unwrap().from().unwrap();
-        let to = hdrs.find_to().unwrap().to().unwrap();
-        let cseq = hdrs.find_cseq().unwrap().cseq().unwrap();
-        let top_most_via = vias[0].via().unwrap();
+        let mut req_hdrs: RequestHeaders<'a> = hdrs.into();
+        let topmost_via = req_hdrs.via.first().unwrap();
 
         let info = self
             .get_outgoing_info(
-                top_most_via,
+                topmost_via,
                 msg.transport(),
                 msg.packet().addr(),
             )
             .await?;
 
-        let mut headers = Headers::new();
-
-        headers.push(Header::Via(top_most_via.clone()));
-        headers.push(Header::From(from.clone()));
-
-        let mut to = to.clone();
-        if to.tag.is_none() && st_line.code > StatusCode::Trying {
-            to.tag = top_most_via.branch;
-        }
-        headers.push(Header::To(to));
-        headers.push(Header::CallId(callid.clone()));
-        headers.push(Header::CSeq(cseq.clone()));
-
-        if let Some(mut extra) = extra_headers {
-            headers.append(&mut extra);
+        if req_hdrs.to.tag.is_none() && res.st_line.code > StatusCode::Trying {
+            req_hdrs.to.tag = topmost_via.branch;
         }
 
         Ok(OutGoingResponse {
+            req_hdrs,
             info,
-            msg: SipResponse::new(st_line, headers, body),
+            msg: res,
         })
     }
 
     async fn send(
         &self,
         msg: &IncomingRequest<'a>,
-        st_line: StatusLine<'a>,
-        extra_headers: Option<Headers<'a>>,
-        body: Option<&'a [u8]>,
+        res: SipResponse<'a>,
     ) -> io::Result<()> {
-        let resp = self.new_response(msg, st_line, extra_headers, body).await?;
+        let resp = self.new_response_from_request(msg, res).await?;
 
         self.manager.send_response(resp).await
     }
 
     // follow SIP RFC 3261 in section 18.2.2
-    async fn get_outgoing_info(
+    pub async fn get_outgoing_info(
         &self,
         via: &Via<'_>,
         tp: &Transport,
@@ -224,9 +212,23 @@ impl<'a> SipServer {
     }
 
     pub async fn sip_server_recv_res(&self, msg: IncomingResponse<'a>) {
-        let mut msg = msg.into();
         let svcs = self.services.iter();
+        let key = TsxKey::from_res(&msg);
 
+        if let Some(mut tsx) = self.transactions.find_tsx(key) {
+            tsx.handle_response(&msg);
+            let mut msg = msg.into();
+            for svc in svcs {
+                svc.on_tsx_res(self, &mut msg, &tsx).await;
+                if msg.is_none() {
+                    break;
+                }
+            }
+            return;
+        }
+
+
+        let mut msg = msg.into();
         for svc in svcs {
             svc.on_recv_res(self, &mut msg).await;
             if msg.is_none() {

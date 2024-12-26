@@ -455,7 +455,7 @@ impl<'a> Params<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SipMethod {
     Invite,
     Ack,
@@ -859,6 +859,18 @@ impl StatusCode {
             StatusCode::Unwanted => "607",
             StatusCode::Rejected => "608",
             StatusCode::Unknow => "Unknow-Code",
+        }
+    }
+
+    pub fn is_provisional(&self) -> bool {
+        match self {
+            StatusCode::Trying
+            | StatusCode::Ringing
+            | StatusCode::CallIsBeingForwarded
+            | StatusCode::Queued
+            | StatusCode::SessionProgress
+            | StatusCode::EarlyDialogTerminated => true,
+            _ => false,
         }
     }
 }

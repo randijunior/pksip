@@ -17,17 +17,19 @@ use std::io::Write;
 use tokio::sync::mpsc;
 use udp::Udp;
 
-use crate::msg::{SipRequest, SipResponse, TransportProtocol};
+use crate::{
+    headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
+    msg::{SipRequest, SipResponse, StatusCode, TransportProtocol},
+};
 
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
-// pub(crate) type MsgBuffer = ArrayVec<u8, MAX_PACKET_SIZE>;
 
 #[derive(Default)]
 pub(crate) struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
 
 impl Deref for MsgBuffer {
     type Target = [u8];
-    
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -127,6 +129,7 @@ impl Packet {
     }
 }
 
+#[derive(Clone)]
 pub struct OutgoingInfo {
     pub addr: SocketAddr,
     pub transport: Transport,
@@ -135,6 +138,7 @@ pub struct OutgoingInfo {
 pub struct IncomingInfo {
     packet: Packet,
     transport: Transport,
+    
 }
 
 pub struct OutGoingRequest<'a> {
@@ -142,7 +146,42 @@ pub struct OutGoingRequest<'a> {
     info: OutgoingInfo,
 }
 
+pub struct RequestHeaders<'a> {
+    pub via: Vec<Via<'a>>,
+    pub from: headers::From<'a>,
+    pub to: To<'a>,
+    pub callid: CallId<'a>,
+    pub cseq: CSeq,
+}
+
+impl std::fmt::Display for RequestHeaders<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for via in &self.via {
+            write!(f, "{}: {}\r\n", Via::NAME, via)?;
+        }
+        write!(f, "{}: {}\r\n", headers::From::NAME, self.from)?;
+        write!(f, "{}: {}\r\n", To::NAME, self.to)?;
+        write!(f, "{}: {}\r\n", CallId::NAME, self.callid)?;
+        write!(f, "{}: {}\r\n", CSeq::NAME, self.cseq)?;
+
+        Ok(())
+    }
+}
+
+impl<'a> From<&'a Headers<'a>> for RequestHeaders<'a> {
+    fn from(hdrs: &'a Headers<'a>) -> Self {
+        Self {
+            via: hdrs.find_via().into_iter().cloned().collect(),
+            from: hdrs.find_from().unwrap().from().unwrap().clone(),
+            to: hdrs.find_to().unwrap().to().unwrap().clone(),
+            callid: hdrs.find_callid().unwrap().call_id().unwrap().clone(),
+            cseq: hdrs.find_cseq().unwrap().cseq().unwrap().clone(),
+        }
+    }
+}
+
 pub struct OutGoingResponse<'a> {
+    pub req_hdrs: RequestHeaders<'a>,
     pub msg: SipResponse<'a>,
     pub info: OutgoingInfo,
 }
@@ -161,6 +200,23 @@ impl<'a> IncomingRequest<'a> {
 pub struct IncomingResponse<'a> {
     msg: SipResponse<'a>,
     info: IncomingInfo,
+}
+
+impl<'a> IncomingResponse<'a> {
+    pub fn packet(&self) -> &Packet {
+        &self.info.packet
+    }
+    pub fn transport(&self) -> &Transport {
+        &self.info.transport
+    }
+
+    pub fn request(&self) -> &SipResponse {
+        &self.msg
+    }
+
+    pub fn code(&self) -> StatusCode {
+        self.msg.st_line.code
+    }
 }
 
 impl<'a> IncomingResponse<'a> {

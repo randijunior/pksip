@@ -14,8 +14,8 @@ use crate::{
 };
 
 use super::{
-    IncomingInfo, IncomingRequest, IncomingResponse, OutGoingResponse,
-    OutgoingInfo, Packet, SipTransport, Transport,
+    IncomingInfo, IncomingRequest, IncomingResponse, MsgBuffer,
+    OutGoingResponse, OutgoingInfo, Packet, SipTransport, Transport,
 };
 
 const CRLF: &[u8] = b"\r\n";
@@ -78,7 +78,19 @@ impl TransportManager {
         &self,
         resp: OutGoingResponse<'a>,
     ) -> io::Result<()> {
-        let buf = resp.msg.encode()?;
+        let mut buf = MsgBuffer::new();
+
+        buf.write(&resp.msg.st_line)?;
+        buf.write(&resp.req_hdrs)?;
+        buf.write(&resp.msg.headers)?;
+        buf.write("\r\n")?;
+        if let Some(body) = resp.msg.body {
+            if let Err(_err) = buf.try_extend_from_slice(body) {
+                return Err(io::Error::other(
+                    "Packet size exceeds MAX_PACKET_SIZE",
+                ));
+            }
+        }
         let OutgoingInfo { addr, transport } = resp.info;
         let _sent = transport.send(&buf, addr).await?;
 
@@ -168,7 +180,7 @@ impl TransportManager {
         match msg {
             SipMessage::Request(msg) => {
                 let req = IncomingRequest::new(msg, info);
-                sip_server.sip_server_recv_req(req).await;
+                sip_server.sip_server_recv_req(req.into()).await;
             }
             SipMessage::Response(msg) => {
                 let msg = IncomingResponse::new(msg, info);

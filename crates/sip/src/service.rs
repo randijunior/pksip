@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     server::SipServer,
+    transaction::Transaction,
     transport::{IncomingRequest, IncomingResponse},
 };
 
@@ -20,6 +21,14 @@ pub trait SipService: Sync + Send + 'static {
         &self,
         server: &SipServer,
         inc: &mut Option<IncomingResponse>,
+    ) {
+    }
+
+    async fn on_tsx_res(
+        &self,
+        server: &SipServer,
+        res: &mut Option<IncomingResponse>,
+        tsx: &Transaction<'_>,
     ) {
     }
 }

@@ -4,6 +4,7 @@ pub mod headers;
 pub mod msg;
 pub mod parser;
 pub mod server;
+pub mod transaction;
 pub mod transport;
 
 pub(crate) mod auth;

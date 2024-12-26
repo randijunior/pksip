@@ -64,6 +64,10 @@ impl Udp {
         Ok(Udp(udp).into())
     }
 
+    pub async fn default() -> Transport {
+        Self::bind("0.0.0.0:5060").await.unwrap()
+    }
+
     async fn receive_packet(
         self,
         sender: mpsc::Sender<(Transport, Packet)>,

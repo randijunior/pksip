@@ -4,11 +4,7 @@ use std::{
     str,
 };
 
-use crate::{
-    headers::Headers,
-    parser::SIPV2,
-    transport::MsgBuffer,
-};
+use crate::{headers::Headers, parser::SIPV2, transport::MsgBuffer};
 
 use super::StatusCode;
 
@@ -54,22 +50,5 @@ impl<'a> SipResponse<'a> {
             st_line,
             headers,
         }
-    }
-
-    pub(crate) fn encode(&self) -> io::Result<MsgBuffer> {
-        let mut buf = MsgBuffer::new();
-
-        buf.write(&self.st_line)?;
-        buf.write(&self.headers)?;
-        buf.write("\r\n")?;
-        if let Some(body) = self.body {
-            if let Err(_err) = buf.try_extend_from_slice(body) {
-                return Err(io::Error::other(
-                    "Packet size exceeds MAX_PACKET_SIZE",
-                ));
-            }
-        }
-
-        Ok(buf)
     }
 }

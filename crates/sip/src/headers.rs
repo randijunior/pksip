@@ -537,12 +537,12 @@ impl<'a> Headers<'a> {
         self.0.append(&mut other.0);
     }
 
-    pub fn find_via(&self) -> Vec<&Header> {
-        self.filter(|hdr| {
-            if let Header::Via(_) = hdr {
-                true
+    pub fn find_via(&self) -> Vec<&Via> {
+        self.filter_map(|hdr| {
+            if let Header::Via(v) = hdr {
+                Some(v)
             } else {
-                false
+                None
             }
         })
         .collect()
