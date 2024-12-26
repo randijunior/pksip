@@ -5,7 +5,7 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::msg::TransportProtocol;
+use sip_message::msg::TransportProtocol;
 
 use super::{
     manager::ConnectionKey, Packet, SipTransport, Transport, MAX_PACKET_SIZE,

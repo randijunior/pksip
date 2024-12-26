@@ -4,7 +4,7 @@ use std::{
     str,
 };
 
-use crate::{headers::Headers, parser::SIPV2, transport::MsgBuffer};
+use crate::{headers::Headers, parser::SIPV2};
 
 use super::StatusCode;
 

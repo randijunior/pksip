@@ -1,6 +1,6 @@
 use std::{io, net::SocketAddr};
 
-use crate::msg::{Scheme, SipUri, TransportProtocol};
+use sip_message::msg::{Scheme, SipUri, TransportProtocol};
 
 pub struct ServerAddress {
     pub protocol: TransportProtocol,

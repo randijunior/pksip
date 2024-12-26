@@ -17,7 +17,7 @@ use std::io::Write;
 use tokio::sync::mpsc;
 use udp::Udp;
 
-use crate::{
+use sip_message::{
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
     msg::{SipRequest, SipResponse, StatusCode, TransportProtocol},
 };
@@ -111,9 +111,9 @@ impl From<Udp> for Transport {
 }
 
 pub struct Packet {
-    payload: Arc<[u8]>,
-    addr: SocketAddr,
-    time: SystemTime,
+    pub payload: Arc<[u8]>,
+    pub addr: SocketAddr,
+    pub time: SystemTime,
 }
 
 impl Packet {
@@ -134,7 +134,12 @@ pub struct OutgoingInfo {
 pub struct IncomingInfo {
     packet: Packet,
     transport: Transport,
-    
+}
+
+impl IncomingInfo {
+    pub fn new(packet: Packet, transport: Transport) -> Self {
+        Self { packet, transport }
+    }
 }
 
 pub struct OutGoingRequest<'a> {

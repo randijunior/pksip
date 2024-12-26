@@ -1,15 +1,20 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-use crate::{
+use sip_message::{
     headers::{Headers, Via},
-    msg::{HostPort, SipResponse, SipUri, StatusCode, UriBuilder},
+    msg::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
+    parser::parse_sip_msg,
+};
+use sip_transaction::{ServerTransaction, Transactions, TsxKey};
+use sip_transport::transport::{
+    manager::{TransportManager, CRLF, END},
+    IncomingInfo, IncomingRequest, IncomingResponse, OutGoingResponse,
+    OutgoingInfo, Packet, RequestHeaders, Transport,
+};
+
+use crate::{
     resolver::{Resolver, ServerAddress},
     service::SipService,
-    transaction::{ServerTransaction, Transactions, TsxKey},
-    transport::{
-        manager::TransportManager, IncomingRequest, IncomingResponse,
-        OutGoingResponse, OutgoingInfo, RequestHeaders, Transport,
-    },
 };
 
 pub struct SipServerBuilder {
@@ -89,8 +94,50 @@ impl Deref for SipServer {
 
 impl<'a> SipServer {
     pub async fn run(&self) -> io::Result<()> {
-        self.manager.recv(self).await?;
+        let mut rx = self.manager.start();
+        while let Some(tp_msg) = rx.recv().await {
+            let (transport, packet) = tp_msg;
+            let server = self.clone();
+            tokio::spawn(
+                async move { server.process_message(transport, packet) },
+            );
+        }
+        Ok(())
+    }
 
+    async fn process_message(
+        self,
+        transport: Transport,
+        packet: Packet,
+    ) -> io::Result<()> {
+        let msg = match packet.payload() {
+            CRLF => {
+                transport.send(END, packet.addr()).await?;
+                return Ok(());
+            }
+            END => {
+                return Ok(());
+            }
+            bytes => match parse_sip_msg(bytes) {
+                Ok(sip) => sip,
+                Err(err) => return Err(io::Error::other(err.message)),
+            },
+        };
+        let pkt = Packet {
+            payload: Arc::clone(&packet.payload),
+            ..packet
+        };
+        let info = IncomingInfo::new(pkt, transport);
+        match msg {
+            SipMessage::Request(msg) => {
+                let req = IncomingRequest::new(msg, info);
+                self.sip_server_recv_req(req.into()).await;
+            }
+            SipMessage::Response(msg) => {
+                let msg = IncomingResponse::new(msg, info);
+                self.sip_server_recv_res(msg).await;
+            }
+        }
         Ok(())
     }
 
@@ -141,11 +188,10 @@ impl<'a> SipServer {
         })
     }
 
-
     // follow SIP RFC 3261 in section 18.2.2
     pub async fn get_outgoing_info(
         &self,
-        via: &Via<'_>,
+        via: &Via<'a>,
         tp: &Transport,
         src_addr: SocketAddr,
     ) -> io::Result<OutgoingInfo> {
@@ -218,7 +264,6 @@ impl<'a> SipServer {
             }
             return;
         }
-
 
         let mut msg = msg.into();
         for svc in svcs {

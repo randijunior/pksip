@@ -1,6 +1,9 @@
 [workspace]
-members = [ "crates/reader","crates/sip"]
+members = [ "crates/reader", "crates/sip-message", "crates/sip-transaction", "crates/sip-transport", "crates/sip-tu"]
 resolver = "1"
 
 [workspace.dependencies]
-sip = { path = "crates/sip" }
+sip-message = { path = "crates/sip-message" }
+sip-transport = { path = "crates/sip-transport" }
+sip-transaction = { path = "crates/sip-transaction" }
+sip-tu = { path = "crates/sip-tu" }

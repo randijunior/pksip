@@ -5,11 +5,9 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    msg::SipMethod,
-    transport::{
-        IncomingRequest, IncomingResponse, OutgoingInfo
-    },
+use sip_message::msg::SipMethod;
+use sip_transport::transport::{
+    IncomingRequest, IncomingResponse, OutgoingInfo,
 };
 
 #[derive(PartialEq, Eq, Hash)]
@@ -117,7 +115,6 @@ impl Transaction<'_> {
             }
         }
     }
-
 }
 
 const BRANCH_RFC3261: &str = "z9hG4bK";

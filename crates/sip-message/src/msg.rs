@@ -4,8 +4,8 @@
 //! an [`SipMessage::Request`] or [`SipMessage::Response`] and represents an sip message.
 
 use itertools::Itertools;
-pub(crate) use request::*;
-pub(crate) use response::*;
+pub use request::*;
+pub use response::*;
 
 mod request;
 mod response;

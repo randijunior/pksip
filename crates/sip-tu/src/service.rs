@@ -1,10 +1,8 @@
 use async_trait::async_trait;
+use sip_transaction::Transaction;
+use sip_transport::transport::{IncomingRequest, IncomingResponse};
 
-use crate::{
-    server::SipServer,
-    transaction::Transaction,
-    transport::{IncomingRequest, IncomingResponse},
-};
+use crate::server::SipServer;
 
 #[async_trait]
 pub trait SipService: Sync + Send + 'static {
