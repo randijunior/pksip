@@ -1,13 +1,12 @@
 use std::{
     collections::HashMap,
-    rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use sip_message::msg::{HostPort, SipMethod};
 use sip_transport::transport::{
-    MsgBuffer, OutgoingInfo, RxRequest, RxResponse, TxResponse,
+    OutgoingInfo, RxRequest, RxResponse, TxResponse,
 };
 
 #[derive(PartialEq, Eq, Hash)]
@@ -46,7 +45,7 @@ impl<'a> From<&RxRequest<'a>> for TransactionKey<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub enum TsxState {
+pub enum TransactionState {
     None,
     Calling,
     Trying,
@@ -58,12 +57,12 @@ pub enum TsxState {
 
 #[derive(Clone)]
 pub struct ClientTransaction {
-    state: TsxState,
+    state: TransactionState,
 }
 
 #[derive(Clone)]
 pub struct ServerTransaction<'a> {
-    state: TsxState,
+    state: TransactionState,
     info: OutgoingInfo,
     last_msg: Option<Arc<TxResponse<'a>>>,
 }
@@ -85,7 +84,7 @@ impl ServerTransaction<'_> {
         }
 
         ServerTransaction {
-            state: TsxState::Trying,
+            state: TransactionState::Trying,
             info,
             last_msg: None,
         }
@@ -130,7 +129,7 @@ impl Transaction<'_> {
         if resp.code().is_provisional() {
             match self {
                 Transaction::Client(tsx) => todo!(),
-                Transaction::Server(tsx) => tsx.state = TsxState::Proceeding,
+                Transaction::Server(tsx) => tsx.state = TransactionState::Proceeding,
             }
         }
     }
