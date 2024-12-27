@@ -4,8 +4,8 @@ use std::{
     time::Duration,
 };
 
-use sip_message::msg::{HostPort, SipMethod};
-use sip_transport::transport::{
+use encoding_layer::msg::{HostPort, SipMethod};
+use transport_layer::transport::{
     OutgoingInfo, RxRequest, RxResponse, TxResponse,
 };
 

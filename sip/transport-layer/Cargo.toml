@@ -1,14 +1,12 @@
 [package]
-name = "sip-tu"
+name = "transport-layer"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sip-message.workspace = true
-sip-transaction.workspace = true
-sip-transport.workspace = true
-hickory-resolver = "0.24.1"
+encoding-layer.workspace = true
 async-trait = "0.1.83"
-tokio = { version = "1.41.1" }
+arrayvec = "0.7.6"
+tokio = { version = "1.41.1", features = ["full"] }

@@ -17,7 +17,7 @@ use std::io::Write;
 use tokio::sync::mpsc;
 use udp::Udp;
 
-use sip_message::{
+use encoding_layer::{
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
     msg::{SipRequest, SipResponse, StatusCode, TransportProtocol},
 };

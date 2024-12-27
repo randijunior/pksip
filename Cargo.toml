@@ -1,9 +1,10 @@
 [workspace]
-members = [ "crates/reader", "crates/sip-message", "crates/sip-transaction", "crates/sip-transport", "crates/sip-tu"]
+members = [ "reader", "sip/encoding-layer", "sip/transaction-layer", "sip/transport-layer", "sip/tu-layer", ]
 resolver = "1"
 
 [workspace.dependencies]
-sip-message = { path = "crates/sip-message" }
-sip-transport = { path = "crates/sip-transport" }
-sip-transaction = { path = "crates/sip-transaction" }
-sip-tu = { path = "crates/sip-tu" }
+encoding-layer = { path = "sip/encoding-layer" }
+transport-layer = { path = "sip/transport-layer" }
+transaction-layer = { path = "sip/transaction-layer" }
+tu-layer = { path = "sip/tu-layer" }
+reader = { path = "reader" }

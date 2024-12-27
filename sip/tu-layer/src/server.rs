@@ -1,12 +1,12 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-use sip_message::{
+use encoding_layer::{
     headers::{Headers, Via},
     msg::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
     parser::parse_sip_msg,
 };
-use sip_transaction::{ServerTransaction, TransactionKey, Transactions};
-use sip_transport::transport::{
+use transaction_layer::{ServerTransaction, TransactionKey, Transactions};
+use transport_layer::transport::{
     manager::{TransportLayer, CRLF, END},
     IncomingInfo, OutgoingInfo, Packet, RequestHeaders, RxRequest, RxResponse,
     Transport, TxResponse,

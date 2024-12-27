@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use sip_transaction::Transaction;
-use sip_transport::transport::{RxRequest, RxResponse};
+use transaction_layer::Transaction;
+use transport_layer::transport::{RxRequest, RxResponse};
 
 use crate::server::SipServer;
 

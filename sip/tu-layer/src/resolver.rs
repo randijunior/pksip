@@ -1,6 +1,6 @@
 use std::{io, net::SocketAddr};
 
-use sip_message::msg::{Scheme, SipUri, TransportProtocol};
+use encoding_layer::msg::{Scheme, SipUri, TransportProtocol};
 
 pub struct ServerAddress {
     pub protocol: TransportProtocol,

@@ -174,14 +174,6 @@ fn read_token_str<'a>(reader: &mut Reader<'a>) -> &'a str {
     unsafe { reader.read_as_str(is_token) }
 }
 
-pub struct ParseCtx {
-    has_cid_hdr: bool,
-    has_from_hdr: bool,
-    has_to_hdr: bool,
-    has_via_hdr: bool,
-    has_cseq_hdr: bool,
-}
-
 /// Parse a buff of bytes into sip message
 pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
     let mut reader = Reader::new(buff);

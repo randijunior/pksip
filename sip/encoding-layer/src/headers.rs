@@ -451,9 +451,9 @@ impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
 ///
 /// # Examples
 /// ```rust
-/// # use sip_message::headers::Headers;
-/// # use sip_message::headers::Header;
-/// # use sip_message::headers::ContentLength;
+/// # use encoding_layer::headers::Headers;
+/// # use encoding_layer::headers::Header;
+/// # use encoding_layer::headers::ContentLength;
 /// let mut headers = Headers::new();
 /// headers.push(Header::ContentLength(ContentLength::new(10)));
 ///
@@ -468,7 +468,7 @@ impl<'a> Headers<'a> {
     ///
     /// # Examples
     /// ```
-    /// # use sip_message::headers::Headers;
+    /// # use encoding_layer::headers::Headers;
     /// let mut headers = Headers::new();
     /// ```
     pub fn new() -> Self {
@@ -479,9 +479,9 @@ impl<'a> Headers<'a> {
     ///
     /// # Examples
     /// ```rust
-    /// # use sip_message::headers::Headers;
-    /// # use sip_message::headers::Header;
-    /// # use sip_message::headers::Expires;
+    /// # use encoding_layer::headers::Headers;
+    /// # use encoding_layer::headers::Header;
+    /// # use encoding_layer::headers::Expires;
     /// let mut headers = Headers::from(vec![
     ///     Header::Expires(Expires::new(10))
     /// ]);
@@ -586,9 +586,9 @@ impl<'a> Headers<'a> {
     ///
     /// # Example
     /// ```
-    /// # use sip_message::headers::Headers;
-    /// # use sip_message::headers::Header;
-    /// # use sip_message::headers::Expires;
+    /// # use encoding_layer::headers::Headers;
+    /// # use encoding_layer::headers::Header;
+    /// # use encoding_layer::headers::Expires;
     /// let mut headers = Headers::new();
     ///
     /// headers.push(Header::Expires(Expires::new(10)));

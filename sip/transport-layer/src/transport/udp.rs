@@ -5,7 +5,7 @@ use tokio::{
     sync::mpsc,
 };
 
-use sip_message::msg::TransportProtocol;
+use encoding_layer::msg::TransportProtocol;
 
 use super::{
     manager::ConnectionKey, Packet, SipTransport, Transport, MAX_PACKET_SIZE,
