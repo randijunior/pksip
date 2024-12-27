@@ -16,7 +16,11 @@ pub struct ProxyRequire<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for ProxyRequire<'a> {
     const NAME: &'static str = "Proxy-Require";
-
+    /*
+     * Proxy-Require  =  "Proxy-Require" HCOLON option-tag
+     *                   *(COMMA option-tag)
+     * option-tag     =  token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let tags = hdr_list!(reader => parser::parse_token(reader)?);
 

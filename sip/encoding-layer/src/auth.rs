@@ -4,7 +4,7 @@ use std::fmt;
 use crate::{
     headers::{self, Param},
     macros::comma_sep,
-    msg::Params,
+    message::Params,
     parser::{self, Result},
 };
 

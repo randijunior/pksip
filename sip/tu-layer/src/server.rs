@@ -2,7 +2,7 @@ use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
 use encoding_layer::{
     headers::{Headers, Via},
-    msg::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
+    message::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
     parser::parse_sip_msg,
 };
 use transaction_layer::{ServerTransaction, TransactionKey, Transactions};

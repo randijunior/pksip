@@ -3,7 +3,7 @@ use core::fmt;
 use reader::Reader;
 
 use crate::parser;
-use crate::{macros::parse_header_param, msg::Params, parser::Result};
+use crate::{macros::parse_header_param, message::Params, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -18,7 +18,18 @@ pub struct ContentDisposition<'a> {
 
 impl<'a> SipHeader<'a> for ContentDisposition<'a> {
     const NAME: &'static str = "Content-Disposition";
-
+    /*
+     * Content-Disposition   =  "Content-Disposition" HCOLON
+     *                          disp-type *( SEMI disp-param )
+     * disp-type             =  "render" / "session" / "icon" / "alert"
+     *                          / disp-extension-token
+     * disp-param            =  handling-param / generic-param
+     * handling-param        =  "handling" EQUAL
+     *                          ( "optional" / "required"
+     *                          / other-handling )
+     * other-handling        =  token
+     * disp-extension-token  =  token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<ContentDisposition<'a>> {
         let _type = parser::parse_token(reader)?;
         let params = parse_header_param!(reader);

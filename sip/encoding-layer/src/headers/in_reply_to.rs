@@ -17,7 +17,9 @@ pub struct InReplyTo<'a>(Vec<CallId<'a>>);
 
 impl<'a> SipHeader<'a> for InReplyTo<'a> {
     const NAME: &'static str = "In-Reply-To";
-
+    /*
+     * In-Reply-To  =  "In-Reply-To" HCOLON callid *(COMMA callid)
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<InReplyTo<'a>> {
         let ids = hdr_list!(reader => {
             let id = read_while!(reader, not_comma_or_newline);

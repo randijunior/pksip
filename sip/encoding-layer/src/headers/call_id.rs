@@ -31,7 +31,9 @@ impl<'a> CallId<'a> {
 impl<'a> SipHeader<'a> for CallId<'a> {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: &'static str = "i";
-
+    /*
+     * Call-ID  =  ( "Call-ID" / "i" ) HCOLON callid
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<CallId<'a>> {
         let id = Self::parse_as_str(reader)?;
 

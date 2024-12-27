@@ -4,7 +4,7 @@ use reader::Reader;
 
 use crate::{
     macros::parse_header_param,
-    msg::{Params, SipUri},
+    message::{Params, SipUri},
     parser::{self, Result},
 };
 
@@ -21,7 +21,12 @@ pub struct ReplyTo<'a> {
 
 impl<'a> SipHeader<'a> for ReplyTo<'a> {
     const NAME: &'static str = "Reply-To";
-
+    /*
+     * Reply-To      =  "Reply-To" HCOLON rplyto-spec
+     * rplyto-spec   =  ( name-addr / addr-spec )
+     *                  *( SEMI rplyto-param )
+     * rplyto-param  =  generic-param
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let uri = parser::parse_sip_uri(reader, false)?;
         let param = parse_header_param!(reader);
@@ -43,7 +48,7 @@ impl fmt::Display for ReplyTo<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::{Host, HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 

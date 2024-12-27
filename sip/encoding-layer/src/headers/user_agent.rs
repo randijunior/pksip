@@ -14,7 +14,9 @@ pub struct UserAgent<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for UserAgent<'a> {
     const NAME: &'static str = "User-Agent";
-
+    /*
+     * User-Agent  =  "User-Agent" HCOLON server-val *(LWS server-val)
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let agent = Self::parse_as_str(reader)?;
 

@@ -1,7 +1,7 @@
 use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
-use crate::{macros::parse_header_param, msg::Params, parser::Result};
+use crate::{macros::parse_header_param, message::Params, parser::Result};
 use std::{fmt, str};
 
 /// The `Alert-Info` SIP header.
@@ -15,10 +15,13 @@ pub struct AlertInfo<'a> {
 
 impl<'a> SipHeader<'a> for AlertInfo<'a> {
     const NAME: &'static str = "Alert-Info";
-
+    /*
+     * Alert-Info   =  "Alert-Info" HCOLON alert-param *(COMMA alert-param)
+     * alert-param  =  LAQUOT absoluteURI RAQUOT *( SEMI generic-param )
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<AlertInfo<'a>> {
         space!(reader);
-
+        
         reader.must_read(b'<')?;
         let url = until!(reader, &b'>');
         reader.must_read(b'>')?;

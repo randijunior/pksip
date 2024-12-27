@@ -12,7 +12,9 @@ pub struct ProxyAuthorization<'a>(Credential<'a>);
 
 impl<'a> SipHeader<'a> for ProxyAuthorization<'a> {
     const NAME: &'static str = "Proxy-Authorization";
-
+    /*
+     * Proxy-Authorization  =  "Proxy-Authorization" HCOLON credentials
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let credential = Credential::parse(reader)?;
 

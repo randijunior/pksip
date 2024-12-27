@@ -56,22 +56,22 @@ use crate::headers::Warning;
 use crate::macros::b_map;
 use crate::macros::parse_param;
 use crate::macros::sip_parse_error;
-use crate::msg::HostPort;
-use crate::msg::Params;
-use crate::msg::Scheme;
-use crate::msg::SipMethod;
-use crate::msg::Uri;
-use crate::msg::{Host, NameAddr, SipUri, StatusCode};
+use crate::message::HostPort;
+use crate::message::Params;
+use crate::message::Scheme;
+use crate::message::SipMethod;
+use crate::message::Uri;
+use crate::message::{Host, NameAddr, SipUri, StatusCode};
 
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
 use crate::headers::Headers;
 
-use crate::msg::SipMessage;
-use crate::msg::StatusLine;
-use crate::msg::UserInfo;
-use crate::msg::{RequestLine, SipRequest, SipResponse};
+use crate::message::SipMessage;
+use crate::message::StatusLine;
+use crate::message::UserInfo;
+use crate::message::{RequestLine, SipRequest, SipResponse};
 
 pub(crate) const SIPV2: &'static str = "SIP/2.0";
 pub(crate) const B_SIPV2: &'static [u8] = SIPV2.as_bytes();
@@ -100,7 +100,6 @@ b_map!(HOST_SPEC => ALPHA_NUM, HOST);
 b_map!(PARAM_SPEC => b"[]/:&+$", ALPHA_NUM, UNRESERVED, ESCAPED);
 // "[]/?:+$"  "-_.!~*'()" "%"
 b_map!(HDR_SPEC => b"[]/?:+$", ALPHA_NUM, UNRESERVED, ESCAPED);
-b_map!(URI_SPEC => ALPHA_NUM, GENERIC_URI);
 b_map!(TOKEN_SPEC => ALPHA_NUM, TOKEN);
 
 const USER_PARAM: &str = "user";
@@ -135,11 +134,6 @@ fn is_hdr(b: &u8) -> bool {
 #[inline(always)]
 pub(crate) fn is_host(b: &u8) -> bool {
     HOST_SPEC[*b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_uri(b: &u8) -> bool {
-    URI_SPEC[*b as usize]
 }
 
 #[inline(always)]
@@ -775,7 +769,7 @@ impl<'a> From<reader::Error<'a>> for SipParserError {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::UriBuilder;
+    use crate::message::UriBuilder;
 
     use super::*;
 

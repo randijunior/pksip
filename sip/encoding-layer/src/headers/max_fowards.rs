@@ -23,7 +23,9 @@ impl MaxForwards {
 
 impl<'a> SipHeader<'a> for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
-
+    /*
+     * Max-Forwards  =  "Max-Forwards" HCOLON 1*DIGIT
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<MaxForwards> {
         let fowards = reader.read_num()?;
 

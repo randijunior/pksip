@@ -25,7 +25,17 @@ pub struct AuthenticationInfo<'a> {
 
 impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     const NAME: &'static str = "Authentication-Info";
-
+    /*
+     * Authentication-Info  =  "Authentication-Info" HCOLON ainfo
+     *                          *(COMMA ainfo)
+     * ainfo                =  nextnonce / message-qop
+     *				            / response-auth / cnonce
+     *				            / nonce-count
+     * nextnonce            =  "nextnonce" EQUAL nonce-value
+     * response-auth        =  "rspauth" EQUAL response-digest
+     * response-digest      =  LDQUOT *LHEX RDQUOT
+     *
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<AuthenticationInfo<'a>> {
         let mut auth_info = AuthenticationInfo::default();
 

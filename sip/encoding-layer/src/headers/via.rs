@@ -24,12 +24,12 @@ use reader::{space, until, Reader};
 
 use crate::headers::SipHeader;
 use crate::macros::{b_map, parse_param};
-use crate::msg::Host;
+use crate::message::Host;
 use crate::parser::{self, ALPHA_NUM, SIPV2, TOKEN};
 use crate::{
     macros::sip_parse_error,
-    msg::TransportProtocol,
-    msg::{HostPort, Params},
+    message::TransportProtocol,
+    message::{HostPort, Params},
     parser::Result,
 };
 use core::fmt;
@@ -138,7 +138,26 @@ impl fmt::Display for Via<'_> {
 impl<'a> SipHeader<'a> for Via<'a> {
     const NAME: &'static str = "Via";
     const SHORT_NAME: &'static str = "v";
-
+    /*
+     * Via               =  ( "Via" / "v" ) HCOLON via-parm *(COMMA via-parm)
+     * via-parm          =  sent-protocol LWS sent-by *( SEMI via-params )
+     * via-params        =  via-ttl / via-maddr
+     *                      / via-received / via-branch
+     *                      / via-extension
+     * via-ttl           =  "ttl" EQUAL ttl
+     * via-maddr         =  "maddr" EQUAL host
+     * via-received      =  "received" EQUAL (IPv4address / IPv6address)
+     * via-branch        =  "branch" EQUAL token
+     * via-extension     =  generic-param
+     * sent-protocol     =  protocol-name SLASH protocol-version
+     *                      SLASH transport
+     * protocol-name     =  "SIP" / token
+     * protocol-version  =  token
+     * transport         =  "UDP" / "TCP" / "TLS" / "SCTP"
+     *                      / other-transport
+     * sent-by           =  host [ COLON port ]
+     * ttl               =  1*3DIGIT ; 0 to 255
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         //@TODO: handle LWS
         parser::parse_sip_v2(reader)?;
@@ -212,7 +231,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::msg::Host;
+    use crate::message::Host;
 
     use super::*;
 

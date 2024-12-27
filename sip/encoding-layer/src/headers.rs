@@ -101,7 +101,7 @@ use std::{
 };
 
 use crate::{
-    msg::Params,
+    message::Params,
     parser::{self, Result},
 };
 

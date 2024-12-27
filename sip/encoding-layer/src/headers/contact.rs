@@ -5,7 +5,7 @@ use reader::Reader;
 use crate::{
     headers::{EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
-    msg::{Params, SipUri},
+    message::{Params, SipUri},
     parser::{self, Result},
 };
 
@@ -61,7 +61,21 @@ impl<'a> Contact<'a> {
 impl<'a> SipHeader<'a> for Contact<'a> {
     const NAME: &'static str = "Contact";
     const SHORT_NAME: &'static str = "m";
-
+    /* 
+     * Contact        =  ("Contact" / "m" ) HCOLON
+     *                   ( STAR / (contact-param *(COMMA contact-param)))
+     * contact-param  =  (name-addr / addr-spec) *(SEMI contact-params)
+     * name-addr      =  [ display-name ] LAQUOT addr-spec RAQUOT
+     * addr-spec      =  SIP-URI / SIPS-URI / absoluteURI
+     * display-name   =  *(token LWS)/ quoted-string
+     * 
+     * contact-params     =  c-p-q / c-p-expires
+     *                       / contact-extension
+     * c-p-q              =  "q" EQUAL qvalue
+     * c-p-expires        =  "expires" EQUAL delta-seconds
+     * contact-extension  =  generic-param
+     * delta-seconds      =  1*DIGIT
+    */
     fn parse(reader: &mut Reader<'a>) -> Result<Contact<'a>> {
         if reader.peek() == Some(&b'*') {
             reader.next();
@@ -97,7 +111,7 @@ impl fmt::Display for Contact<'_> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::msg::{Host, HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 

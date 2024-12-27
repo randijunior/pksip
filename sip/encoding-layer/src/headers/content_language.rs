@@ -16,7 +16,13 @@ pub struct ContentLanguage<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for ContentLanguage<'a> {
     const NAME: &'static str = "Content-Language";
-
+    /*
+     * Content-Language  =  "Content-Language" HCOLON
+     *                      language-tag *(COMMA language-tag)
+     * language-tag      =  primary-tag *( "-" subtag )
+     * primary-tag       =  1*8ALPHA
+     * subtag            =  1*8ALPHA
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<ContentLanguage<'a>> {
         let languages = hdr_list!(reader => unsafe {
             reader.read_as_str(is_lang)

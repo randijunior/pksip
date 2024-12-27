@@ -1,6 +1,6 @@
 use reader::{alpha, space, Reader};
 
-use crate::{msg::SipMethod, parser::Result};
+use crate::{message::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -30,7 +30,9 @@ impl<'a> CSeq {
 
 impl<'a> SipHeader<'a> for CSeq {
     const NAME: &'static str = "CSeq";
-
+    /*
+     * CSeq  =  "CSeq" HCOLON 1*DIGIT LWS Method
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<CSeq> {
         let cseq = reader.read_num()?;
 

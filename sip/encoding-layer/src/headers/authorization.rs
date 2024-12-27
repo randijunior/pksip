@@ -20,7 +20,34 @@ impl<'a> Authorization<'a> {
 
 impl<'a> SipHeader<'a> for Authorization<'a> {
     const NAME: &'static str = "Authorization";
-
+    /*
+     * Authorization     =  "Authorization" HCOLON credentials
+     * credentials       =  ("Digest" LWS digest-response)
+     *			            / other-response
+     * digest-response   =  dig-resp *(COMMA dig-resp)
+     * dig-resp          =  username / realm / nonce / digest-uri
+     *			            / dresponse / algorithm / cnonce
+     *			            / opaque / message-qop
+     *			            / nonce-count / auth-param
+     * username          =  "username" EQUAL username-value
+     * username-value    =  quoted-string
+     * digest-uri        =  "uri" EQUAL LDQUOT digest-uri-value RDQUOT
+     * digest-uri-value  =  rquest-uri ; Equal to request-uri as specified
+     *			            by HTTP/1.1
+     * message-qop       =  "qop" EQUAL qop-value
+     * cnonce            =  "cnonce" EQUAL cnonce-value
+     * cnonce-value      =  nonce-value
+     * nonce-count       =  "nc" EQUAL nc-value
+     * nc-value          =  8LHEX
+     * dresponse         =  "response" EQUAL request-digest
+     * request-digest    =  LDQUOT 32LHEX RDQUOT
+     * auth-param        =  auth-param-name EQUAL
+     * 			            ( token / quoted-string )
+     * auth-param-name   =  token
+     * other-response    =  auth-scheme LWS auth-param
+     *			            *(COMMA auth-param)
+     * auth-scheme       =  token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Authorization<'a>> {
         let credential = Credential::parse(reader)?;
 

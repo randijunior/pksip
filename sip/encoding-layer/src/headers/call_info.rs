@@ -1,6 +1,6 @@
 use reader::{until, Reader};
 
-use crate::{macros::parse_header_param, msg::Params, parser::Result};
+use crate::{macros::parse_header_param, message::Params, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -19,7 +19,12 @@ pub struct CallInfo<'a> {
 
 impl<'a> SipHeader<'a> for CallInfo<'a> {
     const NAME: &'static str = "Call-Info";
-
+    /*
+     * Call-Info = "Call-Info" HCOLON info * (COMMA info)
+     * info = LAQUOT absoluteURI RAQUOT * (SEMI info-param)
+     * info-param = ("purpose" EQUAL ("icon" | "info" | "card" | token)) |
+     *		        generic-param
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<CallInfo<'a>> {
         let mut purpose: Option<&'a str> = None;
         // must be an '<'

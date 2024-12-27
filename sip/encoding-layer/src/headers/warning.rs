@@ -18,7 +18,16 @@ pub struct Warning<'a> {
 
 impl<'a> SipHeader<'a> for Warning<'a> {
     const NAME: &'static str = "Warning";
-
+    /*
+     * Warning        =  "Warning" HCOLON warning-value *(COMMA warning-value)
+     * warning-value  =  warn-code SP warn-agent SP warn-text
+     * warn-code      =  3DIGIT
+     * warn-agent     =  hostport / pseudonym
+     *                   ;  the name or pseudonym of the server adding
+     *                   ;  the Warning header, for use in debugging
+     * warn-text      =  quoted-string
+     * pseudonym      =  token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let code = reader.read_num()?;
         space!(reader);

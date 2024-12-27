@@ -4,7 +4,7 @@ use reader::{util::is_alphabetic, Reader};
 use crate::{
     headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
-    msg::Params,
+    message::Params,
     parser::Result,
 };
 
@@ -58,7 +58,12 @@ pub(crate) fn is_lang(byte: &u8) -> bool {
 
 impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
     const NAME: &'static str = "Accept-Language";
-
+    /*
+     * Accept-Language  =  "Accept-Language" HCOLON
+     *                      [ language *(COMMA language) ]
+     * language         =  language-range *(SEMI accept-param)
+     * language-range   =  ( ( 1*8ALPHA *( "-" 1*8ALPHA ) ) / "*" )
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<AcceptLanguage<'a>> {
         let languages = hdr_list!(reader => {
             let language = unsafe { reader.read_as_str(is_lang) };

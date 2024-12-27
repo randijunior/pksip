@@ -18,7 +18,9 @@ pub struct Require<'a>(Vec<&'a str>);
 
 impl<'a> SipHeader<'a> for Require<'a> {
     const NAME: &'static str = "Require";
-
+    /*
+     * Require  =  "Require" HCOLON option-tag *(COMMA option-tag)
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let tags = hdr_list!(reader => parser::parse_token(reader)?);
 

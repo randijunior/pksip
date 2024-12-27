@@ -400,18 +400,6 @@ impl fmt::Display for NameAddr<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct GenericUri<'a> {
-    pub(crate) scheme: &'a str,
-    pub(crate) content: &'a str,
-}
-
-impl fmt::Display for GenericUri<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}:{}>", self.scheme, self.content)
-    }
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Params<'a> {
     pub(crate) inner: HashMap<&'a str, &'a str>,

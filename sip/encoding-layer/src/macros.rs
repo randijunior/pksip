@@ -41,7 +41,7 @@ macro_rules! parse_param {
         reader::space!($reader);
         match $reader.peek() {
             Some(&b';') => {
-                let mut params = $crate::msg::Params::new();
+                let mut params = $crate::message::Params::new();
                 while let Some(&b';') = $reader.peek() {
                         // take ';' character
                         $reader.next();

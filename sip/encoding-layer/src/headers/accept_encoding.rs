@@ -7,7 +7,7 @@ use reader::{util::is_newline, Reader};
 use crate::{
     headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
-    msg::Params,
+    message::Params,
     parser::{self, Result},
 };
 
@@ -55,7 +55,13 @@ impl<'a> AcceptEncoding<'a> {
 
 impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
     const NAME: &'static str = "Accept-Encoding";
-
+    /*
+     * Accept-Encoding  =  "Accept-Encoding" HCOLON
+     *                      [ encoding *(COMMA encoding) ]
+     * encoding         =  codings *(SEMI accept-param)
+     * codings          =  content-coding / "*"
+     * content-coding   =  token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<AcceptEncoding<'a>> {
         if reader.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());

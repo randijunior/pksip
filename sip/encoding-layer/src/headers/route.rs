@@ -4,7 +4,7 @@ use reader::Reader;
 
 use crate::{
     macros::parse_header_param,
-    msg::{NameAddr, Params},
+    message::{NameAddr, Params},
     parser::{self, Result},
 };
 
@@ -22,7 +22,10 @@ pub struct Route<'a> {
 
 impl<'a> SipHeader<'a> for Route<'a> {
     const NAME: &'static str = "Route";
-
+    /*
+     * Route        =  "Route" HCOLON route-param *(COMMA route-param)
+     * route-param  =  name-addr *( SEMI rr-param )
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let addr = parser::parse_name_addr(reader)?;
         let param = parse_header_param!(reader);
@@ -44,7 +47,7 @@ impl fmt::Display for Route<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::{Host, HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 

@@ -3,7 +3,7 @@ use std::fmt;
 use itertools::Itertools;
 use reader::{alpha, Reader};
 
-use crate::{macros::hdr_list, msg::SipMethod, parser::Result};
+use crate::{macros::hdr_list, message::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 /// The `Allow` SIP header
@@ -27,7 +27,9 @@ impl Allow {
 
 impl<'a> SipHeader<'a> for Allow {
     const NAME: &'static str = "Allow";
-
+    /*
+     * Allow  =  "Allow" HCOLON [Method *(COMMA Method)]
+     */
     fn parse(reader: &mut Reader) -> Result<Allow> {
         let allow = hdr_list!(reader => {
             let b_method = alpha!(reader);

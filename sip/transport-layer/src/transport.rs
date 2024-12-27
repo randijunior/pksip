@@ -19,7 +19,7 @@ use udp::Udp;
 
 use encoding_layer::{
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
-    msg::{SipRequest, SipResponse, StatusCode, TransportProtocol},
+    message::{SipRequest, SipResponse, StatusCode, TransportProtocol},
 };
 
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;

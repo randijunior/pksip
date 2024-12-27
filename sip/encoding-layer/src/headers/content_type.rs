@@ -20,7 +20,22 @@ pub struct ContentType<'a>(pub MediaType<'a>);
 impl<'a> SipHeader<'a> for ContentType<'a> {
     const NAME: &'static str = "Content-Type";
     const SHORT_NAME: &'static str = "c";
-
+    /*
+     * Content-Type     =  ( "Content-Type" / "c" ) HCOLON media-type
+     * media-type       =  m-type SLASH m-subtype *(SEMI m-parameter)
+     * m-type           =  discrete-type / composite-type
+     * discrete-type    =  "text" / "image" / "audio" / "video"
+     *                     / "application" / extension-token
+     * composite-type   =  "message" / "multipart" / extension-token
+     * extension-token  =  ietf-token / x-token
+     * ietf-token       =  token
+     * x-token          =  "x-" token
+     * m-subtype        =  extension-token / iana-token
+     * iana-token       =  token
+     * m-parameter      =  m-attribute EQUAL m-value
+     * m-attribute      =  token
+     * m-value          =  token / quoted-string
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<ContentType<'a>> {
         let mtype = parser::parse_token(reader)?;
         reader.must_read(b'/')?;

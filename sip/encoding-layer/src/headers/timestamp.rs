@@ -18,7 +18,11 @@ pub struct Timestamp<'a> {
 
 impl<'a> SipHeader<'a> for Timestamp<'a> {
     const NAME: &'static str = "Timestamp";
-
+    /*
+     * Timestamp  =  "Timestamp" HCOLON 1*(DIGIT)
+     *                [ "." *(DIGIT) ] [ LWS delay ]
+     * delay      =  *(DIGIT) [ "." *(DIGIT) ]
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let time = reader.read_number_as_str();
         space!(reader);

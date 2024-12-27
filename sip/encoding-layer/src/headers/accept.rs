@@ -30,13 +30,23 @@ impl<'a> Accept<'a> {
 
 impl<'a> SipHeader<'a> for Accept<'a> {
     const NAME: &'static str = "Accept";
-
+    /*
+     * Accept         =  "Accept" HCOLON [ accept-range *(COMMA accept-range) ]
+     * accept-range   =  media-range *(SEMI accept-param)
+     * media-range =  ( "*" "/" "*"
+     *                / ( m-type SLASH "*" )
+     *                / ( m-type SLASH m-subtype )
+     *                ) *( SEMI m-parameter )
+     * accept-param   =  ("q" EQUAL qvalue) / generic-param
+     * qvalue         =  ( "0" [ "." 0*3DIGIT ] ) ( "1" [ "." 0*3("0") ] )
+     * generic-param  =  token [ EQUAL gen-value ]
+     * gen-value      =  token / host / quoted-string
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Accept<'a>> {
         let mtypes = hdr_list!(reader => {
             let mtype = parser::parse_token(reader)?;
             reader.must_read(b'/')?;
             let subtype = parser::parse_token(reader)?;
-
             let param = parse_header_param!(reader);
 
             MediaType::new(mtype, subtype, param)

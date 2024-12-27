@@ -16,7 +16,12 @@ pub struct Server<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Server<'a> {
     const NAME: &'static str = "Server";
-
+    /*
+     * Server           =  "Server" HCOLON server-val *(LWS server-val)
+     * server-val       =  product / comment
+     * product          =  token [SLASH product-version]
+     * product-version  =  token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let server = Self::parse_as_str(reader)?;
 

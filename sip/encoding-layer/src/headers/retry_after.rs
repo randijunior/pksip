@@ -6,7 +6,7 @@ use reader::space;
 use reader::until;
 use reader::Reader;
 
-use crate::{macros::parse_header_param, msg::Params, parser::Result};
+use crate::{macros::parse_header_param, message::Params, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -24,7 +24,12 @@ pub struct RetryAfter<'a> {
 
 impl<'a> SipHeader<'a> for RetryAfter<'a> {
     const NAME: &'static str = "Retry-After";
-
+    /*
+     * Retry-After  =  "Retry-After" HCOLON delta-seconds
+     *                 [ comment ] *( SEMI retry-param )
+     * retry-param  =  ("duration" EQUAL delta-seconds)
+     *                 / generic-param
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let digits = reader.read_num()?;
         let mut comment = None;

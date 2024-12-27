@@ -3,7 +3,7 @@ use reader::Reader;
 use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
-    msg::{Params, SipUri},
+    message::{Params, SipUri},
     parser::{self, Result},
 };
 
@@ -25,7 +25,13 @@ pub struct From<'a> {
 impl<'a> SipHeader<'a> for From<'a> {
     const NAME: &'static str = "From";
     const SHORT_NAME: &'static str = "f";
-
+    /*
+     * From        =  ( "From" / "f" ) HCOLON from-spec
+     * from-spec   =  ( name-addr / addr-spec )
+     *                *( SEMI from-param )
+     * from-param  =  tag-param / generic-param
+     * tag-param   =  "tag" EQUAL token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<From<'a>> {
         let uri = parser::parse_sip_uri(reader, false)?;
         let mut tag = None;
@@ -54,7 +60,7 @@ impl fmt::Display for From<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::{Host, HostPort, Scheme};
+    use crate::message::{Host, HostPort, Scheme};
 
     use super::*;
 

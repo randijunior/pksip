@@ -14,7 +14,14 @@ pub struct WWWAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeader<'a> for WWWAuthenticate<'a> {
     const NAME: &'static str = "WWW-Authenticate";
-
+    /*
+     * WWW-Authenticate  =  "WWW-Authenticate" HCOLON challenge
+     * 
+     * extension-header  =  header-name HCOLON header-value
+     * header-name       =  token
+     * header-value      =  *(TEXT-UTF8char / UTF8-CONT / LWS)
+     * message-body  =  *OCTET
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let challenge = Challenge::parse(reader)?;
 

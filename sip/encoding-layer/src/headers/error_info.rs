@@ -1,18 +1,18 @@
 use std::{fmt, str};
 
 use itertools::Itertools;
-use reader::Reader;
+use reader::{until, Reader};
 
 use crate::{
     macros::{hdr_list, parse_header_param},
-    msg::{GenericUri, Params},
-    parser::{self, is_uri, Result},
+    message::Params,
+    parser::Result,
 };
 
 use crate::headers::SipHeader;
 #[derive(Debug, PartialEq, Eq)]
 pub struct ErrorInfoUri<'a> {
-    url: GenericUri<'a>,
+    url: &'a str,
     params: Option<Params<'a>>,
 }
 
@@ -36,19 +36,20 @@ pub struct ErrorInfo<'a>(Vec<ErrorInfoUri<'a>>);
 
 impl<'a> SipHeader<'a> for ErrorInfo<'a> {
     const NAME: &'static str = "Error-Info";
-
+    /*
+     * Error-Info  =  "Error-Info" HCOLON error-uri *(COMMA error-uri)
+     * error-uri   =  LAQUOT absoluteURI RAQUOT *( SEMI generic-param )
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<ErrorInfo<'a>> {
         let infos = hdr_list!(reader => {
-            // must be an '<'
             reader.must_read(b'<')?;
-            let scheme = parser::parse_token(reader)?;
-            reader.must_read(b':')?;
-            let content = unsafe { reader.read_as_str(is_uri) };
-            // must be an '>'
+            let url = until!(reader, &b'>');
             reader.must_read(b'>')?;
+    
+            let url = str::from_utf8(url)?;
             let params = parse_header_param!(reader);
             ErrorInfoUri {
-                url: GenericUri { scheme, content },
+                url,
                 params
             }
         });
@@ -75,7 +76,6 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let err = err_info.0.get(0).unwrap();
-        assert_eq!(err.url.scheme, "sip");
-        assert_eq!(err.url.content, "not-in-service-recording@atlanta.com");
+        assert_eq!(err.url, "sip:not-in-service-recording@atlanta.com");
     }
 }

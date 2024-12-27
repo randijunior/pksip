@@ -14,7 +14,18 @@ pub struct Date<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Date<'a> {
     const NAME: &'static str = "Date";
-
+    /*
+     * Date          =  "Date" HCOLON SIP-date
+     * SIP-date      =  rfc1123-date
+     * rfc1123-date  =  wkday "," SP date1 SP time SP "GMT"
+     * date1         =  2DIGIT SP month SP 4DIGIT
+     *                  ; day month year (e.g., 02 Jun 1982)
+     * time          =  2DIGIT ":" 2DIGIT ":" 2DIGIT
+     *                  ; 00:00:00 - 23:59:59
+     * wkday         =  "Mon" / "Tue" / "Wed"
+     *                  / "Thu" / "Fri" / "Sat" / "Sun"
+     * month         =  "Jan" / "Feb" / "Mar" / "Apr" ...
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Date<'a>> {
         let date = Self::parse_as_str(reader)?;
 

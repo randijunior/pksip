@@ -14,7 +14,9 @@ pub struct MinExpires(u32);
 
 impl<'a> SipHeader<'a> for MinExpires {
     const NAME: &'static str = "Min-Expires";
-
+    /*
+     * Min-Expires  =  "Min-Expires" HCOLON delta-seconds
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let expires = reader.read_num()?;
 

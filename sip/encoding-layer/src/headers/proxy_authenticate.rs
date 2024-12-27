@@ -14,7 +14,30 @@ pub struct ProxyAuthenticate<'a>(Challenge<'a>);
 
 impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
     const NAME: &'static str = "Proxy-Authenticate";
-
+    /*
+     * Proxy-Authenticate  =  "Proxy-Authenticate" HCOLON challenge
+     * challenge           =  ("Digest" LWS digest-cln *(COMMA digest-cln))
+     *                        / other-challenge
+     * other-challenge     =  auth-scheme LWS auth-param
+     *                        *(COMMA auth-param)
+     * digest-cln          =  realm / domain / nonce
+     *                         / opaque / stale / algorithm
+     *                         / qop-options / auth-param
+     * realm               =  "realm" EQUAL realm-value
+     * realm-value         =  quoted-string
+     * domain              =  "domain" EQUAL LDQUOT URI
+     *                        *( 1*SP URI ) RDQUOT
+     * URI                 =  absoluteURI / abs-path
+     * nonce               =  "nonce" EQUAL nonce-value
+     * nonce-value         =  quoted-string
+     * opaque              =  "opaque" EQUAL quoted-string
+     * stale               =  "stale" EQUAL ( "true" / "false" )
+     * algorithm           =  "algorithm" EQUAL ( "MD5" / "MD5-sess"
+     *                        / token )
+     * qop-options         =  "qop" EQUAL LDQUOT qop-value
+     *                        *("," qop-value) RDQUOT
+     * qop-value           =  "auth" / "auth-int" / token
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let challenge = Challenge::parse(reader)?;
 

@@ -14,7 +14,9 @@ pub struct MimeVersion<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for MimeVersion<'a> {
     const NAME: &'static str = "MIME-Version";
-
+    /*
+     * MIME-Version  =  "MIME-Version" HCOLON 1*DIGIT "." 1*DIGIT
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<MimeVersion<'a>> {
         let expires = reader.read_number_as_str();
 

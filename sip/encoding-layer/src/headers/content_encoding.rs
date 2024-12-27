@@ -30,7 +30,10 @@ impl<'a> ContentEncoding<'a> {
 impl<'a> SipHeader<'a> for ContentEncoding<'a> {
     const NAME: &'static str = "Content-Encoding";
     const SHORT_NAME: &'static str = "e";
-
+    /*
+     * Content-Encoding  =  ( "Content-Encoding" / "e" ) HCOLON
+     *                      content-coding *(COMMA content-coding)
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<ContentEncoding<'a>> {
         let codings = hdr_list!(reader => parser::parse_token(reader)?);
 

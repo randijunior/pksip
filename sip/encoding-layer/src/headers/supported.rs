@@ -18,7 +18,10 @@ pub struct Supported<'a>(Vec<&'a str>);
 impl<'a> SipHeader<'a> for Supported<'a> {
     const NAME: &'static str = "Supported";
     const SHORT_NAME: &'static str = "k";
-
+    /*
+     * Supported  =  ( "Supported" / "k" ) HCOLON
+     *               [option-tag *(COMMA option-tag)]
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let tags = hdr_list!(reader => parser::parse_token(reader)?);
 

@@ -15,7 +15,9 @@ pub struct Organization<'a>(&'a str);
 
 impl<'a> SipHeader<'a> for Organization<'a> {
     const NAME: &'static str = "Organization";
-
+    /*
+     * Organization  =  "Organization" HCOLON [TEXT-UTF8-TRIM]
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let organization = Self::parse_as_str(reader)?;
 

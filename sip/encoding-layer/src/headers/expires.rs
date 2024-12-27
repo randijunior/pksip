@@ -20,7 +20,9 @@ impl Expires {
 
 impl<'a> SipHeader<'a> for Expires {
     const NAME: &'static str = "Expires";
-
+    /*
+     * Expires     =  "Expires" HCOLON delta-seconds
+     */
     fn parse(reader: &mut Reader<'a>) -> Result<Expires> {
         let expires = reader.read_num()?;
 
