@@ -32,7 +32,6 @@ use crate::headers::MaxForwards;
 use crate::headers::MimeVersion;
 use crate::headers::MinExpires;
 use crate::headers::Organization;
-use crate::headers::Param;
 use crate::headers::Priority;
 use crate::headers::ProxyAuthenticate;
 use crate::headers::ProxyAuthorization;
@@ -67,6 +66,7 @@ use crate::message::{Host, NameAddr, SipUri, StatusCode};
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
 use crate::headers::Headers;
+use crate::common::Param;
 
 use crate::message::SipMessage;
 use crate::message::StatusLine;
@@ -142,10 +142,11 @@ pub(crate) fn is_token(b: &u8) -> bool {
 }
 
 fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-    let Param(name, value) =
+    let Param {name, value} =
         unsafe { Param::parse_unchecked(reader, is_param)? };
+    let value = Some(value.unwrap_or_default());
 
-    Ok(Param(name, Some(value.unwrap_or(""))))
+    Ok(Param { name, value })
 }
 
 fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
@@ -562,7 +563,7 @@ fn parse_header_params_in_sip_uri<'a>(
     loop {
         // take '&'
         reader.next();
-        let Param(name, value) = parse_hdr_in_uri(reader)?;
+        let Param {name, value} = parse_hdr_in_uri(reader)?;
         let value = value.unwrap_or("");
         params.set(name, value);
 

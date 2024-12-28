@@ -1,9 +1,9 @@
 use core::fmt;
 use std::str;
 
-use reader::Reader;
+use reader::{space, Reader};
 
-use crate::parser::Result;
+use crate::parser::{parse_token, Result};
 
 use crate::headers::SipHeader;
 
@@ -16,6 +16,22 @@ pub struct ContentLength(pub u32);
 impl ContentLength {
     pub fn new(c_len: u32) -> Self {
         Self(c_len)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut reader = Reader::new(bytes);
+        let name = parse_token(&mut reader)?;
+        assert_eq!(
+            name,
+            ContentLength::NAME,
+            "The sip header name is not {}",
+            ContentLength::NAME
+        );
+
+        reader.must_read(b':')?;
+
+        space!(reader);
+        ContentLength::parse(&mut reader)
     }
 }
 

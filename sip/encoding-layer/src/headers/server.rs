@@ -14,6 +14,12 @@ use crate::headers::SipHeader;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Server<'a>(&'a str);
 
+impl<'a> Server<'a> {
+    pub fn new(s: &'a str) -> Self {
+        Self(s)
+    }
+}
+
 impl<'a> SipHeader<'a> for Server<'a> {
     const NAME: &'static str = "Server";
     /*

@@ -9,7 +9,7 @@ use crate::{
     parser::{self, Result},
 };
 
-use super::MediaType;
+use crate::common::MediaType;
 
 /// The `Content-Type` SIP header.
 ///

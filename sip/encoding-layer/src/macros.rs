@@ -19,14 +19,14 @@ macro_rules! parse_header_param {
     ($reader:ident) => (
         $crate::macros::parse_param!(
             $reader,
-            $crate::headers::Param::parse,
+            $crate::common::Param::parse,
         )
     );
 
     ($reader:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $reader,
-            $crate::headers::Param::parse,
+            $crate::common::Param::parse,
             $($name = $var),*
         )
     );
@@ -47,13 +47,13 @@ macro_rules! parse_param {
                         $reader.next();
                         let param = $func($reader)?;
                         $(
-                            if param.0 == $name {
-                                $var = param.1;
+                            if param.name == $name {
+                                $var = param.value;
                                 reader::space!($reader);
                                 continue;
                             }
                         )*
-                        params.set(param.0, param.1.unwrap_or(""));
+                        params.set(param.name, param.value.unwrap_or(""));
                         reader::space!($reader);
                     }
                     if params.is_empty() {
@@ -90,6 +90,32 @@ macro_rules! comma_sep {
             $body
         }
     }};
+}
+
+#[macro_export]
+macro_rules! filter_map_header {
+    ($hdrs:expr, $header:ident) => {
+        $hdrs.filter_map(|hdr| {
+            if let $crate::headers::Header::$header(v) = hdr {
+                Some(v)
+            } else {
+                None
+            }
+        })
+    };
+}
+
+#[macro_export]
+macro_rules! find_map_header {
+    ($hdrs:expr, $header:ident) => {
+        $hdrs.find_map(|hdr| {
+            if let $crate::headers::Header::$header(v) = hdr {
+                Some(v)
+            } else {
+                None
+            }
+        })
+    };
 }
 
 macro_rules! sip_parse_error {

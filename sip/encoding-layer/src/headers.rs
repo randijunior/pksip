@@ -77,7 +77,6 @@ pub use priority::Priority;
 pub use proxy_authenticate::ProxyAuthenticate;
 pub use proxy_authorization::ProxyAuthorization;
 pub use proxy_require::ProxyRequire;
-use reader::{space, Reader};
 pub use record_route::RecordRoute;
 pub use reply_to::ReplyTo;
 pub use require::Require;
@@ -95,15 +94,13 @@ pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
 use core::fmt;
+use reader::{space, Reader};
 use std::{
     iter::{Filter, FilterMap},
     str,
 };
 
-use crate::{
-    message::Params,
-    parser::{self, Result},
-};
+use crate::parser::{parse_token, Result};
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
@@ -112,69 +109,6 @@ const TAG_PARAM: &str = "tag";
 const Q_PARAM: &str = "q";
 /// The expires parameter that is used normaly in [`Contact`] headers.
 const EXPIRES_PARAM: &str = "expires";
-
-/// This type represents a `q` parameter that is used normaly in [`Contact`], [`AcceptEncoding`]
-/// and [`AcceptLanguage`] headers.
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-pub struct Q(u8, u8);
-
-impl Q {
-    /// Parse the `q` param used in SIP header
-    //TODO: change to result
-    pub fn parse(src: &str) -> Option<Q> {
-        match src.rsplit_once(".") {
-            Some((first, second)) => match (first.parse(), second.parse()) {
-                (Ok(a), Ok(b)) => Some(Q(a, b)),
-                _ => None,
-            },
-            None => match src.parse() {
-                Ok(n) => Some(Q(n, 0)),
-                Err(_) => None,
-            },
-        }
-    }
-}
-
-impl fmt::Display for Q {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ";q={}.{}", self.0, self.1)
-    }
-}
-
-/// A Header param
-pub struct Param<'a>(pub &'a str, pub Option<&'a str>);
-
-impl<'a> Param<'a> {
-    pub unsafe fn parse_unchecked<F>(
-        reader: &mut Reader<'a>,
-        func: F,
-    ) -> Result<Param<'a>>
-    where
-        F: Fn(&u8) -> bool,
-    {
-        space!(reader);
-        let name = unsafe { reader.read_as_str(&func) };
-        let Some(&b'=') = reader.peek() else {
-            return Ok(Param(name, None));
-        };
-        reader.next();
-        let value = if let Some(&b'"') = reader.peek() {
-            reader.next();
-            let value = reader::until!(reader, &b'"');
-            reader.next();
-
-            str::from_utf8(value)?
-        } else {
-            unsafe { reader.read_as_str(func) }
-        };
-
-        Ok(Param(name, Some(value)))
-    }
-
-    pub fn parse(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-        unsafe { Self::parse_unchecked(reader, parser::is_token) }
-    }
-}
 
 /// Trait to parse SIP headers.
 ///
@@ -196,12 +130,27 @@ pub trait SipHeader<'a>: Sized {
         Self::parse(&mut reader)
     }
 
+    /// See the documentation for [`Header::parse_header_value_as_str`]
     fn parse_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
         Header::parse_header_value_as_str(reader)
     }
 }
 
-/// SIP headers, as defined in RFC3261.
+/// An SIP Header.
+///
+/// This enum contain the SIP headers, as defined in `RFC3261`.
+///
+/// # Examples
+///
+/// ```
+/// use encoding_layer::headers::{Header, ContentLength, CallId};
+///
+/// let c_len = Header::ContentLength(ContentLength::new(10));
+/// let cid = Header::CallId(CallId::new("bs9ki9iqbee8k5kal8mpqb"));
+///
+/// assert_eq!(Header::from_bytes(b"Content-Length: 10"), Ok(c_len));
+/// assert_eq!(Header::from_bytes(b"Call-ID: bs9ki9iqbee8k5kal8mpqb"), Ok(cid));
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header<'a> {
     /// `Accept` Header
@@ -392,6 +341,7 @@ impl fmt::Display for Header<'_> {
 }
 
 impl<'a> Header<'a> {
+    /// Parses the header value as a string slice using the provided `reader`.
     pub fn parse_header_value_as_str(
         reader: &mut Reader<'a>,
     ) -> Result<&'a str> {
@@ -400,41 +350,114 @@ impl<'a> Header<'a> {
         Ok(str::from_utf8(str)?)
     }
 
-    pub fn via(&self) -> Option<&Via> {
-        if let Header::Via(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
+    /// Parses a SIP `Header` from a byte slice.
+    ///
+    /// # Examples
+    /// ```
+    /// # use encoding_layer::headers::{Header, ContentLength};
+    /// let c_len = Header::ContentLength(ContentLength::new(10));
+    ///
+    /// assert_eq!(Header::from_bytes(b"Content-Length: 10"), Ok(c_len));
+    /// ```
+    pub fn from_bytes(bytes: &'a [u8]) -> Result<Self> {
+        let mut reader = Reader::new(bytes);
+        let reader = &mut reader;
 
-    pub fn to(&self) -> Option<&To> {
-        if let Header::To(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-    pub fn from(&self) -> Option<&From> {
-        if let Header::From(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
+        let header_name = parse_token(reader)?;
 
-    pub fn call_id(&self) -> Option<&CallId> {
-        if let Header::CallId(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-    pub fn cseq(&self) -> Option<&CSeq> {
-        if let Header::CSeq(v) = self {
-            Some(v)
-        } else {
-            None
+        space!(reader);
+        reader.must_read(b':')?;
+        space!(reader);
+
+        match header_name {
+            Accept::NAME => Ok(Header::Accept(Accept::parse(reader)?)),
+            AcceptEncoding::NAME => {
+                Ok(Header::AcceptEncoding(AcceptEncoding::parse(reader)?))
+            }
+            AcceptLanguage::NAME => {
+                Ok(Header::AcceptLanguage(AcceptLanguage::parse(reader)?))
+            }
+            AlertInfo::NAME => Ok(Header::AlertInfo(AlertInfo::parse(reader)?)),
+            Allow::NAME => Ok(Header::Allow(Allow::parse(reader)?)),
+            AuthenticationInfo::NAME => Ok(Header::AuthenticationInfo(
+                AuthenticationInfo::parse(reader)?,
+            )),
+            Authorization::NAME => {
+                Ok(Header::Authorization(Authorization::parse(reader)?))
+            }
+            CallId::NAME => Ok(Header::CallId(CallId::parse(reader)?)),
+            CallInfo::NAME => Ok(Header::CallInfo(CallInfo::parse(reader)?)),
+            Contact::NAME => Ok(Header::Contact(Contact::parse(reader)?)),
+            ContentDisposition::NAME => Ok(Header::ContentDisposition(
+                ContentDisposition::parse(reader)?,
+            )),
+            ContentEncoding::NAME => {
+                Ok(Header::ContentEncoding(ContentEncoding::parse(reader)?))
+            }
+            ContentLanguage::NAME => {
+                Ok(Header::ContentLanguage(ContentLanguage::parse(reader)?))
+            }
+            ContentLength::NAME => {
+                Ok(Header::ContentLength(ContentLength::parse(reader)?))
+            }
+            ContentType::NAME => {
+                Ok(Header::ContentType(ContentType::parse(reader)?))
+            }
+            CSeq::NAME => Ok(Header::CSeq(CSeq::parse(reader)?)),
+            Date::NAME => Ok(Header::Date(Date::parse(reader)?)),
+            ErrorInfo::NAME => Ok(Header::ErrorInfo(ErrorInfo::parse(reader)?)),
+            Expires::NAME => Ok(Header::Expires(Expires::parse(reader)?)),
+            From::NAME => Ok(Header::From(From::parse(reader)?)),
+            InReplyTo::NAME => Ok(Header::InReplyTo(InReplyTo::parse(reader)?)),
+            MaxForwards::NAME => {
+                Ok(Header::MaxForwards(MaxForwards::parse(reader)?))
+            }
+            MinExpires::NAME => {
+                Ok(Header::MinExpires(MinExpires::parse(reader)?))
+            }
+            MimeVersion::NAME => {
+                Ok(Header::MimeVersion(MimeVersion::parse(reader)?))
+            }
+            Organization::NAME => {
+                Ok(Header::Organization(Organization::parse(reader)?))
+            }
+            Priority::NAME => Ok(Header::Priority(Priority::parse(reader)?)),
+            ProxyAuthenticate::NAME => {
+                Ok(Header::ProxyAuthenticate(ProxyAuthenticate::parse(reader)?))
+            }
+            ProxyAuthorization::NAME => Ok(Header::ProxyAuthorization(
+                ProxyAuthorization::parse(reader)?,
+            )),
+            ProxyRequire::NAME => {
+                Ok(Header::ProxyRequire(ProxyRequire::parse(reader)?))
+            }
+            RetryAfter::NAME => {
+                Ok(Header::RetryAfter(RetryAfter::parse(reader)?))
+            }
+            Route::NAME => Ok(Header::Route(Route::parse(reader)?)),
+            RecordRoute::NAME => {
+                Ok(Header::RecordRoute(RecordRoute::parse(reader)?))
+            }
+            ReplyTo::NAME => Ok(Header::ReplyTo(ReplyTo::parse(reader)?)),
+            Require::NAME => Ok(Header::Require(Require::parse(reader)?)),
+            Server::NAME => Ok(Header::Server(Server::parse(reader)?)),
+            Subject::NAME => Ok(Header::Subject(Subject::parse(reader)?)),
+            Supported::NAME => Ok(Header::Supported(Supported::parse(reader)?)),
+            Timestamp::NAME => Ok(Header::Timestamp(Timestamp::parse(reader)?)),
+            To::NAME => Ok(Header::To(To::parse(reader)?)),
+            Unsupported::NAME => {
+                Ok(Header::Unsupported(Unsupported::parse(reader)?))
+            }
+            UserAgent::NAME => Ok(Header::UserAgent(UserAgent::parse(reader)?)),
+            Via::NAME => Ok(Header::Via(Via::parse(reader)?)),
+            Warning::NAME => Ok(Header::Warning(Warning::parse(reader)?)),
+            WWWAuthenticate::NAME => {
+                Ok(Header::WWWAuthenticate(WWWAuthenticate::parse(reader)?))
+            }
+            _ => Ok(Header::Other {
+                name: header_name,
+                value: Self::parse_header_value_as_str(reader)?,
+            }),
         }
     }
 }
@@ -445,12 +468,12 @@ impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
     }
 }
 
-/// A set of SIP Headers
+/// A set of SIP Headers.
 ///
-/// A wrapper over Vec<[`Header`]> that contains the header list
+/// A wrapper over Vec<[`Header`]> that contains the header list.
 ///
 /// # Examples
-/// ```rust
+/// ```
 /// # use encoding_layer::headers::Headers;
 /// # use encoding_layer::headers::Header;
 /// # use encoding_layer::headers::ContentLength;
@@ -478,11 +501,11 @@ impl<'a> Headers<'a> {
     /// Applies function to the headers and return the first no-none result.
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// # use encoding_layer::headers::Headers;
     /// # use encoding_layer::headers::Header;
     /// # use encoding_layer::headers::Expires;
-    /// let mut headers = Headers::from(vec![
+    /// let headers = Headers::from(vec![
     ///     Header::Expires(Expires::new(10))
     /// ]);
     ///
@@ -506,6 +529,26 @@ impl<'a> Headers<'a> {
         self.0.iter()
     }
 
+    /// Creates an iterator that both filters and maps an header.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use encoding_layer::headers::Headers;
+    /// # use encoding_layer::headers::Header;
+    /// # use encoding_layer::headers::Expires;
+    /// let headers = Headers::from(vec![
+    ///     Header::Expires(Expires::new(10))
+    /// ]);
+    /// let mut iter = headers.iter().filter_map(|h| match h {
+    ///     Header::Expires(e) => Some(e),
+    ///     _ => None
+    /// });
+    /// 
+    /// assert_eq!(iter.next(), Some(&Expires::new(10)));
+    /// assert_eq!(iter.next(), None);
+    /// ```
     pub fn filter_map<'b, T: 'a, F>(
         &'b self,
         f: F,
@@ -516,6 +559,23 @@ impl<'a> Headers<'a> {
         self.0.iter().filter_map(f)
     }
 
+    /// Creates an iterator which uses a closure to determine if an header should be yielded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use encoding_layer::headers::Headers;
+    /// # use encoding_layer::headers::Header;
+    /// # use encoding_layer::headers::Expires;
+    /// let headers = Headers::from(vec![
+    ///     Header::Expires(Expires::new(10))
+    /// ]);
+    ///
+    /// let mut iter = headers.iter().filter(|h| matches!(h, Header::Expires(_)));
+    /// 
+    /// assert_eq!(iter.next(), Some(&Header::Expires(Expires::new(10))));
+    /// assert_eq!(iter.next(), None);
+    /// ```
     pub fn filter<F>(
         &self,
         f: F,
@@ -526,60 +586,35 @@ impl<'a> Headers<'a> {
         self.0.iter().filter(f)
     }
 
+    /// Searches for an header that satisfies a predicate.
+    /// # Examples
+    ///
+    /// ```
+    /// # use encoding_layer::headers::Headers;
+    /// # use encoding_layer::headers::Header;
+    /// # use encoding_layer::headers::Expires;
+    /// let headers = Headers::from(vec![
+    ///     Header::Expires(Expires::new(10))
+    /// ]);
+    ///
+    /// let header = headers.iter().find(|h| matches!(h, Header::Expires(_)));
+    /// 
+    /// assert_eq!(header, Some(&Header::Expires(Expires::new(10))));
+    /// ```
     pub fn find<F>(&self, f: F) -> Option<&Header>
     where
         F: FnMut(&&Header) -> bool,
     {
         self.0.iter().find(f)
     }
-
+    /// Moves all the elements of `other` into `self`, leaving `other` empty.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity exceeds `isize::MAX` bytes.
+    /// ```
     pub fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0);
-    }
-
-    pub fn find_via(&self) -> Vec<&Via> {
-        self.filter_map(|hdr| {
-            if let Header::Via(v) = hdr {
-                Some(v)
-            } else {
-                None
-            }
-        })
-        .collect()
-    }
-
-    pub fn find_from(&self) -> Option<&Header> {
-        self.find(|hdr| {
-            if let Header::From(_) = hdr {
-                true
-            } else {
-                false
-            }
-        })
-    }
-
-    pub fn find_to(&self) -> Option<&Header> {
-        self.find(|hdr| if let Header::To(_) = hdr { true } else { false })
-    }
-
-    pub fn find_callid(&self) -> Option<&Header> {
-        self.find(|hdr| {
-            if let Header::CallId(_) = hdr {
-                true
-            } else {
-                false
-            }
-        })
-    }
-
-    pub fn find_cseq(&self) -> Option<&Header> {
-        self.find(|hdr| {
-            if let Header::CSeq(_) = hdr {
-                true
-            } else {
-                false
-            }
-        })
     }
 
     /// Push an new header.
@@ -625,40 +660,3 @@ impl Default for Headers<'_> {
     }
 }
 
-/// This type reprents an MIME type that indicates an content format.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct MimeType<'a> {
-    pub mtype: &'a str,
-    pub subtype: &'a str,
-}
-
-/// The `media-type` that appears in `Accept` and `Content-Type` SIP headers.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct MediaType<'a> {
-    pub mimetype: MimeType<'a>,
-    pub param: Option<Params<'a>>,
-}
-
-impl fmt::Display for MediaType<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let MediaType { mimetype, param } = self;
-        write!(f, "{}/{}", mimetype.mtype, mimetype.subtype)?;
-        if let Some(param) = &param {
-            write!(f, ";{}", param)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'a> MediaType<'a> {
-    pub fn new(
-        mtype: &'a str,
-        subtype: &'a str,
-        param: Option<Params<'a>>,
-    ) -> Self {
-        Self {
-            mimetype: MimeType { mtype, subtype },
-            param,
-        }
-    }
-}

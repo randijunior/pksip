@@ -4,14 +4,14 @@ use reader::Reader;
 
 use crate::{
     headers::{EXPIRES_PARAM, Q_PARAM},
-    macros::parse_header_param,
+    macros::{parse_header_param, sip_parse_error},
     message::{Params, SipUri},
     parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
 
-use super::Q;
+use crate::common::Q;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContactUri<'a> {
@@ -86,7 +86,8 @@ impl<'a> SipHeader<'a> for Contact<'a> {
         let mut expires = None;
         let param =
             parse_header_param!(reader, Q_PARAM = q, EXPIRES_PARAM = expires);
-        let q = q.and_then(|q| Q::parse(q));
+
+        let q = q.map(|q| q.parse()).transpose()?;
         let expires = expires.and_then(|expires| expires.parse().ok());
 
         Ok(Contact::Uri(ContactUri {

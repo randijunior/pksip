@@ -18,8 +18,7 @@ use tokio::sync::mpsc;
 use udp::Udp;
 
 use encoding_layer::{
-    headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
-    message::{SipRequest, SipResponse, StatusCode, TransportProtocol},
+    filter_map_header, find_map_header, headers::{self, CSeq, CallId, Headers, SipHeader, To, Via}, message::{SipRequest, SipResponse, StatusCode, TransportProtocol}
 };
 
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
@@ -171,12 +170,17 @@ impl std::fmt::Display for RequestHeaders<'_> {
 
 impl<'a> From<&'a Headers<'a>> for RequestHeaders<'a> {
     fn from(hdrs: &'a Headers<'a>) -> Self {
+        let via = filter_map_header!(hdrs, Via);
+        let from = find_map_header!(hdrs, From);
+        let to = find_map_header!(hdrs, To);
+        let callid = find_map_header!(hdrs, CallId);
+        let cseq = find_map_header!(hdrs, CSeq);
         Self {
-            via: hdrs.find_via().into_iter().cloned().collect(),
-            from: hdrs.find_from().unwrap().from().unwrap().clone(),
-            to: hdrs.find_to().unwrap().to().unwrap().clone(),
-            callid: hdrs.find_callid().unwrap().call_id().unwrap().clone(),
-            cseq: hdrs.find_cseq().unwrap().cseq().unwrap().clone(),
+            via: via.cloned().collect(),
+            from: from.unwrap().clone(),
+            to: to.unwrap().clone(),
+            callid: callid.unwrap().clone(),
+            cseq: cseq.unwrap().clone(),
         }
     }
 }

@@ -11,7 +11,7 @@ use crate::{
 use crate::headers::SipHeader;
 use std::{fmt, str};
 
-use super::Q;
+use crate::common::Q;
 
 /// A `language` that apear in `Accept-Language` header.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,7 +69,7 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
             let language = unsafe { reader.read_as_str(is_lang) };
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
-            let q = q_param.and_then(|q| Q::parse(q));
+            let q = q_param.map(|q| q.parse()).transpose()?;
 
             Language { language, q, param }
         });

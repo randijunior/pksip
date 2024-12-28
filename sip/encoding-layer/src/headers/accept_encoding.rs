@@ -13,7 +13,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use super::Q;
+use crate::common::Q;
 
 /// A `coding` that apear in `Accept-Encoding` header
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -70,7 +70,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
             let coding = parser::parse_token(reader)?;
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
-            let q = q_param.and_then(|q| Q::parse(q));
+            let q = q_param.map(|q| q.parse()).transpose()?;
 
             Coding { coding, q, param }
         });
