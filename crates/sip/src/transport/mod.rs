@@ -17,8 +17,10 @@ use std::io::Write;
 use tokio::sync::mpsc;
 use udp::Udp;
 
-use encoding_layer::{
-    filter_map_header, find_map_header, headers::{self, CSeq, CallId, Headers, SipHeader, To, Via}, message::{SipRequest, SipResponse, StatusCode, TransportProtocol}
+use crate::{
+    filter_map_header, find_map_header,
+    headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
+    message::{SipRequest, SipResponse, StatusCode, TransportProtocol},
 };
 
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;

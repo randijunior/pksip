@@ -1,10 +1,7 @@
 [workspace]
-members = [ "reader", "sip/encoding-layer", "sip/transaction-layer", "sip/transport-layer", "sip/tu-layer", ]
+members = [ "crates/sip", "crates/reader"]
 resolver = "1"
 
 [workspace.dependencies]
-encoding-layer = { path = "sip/encoding-layer" }
-transport-layer = { path = "sip/transport-layer" }
-transaction-layer = { path = "sip/transaction-layer" }
-tu-layer = { path = "sip/tu-layer" }
-reader = { path = "reader" }
+sip = {path = "crates/sip"}
+reader = { path = "crates/reader" }

@@ -1,4 +1,7 @@
-use std::{fmt, str::{self,FromStr}};
+use std::{
+    fmt,
+    str::{self, FromStr},
+};
 
 use reader::{space, Reader};
 
@@ -6,22 +9,21 @@ use crate::{message::Params, parser::SipParserError};
 
 use crate::parser::{self, Result};
 
-
 /// A parameter.
 ///
 /// This struct represents a parameter in a SIP message, consisting of a name and an optional value.
 ///
 /// # Examples
 ///
-/// ```rust
-/// use encoding_layer::common::Param;
+/// ```
+/// use sip::common::Param;
 /// use reader::Reader;
 ///
 /// let mut reader = Reader::new(b"param=value");
 /// let param = Param::parse(&mut reader).unwrap();
 ///
-/// assert_eq!(param.0, "param");
-/// assert_eq!(param.1, Some("value"));
+/// assert_eq!(param.name, "param");
+/// assert_eq!(param.value, Some("value"));
 /// ```
 pub struct Param<'a> {
     pub name: &'a str,
@@ -52,14 +54,16 @@ impl<'a> Param<'a> {
             unsafe { reader.read_as_str(func) }
         };
 
-        return Ok(Param { name, value: Some(value) });
+        return Ok(Param {
+            name,
+            value: Some(value),
+        });
     }
 
     pub fn parse(reader: &mut Reader<'a>) -> Result<Param<'a>> {
         unsafe { Self::parse_unchecked(reader, parser::is_token) }
     }
 }
-
 
 /// Represents a quality value (q-value) used in SIP headers.
 ///
@@ -70,7 +74,7 @@ impl<'a> Param<'a> {
 /// # Example
 ///
 /// ```
-/// use encoding_layer::common::Q;
+/// use sip::common::Q;
 ///
 /// let q_value = "0.5".parse();
 /// assert_eq!(q_value, Ok(Q(0, 5)));

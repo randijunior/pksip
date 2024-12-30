@@ -65,8 +65,8 @@ use crate::message::{Host, NameAddr, SipUri, StatusCode};
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
-use crate::headers::Headers;
 use crate::common::Param;
+use crate::headers::Headers;
 
 use crate::message::SipMessage;
 use crate::message::StatusLine;
@@ -142,7 +142,7 @@ pub(crate) fn is_token(b: &u8) -> bool {
 }
 
 fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
-    let Param {name, value} =
+    let Param { name, value } =
         unsafe { Param::parse_unchecked(reader, is_param)? };
     let value = Some(value.unwrap_or_default());
 
@@ -563,7 +563,7 @@ fn parse_header_params_in_sip_uri<'a>(
     loop {
         // take '&'
         reader.next();
-        let Param {name, value} = parse_hdr_in_uri(reader)?;
+        let Param { name, value } = parse_hdr_in_uri(reader)?;
         let value = value.unwrap_or("");
         params.set(name, value);
 

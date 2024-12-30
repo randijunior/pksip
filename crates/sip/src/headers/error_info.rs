@@ -45,7 +45,7 @@ impl<'a> SipHeader<'a> for ErrorInfo<'a> {
             reader.must_read(b'<')?;
             let url = until!(reader, &b'>');
             reader.must_read(b'>')?;
-    
+
             let url = str::from_utf8(url)?;
             let params = parse_header_param!(reader);
             ErrorInfoUri {

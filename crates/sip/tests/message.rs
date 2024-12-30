@@ -1,12 +1,12 @@
 use assert_matches::assert_matches;
-use encoding_layer::{
+use sip::{
     headers::Header,
-    message::{Host, Scheme, SipMethod, TransportProtocol}
+    message::{Host, Scheme, SipMethod, TransportProtocol},
 };
 
 #[test]
 fn test_parse_msg_1() {
-    let parsed = encoding_layer::parser::parse_sip_msg(
+    let parsed = sip::parser::parse_sip_msg(
         b"INVITE sip:bob@biloxi.com SIP/2.0\r\n\
     Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n\
     Max-Forwards: 70\r\n\
@@ -101,7 +101,7 @@ fn test_parse_msg_1() {
 
 #[test]
 fn test_parse_msg_2() {
-    let parsed = encoding_layer::parser::parse_sip_msg(
+    let parsed = sip::parser::parse_sip_msg(
         b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
         Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
         Max-Forwards: 70\r\n\

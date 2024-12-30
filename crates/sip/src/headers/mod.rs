@@ -143,7 +143,7 @@ pub trait SipHeader<'a>: Sized {
 /// # Examples
 ///
 /// ```
-/// use encoding_layer::headers::{Header, ContentLength, CallId};
+/// use sip::headers::{Header, ContentLength, CallId};
 ///
 /// let c_len = Header::ContentLength(ContentLength::new(10));
 /// let cid = Header::CallId(CallId::new("bs9ki9iqbee8k5kal8mpqb"));
@@ -354,7 +354,7 @@ impl<'a> Header<'a> {
     ///
     /// # Examples
     /// ```
-    /// # use encoding_layer::headers::{Header, ContentLength};
+    /// # use sip::headers::{Header, ContentLength};
     /// let c_len = Header::ContentLength(ContentLength::new(10));
     ///
     /// assert_eq!(Header::from_bytes(b"Content-Length: 10"), Ok(c_len));
@@ -474,9 +474,9 @@ impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
 ///
 /// # Examples
 /// ```
-/// # use encoding_layer::headers::Headers;
-/// # use encoding_layer::headers::Header;
-/// # use encoding_layer::headers::ContentLength;
+/// # use sip::headers::Headers;
+/// # use sip::headers::Header;
+/// # use sip::headers::ContentLength;
 /// let mut headers = Headers::new();
 /// headers.push(Header::ContentLength(ContentLength::new(10)));
 ///
@@ -491,7 +491,7 @@ impl<'a> Headers<'a> {
     ///
     /// # Examples
     /// ```
-    /// # use encoding_layer::headers::Headers;
+    /// # use sip::headers::Headers;
     /// let mut headers = Headers::new();
     /// ```
     pub fn new() -> Self {
@@ -502,9 +502,9 @@ impl<'a> Headers<'a> {
     ///
     /// # Examples
     /// ```
-    /// # use encoding_layer::headers::Headers;
-    /// # use encoding_layer::headers::Header;
-    /// # use encoding_layer::headers::Expires;
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
     /// let headers = Headers::from(vec![
     ///     Header::Expires(Expires::new(10))
     /// ]);
@@ -535,9 +535,9 @@ impl<'a> Headers<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use encoding_layer::headers::Headers;
-    /// # use encoding_layer::headers::Header;
-    /// # use encoding_layer::headers::Expires;
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
     /// let headers = Headers::from(vec![
     ///     Header::Expires(Expires::new(10))
     /// ]);
@@ -545,7 +545,7 @@ impl<'a> Headers<'a> {
     ///     Header::Expires(e) => Some(e),
     ///     _ => None
     /// });
-    /// 
+    ///
     /// assert_eq!(iter.next(), Some(&Expires::new(10)));
     /// assert_eq!(iter.next(), None);
     /// ```
@@ -564,15 +564,15 @@ impl<'a> Headers<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use encoding_layer::headers::Headers;
-    /// # use encoding_layer::headers::Header;
-    /// # use encoding_layer::headers::Expires;
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
     /// let headers = Headers::from(vec![
     ///     Header::Expires(Expires::new(10))
     /// ]);
     ///
     /// let mut iter = headers.iter().filter(|h| matches!(h, Header::Expires(_)));
-    /// 
+    ///
     /// assert_eq!(iter.next(), Some(&Header::Expires(Expires::new(10))));
     /// assert_eq!(iter.next(), None);
     /// ```
@@ -590,15 +590,15 @@ impl<'a> Headers<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use encoding_layer::headers::Headers;
-    /// # use encoding_layer::headers::Header;
-    /// # use encoding_layer::headers::Expires;
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
     /// let headers = Headers::from(vec![
     ///     Header::Expires(Expires::new(10))
     /// ]);
     ///
     /// let header = headers.iter().find(|h| matches!(h, Header::Expires(_)));
-    /// 
+    ///
     /// assert_eq!(header, Some(&Header::Expires(Expires::new(10))));
     /// ```
     pub fn find<F>(&self, f: F) -> Option<&Header>
@@ -621,9 +621,9 @@ impl<'a> Headers<'a> {
     ///
     /// # Example
     /// ```
-    /// # use encoding_layer::headers::Headers;
-    /// # use encoding_layer::headers::Header;
-    /// # use encoding_layer::headers::Expires;
+    /// # use sip::headers::Headers;
+    /// # use sip::headers::Header;
+    /// # use sip::headers::Expires;
     /// let mut headers = Headers::new();
     ///
     /// headers.push(Header::Expires(Expires::new(10)));
@@ -659,4 +659,3 @@ impl Default for Headers<'_> {
         Self::new()
     }
 }
-

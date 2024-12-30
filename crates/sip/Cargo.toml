@@ -1,12 +1,18 @@
 [package]
-name = "transport-layer"
+name = "sip"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-encoding-layer.workspace = true
+reader.workspace = true
+itertools = "0.13.0"
 async-trait = "0.1.83"
 arrayvec = "0.7.6"
+hickory-resolver = "0.24.1"
 tokio = { version = "1.41.1", features = ["full"] }
+
+[dev-dependencies]
+assert_matches = "1.5"
+criterion = "0.5"

@@ -16,7 +16,7 @@ impl<'a> SipHeader<'a> for WWWAuthenticate<'a> {
     const NAME: &'static str = "WWW-Authenticate";
     /*
      * WWW-Authenticate  =  "WWW-Authenticate" HCOLON challenge
-     * 
+     *
      * extension-header  =  header-name HCOLON header-value
      * header-name       =  token
      * header-value      =  *(TEXT-UTF8char / UTF8-CONT / LWS)

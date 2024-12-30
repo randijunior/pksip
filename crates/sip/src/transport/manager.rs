@@ -7,7 +7,7 @@ use std::{
 
 use tokio::sync::mpsc::{self};
 
-use encoding_layer::message::TransportProtocol;
+use crate::message::TransportProtocol;
 
 use super::{
     MsgBuffer, OutgoingInfo, Packet, SipTransport, Transport, TxResponse,

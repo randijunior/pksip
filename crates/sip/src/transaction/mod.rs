@@ -4,10 +4,8 @@ use std::{
     time::Duration,
 };
 
-use encoding_layer::message::{HostPort, SipMethod};
-use transport_layer::transport::{
-    OutgoingInfo, RxRequest, RxResponse, TxResponse,
-};
+use crate::message::{HostPort, SipMethod};
+use crate::transport::{OutgoingInfo, RxRequest, RxResponse, TxResponse};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Rfc2543<'a> {
@@ -129,7 +127,9 @@ impl Transaction<'_> {
         if resp.code().is_provisional() {
             match self {
                 Transaction::Client(tsx) => todo!(),
-                Transaction::Server(tsx) => tsx.state = TransactionState::Proceeding,
+                Transaction::Server(tsx) => {
+                    tsx.state = TransactionState::Proceeding
+                }
             }
         }
     }

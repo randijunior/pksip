@@ -21,7 +21,7 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
      */
     fn parse(reader: &mut Reader<'a>) -> Result<AlertInfo<'a>> {
         space!(reader);
-        
+
         reader.must_read(b'<')?;
         let url = until!(reader, &b'>');
         reader.must_read(b'>')?;
