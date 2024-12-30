@@ -11,7 +11,7 @@ use crate::{
 use crate::headers::SipHeader;
 use std::{fmt, str};
 
-use crate::common::Q;
+use crate::internal::Q;
 
 /// A `language` that apear in `Accept-Language` header.
 #[derive(Debug, Clone, PartialEq, Eq)]

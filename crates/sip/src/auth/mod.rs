@@ -2,7 +2,7 @@ use reader::Reader;
 use std::fmt;
 
 use crate::{
-    common::Param,
+    internal::Param,
     macros::comma_sep,
     message::Params,
     parser::{self, Result},

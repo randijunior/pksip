@@ -13,7 +13,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use crate::common::Q;
+use crate::internal::Q;
 
 /// A `coding` that apear in `Accept-Encoding` header
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

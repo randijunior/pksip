@@ -1,23 +1,25 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-use encoding_layer::{
+use resolver::{Resolver, ServerAddress};
+use service::SipService;
+
+use crate::{
     headers::{Headers, Via},
     message::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
-    parser::parse_sip_msg,
+    parser::parse_sip_msg, transaction::{ServerTransaction, TransactionKey, Transactions},
 };
-use transaction_layer::{ServerTransaction, TransactionKey, Transactions};
-use transport_layer::transport::{
+
+use crate::transport::{
     manager::{TransportLayer, CRLF, END},
     IncomingInfo, OutgoingInfo, Packet, RequestHeaders, RxRequest, RxResponse,
     Transport, TxResponse,
 };
 
-use crate::{
-    resolver::{Resolver, ServerAddress},
-    service::SipService,
-};
+mod resolver;
+mod service;
 
-pub struct SipServerBuilder {
+
+pub struct EndpointBuilder {
     transports: TransportLayer,
     name: String,
     dns_resolver: Resolver,
@@ -27,9 +29,9 @@ pub struct SipServerBuilder {
     services: Vec<Box<dyn SipService>>,
 }
 
-impl SipServerBuilder {
+impl EndpointBuilder {
     pub fn new() -> Self {
-        SipServerBuilder {
+        EndpointBuilder {
             transports: TransportLayer::new(),
             name: String::new(),
             capabilities: Headers::new(),
@@ -51,8 +53,8 @@ impl SipServerBuilder {
         self
     }
 
-    pub fn build(self) -> SipServer {
-        let SipServerBuilder {
+    pub fn build(self) -> Endpoint {
+        let EndpointBuilder {
             transports,
             name,
             capabilities,
@@ -61,7 +63,7 @@ impl SipServerBuilder {
             transactions,
         } = self;
 
-        SipServer(Arc::new(Inner {
+        Endpoint(Arc::new(Inner {
             transactions,
             transports,
             name,
@@ -82,9 +84,9 @@ pub struct Inner {
 }
 
 #[derive(Clone)]
-pub struct SipServer(Arc<Inner>);
+pub struct Endpoint(Arc<Inner>);
 
-impl Deref for SipServer {
+impl Deref for Endpoint {
     type Target = Inner;
 
     fn deref(&self) -> &Self::Target {
@@ -92,7 +94,7 @@ impl Deref for SipServer {
     }
 }
 
-impl<'a> SipServer {
+impl<'a> Endpoint {
     pub async fn run(&self) -> io::Result<()> {
         let mut rx = self.transports.start();
         while let Some(tp_msg) = rx.recv().await {

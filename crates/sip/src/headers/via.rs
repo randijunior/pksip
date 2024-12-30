@@ -36,7 +36,7 @@ use core::fmt;
 use std::net::IpAddr;
 use std::str;
 
-use crate::common::Param;
+use crate::internal::Param;
 
 b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 

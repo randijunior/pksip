@@ -2,7 +2,7 @@ use reader::Reader;
 
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
-    common::Param,
+    internal::Param,
     macros::{comma_sep, sip_parse_error},
     parser::Result,
 };

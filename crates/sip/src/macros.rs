@@ -19,14 +19,14 @@ macro_rules! parse_header_param {
     ($reader:ident) => (
         $crate::macros::parse_param!(
             $reader,
-            $crate::common::Param::parse,
+            $crate::internal::Param::parse,
         )
     );
 
     ($reader:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $reader,
-            $crate::common::Param::parse,
+            $crate::internal::Param::parse,
             $($name = $var),*
         )
     );

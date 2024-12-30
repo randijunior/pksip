@@ -11,7 +11,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use crate::common::Q;
+use crate::internal::Q;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContactUri<'a> {

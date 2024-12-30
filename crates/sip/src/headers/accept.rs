@@ -10,7 +10,7 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use crate::common::MediaType;
+use crate::internal::MediaType;
 
 /// The `Accept` SIP header.
 ///
