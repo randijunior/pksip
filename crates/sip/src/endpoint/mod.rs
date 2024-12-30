@@ -10,7 +10,7 @@ use crate::{
 };
 
 use crate::transport::{
-    manager::{TransportLayer, CRLF, END},
+    TransportLayer, CRLF, END,
     IncomingInfo, OutgoingInfo, Packet, RequestHeaders, RxRequest, RxResponse,
     Transport, TxResponse,
 };
