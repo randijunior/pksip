@@ -8,7 +8,7 @@ use crate::{
     headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::{self, Result},
+    parser::{self, Result, SipParserError},
 };
 
 use crate::headers::SipHeader;
@@ -22,6 +22,17 @@ pub struct Coding<'a> {
     q: Option<Q>,
     param: Option<Params<'a>>,
 }
+
+impl<'a> Coding<'a> {
+    pub fn new(
+        coding: &'a str,
+        q: Option<Q>,
+        param: Option<Params<'a>>,
+    ) -> Self {
+        Self { coding, q, param }
+    }
+}
+
 
 impl fmt::Display for Coding<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -41,15 +52,41 @@ impl fmt::Display for Coding<'_> {
 ///
 /// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
 /// process.
+/// 
+/// # Examples
+///
+/// ```
+/// # use sip::headers::{AcceptEncoding};
+/// # use sip::headers::accept_encoding::Coding;
+/// # use sip::internal::Q;
+/// let mut encoding = AcceptEncoding::default();
+/// encoding.push(Coding::new("gzip", Some(Q::from(1)), None));
+/// encoding.push(Coding::new("compress", None, None));
+///
+/// assert_eq!("gzip;q=1, compress".as_bytes().try_into(), Ok(encoding));
+/// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
 impl<'a> AcceptEncoding<'a> {
+    pub fn push(&mut self, coding: Coding<'a>) {
+        self.0.push(coding);
+    }
+
     pub fn get(&self, index: usize) -> Option<&Coding<'a>> {
         self.0.get(index)
     }
+
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for AcceptEncoding<'a> {
+    type Error = SipParserError;
+    
+    fn try_from(value: &'a [u8]) -> Result<Self> {
+        Self::from_bytes(value)
     }
 }
 
@@ -62,7 +99,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
      * codings          =  content-coding / "*"
      * content-coding   =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<AcceptEncoding<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         if reader.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::default());
         }

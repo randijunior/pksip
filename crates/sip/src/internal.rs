@@ -16,7 +16,7 @@ use crate::parser::{self, Result};
 /// # Examples
 ///
 /// ```
-/// use sip::common::Param;
+/// use sip::internal::Param;
 /// use reader::Reader;
 ///
 /// let mut reader = Reader::new(b"param=value");
@@ -74,7 +74,7 @@ impl<'a> Param<'a> {
 /// # Example
 ///
 /// ```
-/// use sip::common::Q;
+/// use sip::internal::Q;
 ///
 /// let q_value = "0.5".parse();
 /// assert_eq!(q_value, Ok(Q(0, 5)));
@@ -82,6 +82,16 @@ impl<'a> Param<'a> {
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Q(pub u8, pub u8);
 
+impl Q {
+    pub fn new(a: u8, b: u8) -> Self {
+        Self(a, b)
+    }
+}
+impl From<u8> for Q {
+    fn from(value: u8) -> Self {
+        Self(value, 0)
+    }
+}
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseQError;
 

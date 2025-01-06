@@ -5,7 +5,7 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
-    parser::{self, Result},
+    parser::{self, Result, SipParserError},
 };
 
 use crate::headers::SipHeader;
@@ -15,10 +15,34 @@ use crate::internal::MediaType;
 /// The `Accept` SIP header.
 ///
 /// Indicates witch media types the client can process.
+/// 
+/// # Examples
+///
+/// ```
+/// # use sip::headers::Accept;
+/// # use sip::internal::{Q, MediaType};
+/// let mut accept = Accept::default();
+/// accept.push(MediaType::new("application", "sdp", None));
+/// accept.push(MediaType::new("message", "sipfrag", None));
+/// 
+/// assert_eq!("application/sdp, message/sipfrag".as_bytes().try_into(), Ok(accept));
+/// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
+impl<'a> TryFrom<&'a [u8]> for Accept<'a> {
+    type Error = SipParserError;
+
+    fn try_from(value: &'a [u8]) -> Result<Self> {
+        Self::from_bytes(value)
+    }
+}
+
 impl<'a> Accept<'a> {
+    pub fn push(&mut self, mtype: MediaType<'a>) {
+        self.0.push(mtype);
+    }
+
     pub fn get(&self, index: usize) -> Option<&MediaType<'a>> {
         self.0.get(index)
     }

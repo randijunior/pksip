@@ -3,19 +3,36 @@ use std::fmt;
 use itertools::Itertools;
 use reader::{alpha, Reader};
 
+use crate::parser::SipParserError;
 use crate::{macros::hdr_list, message::SipMethod, parser::Result};
 
 use crate::headers::SipHeader;
 /// The `Allow` SIP header
 ///
 /// Indicates what methods is supported by the `UA`.
-#[derive(Debug, PartialEq, Eq)]
+/// 
+/// # Examples
+///
+/// ```
+/// # use sip::headers::Allow;
+/// # use sip::message::SipMethod;
+/// let mut allow = Allow::new();
+/// allow.push(SipMethod::Invite);
+/// allow.push(SipMethod::Register);
+/// 
+/// assert_eq!("INVITE, REGISTER".as_bytes().try_into(), Ok(allow));
+/// ```
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Allow(Vec<SipMethod>);
 
 impl Allow {
     pub fn new() -> Self {
         Self(Vec::new())
     }
+    pub fn push(&mut self, method: SipMethod) {
+        self.0.push(method);
+    }
+
     pub fn get(&self, index: usize) -> Option<&SipMethod> {
         self.0.get(index)
     }
@@ -25,12 +42,20 @@ impl Allow {
     }
 }
 
+impl TryFrom<&[u8]> for Allow {
+    type Error = SipParserError;
+    
+    fn try_from(value: &[u8]) -> Result<Self> {
+        Self::parse(&mut Reader::new(value))
+    }
+}
+
 impl<'a> SipHeader<'a> for Allow {
     const NAME: &'static str = "Allow";
     /*
      * Allow  =  "Allow" HCOLON [Method *(COMMA Method)]
      */
-    fn parse(reader: &mut Reader) -> Result<Allow> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let allow = hdr_list!(reader => {
             let b_method = alpha!(reader);
 

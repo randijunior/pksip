@@ -4,7 +4,7 @@ use reader::Reader;
 
 use crate::{
     headers::{EXPIRES_PARAM, Q_PARAM},
-    macros::{parse_header_param, sip_parse_error},
+    macros::parse_header_param,
     message::{Params, SipUri},
     parser::{self, Result},
 };

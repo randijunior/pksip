@@ -5,7 +5,7 @@ use crate::{
     headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::Result,
+    parser::{Result, SipParserError},
 };
 
 use crate::headers::SipHeader;
@@ -19,6 +19,16 @@ pub struct Language<'a> {
     language: &'a str,
     q: Option<Q>,
     param: Option<Params<'a>>,
+}
+
+impl<'a> Language<'a> {
+    pub fn new(
+        language: &'a str,
+        q: Option<Q>,
+        param: Option<Params<'a>>,
+    ) -> Self {
+        Self { language, q, param }
+    }
 }
 
 impl fmt::Display for Language<'_> {
@@ -38,10 +48,35 @@ impl fmt::Display for Language<'_> {
 /// The `Accept-Language` SIP header.
 ///
 /// Indicates the client's language preferences.
+///
+/// # Examples
+///
+/// ```
+/// # use sip::headers::{AcceptLanguage};
+/// # use sip::headers::accept_language::Language;
+/// # use sip::internal::Q;
+/// let mut language = AcceptLanguage::default();
+/// language.push(Language::new("en", None, None));
+/// language.push(Language::new("fr", Q::new(0,8).into(), None));
+///
+/// assert_eq!("en, fr;q=0.8".as_bytes().try_into(), Ok(language));
+/// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
+impl<'a> TryFrom<&'a [u8]> for AcceptLanguage<'a> {
+    type Error = SipParserError;
+
+    fn try_from(value: &'a [u8]) -> Result<Self> {
+        Self::from_bytes(value)
+    }
+}
+
 impl<'a> AcceptLanguage<'a> {
+    pub fn push(&mut self, lang: Language<'a>) {
+        self.0.push(lang);
+    }
+
     pub fn get(&self, index: usize) -> Option<&Language<'a>> {
         self.0.get(index)
     }
@@ -64,7 +99,7 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
      * language         =  language-range *(SEMI accept-param)
      * language-range   =  ( ( 1*8ALPHA *( "-" 1*8ALPHA ) ) / "*" )
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<AcceptLanguage<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let languages = hdr_list!(reader => {
             let language = unsafe { reader.read_as_str(is_lang) };
             let mut q_param = None;

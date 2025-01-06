@@ -86,7 +86,6 @@ pub(crate) const USER_UNRESERVED: &[u8] = b"&=+$,;?/";
 pub(crate) const TOKEN: &[u8] = b"-.!%*_`'~+";
 pub(crate) const PASS: &[u8] = b"&=+$,";
 pub(crate) const HOST: &[u8] = b"_-.";
-pub(crate) const GENERIC_URI: &[u8] = b"#?;:@&=+-_.!~*'()%$,/";
 
 // A-Z a-z 0-9 -_.!~*'() &=+$,;?/%
 // For reading user part on sip uri.

@@ -19,7 +19,7 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
      * Alert-Info   =  "Alert-Info" HCOLON alert-param *(COMMA alert-param)
      * alert-param  =  LAQUOT absoluteURI RAQUOT *( SEMI generic-param )
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<AlertInfo<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         space!(reader);
 
         reader.must_read(b'<')?;

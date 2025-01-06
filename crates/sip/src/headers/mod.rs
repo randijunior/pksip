@@ -48,9 +48,9 @@ pub mod via;
 pub mod warning;
 pub mod www_authenticate;
 
-pub use accept::Accept;
 pub use accept_encoding::AcceptEncoding;
 pub use accept_language::AcceptLanguage;
+pub use accept::Accept;
 pub use alert_info::AlertInfo;
 pub use allow::Allow;
 pub use authentication_info::AuthenticationInfo;
@@ -97,7 +97,7 @@ use core::fmt;
 use reader::{space, Reader};
 use std::{
     iter::{Filter, FilterMap},
-    str,
+    str::{self},
 };
 
 use crate::parser::{parse_token, Result};
@@ -136,7 +136,7 @@ pub trait SipHeader<'a>: Sized {
     }
 }
 
-/// An SIP Header.
+/// A SIP Header.
 ///
 /// This enum contain the SIP headers, as defined in `RFC3261`.
 ///
@@ -462,13 +462,8 @@ impl<'a> Header<'a> {
     }
 }
 
-impl<'a> core::convert::From<Vec<Header<'a>>> for Headers<'a> {
-    fn from(headers: Vec<Header<'a>>) -> Self {
-        Self(headers)
-    }
-}
 
-/// A set of SIP Headers.
+/// A coolection of SIP Headers.
 ///
 /// A wrapper over Vec<[`Header`]> that contains the header list.
 ///
@@ -505,10 +500,9 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Headers;
     /// # use sip::headers::Header;
     /// # use sip::headers::Expires;
-    /// let headers = Headers::from(vec![
-    ///     Header::Expires(Expires::new(10))
-    /// ]);
-    ///
+    /// let mut headers = Headers::new();
+    /// headers.push(Header::Expires(Expires::new(10)));
+    /// 
     /// let expires = headers.find_map(|h| if let Header::Expires(expires) = h {
     ///        Some(expires)
     ///    } else {
@@ -538,9 +532,9 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Headers;
     /// # use sip::headers::Header;
     /// # use sip::headers::Expires;
-    /// let headers = Headers::from(vec![
-    ///     Header::Expires(Expires::new(10))
-    /// ]);
+    /// let mut headers = Headers::new();
+    /// headers.push(Header::Expires(Expires::new(10)));
+    /// 
     /// let mut iter = headers.iter().filter_map(|h| match h {
     ///     Header::Expires(e) => Some(e),
     ///     _ => None
@@ -567,9 +561,8 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Headers;
     /// # use sip::headers::Header;
     /// # use sip::headers::Expires;
-    /// let headers = Headers::from(vec![
-    ///     Header::Expires(Expires::new(10))
-    /// ]);
+    /// let mut headers = Headers::new();
+    /// headers.push(Header::Expires(Expires::new(10)));
     ///
     /// let mut iter = headers.iter().filter(|h| matches!(h, Header::Expires(_)));
     ///
@@ -593,9 +586,8 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Headers;
     /// # use sip::headers::Header;
     /// # use sip::headers::Expires;
-    /// let headers = Headers::from(vec![
-    ///     Header::Expires(Expires::new(10))
-    /// ]);
+    /// let mut headers = Headers::new();
+    /// headers.push(Header::Expires(Expires::new(10)));
     ///
     /// let header = headers.iter().find(|h| matches!(h, Header::Expires(_)));
     ///
@@ -612,7 +604,6 @@ impl<'a> Headers<'a> {
     /// # Panics
     ///
     /// Panics if the new capacity exceeds `isize::MAX` bytes.
-    /// ```
     pub fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0);
     }
@@ -625,7 +616,6 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Header;
     /// # use sip::headers::Expires;
     /// let mut headers = Headers::new();
-    ///
     /// headers.push(Header::Expires(Expires::new(10)));
     ///
     /// assert_eq!(headers.len(), 1);

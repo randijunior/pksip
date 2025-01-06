@@ -105,6 +105,12 @@ pub struct Via<'a> {
     pub params: Option<Params<'a>>,
 }
 
+impl<'a> Via<'a> {
+    pub fn new(transport: TransportProtocol, sent_by: HostPort<'a>) -> Self {
+        todo!()
+    }
+}
+
 impl fmt::Display for Via<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}/{} {}", SIPV2, self.transport, self.sent_by)?;
