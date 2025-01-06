@@ -12,6 +12,7 @@ async-trait = "0.1.83"
 arrayvec = "0.7.6"
 hickory-resolver = "0.24.1"
 tokio = { version = "1.41.1", features = ["full"] }
+enum-as-inner = "0.6.1"
 
 [dev-dependencies]
 assert_matches = "1.5"

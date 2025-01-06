@@ -8,12 +8,14 @@ use crate::{
     headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::{self, Result, SipParserError},
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
 
 use crate::internal::Q;
+
+use super::{Header, ParseHeaderError};
 
 /// A `coding` that apear in `Accept-Encoding` header
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -33,7 +35,6 @@ impl<'a> Coding<'a> {
     }
 }
 
-
 impl fmt::Display for Coding<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Coding { coding, q, param } = self;
@@ -52,41 +53,50 @@ impl fmt::Display for Coding<'_> {
 ///
 /// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
 /// process.
-/// 
+///
 /// # Examples
 ///
 /// ```
-/// # use sip::headers::{AcceptEncoding};
-/// # use sip::headers::accept_encoding::Coding;
-/// # use sip::internal::Q;
-/// let mut encoding = AcceptEncoding::default();
+/// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}, internal::Q};
+/// let mut encoding = AcceptEncoding::new();
+///
 /// encoding.push(Coding::new("gzip", Some(Q::from(1)), None));
 /// encoding.push(Coding::new("compress", None, None));
 ///
-/// assert_eq!("gzip;q=1, compress".as_bytes().try_into(), Ok(encoding));
+/// assert_eq!("Accept-Encoding: gzip;q=1, compress".as_bytes().try_into(), Ok(encoding));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
 
 impl<'a> AcceptEncoding<'a> {
+    /// Creates a empty `AcceptEncoding` header.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends an new `Coding`.
     pub fn push(&mut self, coding: Coding<'a>) {
         self.0.push(coding);
     }
 
+    /// Gets the `Coding` at the specified index.
     pub fn get(&self, index: usize) -> Option<&Coding<'a>> {
         self.0.get(index)
     }
 
+    /// Returns the number of `Codings` in the header.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 }
 
 impl<'a> TryFrom<&'a [u8]> for AcceptEncoding<'a> {
-    type Error = SipParserError;
-    
-    fn try_from(value: &'a [u8]) -> Result<Self> {
-        Self::from_bytes(value)
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_accept_encoding()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 

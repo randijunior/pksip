@@ -65,6 +65,7 @@ pub use content_length::ContentLength;
 pub use content_type::ContentType;
 pub use cseq::CSeq;
 pub use date::Date;
+use enum_as_inner::EnumAsInner;
 pub use error_info::ErrorInfo;
 pub use expires::Expires;
 pub use from::From;
@@ -96,11 +97,10 @@ pub use www_authenticate::WWWAuthenticate;
 use core::fmt;
 use reader::{space, Reader};
 use std::{
-    iter::{Filter, FilterMap},
-    str::{self},
+    convert, iter::{Filter, FilterMap}, str::{self}
 };
 
-use crate::parser::{parse_token, Result};
+use crate::parser::{parse_token, Result, SipParserError};
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
@@ -136,6 +136,15 @@ pub trait SipHeader<'a>: Sized {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseHeaderError;
+
+impl convert::From<SipParserError> for ParseHeaderError {
+    fn from(_: SipParserError) -> Self {
+        ParseHeaderError
+    }
+}
+
 /// A SIP Header.
 ///
 /// This enum contain the SIP headers, as defined in `RFC3261`.
@@ -151,7 +160,7 @@ pub trait SipHeader<'a>: Sized {
 /// assert_eq!(Header::from_bytes(b"Content-Length: 10"), Ok(c_len));
 /// assert_eq!(Header::from_bytes(b"Call-ID: bs9ki9iqbee8k5kal8mpqb"), Ok(cid));
 /// ```
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, EnumAsInner)]
 pub enum Header<'a> {
     /// `Accept` Header
     Accept(Accept<'a>),

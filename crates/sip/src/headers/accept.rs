@@ -5,50 +5,62 @@ use reader::Reader;
 
 use crate::{
     macros::{hdr_list, parse_header_param},
-    parser::{self, Result, SipParserError},
+    parser::{self, Result},
 };
 
 use crate::headers::SipHeader;
 
 use crate::internal::MediaType;
 
+use super::{Header, ParseHeaderError};
+
 /// The `Accept` SIP header.
 ///
 /// Indicates witch media types the client can process.
-/// 
+///
 /// # Examples
 ///
 /// ```
-/// # use sip::headers::Accept;
-/// # use sip::internal::{Q, MediaType};
-/// let mut accept = Accept::default();
+/// # use sip::{headers::Accept,internal::{Q, MediaType}};
+/// let mut accept = Accept::new();
+/// 
 /// accept.push(MediaType::new("application", "sdp", None));
 /// accept.push(MediaType::new("message", "sipfrag", None));
-/// 
-/// assert_eq!("application/sdp, message/sipfrag".as_bytes().try_into(), Ok(accept));
+///
+/// assert_eq!("Accept: application/sdp, message/sipfrag".as_bytes().try_into(), Ok(accept));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Accept<'a>(Vec<MediaType<'a>>);
 
-impl<'a> TryFrom<&'a [u8]> for Accept<'a> {
-    type Error = SipParserError;
-
-    fn try_from(value: &'a [u8]) -> Result<Self> {
-        Self::from_bytes(value)
-    }
-}
-
 impl<'a> Accept<'a> {
+    /// Creates a empty `Accept` header.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends an new `MediaType`.
     pub fn push(&mut self, mtype: MediaType<'a>) {
         self.0.push(mtype);
     }
 
+    /// Gets the `MediaType` at the specified index.
     pub fn get(&self, index: usize) -> Option<&MediaType<'a>> {
         self.0.get(index)
     }
 
+    /// Returns the number of `MediaTypes` in the header.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for Accept<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_accept()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 

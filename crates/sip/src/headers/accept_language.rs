@@ -5,13 +5,15 @@ use crate::{
     headers::Q_PARAM,
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::{Result, SipParserError},
+    parser::Result,
 };
 
 use crate::headers::SipHeader;
 use std::{fmt, str};
 
 use crate::internal::Q;
+
+use super::{Header, ParseHeaderError};
 
 /// A `language` that apear in `Accept-Language` header.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,37 +54,46 @@ impl fmt::Display for Language<'_> {
 /// # Examples
 ///
 /// ```
-/// # use sip::headers::{AcceptLanguage};
-/// # use sip::headers::accept_language::Language;
-/// # use sip::internal::Q;
-/// let mut language = AcceptLanguage::default();
+/// # use sip::{headers::{AcceptLanguage, accept_language::Language}, internal::Q};
+/// let mut language = AcceptLanguage::new();
+/// 
 /// language.push(Language::new("en", None, None));
 /// language.push(Language::new("fr", Q::new(0,8).into(), None));
 ///
-/// assert_eq!("en, fr;q=0.8".as_bytes().try_into(), Ok(language));
+/// assert_eq!("Accept-Language: en, fr;q=0.8".as_bytes().try_into(), Ok(language));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
 
-impl<'a> TryFrom<&'a [u8]> for AcceptLanguage<'a> {
-    type Error = SipParserError;
-
-    fn try_from(value: &'a [u8]) -> Result<Self> {
-        Self::from_bytes(value)
-    }
-}
-
 impl<'a> AcceptLanguage<'a> {
+    /// Creates a empty `AcceptLanguage` header.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends an new `Language`.
     pub fn push(&mut self, lang: Language<'a>) {
         self.0.push(lang);
     }
 
+    /// Gets the `Language` at the specified index.
     pub fn get(&self, index: usize) -> Option<&Language<'a>> {
         self.0.get(index)
     }
 
+    /// Returns the number of `Languages` in the header.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for AcceptLanguage<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_accept_language()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 
