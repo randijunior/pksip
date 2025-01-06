@@ -106,7 +106,7 @@ impl TransportLayer {
 
     pub async fn send_response<'a>(
         &self,
-        resp: &mut TxResponse<'a>,
+        resp: &mut OutgoingResponse<'a>,
     ) -> io::Result<()> {
         let mut buf = MsgBuffer::new();
 
@@ -252,7 +252,7 @@ impl IncomingInfo {
     }
 }
 
-pub struct TxRequest<'a> {
+pub struct OutgoingRequest<'a> {
     msg: SipRequest<'a>,
     info: OutgoingInfo,
 }
@@ -296,30 +296,30 @@ impl<'a> From<&'a Headers<'a>> for RequestHeaders<'a> {
     }
 }
 
-pub struct TxResponse<'a> {
+pub struct OutgoingResponse<'a> {
     pub req_hdrs: RequestHeaders<'a>,
     pub msg: SipResponse<'a>,
     pub info: OutgoingInfo,
     pub buf: Option<MsgBuffer>,
 }
 
-pub struct RxRequest<'a> {
+pub struct IncomingRequest<'a> {
     msg: SipRequest<'a>,
     info: IncomingInfo,
 }
 
-impl<'a> RxRequest<'a> {
+impl<'a> IncomingRequest<'a> {
     pub fn new(msg: SipRequest<'a>, info: IncomingInfo) -> Self {
         Self { msg, info }
     }
 }
 
-pub struct RxResponse<'a> {
+pub struct IncomingResponse<'a> {
     msg: SipResponse<'a>,
     info: IncomingInfo,
 }
 
-impl<'a> RxResponse<'a> {
+impl<'a> IncomingResponse<'a> {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }
@@ -336,13 +336,13 @@ impl<'a> RxResponse<'a> {
     }
 }
 
-impl<'a> RxResponse<'a> {
+impl<'a> IncomingResponse<'a> {
     pub fn new(msg: SipResponse<'a>, info: IncomingInfo) -> Self {
         Self { msg, info }
     }
 }
 
-impl<'a> RxRequest<'a> {
+impl<'a> IncomingRequest<'a> {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }

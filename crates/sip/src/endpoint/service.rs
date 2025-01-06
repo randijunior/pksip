@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{transaction::Transaction, transport::{RxRequest, RxResponse}};
+use crate::{transaction::Transaction, transport::{IncomingRequest, IncomingResponse}};
 
 use super::Endpoint;
 
@@ -8,24 +8,24 @@ use super::Endpoint;
 pub trait SipService: Sync + Send + 'static {
     fn name(&self) -> &str;
 
-    async fn on_recv_req(
+    async fn on_request(
         &self,
         endpt: &Endpoint,
-        inc: &mut Option<RxRequest>,
+        inc: &mut Option<IncomingRequest>,
     ) {
     }
 
-    async fn on_recv_res(
+    async fn on_response(
         &self,
         endpt: &Endpoint,
-        inc: &mut Option<RxResponse>,
+        inc: &mut Option<IncomingResponse>,
     ) {
     }
 
-    async fn on_tsx_res(
+    async fn on_transaction_response(
         &self,
         endpt: &Endpoint,
-        res: &mut Option<RxResponse>,
+        res: &mut Option<IncomingResponse>,
         tsx: &Transaction<'_>,
     ) {
     }

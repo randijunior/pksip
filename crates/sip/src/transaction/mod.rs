@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::message::{HostPort, SipMethod};
-use crate::transport::{OutgoingInfo, RxRequest, RxResponse, TxResponse};
+use crate::transport::{OutgoingInfo, IncomingRequest, IncomingResponse, OutgoingResponse};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Rfc2543<'a> {
@@ -30,14 +30,14 @@ pub enum TransactionKey<'a> {
     Rfc3261(Rfc3261<'a>),
 }
 
-impl<'a> From<&RxResponse<'a>> for TransactionKey<'a> {
-    fn from(value: &RxResponse<'a>) -> Self {
+impl<'a> From<&IncomingResponse<'a>> for TransactionKey<'a> {
+    fn from(value: &IncomingResponse<'a>) -> Self {
         todo!()
     }
 }
 
-impl<'a> From<&RxRequest<'a>> for TransactionKey<'a> {
-    fn from(value: &RxRequest<'a>) -> Self {
+impl<'a> From<&IncomingRequest<'a>> for TransactionKey<'a> {
+    fn from(value: &IncomingRequest<'a>) -> Self {
         todo!()
     }
 }
@@ -59,17 +59,17 @@ pub struct ClientTransaction {
 }
 
 #[derive(Clone)]
-pub struct ServerTransaction<'a> {
+pub struct NonInviteServerTransaction<'a> {
     state: TransactionState,
     info: OutgoingInfo,
-    last_msg: Option<Arc<TxResponse<'a>>>,
+    last_msg: Option<Arc<OutgoingResponse<'a>>>,
 }
 
 const T1: Duration = Duration::from_millis(500);
 const T2: Duration = Duration::from_secs(4);
 const T4: Duration = Duration::from_secs(5);
 
-impl ServerTransaction<'_> {
+impl NonInviteServerTransaction<'_> {
     // The state machine is initialized in the "Trying" state and is passed
     // a request other than INVITE or ACK when initialized. This request is
     // passed up to the TU.  Once in the "Trying" state, any further request
@@ -81,7 +81,7 @@ impl ServerTransaction<'_> {
             panic!("Invalid method for server transaction");
         }
 
-        ServerTransaction {
+        NonInviteServerTransaction {
             state: TransactionState::Trying,
             info,
             last_msg: None,
@@ -92,7 +92,7 @@ impl ServerTransaction<'_> {
 #[derive(Clone)]
 pub enum Transaction<'a> {
     Client(ClientTransaction),
-    Server(ServerTransaction<'a>),
+    Server(NonInviteServerTransaction<'a>),
 }
 
 impl Transaction<'_> {
@@ -123,7 +123,7 @@ impl Transaction<'_> {
     The server transaction MUST be destroyed the instant it enters the
     "Terminated" state.
     */
-    pub fn handle_response(&mut self, resp: &RxResponse) {
+    pub fn handle_response(&mut self, resp: &IncomingResponse) {
         if resp.code().is_provisional() {
             match self {
                 Transaction::Client(tsx) => todo!(),

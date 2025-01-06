@@ -5,19 +5,21 @@ use service::SipService;
 
 use crate::{
     headers::{Headers, Via},
-    message::{HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder},
-    parser::parse_sip_msg, transaction::{ServerTransaction, TransactionKey, Transactions},
+    message::{
+        HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
+    },
+    parser::parse_sip_msg,
+    transaction::{NonInviteServerTransaction, TransactionKey, Transactions},
 };
 
 use crate::transport::{
-    TransportLayer, CRLF, END,
-    IncomingInfo, OutgoingInfo, Packet, RequestHeaders, RxRequest, RxResponse,
-    Transport, TxResponse,
+    IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
+    OutgoingResponse, Packet, RequestHeaders, Transport, TransportLayer, CRLF,
+    END,
 };
 
 mod resolver;
 mod service;
-
 
 pub struct EndpointBuilder {
     transports: TransportLayer,
@@ -132,12 +134,12 @@ impl<'a> Endpoint {
         let info = IncomingInfo::new(pkt, transport);
         match msg {
             SipMessage::Request(msg) => {
-                let req = RxRequest::new(msg, info);
-                self.sip_server_recv_req(req.into()).await;
+                let req = IncomingRequest::new(msg, info);
+                self.receive_request(req.into()).await;
             }
             SipMessage::Response(msg) => {
-                let msg = RxResponse::new(msg, info);
-                self.sip_server_recv_res(msg).await;
+                let msg = IncomingResponse::new(msg, info);
+                self.receive_response(msg).await;
             }
         }
         Ok(())
@@ -145,7 +147,7 @@ impl<'a> Endpoint {
 
     pub async fn respond(
         &self,
-        msg: &RxRequest<'a>,
+        msg: &IncomingRequest<'a>,
         res: SipResponse<'a>,
     ) -> io::Result<()> {
         let mut resp = self.new_response_from_request(msg, res).await?;
@@ -154,9 +156,9 @@ impl<'a> Endpoint {
 
     pub async fn respond_tsx(
         &self,
-        msg: &'a RxRequest<'a>,
+        msg: &'a IncomingRequest<'a>,
         res: SipResponse<'a>,
-    ) -> io::Result<ServerTransaction> {
+    ) -> io::Result<NonInviteServerTransaction> {
         let resp = self.new_response_from_request(msg, res).await?;
 
         todo!()
@@ -164,9 +166,9 @@ impl<'a> Endpoint {
 
     pub async fn new_response_from_request(
         &self,
-        msg: &'a RxRequest<'a>,
+        msg: &'a IncomingRequest<'a>,
         res: SipResponse<'a>,
-    ) -> io::Result<TxResponse<'a>> {
+    ) -> io::Result<OutgoingResponse<'a>> {
         let hdrs = &msg.request().headers;
         let mut req_hdrs: RequestHeaders<'a> = hdrs.into();
         let topmost_via = req_hdrs.via.first().unwrap();
@@ -183,7 +185,7 @@ impl<'a> Endpoint {
             req_hdrs.to.tag = topmost_via.branch;
         }
 
-        Ok(TxResponse {
+        Ok(OutgoingResponse {
             req_hdrs,
             info,
             msg: res,
@@ -240,19 +242,19 @@ impl<'a> Endpoint {
         }
     }
 
-    pub async fn sip_server_recv_req(&self, msg: RxRequest<'a>) {
+    pub async fn receive_request(&self, msg: IncomingRequest<'a>) {
         let mut msg = msg.into();
         let svcs = self.services.iter();
 
         for svc in svcs {
-            svc.on_recv_req(self, &mut msg).await;
+            svc.on_request(self, &mut msg).await;
             if msg.is_none() {
                 break;
             }
         }
     }
 
-    pub async fn sip_server_recv_res(&self, msg: RxResponse<'a>) {
+    pub async fn receive_response(&self, msg: IncomingResponse<'a>) {
         let svcs = self.services.iter();
         let key = TransactionKey::from(&msg);
 
@@ -260,7 +262,7 @@ impl<'a> Endpoint {
             tsx.handle_response(&msg);
             let mut msg = msg.into();
             for svc in svcs {
-                svc.on_tsx_res(self, &mut msg, &tsx).await;
+                svc.on_transaction_response(self, &mut msg, &tsx).await;
                 if msg.is_none() {
                     break;
                 }
@@ -270,7 +272,7 @@ impl<'a> Endpoint {
 
         let mut msg = msg.into();
         for svc in svcs {
-            svc.on_recv_res(self, &mut msg).await;
+            svc.on_response(self, &mut msg).await;
             if msg.is_none() {
                 break;
             }
