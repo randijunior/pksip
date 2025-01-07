@@ -1,51 +1,17 @@
+use std::{fmt, str};
+
 use itertools::Itertools;
 use reader::{util::is_alphabetic, Reader};
 
 use crate::{
-    headers::Q_PARAM,
+    headers::{SipHeader, Q_PARAM},
+    internal::Q,
     macros::{hdr_list, parse_header_param},
     message::Params,
     parser::Result,
 };
 
-use crate::headers::SipHeader;
-use std::{fmt, str};
-
-use crate::internal::Q;
-
 use super::{Header, ParseHeaderError};
-
-/// A `language` that apear in `Accept-Language` header.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Language<'a> {
-    language: &'a str,
-    q: Option<Q>,
-    param: Option<Params<'a>>,
-}
-
-impl<'a> Language<'a> {
-    pub fn new(
-        language: &'a str,
-        q: Option<Q>,
-        param: Option<Params<'a>>,
-    ) -> Self {
-        Self { language, q, param }
-    }
-}
-
-impl fmt::Display for Language<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Language { language, q, param } = self;
-        write!(f, "{}", language)?;
-        if let Some(q) = q {
-            write!(f, "{}", q)?;
-        }
-        if let Some(param) = param {
-            write!(f, ";{}", param)?;
-        }
-        Ok(())
-    }
-}
 
 /// The `Accept-Language` SIP header.
 ///
@@ -54,9 +20,10 @@ impl fmt::Display for Language<'_> {
 /// # Examples
 ///
 /// ```
-/// # use sip::{headers::{AcceptLanguage, accept_language::Language}, internal::Q};
+/// # use sip::{headers::{AcceptLanguage, accept_language::Language}};
+/// # use sip:internal::Q;
 /// let mut language = AcceptLanguage::new();
-/// 
+///
 /// language.push(Language::new("en", None, None));
 /// language.push(Language::new("fr", Q::new(0,8).into(), None));
 ///
@@ -127,6 +94,39 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
 impl fmt::Display for AcceptLanguage<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
+    }
+}
+
+/// A `language` that apear in `Accept-Language` header.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Language<'a> {
+    language: &'a str,
+    q: Option<Q>,
+    param: Option<Params<'a>>,
+}
+
+impl<'a> Language<'a> {
+    /// Creates a new `Language` instance.
+    pub fn new(
+        language: &'a str,
+        q: Option<Q>,
+        param: Option<Params<'a>>,
+    ) -> Self {
+        Self { language, q, param }
+    }
+}
+
+impl fmt::Display for Language<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Language { language, q, param } = self;
+        write!(f, "{}", language)?;
+        if let Some(q) = q {
+            write!(f, "{}", q)?;
+        }
+        if let Some(param) = param {
+            write!(f, ";{}", param)?;
+        }
+        Ok(())
     }
 }
 

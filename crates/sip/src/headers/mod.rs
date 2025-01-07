@@ -48,9 +48,9 @@ pub mod via;
 pub mod warning;
 pub mod www_authenticate;
 
+pub use accept::Accept;
 pub use accept_encoding::AcceptEncoding;
 pub use accept_language::AcceptLanguage;
-pub use accept::Accept;
 pub use alert_info::AlertInfo;
 pub use allow::Allow;
 pub use authentication_info::AuthenticationInfo;
@@ -97,7 +97,9 @@ pub use www_authenticate::WWWAuthenticate;
 use core::fmt;
 use reader::{space, Reader};
 use std::{
-    convert, iter::{Filter, FilterMap}, str::{self}
+    convert,
+    iter::{Filter, FilterMap},
+    str::{self},
 };
 
 use crate::parser::{parse_token, Result, SipParserError};
@@ -471,7 +473,6 @@ impl<'a> Header<'a> {
     }
 }
 
-
 /// A coolection of SIP Headers.
 ///
 /// A wrapper over Vec<[`Header`]> that contains the header list.
@@ -511,7 +512,7 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Expires;
     /// let mut headers = Headers::new();
     /// headers.push(Header::Expires(Expires::new(10)));
-    /// 
+    ///
     /// let expires = headers.find_map(|h| if let Header::Expires(expires) = h {
     ///        Some(expires)
     ///    } else {
@@ -543,7 +544,7 @@ impl<'a> Headers<'a> {
     /// # use sip::headers::Expires;
     /// let mut headers = Headers::new();
     /// headers.push(Header::Expires(Expires::new(10)));
-    /// 
+    ///
     /// let mut iter = headers.iter().filter_map(|h| match h {
     ///     Header::Expires(e) => Some(e),
     ///     _ => None

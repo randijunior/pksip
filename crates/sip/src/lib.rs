@@ -1,11 +1,11 @@
 pub mod auth;
-pub mod internal;
+pub mod endpoint;
 pub mod headers;
+pub mod internal;
 pub mod message;
 pub mod parser;
 pub mod transaction;
 pub mod transport;
-pub mod endpoint;
 
 pub(crate) mod macros;
 pub(crate) mod resolver;

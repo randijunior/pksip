@@ -30,6 +30,8 @@ impl fmt::Display for ProxyAuthorization<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::auth::DigestCredential;
+
     use super::*;
 
     #[test]
@@ -40,7 +42,7 @@ mod tests {
         let mut reader = Reader::new(src);
         let proxy_auth = ProxyAuthorization::parse(&mut reader).unwrap();
 
-        assert_matches!(proxy_auth.0, Credential::Digest { realm, username, nonce, response, .. } => {
+        assert_matches!(proxy_auth.0, Credential::Digest (DigestCredential { realm, username, nonce, response, .. }) => {
             assert_eq!(username, Some("Alice"));
             assert_eq!(realm, Some("atlanta.com"));
             assert_eq!(nonce, Some("c60f3082ee1212b402a21831ae"));

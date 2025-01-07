@@ -4,13 +4,11 @@ use itertools::Itertools;
 use reader::Reader;
 
 use crate::{
+    headers::SipHeader,
+    internal::MediaType,
     macros::{hdr_list, parse_header_param},
     parser::{self, Result},
 };
-
-use crate::headers::SipHeader;
-
-use crate::internal::MediaType;
 
 use super::{Header, ParseHeaderError};
 
@@ -21,9 +19,10 @@ use super::{Header, ParseHeaderError};
 /// # Examples
 ///
 /// ```
-/// # use sip::{headers::Accept,internal::{Q, MediaType}};
+/// # use sip::headers::Accept;
+/// # use sip::internal::{Q, MediaType};
 /// let mut accept = Accept::new();
-/// 
+///
 /// accept.push(MediaType::new("application", "sdp", None));
 /// accept.push(MediaType::new("message", "sipfrag", None));
 ///

@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
-use crate::{transaction::Transaction, transport::{IncomingRequest, IncomingResponse}};
+use crate::{
+    transaction::Transaction,
+    transport::{IncomingRequest, IncomingResponse},
+};
 
 use crate::endpoint::Endpoint;
 

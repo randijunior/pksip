@@ -1,63 +1,27 @@
-use core::fmt;
-use std::str;
+use std::{fmt, str};
 
 use itertools::Itertools;
 use reader::{util::is_newline, Reader};
 
 use crate::{
-    headers::Q_PARAM,
+    headers::{SipHeader, Q_PARAM},
+    internal::Q,
     macros::{hdr_list, parse_header_param},
     message::Params,
     parser::{self, Result},
 };
 
-use crate::headers::SipHeader;
-
-use crate::internal::Q;
-
 use super::{Header, ParseHeaderError};
 
-/// A `coding` that apear in `Accept-Encoding` header
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Coding<'a> {
-    coding: &'a str,
-    q: Option<Q>,
-    param: Option<Params<'a>>,
-}
-
-impl<'a> Coding<'a> {
-    pub fn new(
-        coding: &'a str,
-        q: Option<Q>,
-        param: Option<Params<'a>>,
-    ) -> Self {
-        Self { coding, q, param }
-    }
-}
-
-impl fmt::Display for Coding<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Coding { coding, q, param } = self;
-        write!(f, "{}", coding)?;
-        if let Some(q) = q {
-            write!(f, ";q={}.{}", q.0, q.1)?;
-        }
-        if let Some(param) = param {
-            write!(f, ";{}", param)?;
-        }
-        Ok(())
-    }
-}
-
-/// `Accept-Encoding` SIP header.
+/// The `Accept-Encoding` SIP header.
 ///
-/// The `Accept-Encoding` indicates what types of content encoding (compression) the client can
-/// process.
+/// Indicates what types of content encoding (compression) the client can process.
 ///
 /// # Examples
 ///
 /// ```
-/// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}, internal::Q};
+/// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}};
+/// # use sip:internal::Q;
 /// let mut encoding = AcceptEncoding::new();
 ///
 /// encoding.push(Coding::new("gzip", Some(Q::from(1)), None));
@@ -111,7 +75,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
      */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         if reader.peek().is_some_and(|b| is_newline(b)) {
-            return Ok(AcceptEncoding::default());
+            return Ok(AcceptEncoding::new());
         }
         let codings = hdr_list!(reader => {
             let coding = parser::parse_token(reader)?;
@@ -129,6 +93,39 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
 impl fmt::Display for AcceptEncoding<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
+    }
+}
+
+/// A `coding` that apear in `Accept-Encoding` header.
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct Coding<'a> {
+    coding: &'a str,
+    q: Option<Q>,
+    param: Option<Params<'a>>,
+}
+
+impl<'a> Coding<'a> {
+    /// Creates a new `Coding` instance.
+    pub fn new(
+        coding: &'a str,
+        q: Option<Q>,
+        param: Option<Params<'a>>,
+    ) -> Self {
+        Self { coding, q, param }
+    }
+}
+
+impl fmt::Display for Coding<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Coding { coding, q, param } = self;
+        write!(f, "{}", coding)?;
+        if let Some(q) = q {
+            write!(f, ";q={}.{}", q.0, q.1)?;
+        }
+        if let Some(param) = param {
+            write!(f, ";{}", param)?;
+        }
+        Ok(())
     }
 }
 

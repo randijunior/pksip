@@ -1,7 +1,12 @@
 use std::{
-    cmp::Ordering, collections::HashMap, io::{self}, net::SocketAddr, ops::Deref, sync::{Arc, Mutex}, time::SystemTime
+    cmp::Ordering,
+    collections::HashMap,
+    io::{self},
+    net::SocketAddr,
+    ops::Deref,
+    sync::{Arc, Mutex},
+    time::SystemTime,
 };
-
 
 pub mod udp;
 
@@ -21,7 +26,6 @@ use crate::{
 pub(crate) const CRLF: &[u8] = b"\r\n";
 pub(crate) const END: &[u8] = b"\r\n\r\n";
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
-
 
 #[derive(Default)]
 pub struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);

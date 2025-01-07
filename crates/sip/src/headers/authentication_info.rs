@@ -1,15 +1,16 @@
+use std::{fmt, str};
+
 use reader::Reader;
 
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
+    headers::SipHeader,
     internal::Param,
     macros::{comma_sep, sip_parse_error},
-    parser::{Result, SipParserError},
+    parser::Result,
 };
 
-use crate::headers::SipHeader;
-
-use std::{fmt, str};
+use super::{Header, ParseHeaderError};
 
 /// The `Authentication-Info` SIP header.
 ///
@@ -22,7 +23,7 @@ use std::{fmt, str};
 /// let mut auth = AuthenticationInfo::default();
 /// auth.set_nextnonce(Some("5ccc069c403ebaf9f0171e9517f40e41"));
 ///
-/// assert_eq!("nextnonce=\"5ccc069c403ebaf9f0171e9517f40e41\"".as_bytes().try_into(), Ok(auth));
+/// assert_eq!("Authentication-Info: nextnonce=5ccc069c403ebaf9f0171e9517f40e41".as_bytes().try_into(), Ok(auth));
 /// ```
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct AuthenticationInfo<'a> {
@@ -38,15 +39,6 @@ impl<'a> AuthenticationInfo<'a> {
         self.nextnonce = nextnonce;
     }
 }
-
-impl<'a> TryFrom<&'a [u8]> for AuthenticationInfo<'a> {
-    type Error = SipParserError;
-    
-    fn try_from(value: &'a [u8]) -> Result<Self> {
-        Self::from_bytes(value)
-    }
-}
-
 
 impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
     const NAME: &'static str = "Authentication-Info";
@@ -77,6 +69,16 @@ impl<'a> SipHeader<'a> for AuthenticationInfo<'a> {
         });
 
         Ok(auth_info)
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for AuthenticationInfo<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_authentication_info()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 

@@ -1,14 +1,13 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-
 use crate::{
-    resolver::{Resolver, ServerAddress},
-    service::SipService,
     headers::{Headers, Via},
     message::{
         HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
     },
     parser::parse_sip_msg,
+    resolver::{Resolver, ServerAddress},
+    service::SipService,
     transaction::{NonInviteServerTransaction, TransactionKey, Transactions},
 };
 
@@ -17,7 +16,6 @@ use crate::transport::{
     OutgoingResponse, Packet, RequestHeaders, Transport, TransportLayer, CRLF,
     END,
 };
-
 
 pub struct EndpointBuilder {
     transports: TransportLayer,

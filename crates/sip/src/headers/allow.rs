@@ -3,14 +3,16 @@ use std::fmt;
 use itertools::Itertools;
 use reader::{alpha, Reader};
 
-use crate::parser::SipParserError;
-use crate::{macros::hdr_list, message::SipMethod, parser::Result};
+use crate::{
+    headers::SipHeader, macros::hdr_list, message::SipMethod, parser::Result,
+};
 
-use crate::headers::SipHeader;
-/// The `Allow` SIP header
+use super::{Header, ParseHeaderError};
+
+/// The `Allow` SIP header.
 ///
 /// Indicates what methods is supported by the `UA`.
-/// 
+///
 /// # Examples
 ///
 /// ```
@@ -19,34 +21,31 @@ use crate::headers::SipHeader;
 /// let mut allow = Allow::new();
 /// allow.push(SipMethod::Invite);
 /// allow.push(SipMethod::Register);
-/// 
+///
 /// assert_eq!("INVITE, REGISTER".as_bytes().try_into(), Ok(allow));
 /// ```
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct Allow(Vec<SipMethod>);
 
 impl Allow {
+    /// Creates a empty `Allow` header.
     pub fn new() -> Self {
         Self(Vec::new())
     }
+
+    /// Appends an new `SipMethod`.
     pub fn push(&mut self, method: SipMethod) {
         self.0.push(method);
     }
 
+    /// Gets the `SipMethod` at the specified index.
     pub fn get(&self, index: usize) -> Option<&SipMethod> {
         self.0.get(index)
     }
 
+    /// Returns the number of `SipMethods` in the header.
     pub fn len(&self) -> usize {
         self.0.len()
-    }
-}
-
-impl TryFrom<&[u8]> for Allow {
-    type Error = SipParserError;
-    
-    fn try_from(value: &[u8]) -> Result<Self> {
-        Self::parse(&mut Reader::new(value))
     }
 }
 
@@ -63,6 +62,16 @@ impl<'a> SipHeader<'a> for Allow {
         });
 
         Ok(Allow(allow))
+    }
+}
+
+impl TryFrom<&[u8]> for Allow {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_allow()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 

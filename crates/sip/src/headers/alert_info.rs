@@ -1,16 +1,37 @@
+use std::{fmt, str};
+
 use reader::{space, until, Reader};
 
-use crate::headers::SipHeader;
-use crate::{macros::parse_header_param, message::Params, parser::Result};
-use std::{fmt, str};
+use crate::{
+    headers::SipHeader, macros::parse_header_param, message::Params,
+    parser::Result,
+};
+
+use super::{Header, ParseHeaderError};
 
 /// The `Alert-Info` SIP header.
 ///
 /// Specifies an alternative ring tone.
-#[derive(Debug, PartialEq, Eq)]
+///
+/// # Examples
+///
+/// ```
+/// # use sip::headers::AlertInfo;
+/// let mut info = AlertInfo::default();
+/// info.set_url("http://www.alert.com/sounds/moo.wav");
+///
+/// assert_eq!("Alert-Info: <http://www.alert.com/sounds/moo.wav>".as_bytes().try_into(), Ok(info));
+/// ```
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct AlertInfo<'a> {
     url: &'a str,
     params: Option<Params<'a>>,
+}
+
+impl<'a> AlertInfo<'a> {
+    pub fn set_url(&mut self, url: &'a str) {
+        self.url = url;
+    }
 }
 
 impl<'a> SipHeader<'a> for AlertInfo<'a> {
@@ -30,6 +51,16 @@ impl<'a> SipHeader<'a> for AlertInfo<'a> {
         let params = parse_header_param!(reader);
 
         Ok(AlertInfo { url, params })
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for AlertInfo<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_alert_info()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 

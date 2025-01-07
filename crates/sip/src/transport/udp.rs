@@ -7,9 +7,7 @@ use tokio::{
 
 use crate::message::TransportProtocol;
 
-use super::{
-    ConnectionKey, Packet, SipTransport, Transport, MAX_PACKET_SIZE
-};
+use super::{ConnectionKey, Packet, SipTransport, Transport, MAX_PACKET_SIZE};
 
 #[derive(Debug)]
 pub struct Inner {

@@ -138,23 +138,26 @@ impl fmt::Display for Challenge<'_> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DigestCredential<'a> {
+    pub realm: Option<&'a str>,
+    pub username: Option<&'a str>,
+    pub nonce: Option<&'a str>,
+    pub uri: Option<&'a str>,
+    pub response: Option<&'a str>,
+    pub algorithm: Option<&'a str>,
+    pub cnonce: Option<&'a str>,
+    pub opaque: Option<&'a str>,
+    pub qop: Option<&'a str>,
+    pub nc: Option<&'a str>,
+}
+
 /// This type represent a credential containing the authentication
 /// information in `Authorization` and `Proxy-Authorization` headers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Credential<'a> {
     /// A `digest` authentication scheme.
-    Digest {
-        realm: Option<&'a str>,
-        username: Option<&'a str>,
-        nonce: Option<&'a str>,
-        uri: Option<&'a str>,
-        response: Option<&'a str>,
-        algorithm: Option<&'a str>,
-        cnonce: Option<&'a str>,
-        opaque: Option<&'a str>,
-        qop: Option<&'a str>,
-        nc: Option<&'a str>,
-    },
+    Digest(DigestCredential<'a>),
     /// Other scheme not specified.
     Other { scheme: &'a str, param: Params<'a> },
 }
@@ -162,7 +165,7 @@ pub enum Credential<'a> {
 impl fmt::Display for Credential<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Credential::Digest {
+            Credential::Digest(DigestCredential {
                 realm,
                 username,
                 nonce,
@@ -173,7 +176,7 @@ impl fmt::Display for Credential<'_> {
                 opaque,
                 qop,
                 nc,
-            } => {
+            }) => {
                 write!(f, "Digest ")?;
                 if let Some(realm) = realm {
                     write!(f, "realm={realm}")?;
@@ -251,7 +254,7 @@ impl<'a> Credential<'a> {
                 }
             });
 
-            return Ok(Credential::Digest {
+            return Ok(Credential::Digest(DigestCredential {
                 realm,
                 username,
                 nonce,
@@ -262,7 +265,7 @@ impl<'a> Credential<'a> {
                 opaque,
                 qop,
                 nc,
-            });
+            }));
         }
 
         comma_sep!(reader => {

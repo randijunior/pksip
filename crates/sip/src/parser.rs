@@ -65,8 +65,8 @@ use crate::message::{Host, NameAddr, SipUri, StatusCode};
 /// Result for sip parser
 pub type Result<T> = std::result::Result<T, SipParserError>;
 
-use crate::internal::Param;
 use crate::headers::Headers;
+use crate::internal::Param;
 
 use crate::message::SipMessage;
 use crate::message::StatusLine;

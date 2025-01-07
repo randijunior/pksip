@@ -5,7 +5,9 @@ use std::{
 };
 
 use crate::message::{HostPort, SipMethod};
-use crate::transport::{OutgoingInfo, IncomingRequest, IncomingResponse, OutgoingResponse};
+use crate::transport::{
+    IncomingRequest, IncomingResponse, OutgoingInfo, OutgoingResponse,
+};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Rfc2543<'a> {
