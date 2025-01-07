@@ -8,6 +8,8 @@ pub mod transport;
 pub mod endpoint;
 
 pub(crate) mod macros;
+pub(crate) mod resolver;
+pub(crate) mod service;
 
 #[cfg(test)]
 #[macro_use]

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::{transaction::Transaction, transport::{IncomingRequest, IncomingResponse}};
 
-use super::Endpoint;
+use crate::endpoint::Endpoint;
 
 #[async_trait]
 pub trait SipService: Sync + Send + 'static {

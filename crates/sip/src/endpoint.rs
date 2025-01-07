@@ -1,9 +1,9 @@
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-use resolver::{Resolver, ServerAddress};
-use service::SipService;
 
 use crate::{
+    resolver::{Resolver, ServerAddress},
+    service::SipService,
     headers::{Headers, Via},
     message::{
         HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
@@ -18,8 +18,6 @@ use crate::transport::{
     END,
 };
 
-mod resolver;
-mod service;
 
 pub struct EndpointBuilder {
     transports: TransportLayer,
