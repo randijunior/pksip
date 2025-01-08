@@ -1,22 +1,19 @@
-use core::fmt;
-use std::str;
-
-use reader::Reader;
-
-use crate::parser::Result;
-
 use super::{Header, ParseHeaderError, SipHeader};
+use crate::parser::Result;
+use core::fmt;
+use reader::Reader;
+use std::str;
 
 /// The `Call-ID` SIP header.
 ///
 /// Uniquely identifies a particular invitation or all registrations of a particular client.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// # use sip::headers::CallId;
 /// let cid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
-/// 
+///
 /// assert_eq!("Call-ID: bs9ki9iqbee8k5kal8mpqb".as_bytes().try_into(), Ok(cid));
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -29,7 +26,7 @@ impl<'a> From<&'a str> for CallId<'a> {
 }
 
 impl<'a> CallId<'a> {
-   /// Creates a new `CallId` instance with the given identifier.
+    /// Creates a new `CallId` instance with the given identifier.
     pub fn new(id: &'a str) -> Self {
         Self(id)
     }
@@ -62,7 +59,6 @@ impl<'a> TryFrom<&'a [u8]> for CallId<'a> {
             .map_err(|_| ParseHeaderError)?)
     }
 }
-
 
 impl fmt::Display for CallId<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

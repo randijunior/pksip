@@ -1,6 +1,4 @@
-use std::{fmt, str};
-use itertools::Itertools;
-use reader::{util::is_alphabetic, Reader};
+use super::{Header, ParseHeaderError};
 use crate::{
     headers::{SipHeader, Q_PARAM},
     internal::Q,
@@ -8,8 +6,9 @@ use crate::{
     message::Params,
     parser::Result,
 };
-
-use super::{Header, ParseHeaderError};
+use itertools::Itertools;
+use reader::{util::is_alphabetic, Reader};
+use std::{fmt, str};
 
 /// The `Accept-Language` SIP header.
 ///

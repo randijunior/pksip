@@ -1,5 +1,4 @@
-use std::{fmt, str};
-use reader::Reader;
+use super::{Header, ParseHeaderError};
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
     headers::SipHeader,
@@ -7,8 +6,8 @@ use crate::{
     macros::{comma_sep, sip_parse_error},
     parser::Result,
 };
-
-use super::{Header, ParseHeaderError};
+use reader::Reader;
+use std::{fmt, str};
 
 /// The `Authentication-Info` SIP header.
 ///

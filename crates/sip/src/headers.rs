@@ -93,8 +93,8 @@ pub use via::Via;
 pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
-use enum_as_inner::EnumAsInner;
 use core::fmt;
+use enum_as_inner::EnumAsInner;
 use reader::{space, Reader};
 use std::{
     convert,

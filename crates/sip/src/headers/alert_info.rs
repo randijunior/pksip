@@ -1,11 +1,10 @@
-use std::{fmt, str};
-use reader::{space, until, Reader};
+use super::{Header, ParseHeaderError};
 use crate::{
     headers::SipHeader, macros::parse_header_param, message::Params,
     parser::Result,
 };
-
-use super::{Header, ParseHeaderError};
+use reader::{space, until, Reader};
+use std::{fmt, str};
 
 /// The `Alert-Info` SIP header.
 ///

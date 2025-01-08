@@ -1,11 +1,10 @@
-use std::fmt;
-use itertools::Itertools;
-use reader::{alpha, Reader};
+use super::{Header, ParseHeaderError};
 use crate::{
     headers::SipHeader, macros::hdr_list, message::SipMethod, parser::Result,
 };
-
-use super::{Header, ParseHeaderError};
+use itertools::Itertools;
+use reader::{alpha, Reader};
+use std::fmt;
 
 /// The `Allow` SIP header.
 ///

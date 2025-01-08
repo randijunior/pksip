@@ -1,14 +1,13 @@
-use std::fmt;
-use itertools::Itertools;
-use reader::Reader;
+use super::{Header, ParseHeaderError};
 use crate::{
     headers::SipHeader,
     internal::MediaType,
     macros::{hdr_list, parse_header_param},
     parser::{self, Result},
 };
-
-use super::{Header, ParseHeaderError};
+use itertools::Itertools;
+use reader::Reader;
+use std::fmt;
 
 /// The `Accept` SIP header.
 ///

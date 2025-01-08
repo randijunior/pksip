@@ -1,3 +1,4 @@
+use super::{Header, ParseHeaderError};
 use crate::{
     headers::{SipHeader, EXPIRES_PARAM, Q_PARAM},
     internal::Q,
@@ -7,8 +8,6 @@ use crate::{
 };
 use core::fmt;
 use reader::Reader;
-
-use super::{Header, ParseHeaderError};
 
 /// The `Contact` SIP header.
 ///

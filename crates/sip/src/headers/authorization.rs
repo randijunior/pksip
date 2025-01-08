@@ -1,7 +1,7 @@
-use std::fmt;
-use reader::Reader;
-use crate::{auth::Credential, parser::Result};
 use super::{Header, ParseHeaderError, SipHeader};
+use crate::{auth::Credential, parser::Result};
+use reader::Reader;
+use std::fmt;
 
 /// The `Authorization` SIP header.
 ///
