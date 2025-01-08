@@ -1,8 +1,6 @@
 use std::{fmt, str};
-
 use itertools::Itertools;
 use reader::{util::is_alphabetic, Reader};
-
 use crate::{
     headers::{SipHeader, Q_PARAM},
     internal::Q,
@@ -21,7 +19,7 @@ use super::{Header, ParseHeaderError};
 ///
 /// ```
 /// # use sip::{headers::{AcceptLanguage, accept_language::Language}};
-/// # use sip:internal::Q;
+/// # use sip::internal::Q;
 /// let mut language = AcceptLanguage::new();
 ///
 /// language.push(Language::new("en", None, None));
@@ -38,7 +36,7 @@ impl<'a> AcceptLanguage<'a> {
         Self::default()
     }
 
-    /// Appends an new `Language`.
+    /// Appends an new `Language` at the end of the header.
     pub fn push(&mut self, lang: Language<'a>) {
         self.0.push(lang);
     }

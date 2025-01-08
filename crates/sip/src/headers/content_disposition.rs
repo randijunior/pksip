@@ -30,7 +30,7 @@ impl<'a> SipHeader<'a> for ContentDisposition<'a> {
      * other-handling        =  token
      * disp-extension-token  =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<ContentDisposition<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let _type = parser::parse_token(reader)?;
         let params = parse_header_param!(reader);
 

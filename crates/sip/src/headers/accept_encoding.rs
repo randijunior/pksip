@@ -1,8 +1,6 @@
 use std::{fmt, str};
-
 use itertools::Itertools;
 use reader::{util::is_newline, Reader};
-
 use crate::{
     headers::{SipHeader, Q_PARAM},
     internal::Q,
@@ -21,7 +19,7 @@ use super::{Header, ParseHeaderError};
 ///
 /// ```
 /// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}};
-/// # use sip:internal::Q;
+/// # use sip::internal::Q;
 /// let mut encoding = AcceptEncoding::new();
 ///
 /// encoding.push(Coding::new("gzip", Some(Q::from(1)), None));
@@ -38,7 +36,7 @@ impl<'a> AcceptEncoding<'a> {
         Self::default()
     }
 
-    /// Appends an new `Coding`.
+    /// Appends an new `Coding` at the end of the header.
     pub fn push(&mut self, coding: Coding<'a>) {
         self.0.push(coding);
     }

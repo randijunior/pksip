@@ -1,7 +1,5 @@
 use std::{fmt, str};
-
 use reader::{space, until, Reader};
-
 use crate::{
     headers::SipHeader, macros::parse_header_param, message::Params,
     parser::Result,
@@ -29,6 +27,7 @@ pub struct AlertInfo<'a> {
 }
 
 impl<'a> AlertInfo<'a> {
+    /// Set the url for this header.
     pub fn set_url(&mut self, url: &'a str) {
         self.url = url;
     }

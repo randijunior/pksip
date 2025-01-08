@@ -1,8 +1,6 @@
 use std::fmt;
-
 use itertools::Itertools;
 use reader::{alpha, Reader};
-
 use crate::{
     headers::SipHeader, macros::hdr_list, message::SipMethod, parser::Result,
 };
@@ -22,7 +20,7 @@ use super::{Header, ParseHeaderError};
 /// allow.push(SipMethod::Invite);
 /// allow.push(SipMethod::Register);
 ///
-/// assert_eq!("INVITE, REGISTER".as_bytes().try_into(), Ok(allow));
+/// assert_eq!("Allow: INVITE, REGISTER".as_bytes().try_into(), Ok(allow));
 /// ```
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct Allow(Vec<SipMethod>);

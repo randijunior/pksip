@@ -65,7 +65,6 @@ pub use content_length::ContentLength;
 pub use content_type::ContentType;
 pub use cseq::CSeq;
 pub use date::Date;
-use enum_as_inner::EnumAsInner;
 pub use error_info::ErrorInfo;
 pub use expires::Expires;
 pub use from::From;
@@ -94,6 +93,7 @@ pub use via::Via;
 pub use warning::Warning;
 pub use www_authenticate::WWWAuthenticate;
 
+use enum_as_inner::EnumAsInner;
 use core::fmt;
 use reader::{space, Reader};
 use std::{

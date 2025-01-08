@@ -1,20 +1,35 @@
-use reader::{until, Reader};
-
+use super::{Header, ParseHeaderError, SipHeader};
 use crate::{macros::parse_header_param, message::Params, parser::Result};
-
-use crate::headers::SipHeader;
-
+use reader::{until, Reader};
 use std::{fmt, str};
+
 const PURPOSE: &'static str = "purpose";
 
 /// The `Call-Info` SIP header.
 ///
 /// Provides aditional information aboute the caller or calle.
-#[derive(Debug, PartialEq, Eq)]
+///
+/// # Examples
+///
+/// ```
+/// # use sip::headers::CallInfo;
+/// let mut info = CallInfo::default();
+/// info.set_url("http://www.example.com/alice/");
+///
+/// assert_eq!("Call-Info: <http://www.example.com/alice/>".as_bytes().try_into(), Ok(info));
+/// ```
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct CallInfo<'a> {
     url: &'a str,
     purpose: Option<&'a str>,
     params: Option<Params<'a>>,
+}
+
+impl<'a> CallInfo<'a> {
+    /// Set the url for this header.
+    pub fn set_url(&mut self, url: &'a str) {
+        self.url = url;
+    }
 }
 
 impl<'a> SipHeader<'a> for CallInfo<'a> {
@@ -25,7 +40,7 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
      * info-param = ("purpose" EQUAL ("icon" | "info" | "card" | token)) |
      *		        generic-param
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<CallInfo<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let mut purpose: Option<&'a str> = None;
         // must be an '<'
         reader.must_read(b'<')?;
@@ -40,6 +55,16 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
             params,
             purpose,
         })
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for CallInfo<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_call_info()
+            .map_err(|_| ParseHeaderError)?)
     }
 }
 

@@ -1,7 +1,5 @@
 use std::{fmt, str};
-
 use reader::Reader;
-
 use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
     headers::SipHeader,

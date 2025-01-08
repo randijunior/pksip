@@ -1,9 +1,6 @@
 use std::fmt;
-
 use reader::Reader;
-
 use crate::{auth::Credential, parser::Result};
-
 use super::{Header, ParseHeaderError, SipHeader};
 
 /// The `Authorization` SIP header.
@@ -66,7 +63,7 @@ impl<'a> SipHeader<'a> for Authorization<'a> {
      *			            *(COMMA auth-param)
      * auth-scheme       =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Authorization<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let credential = Credential::parse(reader)?;
 
         Ok(Authorization(credential))

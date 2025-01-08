@@ -1,51 +1,39 @@
-use core::fmt;
-
-use reader::Reader;
-
 use crate::{
-    headers::{EXPIRES_PARAM, Q_PARAM},
+    headers::{SipHeader, EXPIRES_PARAM, Q_PARAM},
+    internal::Q,
     macros::parse_header_param,
     message::{Params, SipUri},
     parser::{self, Result},
 };
+use core::fmt;
+use reader::Reader;
 
-use crate::headers::SipHeader;
-
-use crate::internal::Q;
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ContactUri<'a> {
-    pub uri: SipUri<'a>,
-    pub q: Option<Q>,
-    pub expires: Option<u32>,
-    pub param: Option<Params<'a>>,
-}
-
-impl fmt::Display for ContactUri<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uri)?;
-
-        if let Some(q) = self.q {
-            write!(f, "{}", q)?;
-        }
-        if let Some(expires) = self.expires {
-            write!(f, "{}", expires)?;
-        }
-        if let Some(param) = &self.param {
-            write!(f, ";{}", param)?;
-        }
-
-        Ok(())
-    }
-}
+use super::{Header, ParseHeaderError};
 
 /// The `Contact` SIP header.
 ///
 /// Specifies the `URI` for the user or `UA` sending the message.
+///
+/// # Examples
+///
+/// ```
+/// # use sip::headers::{contact::{Contact, ContactUri}};
+/// # use sip::message::{HostPort, Host, UserInfo, UriBuilder, SipUri, NameAddr};
+/// let uri = SipUri::NameAddr(NameAddr {
+///     display: None,
+///     uri: UriBuilder::new()
+///         .user(UserInfo::new("alice", None))
+///         .host(HostPort::from(Host::DomainName("client.atlanta.example.com")))
+///         .get()
+/// });
+/// let c = Contact::Uri(ContactUri::new(uri, None, None, None));
+///
+/// assert_eq!("Contact: <sip:alice@client.atlanta.example.com>".as_bytes().try_into(), Ok(c));
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum Contact<'a> {
-    Star,
     Uri(ContactUri<'a>),
+    Star,
 }
 
 impl<'a> Contact<'a> {
@@ -76,7 +64,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
      * contact-extension  =  generic-param
      * delta-seconds      =  1*DIGIT
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Contact<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         if reader.peek() == Some(&b'*') {
             reader.next();
             return Ok(Contact::Star);
@@ -99,12 +87,65 @@ impl<'a> SipHeader<'a> for Contact<'a> {
     }
 }
 
+impl<'a> TryFrom<&'a [u8]> for Contact<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_contact()
+            .map_err(|_| ParseHeaderError)?)
+    }
+}
+
 impl fmt::Display for Contact<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Contact::Star => write!(f, "*"),
             Contact::Uri(uri) => write!(f, "{}", uri),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ContactUri<'a> {
+    pub uri: SipUri<'a>,
+    pub q: Option<Q>,
+    pub expires: Option<u32>,
+    pub param: Option<Params<'a>>,
+}
+
+impl<'a> ContactUri<'a> {
+    /// Creates a new `ContactUri` instance.
+    pub fn new(
+        uri: SipUri<'a>,
+        q: Option<Q>,
+        expires: Option<u32>,
+        param: Option<Params<'a>>,
+    ) -> Self {
+        Self {
+            uri,
+            q,
+            expires,
+            param,
+        }
+    }
+}
+
+impl fmt::Display for ContactUri<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.uri)?;
+
+        if let Some(q) = self.q {
+            write!(f, "{}", q)?;
+        }
+        if let Some(expires) = self.expires {
+            write!(f, "{}", expires)?;
+        }
+        if let Some(param) = &self.param {
+            write!(f, ";{}", param)?;
+        }
+
+        Ok(())
     }
 }
 

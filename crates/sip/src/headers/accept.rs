@@ -1,8 +1,6 @@
 use std::fmt;
-
 use itertools::Itertools;
 use reader::Reader;
-
 use crate::{
     headers::SipHeader,
     internal::MediaType,
@@ -37,7 +35,7 @@ impl<'a> Accept<'a> {
         Self::default()
     }
 
-    /// Appends an new `MediaType`.
+    /// Appends an new `MediaType` at the end of the header.
     pub fn push(&mut self, mtype: MediaType<'a>) {
         self.0.push(mtype);
     }

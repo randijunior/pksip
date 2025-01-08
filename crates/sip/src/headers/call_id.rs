@@ -1,15 +1,24 @@
+use core::fmt;
+use std::str;
+
 use reader::Reader;
 
 use crate::parser::Result;
 
-use crate::headers::SipHeader;
-
-use core::fmt;
-use std::str;
+use super::{Header, ParseHeaderError, SipHeader};
 
 /// The `Call-ID` SIP header.
 ///
 /// Uniquely identifies a particular invitation or all registrations of a particular client.
+/// 
+/// # Examples
+/// 
+/// ```
+/// # use sip::headers::CallId;
+/// let cid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
+/// 
+/// assert_eq!("Call-ID: bs9ki9iqbee8k5kal8mpqb".as_bytes().try_into(), Ok(cid));
+/// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CallId<'a>(pub &'a str);
 
@@ -20,9 +29,12 @@ impl<'a> From<&'a str> for CallId<'a> {
 }
 
 impl<'a> CallId<'a> {
+   /// Creates a new `CallId` instance with the given identifier.
     pub fn new(id: &'a str) -> Self {
         Self(id)
     }
+
+    /// Returns the internal `CallId` identifier.
     pub fn id(&self) -> &str {
         self.0
     }
@@ -34,12 +46,23 @@ impl<'a> SipHeader<'a> for CallId<'a> {
     /*
      * Call-ID  =  ( "Call-ID" / "i" ) HCOLON callid
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<CallId<'a>> {
+    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         let id = Self::parse_as_str(reader)?;
 
         Ok(CallId(id))
     }
 }
+
+impl<'a> TryFrom<&'a [u8]> for CallId<'a> {
+    type Error = ParseHeaderError;
+
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+        Ok(Header::from_bytes(value)?
+            .into_call_id()
+            .map_err(|_| ParseHeaderError)?)
+    }
+}
+
 
 impl fmt::Display for CallId<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
