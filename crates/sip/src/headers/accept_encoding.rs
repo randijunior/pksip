@@ -1,7 +1,7 @@
 use super::{Header, ParseHeaderError};
 use crate::{
     headers::{SipHeader, Q_PARAM},
-    internal::Q,
+    internal::{ArcStr, Q},
     macros::{hdr_list, parse_header_param},
     message::Params,
     parser::{self, Result},
@@ -27,21 +27,44 @@ use std::{fmt, str};
 /// assert_eq!("Accept-Encoding: gzip;q=1, compress".as_bytes().try_into(), Ok(encoding));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct AcceptEncoding<'a>(Vec<Coding<'a>>);
+pub struct AcceptEncoding(Vec<Coding>);
 
-impl<'a> AcceptEncoding<'a> {
-    /// Creates a empty `AcceptEncoding` header.
+impl AcceptEncoding {
+    /// Creates a empty `AcceptEncoding` header instance.
+    ///
+    /// The header will not allocate until `Codings` are pushed onto it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sip::headers::AcceptEncoding;
+    /// let mut encoding = AcceptEncoding::new();
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Appends an new `Coding` at the end of the header.
-    pub fn push(&mut self, coding: Coding<'a>) {
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity exceeds `isize::MAX` bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}};
+    /// let mut encoding = AcceptEncoding::new();
+    /// encoding.push(Coding::new("compress", None, None));
+    ///
+    /// assert_eq!(encoding, [Coding::new("compress", None, None)].into());
+    /// ```
+    pub fn push(&mut self, coding: Coding) {
         self.0.push(coding);
     }
 
     /// Gets the `Coding` at the specified index.
-    pub fn get(&self, index: usize) -> Option<&Coding<'a>> {
+    pub fn get(&self, index: usize) -> Option<&Coding> {
         self.0.get(index)
     }
 
@@ -51,17 +74,25 @@ impl<'a> AcceptEncoding<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for AcceptEncoding<'a> {
+impl TryFrom<&[u8]> for AcceptEncoding {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept_encoding()
             .map_err(|_| ParseHeaderError)?)
     }
 }
 
-impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
+impl<'a, const N: usize> From<[Coding; N]> for AcceptEncoding {
+    fn from(value: [Coding; N]) -> Self {
+        Self(Vec::from(value))
+    }
+}
+
+impl SipHeader<'_> for AcceptEncoding {
     const NAME: &'static str = "Accept-Encoding";
     /*
      * Accept-Encoding  =  "Accept-Encoding" HCOLON
@@ -70,7 +101,7 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
      * codings          =  content-coding / "*"
      * content-coding   =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         if reader.peek().is_some_and(|b| is_newline(b)) {
             return Ok(AcceptEncoding::new());
         }
@@ -80,39 +111,43 @@ impl<'a> SipHeader<'a> for AcceptEncoding<'a> {
             let param = parse_header_param!(reader, Q_PARAM = q_param);
             let q = q_param.map(|q| q.parse()).transpose()?;
 
-            Coding { coding, q, param }
+            Coding { coding: coding.into(), q, param }
         });
 
         Ok(AcceptEncoding(codings))
     }
 }
 
-impl fmt::Display for AcceptEncoding<'_> {
+impl fmt::Display for AcceptEncoding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
     }
 }
 
 /// A `coding` that apear in `Accept-Encoding` header.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Coding<'a> {
-    coding: &'a str,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Coding {
+    coding: ArcStr,
     q: Option<Q>,
-    param: Option<Params<'a>>,
+    param: Option<Params>,
 }
 
-impl<'a> Coding<'a> {
+impl Coding {
     /// Creates a new `Coding` instance.
     pub fn new(
-        coding: &'a str,
+        coding: &str,
         q: Option<Q>,
-        param: Option<Params<'a>>,
+        param: Option<Params>,
     ) -> Self {
-        Self { coding, q, param }
+        Self {
+            coding: coding.into(),
+            q,
+            param,
+        }
     }
 }
 
-impl fmt::Display for Coding<'_> {
+impl fmt::Display for Coding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Coding { coding, q, param } = self;
         write!(f, "{}", coding)?;
@@ -141,11 +176,11 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
-        assert_eq!(coding.coding, "compress");
+        assert_eq!(coding.coding, "compress".into());
         assert_eq!(coding.q, None);
 
         let coding = accept_encoding.get(1).unwrap();
-        assert_eq!(coding.coding, "gzip");
+        assert_eq!(coding.coding, "gzip".into());
         assert_eq!(coding.q, None);
 
         let mut reader = Reader::new(b"*\r\n");
@@ -155,7 +190,7 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
-        assert_eq!(coding.coding, "*");
+        assert_eq!(coding.coding, "*".into());
         assert_eq!(coding.q, None);
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
@@ -167,15 +202,15 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let coding = accept_encoding.get(0).unwrap();
-        assert_eq!(coding.coding, "gzip");
+        assert_eq!(coding.coding, "gzip".into());
         assert_eq!(coding.q, Some(Q(1, 0)));
 
         let coding = accept_encoding.get(1).unwrap();
-        assert_eq!(coding.coding, "identity");
+        assert_eq!(coding.coding, "identity".into());
         assert_eq!(coding.q, Some(Q(0, 5)));
 
         let coding = accept_encoding.get(2).unwrap();
-        assert_eq!(coding.coding, "*");
+        assert_eq!(coding.coding, "*".into());
         assert_eq!(coding.q, Some(Q(0, 0)));
     }
 }

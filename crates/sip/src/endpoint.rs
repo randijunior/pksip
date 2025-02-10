@@ -1,46 +1,55 @@
-use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
+use tokio::sync::oneshot::{self};
 
+use crate::headers::Header;
+use crate::macros::sip_parse_error;
+use crate::message::{SipMethod, StatusLine};
+use crate::parser::SipParserError;
+use crate::service::Request;
+use crate::transaction::{TsxKey, TsxSender};
+use crate::transport::{
+    IncomingInfo, ReceivedRequest, IncomingResponse, OutGoingRequest,
+    OutgoingInfo, OutgoingResponse, Packet, Transport,
+    TransportLayer, CRLF, END,
+};
 use crate::{
     headers::{Headers, Via},
     message::{
-        HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
+        HostPort, SipMessage, SipResponse, SipUri, StatusCode,
+        UriBuilder,
     },
     parser::parse_sip_msg,
     resolver::{Resolver, ServerAddress},
     service::SipService,
-    transaction::{NonInviteServerTransaction, TransactionKey, Transactions},
+    transaction::TransactionLayer,
 };
+use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-use crate::transport::{
-    IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
-    OutgoingResponse, Packet, RequestHeaders, Transport, TransportLayer, CRLF,
-    END,
-};
+type TransportMessage = (Transport, Packet);
 
 pub struct EndpointBuilder {
-    transports: TransportLayer,
     name: String,
     dns_resolver: Resolver,
-    transactions: Transactions<'static>,
+    tp_layer: TransportLayer,
+    tsx_layer: TransactionLayer,
     // Accept, Allow, Supported
-    capabilities: Headers<'static>,
+    capabilities: Headers,
     services: Vec<Box<dyn SipService>>,
 }
 
 impl EndpointBuilder {
     pub fn new() -> Self {
         EndpointBuilder {
-            transports: TransportLayer::new(),
+            tp_layer: TransportLayer::new(),
             name: String::new(),
             capabilities: Headers::new(),
             dns_resolver: Resolver::default(),
             services: vec![],
-            transactions: Transactions::default(),
+            tsx_layer: TransactionLayer::default(),
         }
     }
 
     pub fn with_transport(mut self, transport: Transport) -> Self {
-        self.transports.add(transport);
+        self.tp_layer.add(transport);
 
         self
     }
@@ -52,33 +61,23 @@ impl EndpointBuilder {
     }
 
     pub fn build(self) -> Endpoint {
-        let EndpointBuilder {
-            transports,
-            name,
-            capabilities,
-            dns_resolver,
-            services,
-            transactions,
-        } = self;
-
         Endpoint(Arc::new(Inner {
-            transactions,
-            transports,
-            name,
-            capabilities,
-            dns_resolver,
-            services,
+            tsx_layer: self.tsx_layer,
+            tp_layer: self.tp_layer,
+            name: self.name,
+            capabilities: self.capabilities,
+            dns_resolver: self.dns_resolver,
+            services: self.services,
         }))
     }
 }
 pub struct Inner {
-    transports: TransportLayer,
+    tp_layer: TransportLayer,
+    tsx_layer: TransactionLayer,
     name: String,
-    capabilities: Headers<'static>,
+    capabilities: Headers,
     dns_resolver: Resolver,
     services: Vec<Box<dyn SipService>>,
-    //tsx_handlers
-    transactions: Transactions<'static>,
 }
 
 #[derive(Clone)]
@@ -92,24 +91,49 @@ impl Deref for Endpoint {
     }
 }
 
-impl<'a> Endpoint {
+impl Endpoint {
     pub async fn run(&self) -> io::Result<()> {
-        let mut rx = self.transports.start();
-        while let Some(tp_msg) = rx.recv().await {
-            let (transport, packet) = tp_msg;
-            let server = self.clone();
-            tokio::spawn(
-                async move { server.process_message(transport, packet) },
-            );
+        let mut rx = self.tp_layer.initialize();
+        while let Some(msg) = rx.recv().await {
+            let endpt = self.clone();
+            tokio::spawn(async move {
+                endpt.on_transport_message(msg).await
+            });
         }
         Ok(())
     }
 
-    async fn process_message(
+    // Create an request outside a dialog
+    pub fn create_request(
+        method: SipMethod,
+        target: &str,
+        from: &str,
+        to: &str,
+        contact: Option<&str>,
+        call_id: &str,
+        cseq: u32,
+        body: Option<&str>,
+    ) -> Result<OutGoingRequest, SipParserError> {
+        let Ok(SipUri::Uri(req_uri)) = target.parse() else {
+            return sip_parse_error!("Invalid request uri!");
+        };
+        let from = Header::from_bytes(from.as_bytes());
+        let Ok(Header::From(from)) = from else {
+            return sip_parse_error!("Invalid 'from' header!");
+        };
+        let to = Header::from_bytes(to.as_bytes());
+        let Ok(Header::To(to)) = to else {
+            return sip_parse_error!("Invalid 'to' header!");
+        };
+
+        todo!()
+    }
+
+    async fn on_transport_message(
         self,
-        transport: Transport,
-        packet: Packet,
+        msg: TransportMessage,
     ) -> io::Result<()> {
+        let (transport, packet) = msg;
         let msg = match packet.payload() {
             CRLF => {
                 transport.send(END, packet.addr()).await?;
@@ -120,71 +144,66 @@ impl<'a> Endpoint {
             }
             bytes => match parse_sip_msg(bytes) {
                 Ok(sip) => sip,
-                Err(err) => return Err(io::Error::other(err.message)),
+                Err(err) => {
+                    println!("ERROR ON PARSE MSG: {:#?}", err);
+                    return Err(io::Error::other(err.message));
+                }
             },
         };
-        let pkt = Packet {
-            payload: Arc::clone(&packet.payload),
-            ..packet
-        };
-        let info = IncomingInfo::new(pkt, transport);
+        let info = IncomingInfo::new(packet, transport);
         match msg {
             SipMessage::Request(msg) => {
-                let req = IncomingRequest::new(msg, info);
-                self.receive_request(req.into()).await;
+                let Ok(req_headers) = (&msg.headers).try_into()
+                else {
+                    return Err(io::Error::other(
+                        "Could not parse headers",
+                    ));
+                };
+                let req = ReceivedRequest::new(
+                    msg,
+                    info,
+                    Some(req_headers),
+                );
+                let _ = self.receive_request(req).await;
             }
             SipMessage::Response(msg) => {
-                let msg = IncomingResponse::new(msg, info);
-                self.receive_response(msg).await;
+                let res = IncomingResponse::new(msg, info);
+                let _ = self.receive_response(res).await;
             }
         }
         Ok(())
     }
 
-    pub async fn respond(
+    pub async fn new_response(
         &self,
-        msg: &IncomingRequest<'a>,
-        res: SipResponse<'a>,
-    ) -> io::Result<()> {
-        let mut resp = self.new_response_from_request(msg, res).await?;
-        self.transports.send_response(&mut resp).await
-    }
-
-    pub async fn respond_tsx(
-        &self,
-        msg: &'a IncomingRequest<'a>,
-        res: SipResponse<'a>,
-    ) -> io::Result<NonInviteServerTransaction> {
-        let resp = self.new_response_from_request(msg, res).await?;
-
-        todo!()
-    }
-
-    pub async fn new_response_from_request(
-        &self,
-        msg: &'a IncomingRequest<'a>,
-        res: SipResponse<'a>,
-    ) -> io::Result<OutgoingResponse<'a>> {
-        let hdrs = &msg.request().headers;
-        let mut req_hdrs: RequestHeaders<'a> = hdrs.into();
-        let topmost_via = req_hdrs.via.first().unwrap();
+        req: &mut ReceivedRequest,
+        st_line: StatusLine,
+    ) -> io::Result<OutgoingResponse> {
+        let mut req_hdrs = req.req_hdrs.take().unwrap();
+        let topmost_via = &mut req_hdrs.via[0];
 
         let info = self
             .get_outgoing_info(
                 topmost_via,
-                msg.transport(),
-                msg.packet().addr(),
+                req.transport(),
+                req.packet().addr(),
             )
             .await?;
 
-        if req_hdrs.to.tag.is_none() && res.st_line.code > StatusCode::Trying {
-            req_hdrs.to.tag = topmost_via.branch;
+        topmost_via.received = Some(req.info.packet().addr().ip());
+        if req_hdrs.to.tag.is_none()
+            && st_line.code > StatusCode::Trying
+        {
+            req_hdrs.to.tag =
+                topmost_via.branch.as_ref().map(|s| s.clone());
         }
+
+        let msg = SipResponse::new(st_line, Headers::default(), None);
 
         Ok(OutgoingResponse {
             req_hdrs,
             info,
-            msg: res,
+            msg,
             buf: None,
         })
     }
@@ -192,34 +211,31 @@ impl<'a> Endpoint {
     // follow SIP RFC 3261 in section 18.2.2
     pub async fn get_outgoing_info(
         &self,
-        via: &Via<'a>,
-        tp: &Transport,
+        via: &Via,
+        transport: &Transport,
         src_addr: SocketAddr,
     ) -> io::Result<OutgoingInfo> {
-        if tp.reliable() {
+        if transport.reliable() {
             // Tcp, TLS, etc..
             todo!()
         } else if let Some(maddr) = &via.maddr {
-            // Otherwise, if the Via header field value contains a "maddr"
-            // parameter, the response MUST be forwarded to the address listed
-            // there, using the port indicated in "sent-by", or port 5060 if
-            // none is present.
             let port = via.sent_by.port.unwrap_or(5060);
-            // If the address is a multicast address, the response SHOULD be sent
-            // using the TTL indicated in the "ttl" parameter, or with a TTL of 1
-            // if that parameter is not present.
             let temp_uri = UriBuilder::new()
                 .host(HostPort::new(maddr.clone(), Some(port)))
-                .transport_param(tp.get_protocol())
+                .transport_param(transport.protocol())
                 .get();
             let temp_uri = SipUri::Uri(temp_uri);
-            let addresses = self.dns_resolver.resolve(&temp_uri).await?;
+            let addresses =
+                self.dns_resolver.resolve(&temp_uri).await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
-            //TODO: the transport transports must create a transport if it cannot find
-            let transport = self.transports.find(addr, protocol).ok_or(
-                io::Error::other("Coun'd not find a suitable transport!"),
-            )?;
+            //TODO: the transport tp_layer must create a transport if it cannot find
+            let transport = self
+                .tp_layer
+                .find(addr, protocol)
+                .ok_or(io::Error::other(
+                    "Coun'd not find a suitable transport!",
+                ))?;
 
             Ok(OutgoingInfo { addr, transport })
         } else if let Some(rport) = via.rport {
@@ -228,51 +244,88 @@ impl<'a> Endpoint {
             let addr = SocketAddr::new(addr, rport);
             Ok(OutgoingInfo {
                 addr,
-                transport: tp.clone(),
+                transport: transport.clone(),
             })
         } else {
             Ok(OutgoingInfo {
                 addr: src_addr,
-                transport: tp.clone(),
+                transport: transport.clone(),
             })
         }
     }
 
-    pub async fn receive_request(&self, msg: IncomingRequest<'a>) {
-        let mut msg = msg.into();
-        let svcs = self.services.iter();
-
-        for svc in svcs {
-            svc.on_request(self, &mut msg).await;
-            if msg.is_none() {
-                break;
+    fn spawn_tsx_drop_notifier(
+        self,
+        key: TsxKey,
+        notifier: oneshot::Receiver<()>,
+    ) {
+        tokio::spawn(async move {
+            if let Err(_) = notifier.await {
+                println!("the receiver dropped");
             }
-        }
+            self.tsx_layer.remove(&key)
+        });
     }
 
-    pub async fn receive_response(&self, msg: IncomingResponse<'a>) {
-        let svcs = self.services.iter();
-        let key = TransactionKey::from(&msg);
-
-        if let Some(mut tsx) = self.transactions.find_tsx(key) {
-            tsx.handle_response(&msg);
-            let mut msg = msg.into();
-            for svc in svcs {
-                svc.on_transaction_response(self, &mut msg, &tsx).await;
-                if msg.is_none() {
-                    break;
-                }
-            }
-            return;
+    pub async fn create_uas_tsx(
+        &self,
+        key: &TsxKey,
+        request: &mut ReceivedRequest,
+    ) -> io::Result<(TsxSender, oneshot::Receiver<()>)> {
+        if request.is_method(&SipMethod::Ack)
+            || request.is_method(&SipMethod::Cancel)
+        {
+            return Err(io::Error::other(
+                "ACK and CANCEL cannot create a transaction",
+            ));
         }
 
-        let mut msg = msg.into();
-        for svc in svcs {
-            svc.on_response(self, &mut msg).await;
-            if msg.is_none() {
+        self.tsx_layer.create_uas_tsx(key, self, request).await
+    }
+
+    pub async fn receive_request(
+        self,
+        msg: ReceivedRequest,
+    ) -> io::Result<()> {
+        let key = TsxKey::try_from(&msg).unwrap();
+        // Check transaction.
+        let Some(mut msg) =
+            self.tsx_layer.handle_request(&key, msg).await?
+        else {
+            return Ok(());
+        };
+
+        // Create the server transaction.
+        let (tsx, drop_notifier) =
+            self.create_uas_tsx(&key, &mut msg).await?;
+
+        self.clone().spawn_tsx_drop_notifier(key, drop_notifier);
+
+        let mut request = Request {
+            endpoint: self.clone(),
+            msg: msg.into(),
+            tsx,
+        };
+
+        // new_incoming
+        for service in self.services.iter() {
+            service.on_request(&mut request).await?;
+
+            if request.msg.is_none() {
                 break;
             }
         }
+
+        Ok(())
+    }
+
+    pub async fn receive_response(
+        &self,
+        msg: IncomingResponse,
+    ) -> io::Result<()> {
+        // propagate!(self, msg, on_response);
+
+        Ok(())
     }
 
     pub fn get_name(&self) -> &String {
@@ -280,5 +333,3 @@ impl<'a> Endpoint {
     }
 }
 
-#[cfg(test)]
-mod tests {}

@@ -1,7 +1,7 @@
 use super::{Header, ParseHeaderError};
 use crate::{
     headers::{SipHeader, Q_PARAM},
-    internal::Q,
+    internal::{ArcStr, Q},
     macros::{hdr_list, parse_header_param},
     message::Params,
     parser::Result,
@@ -21,27 +21,27 @@ use std::{fmt, str};
 /// # use sip::internal::Q;
 /// let mut language = AcceptLanguage::new();
 ///
-/// language.push(Language::new("en", None, None));
-/// language.push(Language::new("fr", Q::new(0,8).into(), None));
+/// language.push(Language::new("en".into(), None, None));
+/// language.push(Language::new("fr".into(), Q::new(0,8).into(), None));
 ///
 /// assert_eq!("Accept-Language: en, fr;q=0.8".as_bytes().try_into(), Ok(language));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct AcceptLanguage<'a>(Vec<Language<'a>>);
+pub struct AcceptLanguage(Vec<Language>);
 
-impl<'a> AcceptLanguage<'a> {
+impl AcceptLanguage {
     /// Creates a empty `AcceptLanguage` header.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Appends an new `Language` at the end of the header.
-    pub fn push(&mut self, lang: Language<'a>) {
+    pub fn push(&mut self, lang: Language) {
         self.0.push(lang);
     }
 
     /// Gets the `Language` at the specified index.
-    pub fn get(&self, index: usize) -> Option<&Language<'a>> {
+    pub fn get(&self, index: usize) -> Option<&Language> {
         self.0.get(index)
     }
 
@@ -51,10 +51,12 @@ impl<'a> AcceptLanguage<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for AcceptLanguage<'a> {
+impl TryFrom<&[u8]> for AcceptLanguage {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept_language()
             .map_err(|_| ParseHeaderError)?)
@@ -66,7 +68,7 @@ pub(crate) fn is_lang(byte: &u8) -> bool {
     byte == &b'*' || byte == &b'-' || is_alphabetic(byte)
 }
 
-impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
+impl SipHeader<'_> for AcceptLanguage {
     const NAME: &'static str = "Accept-Language";
     /*
      * Accept-Language  =  "Accept-Language" HCOLON
@@ -74,21 +76,21 @@ impl<'a> SipHeader<'a> for AcceptLanguage<'a> {
      * language         =  language-range *(SEMI accept-param)
      * language-range   =  ( ( 1*8ALPHA *( "-" 1*8ALPHA ) ) / "*" )
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let languages = hdr_list!(reader => {
             let language = unsafe { reader.read_as_str(is_lang) };
             let mut q_param = None;
             let param = parse_header_param!(reader, Q_PARAM = q_param);
             let q = q_param.map(|q| q.parse()).transpose()?;
 
-            Language { language, q, param }
+            Language { language: language.into(), q, param }
         });
 
         Ok(AcceptLanguage(languages))
     }
 }
 
-impl fmt::Display for AcceptLanguage<'_> {
+impl fmt::Display for AcceptLanguage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
     }
@@ -96,24 +98,24 @@ impl fmt::Display for AcceptLanguage<'_> {
 
 /// A `language` that apear in `Accept-Language` header.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Language<'a> {
-    language: &'a str,
+pub struct Language {
+    language: ArcStr,
     q: Option<Q>,
-    param: Option<Params<'a>>,
+    param: Option<Params>,
 }
 
-impl<'a> Language<'a> {
+impl Language {
     /// Creates a new `Language` instance.
     pub fn new(
-        language: &'a str,
+        language: ArcStr,
         q: Option<Q>,
-        param: Option<Params<'a>>,
+        param: Option<Params>,
     ) -> Self {
         Self { language, q, param }
     }
 }
 
-impl fmt::Display for Language<'_> {
+impl fmt::Display for Language {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Language { language, q, param } = self;
         write!(f, "{}", language)?;
@@ -135,43 +137,46 @@ mod tests {
     fn test_parse() {
         let src = b"en\r\n";
         let mut reader = Reader::new(src);
-        let accept_language = AcceptLanguage::parse(&mut reader).unwrap();
+        let accept_language =
+            AcceptLanguage::parse(&mut reader).unwrap();
 
         assert!(accept_language.len() == 1);
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
-        assert_eq!(lang.language, "en");
+        assert_eq!(lang.language, "en".into());
         assert_eq!(lang.q, None);
 
         let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
         let mut reader = Reader::new(src);
-        let accept_language = AcceptLanguage::parse(&mut reader).unwrap();
+        let accept_language =
+            AcceptLanguage::parse(&mut reader).unwrap();
 
         assert!(accept_language.len() == 3);
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
-        assert_eq!(lang.language, "da");
+        assert_eq!(lang.language, "da".into());
         assert_eq!(lang.q, None);
 
         let lang = accept_language.get(1).unwrap();
-        assert_eq!(lang.language, "en-gb");
+        assert_eq!(lang.language, "en-gb".into());
         assert_eq!(lang.q, Some(Q(0, 8)));
 
         let lang = accept_language.get(2).unwrap();
-        assert_eq!(lang.language, "en");
+        assert_eq!(lang.language, "en".into());
         assert_eq!(lang.q, Some(Q(0, 7)));
 
         let src = b"*\r\n";
         let mut reader = Reader::new(src);
-        let accept_language = AcceptLanguage::parse(&mut reader).unwrap();
+        let accept_language =
+            AcceptLanguage::parse(&mut reader).unwrap();
 
         assert!(accept_language.len() == 1);
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let lang = accept_language.get(0).unwrap();
-        assert_eq!(lang.language, "*");
+        assert_eq!(lang.language, "*".into());
         assert_eq!(lang.q, None);
     }
 }

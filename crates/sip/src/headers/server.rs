@@ -2,6 +2,7 @@ use std::{fmt, str};
 
 use reader::Reader;
 
+use crate::internal::ArcStr;
 use crate::parser::Result;
 
 use crate::headers::SipHeader;
@@ -12,15 +13,15 @@ use crate::headers::SipHeader;
 /// that the UAC expects the UAS to support in order to process the
 /// request.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Server<'a>(&'a str);
+pub struct Server(ArcStr);
 
-impl<'a> Server<'a> {
-    pub fn new(s: &'a str) -> Self {
-        Self(s)
+impl Server {
+    pub fn new(s: &str) -> Self {
+        Self(s.into())
     }
 }
 
-impl<'a> SipHeader<'a> for Server<'a> {
+impl SipHeader<'_> for Server {
     const NAME: &'static str = "Server";
     /*
      * Server           =  "Server" HCOLON server-val *(LWS server-val)
@@ -28,14 +29,14 @@ impl<'a> SipHeader<'a> for Server<'a> {
      * product          =  token [SLASH product-version]
      * product-version  =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let server = Self::parse_as_str(reader)?;
+    fn parse(reader: &mut Reader) -> Result<Self> {
+        let server = Self::parse_as_str(reader)?.into();
 
         Ok(Server(server))
     }
 }
 
-impl fmt::Display for Server<'_> {
+impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -53,6 +54,6 @@ mod tests {
         let server = server.unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(server.0, "HomeServer v2");
+        assert_eq!(server.0, "HomeServer v2".into());
     }
 }

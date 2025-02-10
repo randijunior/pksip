@@ -1,6 +1,8 @@
 use std::{
     fmt,
+    ops::Deref,
     str::{self, FromStr},
+    sync::Arc,
 };
 
 use reader::{space, Reader};
@@ -22,26 +24,29 @@ use crate::parser::{self, Result};
 /// let mut reader = Reader::new(b"param=value");
 /// let param = Param::parse(&mut reader).unwrap();
 ///
-/// assert_eq!(param.name, "param");
-/// assert_eq!(param.value, Some("value"));
+/// assert_eq!(param.name, "param".into());
+/// assert_eq!(param.value, Some("value".into()));
 /// ```
-pub struct Param<'a> {
-    pub name: &'a str,
-    pub value: Option<&'a str>,
+pub struct Param {
+    pub name: ArcStr,
+    pub value: Option<ArcStr>,
 }
 
-impl<'a> Param<'a> {
+impl Param {
     pub unsafe fn parse_unchecked<F>(
-        reader: &mut Reader<'a>,
+        reader: &mut Reader,
         func: F,
-    ) -> Result<Param<'a>>
+    ) -> Result<Param>
     where
         F: Fn(&u8) -> bool,
     {
         space!(reader);
         let name = unsafe { reader.read_as_str(&func) };
         let Some(&b'=') = reader.peek() else {
-            return Ok(Param { name, value: None });
+            return Ok(Param {
+                name: name.into(),
+                value: None,
+            });
         };
         reader.next();
         let value = if let Some(&b'"') = reader.peek() {
@@ -55,12 +60,12 @@ impl<'a> Param<'a> {
         };
 
         return Ok(Param {
-            name,
-            value: Some(value),
+            name: name.into(),
+            value: Some(value.into()),
         });
     }
 
-    pub fn parse(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+    pub fn parse(reader: &mut Reader) -> Result<Param> {
         unsafe { Self::parse_unchecked(reader, parser::is_token) }
     }
 }
@@ -128,20 +133,20 @@ impl fmt::Display for Q {
 }
 
 /// This type reprents an MIME type that indicates an content format.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct MimeType<'a> {
-    pub mtype: &'a str,
-    pub subtype: &'a str,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MimeType {
+    pub mtype: ArcStr,
+    pub subtype: ArcStr,
 }
 
 /// The `media-type` that appears in `Accept` and `Content-Type` SIP headers.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct MediaType<'a> {
-    pub mimetype: MimeType<'a>,
-    pub param: Option<Params<'a>>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaType {
+    pub mimetype: MimeType,
+    pub param: Option<Params>,
 }
 
-impl fmt::Display for MediaType<'_> {
+impl fmt::Display for MediaType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let MediaType { mimetype, param } = self;
         write!(f, "{}/{}", mimetype.mtype, mimetype.subtype)?;
@@ -152,15 +157,41 @@ impl fmt::Display for MediaType<'_> {
     }
 }
 
-impl<'a> MediaType<'a> {
+impl MediaType {
     pub fn new(
-        mtype: &'a str,
-        subtype: &'a str,
-        param: Option<Params<'a>>,
+        mtype: &str,
+        subtype: &str,
+        param: Option<Params>,
     ) -> Self {
         Self {
-            mimetype: MimeType { mtype, subtype },
+            mimetype: MimeType {
+                mtype: mtype.into(),
+                subtype: subtype.into(),
+            },
             param,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ArcStr(Arc<str>);
+
+impl Deref for ArcStr {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Display for ArcStr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for ArcStr {
+    fn from(value: &str) -> Self {
+        Self(value.into())
     }
 }

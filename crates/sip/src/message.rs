@@ -4,6 +4,7 @@
 //! an [`SipMessage::Request`] or [`SipMessage::Response`] and represents an sip message.
 
 use itertools::Itertools;
+use reader::Reader;
 pub use request::*;
 pub use response::*;
 
@@ -14,16 +15,19 @@ use core::fmt;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
 
 use crate::headers::{Header, Headers};
+use crate::internal::ArcStr;
+use crate::parser::SipParserError;
 
 #[derive(Debug)]
-pub enum SipMessage<'a> {
-    Request(SipRequest<'a>),
-    Response(SipResponse<'a>),
+pub enum SipMessage {
+    Request(SipRequest),
+    Response(SipResponse),
 }
 
-impl<'a> SipMessage<'a> {
+impl SipMessage {
     pub fn request(&self) -> Option<&SipRequest> {
         if let SipMessage::Request(req) = self {
             Some(req)
@@ -31,7 +35,7 @@ impl<'a> SipMessage<'a> {
             None
         }
     }
-    pub fn headers(&self) -> &Headers<'a> {
+    pub fn headers(&self) -> &Headers {
         match self {
             SipMessage::Request(req) => &req.headers,
             SipMessage::Response(res) => &res.headers,
@@ -39,38 +43,53 @@ impl<'a> SipMessage<'a> {
     }
 
     pub fn body(&self) -> &Option<&[u8]> {
-        match self {
-            SipMessage::Request(req) => &req.body,
-            SipMessage::Response(res) => &res.body,
-        }
+        // match self {
+        //     SipMessage::Request(req) => req.body,
+        //     SipMessage::Response(res) => &res.body,
+        // }
+        todo!()
     }
 
-    pub fn headers_mut(&mut self) -> &mut Headers<'a> {
+    pub fn headers_mut(&mut self) -> &mut Headers {
         match self {
             SipMessage::Request(req) => &mut req.headers,
             SipMessage::Response(res) => &mut res.headers,
         }
     }
 
-    pub fn set_body(&mut self, body: Option<&'a [u8]>) {
+    pub fn set_body(&mut self, body: Option<&[u8]>) {
         match self {
-            SipMessage::Request(req) => req.body = body,
-            SipMessage::Response(res) => res.body = body,
+            SipMessage::Request(req) => {
+                req.body = body.map(|b| b.into())
+            }
+            SipMessage::Response(res) => {
+                res.body = body.map(|b| b.into())
+            }
         }
     }
 
-    pub fn push_header(&mut self, header: Header<'a>) {
+    pub fn push_header(&mut self, header: Header) {
         self.headers_mut().push(header);
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum SipUri<'a> {
-    Uri(Uri<'a>),
-    NameAddr(NameAddr<'a>),
+pub enum SipUri {
+    Uri(Uri),
+    NameAddr(NameAddr),
 }
 
-impl fmt::Display for SipUri<'_> {
+impl FromStr for SipUri {
+    type Err = SipParserError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut reader = Reader::new(s.as_bytes());
+
+        crate::parser::parse_sip_uri(&mut reader, true)
+    }
+}
+
+impl fmt::Display for SipUri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SipUri::Uri(uri) => write!(f, "{}", uri),
@@ -79,7 +98,7 @@ impl fmt::Display for SipUri<'_> {
     }
 }
 
-impl<'a> SipUri<'a> {
+impl SipUri {
     pub fn uri(&self) -> Option<&Uri> {
         if let SipUri::Uri(uri) = self {
             Some(uri)
@@ -105,7 +124,9 @@ impl<'a> SipUri<'a> {
     pub fn transport_param(&self) -> Option<TransportProtocol> {
         match self {
             SipUri::Uri(uri) => uri.transport_param,
-            SipUri::NameAddr(name_addr) => name_addr.uri.transport_param,
+            SipUri::NameAddr(name_addr) => {
+                name_addr.uri.transport_param
+            }
         }
     }
 
@@ -126,31 +147,37 @@ pub enum Scheme {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct UserInfo<'a> {
-    user: &'a str,
-    pass: Option<&'a str>,
+pub struct UserInfo {
+    user: ArcStr,
+    pass: Option<ArcStr>,
 }
 
-impl<'a> UserInfo<'a> {
-    pub fn new(user: &'a str, pass: Option<&'a str>) -> Self {
-        Self { user, pass }
+impl UserInfo {
+    pub fn new(user: &str, pass: Option<&str>) -> Self {
+        Self {
+            user: user.into(),
+            pass: pass.map(|s| s.into()),
+        }
     }
-    pub fn get_user(&self) -> &'a str {
-        self.user
+    pub fn get_user(&self) -> &str {
+        &*self.user
     }
-    pub fn get_pass(&self) -> Option<&'a str> {
-        self.pass
+    pub fn get_pass(&self) -> Option<&str> {
+        self.pass.as_deref()
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub enum Host<'a> {
-    DomainName(&'a str),
+pub enum Host {
+    DomainName(ArcStr),
     IpAddr(IpAddr),
 }
 
-impl fmt::Display for Host<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Host {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
             Host::DomainName(domain) => write!(f, "{domain}"),
             Host::IpAddr(ip_addr) => write!(f, "{ip_addr}"),
@@ -158,7 +185,7 @@ impl fmt::Display for Host<'_> {
     }
 }
 
-impl<'a> Host<'a> {
+impl Host {
     pub fn is_ip_addr(&self) -> bool {
         match self {
             Host::DomainName(_) => false,
@@ -167,19 +194,21 @@ impl<'a> Host<'a> {
     }
     pub fn as_str(&self) -> String {
         match self {
-            Host::DomainName(host) => host.to_string(),
+            Host::DomainName(host) => {
+                String::from(host.as_ref() as &str)
+            }
             Host::IpAddr(host) => host.to_string(),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub struct HostPort<'a> {
-    pub host: Host<'a>,
+pub struct HostPort {
+    pub host: Host,
     pub port: Option<u16>,
 }
 
-impl<'a> HostPort<'a> {
+impl HostPort {
     pub fn ip_addr(&self) -> Option<IpAddr> {
         match self.host {
             Host::DomainName(_) => None,
@@ -191,9 +220,12 @@ impl<'a> HostPort<'a> {
     }
 }
 
-impl fmt::Display for HostPort<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.host {
+impl fmt::Display for HostPort {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        match &self.host {
             Host::DomainName(domain) => write!(f, "{domain}")?,
             Host::IpAddr(ip_addr) => write!(f, "{ip_addr}")?,
         }
@@ -204,23 +236,25 @@ impl fmt::Display for HostPort<'_> {
     }
 }
 
-impl<'a> From<Host<'a>> for HostPort<'a> {
-    fn from(host: Host<'a>) -> Self {
+impl From<Host> for HostPort {
+    fn from(host: Host) -> Self {
         Self { host, port: None }
     }
 }
 
-impl Default for HostPort<'_> {
+impl Default for HostPort {
     fn default() -> Self {
         Self {
-            host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
+            host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(
+                127, 0, 0, 1,
+            ))),
             port: Some(5060),
         }
     }
 }
 
-impl<'a> HostPort<'a> {
-    pub fn new(host: Host<'a>, port: Option<u16>) -> Self {
+impl HostPort {
+    pub fn new(host: Host, port: Option<u16>) -> Self {
         Self { host, port }
     }
 
@@ -237,21 +271,21 @@ impl<'a> HostPort<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Uri<'a> {
+pub struct Uri {
     pub scheme: Scheme,
-    pub user: Option<UserInfo<'a>>,
-    pub host_port: HostPort<'a>,
-    pub user_param: Option<&'a str>,
-    pub method_param: Option<&'a str>,
+    pub user: Option<UserInfo>,
+    pub host_port: HostPort,
+    pub user_param: Option<ArcStr>,
+    pub method_param: Option<ArcStr>,
     pub transport_param: Option<TransportProtocol>,
-    pub ttl_param: Option<&'a str>,
-    pub lr_param: Option<&'a str>,
-    pub maddr_param: Option<&'a str>,
-    pub params: Option<Params<'a>>,
-    pub hdr_params: Option<Params<'a>>,
+    pub ttl_param: Option<ArcStr>,
+    pub lr_param: Option<ArcStr>,
+    pub maddr_param: Option<ArcStr>,
+    pub params: Option<Params>,
+    pub hdr_params: Option<Params>,
 }
 
-impl fmt::Display for Uri<'_> {
+impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.scheme {
             Scheme::Sip => write!(f, "sip")?,
@@ -268,31 +302,32 @@ impl fmt::Display for Uri<'_> {
         }
         write!(f, "{}", self.host_port)?;
 
-        if let Some(user_param) = self.user_param {
+        if let Some(user_param) = &self.user_param {
             write!(f, ";user={}", user_param)?;
         }
-        if let Some(m_param) = self.method_param {
+        if let Some(m_param) = &self.method_param {
             write!(f, ";method={}", m_param)?;
         }
-        if let Some(m_param) = self.maddr_param {
+        if let Some(m_param) = &self.maddr_param {
             write!(f, ";maddr={}", m_param)?;
         }
-        if let Some(transport_param) = self.transport_param {
+        if let Some(transport_param) = &self.transport_param {
             write!(f, ";transport={}", transport_param)?;
         }
-        if let Some(ttl_param) = self.ttl_param {
+        if let Some(ttl_param) = &self.ttl_param {
             write!(f, ";ttl={}", ttl_param)?;
         }
-        if let Some(lr_param) = self.lr_param {
+        if let Some(lr_param) = &self.lr_param {
             write!(f, ";lr={}", lr_param)?;
         }
         if let Some(params) = &self.params {
             write!(f, ";{}", params)?;
         }
         if let Some(hdr_params) = &self.hdr_params {
-            let formater = hdr_params.iter().format_with("&", |it, f| {
-                f(&format_args!("{}={}", it.0, it.1))
-            });
+            let formater =
+                hdr_params.iter().format_with("&", |it, f| {
+                    f(&format_args!("{}={}", it.0, it.1))
+                });
             write!(f, "?{}", formater)?;
         }
 
@@ -300,11 +335,11 @@ impl fmt::Display for Uri<'_> {
     }
 }
 
-impl<'a> Uri<'a> {
+impl Uri {
     pub fn without_params(
         scheme: Scheme,
-        user: Option<UserInfo<'a>>,
-        host_port: HostPort<'a>,
+        user: Option<UserInfo>,
+        host_port: HostPort,
     ) -> Self {
         Uri {
             scheme,
@@ -316,11 +351,11 @@ impl<'a> Uri<'a> {
 }
 
 #[derive(Default)]
-pub struct UriBuilder<'a> {
-    uri: Uri<'a>,
+pub struct UriBuilder {
+    uri: Uri,
 }
 
-impl<'a> UriBuilder<'a> {
+impl UriBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -329,23 +364,23 @@ impl<'a> UriBuilder<'a> {
         self
     }
 
-    pub fn user(mut self, user: UserInfo<'a>) -> Self {
+    pub fn user(mut self, user: UserInfo) -> Self {
         self.uri.user = Some(user);
         self
     }
 
-    pub fn host(mut self, host_port: HostPort<'a>) -> Self {
+    pub fn host(mut self, host_port: HostPort) -> Self {
         self.uri.host_port = host_port;
         self
     }
 
-    pub fn user_param(mut self, user_param: &'a str) -> Self {
-        self.uri.user_param = Some(user_param);
+    pub fn user_param(mut self, user_param: &str) -> Self {
+        self.uri.user_param = Some(user_param.into());
         self
     }
 
-    pub fn method_param(mut self, method_param: &'a str) -> Self {
-        self.uri.method_param = Some(method_param);
+    pub fn method_param(mut self, method_param: &str) -> Self {
+        self.uri.method_param = Some(method_param.into());
         self
     }
     pub fn transport_param(
@@ -356,26 +391,26 @@ impl<'a> UriBuilder<'a> {
         self
     }
 
-    pub fn ttl_param(mut self, ttl_param: &'a str) -> Self {
-        self.uri.ttl_param = Some(ttl_param);
+    pub fn ttl_param(mut self, ttl_param: &str) -> Self {
+        self.uri.ttl_param = Some(ttl_param.into());
         self
     }
-    pub fn lr_param(mut self, lr_param: &'a str) -> Self {
-        self.uri.lr_param = Some(lr_param);
-        self
-    }
-
-    pub fn maddr_param(mut self, maddr_param: &'a str) -> Self {
-        self.uri.maddr_param = Some(maddr_param);
+    pub fn lr_param(mut self, lr_param: &str) -> Self {
+        self.uri.lr_param = Some(lr_param.into());
         self
     }
 
-    pub fn params(mut self, params: Params<'a>) -> Self {
+    pub fn maddr_param(mut self, maddr_param: &str) -> Self {
+        self.uri.maddr_param = Some(maddr_param.into());
+        self
+    }
+
+    pub fn params(mut self, params: Params) -> Self {
         self.uri.params = Some(params);
         self
     }
 
-    pub fn get(self) -> Uri<'a> {
+    pub fn get(self) -> Uri {
         self.uri
     }
 }
@@ -384,14 +419,14 @@ impl<'a> UriBuilder<'a> {
 // display optional display part
 // Struct Uri uri
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct NameAddr<'a> {
-    pub display: Option<&'a str>,
-    pub uri: Uri<'a>,
+pub struct NameAddr {
+    pub display: Option<ArcStr>,
+    pub uri: Uri,
 }
 
-impl fmt::Display for NameAddr<'_> {
+impl fmt::Display for NameAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(display) = self.display {
+        if let Some(display) = &self.display {
             write!(f, "{} ", display)?;
         }
         write!(f, "<{}>", self.uri)?;
@@ -401,41 +436,41 @@ impl fmt::Display for NameAddr<'_> {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Params<'a> {
-    pub(crate) inner: HashMap<&'a str, &'a str>,
+pub struct Params {
+    pub(crate) inner: HashMap<ArcStr, ArcStr>,
 }
 
-impl fmt::Display for Params<'_> {
+impl fmt::Display for Params {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let formater = self
-            .iter()
-            .format_with(";", |it, f| f(&format_args!("{}={}", it.0, it.1)));
+        let formater = self.iter().format_with(";", |it, f| {
+            f(&format_args!("{}={}", it.0, it.1))
+        });
         write!(f, "{}", formater)
     }
 }
 
-impl<'a> From<HashMap<&'a str, &'a str>> for Params<'a> {
-    fn from(value: HashMap<&'a str, &'a str>) -> Self {
+impl From<HashMap<ArcStr, ArcStr>> for Params {
+    fn from(value: HashMap<ArcStr, ArcStr>) -> Self {
         Self { inner: value }
     }
 }
 
-impl<'a> Params<'a> {
+impl Params {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&&str, &&str)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&ArcStr, &ArcStr)> {
         self.inner.iter()
     }
 
-    pub fn set(&mut self, k: &'a str, v: &'a str) -> Option<&str> {
+    pub fn set(&mut self, k: ArcStr, v: ArcStr) -> Option<ArcStr> {
         self.inner.insert(k, v)
     }
-    pub fn get(&self, k: &'a str) -> Option<&&str> {
-        self.inner.get(k)
+    pub fn get(&self, k: ArcStr) -> Option<&str> {
+        self.inner.get(&k).map(|s| s.as_ref())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -697,7 +732,9 @@ impl StatusCode {
             // 1xx — Provisional Responses
             StatusCode::Trying => "Trying",
             StatusCode::Ringing => "Ringing",
-            StatusCode::CallIsBeingForwarded => "Call Is Being Forwarded",
+            StatusCode::CallIsBeingForwarded => {
+                "Call Is Being Forwarded"
+            }
             StatusCode::Queued => "Queued",
             StatusCode::SessionProgress => "Session Progress",
 
@@ -726,14 +763,22 @@ impl StatusCode {
             }
             StatusCode::RequestTimeout => "Request Timeout",
             StatusCode::Gone => "Gone",
-            StatusCode::RequestEntityTooLarge => "Request Entity Too Large",
+            StatusCode::RequestEntityTooLarge => {
+                "Request Entity Too Large"
+            }
             StatusCode::RequestUriTooLong => "Request-URI Too Long",
-            StatusCode::UnsupportedMediaType => "Unsupported Media Type",
-            StatusCode::UnsupportedUriScheme => "Unsupported URI Scheme",
+            StatusCode::UnsupportedMediaType => {
+                "Unsupported Media Type"
+            }
+            StatusCode::UnsupportedUriScheme => {
+                "Unsupported URI Scheme"
+            }
             StatusCode::BadExtension => "Bad Extension",
             StatusCode::ExtensionRequired => "Extension Required",
             StatusCode::IntervalTooBrief => "Interval Too Brief",
-            StatusCode::TemporarilyUnavailable => "Temporarily Unavailable",
+            StatusCode::TemporarilyUnavailable => {
+                "Temporarily Unavailable"
+            }
             StatusCode::CallOrTransactionDoesNotExist => {
                 "Call/Transaction Does Not Exist"
             }
@@ -748,18 +793,24 @@ impl StatusCode {
             StatusCode::Undecipherable => "Undecipherable",
 
             // 5xx — Server Failure Responses
-            StatusCode::ServerInternalError => "Server Internal Error",
+            StatusCode::ServerInternalError => {
+                "Server Internal Error"
+            }
             StatusCode::NotImplemented => "Not Implemented",
             StatusCode::BadGateway => "Bad Gateway",
             StatusCode::ServiceUnavailable => "Service Unavailable",
             StatusCode::ServerTimeout => "Server Time-out",
-            StatusCode::VersionNotSupported => "Version Not Supported",
+            StatusCode::VersionNotSupported => {
+                "Version Not Supported"
+            }
             StatusCode::MessageTooLarge => "Message Too Large",
 
             // 6xx — Global Failure Responses
             StatusCode::BusyEverywhere => "Busy Everywhere",
             StatusCode::Decline => "Decline",
-            StatusCode::DoesNotExistAnywhere => "Does Not Exist Anywhere",
+            StatusCode::DoesNotExistAnywhere => {
+                "Does Not Exist Anywhere"
+            }
             StatusCode::NotAcceptableAnywhere => "Not Acceptable",
 
             // Unknown or custom status
@@ -948,11 +999,11 @@ impl From<&[u8]> for StatusCode {
     }
 }
 
-impl From<StatusCode> for StatusLine<'_> {
+impl From<StatusCode> for StatusLine {
     fn from(value: StatusCode) -> Self {
         StatusLine {
             code: value,
-            rphrase: value.reason_phrase(),
+            rphrase: value.reason_phrase().into(),
         }
     }
 }

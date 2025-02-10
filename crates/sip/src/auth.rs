@@ -2,7 +2,7 @@ use reader::Reader;
 use std::fmt;
 
 use crate::{
-    internal::Param,
+    internal::{ArcStr, Param},
     macros::comma_sep,
     message::Params,
     parser::{self, Result},
@@ -28,24 +28,24 @@ const STALE: &str = "stale";
 /// This enum represent a challenge authentication mechanism used in
 /// `Proxy-Authenticate` and `WWW-Authenticate` headers.
 #[derive(Debug, PartialEq, Eq)]
-pub enum Challenge<'a> {
+pub enum Challenge {
     /// A `digest` authentication scheme.
     Digest {
-        realm: Option<&'a str>,
-        domain: Option<&'a str>,
-        nonce: Option<&'a str>,
-        opaque: Option<&'a str>,
-        stale: Option<&'a str>,
-        algorithm: Option<&'a str>,
-        qop: Option<&'a str>,
+        realm: Option<ArcStr>,
+        domain: Option<ArcStr>,
+        nonce: Option<ArcStr>,
+        opaque: Option<ArcStr>,
+        stale: Option<ArcStr>,
+        algorithm: Option<ArcStr>,
+        qop: Option<ArcStr>,
     },
     /// Other scheme not specified.
-    Other { scheme: &'a str, param: Params<'a> },
+    Other { scheme: ArcStr, param: Params },
 }
 
-impl<'a> Challenge<'a> {
+impl Challenge {
     ///  Use `reader` to parse a `Challenge`.
-    pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    pub fn parse(reader: &mut Reader) -> Result<Self> {
         let scheme = parser::parse_token(reader)?;
         let mut param = Params::new();
 
@@ -61,7 +61,7 @@ impl<'a> Challenge<'a> {
             comma_sep!(reader => {
                 let Param {name, value} = Param::parse(reader)?;
 
-                match name {
+                match name.as_ref() {
                     REALM => realm = value,
                     NONCE => nonce = value,
                     DOMAIN => domain = value,
@@ -88,15 +88,18 @@ impl<'a> Challenge<'a> {
 
         comma_sep!(reader => {
             let Param {name, value} = Param::parse(reader)?;
-            param.set(name, value.unwrap_or(""));
+            param.set(name, value.unwrap_or("".into()));
 
         });
 
-        Ok(Challenge::Other { scheme, param })
+        Ok(Challenge::Other {
+            scheme: scheme.into(),
+            param,
+        })
     }
 }
 
-impl fmt::Display for Challenge<'_> {
+impl fmt::Display for Challenge {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Challenge::Digest {
@@ -139,30 +142,30 @@ impl fmt::Display for Challenge<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct DigestCredential<'a> {
-    pub realm: Option<&'a str>,
-    pub username: Option<&'a str>,
-    pub nonce: Option<&'a str>,
-    pub uri: Option<&'a str>,
-    pub response: Option<&'a str>,
-    pub algorithm: Option<&'a str>,
-    pub cnonce: Option<&'a str>,
-    pub opaque: Option<&'a str>,
-    pub qop: Option<&'a str>,
-    pub nc: Option<&'a str>,
+pub struct DigestCredential {
+    pub realm: Option<ArcStr>,
+    pub username: Option<ArcStr>,
+    pub nonce: Option<ArcStr>,
+    pub uri: Option<ArcStr>,
+    pub response: Option<ArcStr>,
+    pub algorithm: Option<ArcStr>,
+    pub cnonce: Option<ArcStr>,
+    pub opaque: Option<ArcStr>,
+    pub qop: Option<ArcStr>,
+    pub nc: Option<ArcStr>,
 }
 
 /// This type represent a credential containing the authentication
 /// information in `Authorization` and `Proxy-Authorization` headers.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Credential<'a> {
+pub enum Credential {
     /// A `digest` authentication scheme.
-    Digest(DigestCredential<'a>),
+    Digest(DigestCredential),
     /// Other scheme not specified.
-    Other { scheme: &'a str, param: Params<'a> },
+    Other { scheme: ArcStr, param: Params },
 }
 
-impl fmt::Display for Credential<'_> {
+impl fmt::Display for Credential {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Credential::Digest(DigestCredential {
@@ -216,9 +219,9 @@ impl fmt::Display for Credential<'_> {
     }
 }
 
-impl<'a> Credential<'a> {
+impl Credential {
     ///  Use `reader` to parse a `Credential`.
-    pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    pub fn parse(reader: &mut Reader) -> Result<Self> {
         let scheme = parser::parse_token(reader)?;
         let mut param = Params::new();
 
@@ -237,7 +240,7 @@ impl<'a> Credential<'a> {
             comma_sep!(reader => {
                 let Param {name, value} = Param::parse(reader)?;
 
-                match name {
+                match name.as_ref() {
                     REALM => realm = value,
                     USERNAME => username = value,
                     NONCE => nonce = value,
@@ -270,10 +273,13 @@ impl<'a> Credential<'a> {
 
         comma_sep!(reader => {
             let Param {name, value} = Param::parse(reader)?;
-            param.set(name, value.unwrap_or(""));
+            param.set(name, value.unwrap_or("".into()));
 
         });
 
-        Ok(Credential::Other { scheme, param })
+        Ok(Credential::Other {
+            scheme: scheme.into(),
+            param,
+        })
     }
 }

@@ -3,6 +3,7 @@ use std::{fmt, str};
 use itertools::Itertools;
 use reader::Reader;
 
+use crate::internal::ArcStr;
 use crate::macros::hdr_list;
 use crate::parser;
 use crate::parser::Result;
@@ -13,23 +14,24 @@ use crate::headers::SipHeader;
 ///
 /// Enumerates all the extensions supported by the `UAC` or `UAS`.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Supported<'a>(Vec<&'a str>);
+pub struct Supported(Vec<ArcStr>);
 
-impl<'a> SipHeader<'a> for Supported<'a> {
+impl SipHeader<'_> for Supported {
     const NAME: &'static str = "Supported";
     const SHORT_NAME: &'static str = "k";
     /*
      * Supported  =  ( "Supported" / "k" ) HCOLON
      *               [option-tag *(COMMA option-tag)]
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let tags = hdr_list!(reader => parser::parse_token(reader)?);
+    fn parse(reader: &mut Reader) -> Result<Self> {
+        let tags =
+            hdr_list!(reader => parser::parse_token(reader)?.into());
 
         Ok(Supported(tags))
     }
 }
 
-impl fmt::Display for Supported<'_> {
+impl fmt::Display for Supported {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
     }
@@ -47,7 +49,7 @@ mod tests {
         let supported = supported.unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(supported.0.get(0), Some(&"100rel"));
-        assert_eq!(supported.0.get(1), Some(&"other"));
+        assert_eq!(supported.0.get(0), Some(&"100rel".into()));
+        assert_eq!(supported.0.get(1), Some(&"other".into()));
     }
 }

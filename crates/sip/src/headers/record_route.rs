@@ -14,26 +14,26 @@ use crate::headers::SipHeader;
 ///
 /// Keeps proxies in the signaling path for consistent routing and session control.
 #[derive(Debug, PartialEq, Eq)]
-pub struct RecordRoute<'a> {
-    addr: NameAddr<'a>,
-    param: Option<Params<'a>>,
+pub struct RecordRoute {
+    addr: NameAddr,
+    param: Option<Params>,
 }
 
-impl<'a> SipHeader<'a> for RecordRoute<'a> {
+impl SipHeader<'_> for RecordRoute {
     const NAME: &'static str = "Record-Route";
     /*
      * Record-Route  =  "Record-Route" HCOLON rec-route *(COMMA rec-route)
      * rec-route     =  name-addr *( SEMI rr-param )
      * rr-param      =  generic-param
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let addr = parser::parse_name_addr(reader)?;
         let param = parse_header_param!(reader);
         Ok(RecordRoute { addr, param })
     }
 }
 
-impl fmt::Display for RecordRoute<'_> {
+impl fmt::Display for RecordRoute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.addr)?;
         if let Some(param) = &self.param {
@@ -63,7 +63,7 @@ mod tests {
         assert_eq!(
             rr.addr.uri.host_port,
             HostPort {
-                host: Host::DomainName("server10.biloxi.com"),
+                host: Host::DomainName("server10.biloxi.com".into()),
                 port: None
             }
         );
@@ -79,10 +79,12 @@ mod tests {
         assert_eq!(
             rr.addr.uri.host_port,
             HostPort {
-                host: Host::DomainName("bigbox3.site3.atlanta.com"),
+                host: Host::DomainName(
+                    "bigbox3.site3.atlanta.com".into()
+                ),
                 port: None
             }
         );
-        assert_eq!(rr.param.unwrap().get("foo"), Some(&"bar"));
+        assert_eq!(rr.param.unwrap().get("foo".into()), Some("bar"));
     }
 }

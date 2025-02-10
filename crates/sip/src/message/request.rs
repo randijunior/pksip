@@ -2,35 +2,41 @@
 //!
 //! The module provide the [`SipRequest`]
 
+use std::sync::Arc;
+
 use crate::headers::Headers;
 
 use super::{SipMethod, Uri};
 
 /// Represents an SIP Request-Line.
 #[derive(Debug)]
-pub struct RequestLine<'a> {
+pub struct RequestLine {
     pub method: SipMethod,
-    pub uri: Uri<'a>,
+    pub uri: Uri,
 }
 
 #[derive(Debug)]
-pub struct SipRequest<'a> {
-    pub req_line: RequestLine<'a>,
-    pub headers: Headers<'a>,
-    pub body: Option<&'a [u8]>,
+pub struct SipRequest {
+    pub req_line: RequestLine,
+    pub headers: Headers,
+    pub body: Option<Arc<[u8]>>,
 }
 
-impl<'a> SipRequest<'a> {
+impl SipRequest {
     pub fn new(
-        req_line: RequestLine<'a>,
-        headers: Headers<'a>,
-        body: Option<&'a [u8]>,
+        req_line: RequestLine,
+        headers: Headers,
+        body: Option<&[u8]>,
     ) -> Self {
         Self {
-            body,
+            body: body.map(|b| b.into()),
             req_line,
             headers,
         }
+    }
+
+    pub fn method(&self) -> SipMethod {
+        self.req_line.method
     }
 
     pub fn req_line(&self) -> &RequestLine {

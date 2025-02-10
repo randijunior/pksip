@@ -13,14 +13,14 @@ use crate::{
 ///
 /// Enumerates the `Call-IDs` that this call references or returns.
 #[derive(Debug, PartialEq, Eq)]
-pub struct InReplyTo<'a>(Vec<CallId<'a>>);
+pub struct InReplyTo(Vec<CallId>);
 
-impl<'a> SipHeader<'a> for InReplyTo<'a> {
+impl SipHeader<'_> for InReplyTo {
     const NAME: &'static str = "In-Reply-To";
     /*
      * In-Reply-To  =  "In-Reply-To" HCOLON callid *(COMMA callid)
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<InReplyTo<'a>> {
+    fn parse(reader: &mut Reader) -> Result<InReplyTo> {
         let ids = hdr_list!(reader => {
             let id = read_while!(reader, not_comma_or_newline);
             let id = str::from_utf8(id)?;
@@ -32,7 +32,7 @@ impl<'a> SipHeader<'a> for InReplyTo<'a> {
     }
 }
 
-impl fmt::Display for InReplyTo<'_> {
+impl fmt::Display for InReplyTo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
     }

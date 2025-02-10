@@ -1,6 +1,6 @@
 use reader::Reader;
 
-use crate::parser::Result;
+use crate::{internal::ArcStr, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -10,9 +10,9 @@ use std::{fmt, str};
 ///
 /// Reflects the time when the request or response is first sent.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Date<'a>(&'a str);
+pub struct Date(ArcStr);
 
-impl<'a> SipHeader<'a> for Date<'a> {
+impl SipHeader<'_> for Date {
     const NAME: &'static str = "Date";
     /*
      * Date          =  "Date" HCOLON SIP-date
@@ -26,14 +26,14 @@ impl<'a> SipHeader<'a> for Date<'a> {
      *                  / "Thu" / "Fri" / "Sat" / "Sun"
      * month         =  "Jan" / "Feb" / "Mar" / "Apr" ...
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Date<'a>> {
+    fn parse(reader: &mut Reader) -> Result<Date> {
         let date = Self::parse_as_str(reader)?;
 
-        Ok(Date(date))
+        Ok(Date(date.into()))
     }
 }
 
-impl fmt::Display for Date<'_> {
+impl fmt::Display for Date {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -50,6 +50,6 @@ mod tests {
         let date = Date::parse(&mut reader).unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(date.0, "Sat, 13 Nov 2010 23:29:00 GMT");
+        assert_eq!(date.0, "Sat, 13 Nov 2010 23:29:00 GMT".into());
     }
 }

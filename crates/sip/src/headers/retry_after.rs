@@ -6,7 +6,10 @@ use reader::space;
 use reader::until;
 use reader::Reader;
 
-use crate::{macros::parse_header_param, message::Params, parser::Result};
+use crate::internal::ArcStr;
+use crate::{
+    macros::parse_header_param, message::Params, parser::Result,
+};
 
 use crate::headers::SipHeader;
 
@@ -16,13 +19,13 @@ use crate::headers::SipHeader;
 /// unavailable to the requesting client.
 /// Or when the called party anticipates being available again.
 #[derive(Debug, PartialEq, Eq)]
-pub struct RetryAfter<'a> {
+pub struct RetryAfter {
     seconds: u32,
-    param: Option<Params<'a>>,
-    comment: Option<&'a str>,
+    param: Option<Params>,
+    comment: Option<ArcStr>,
 }
 
-impl<'a> SipHeader<'a> for RetryAfter<'a> {
+impl SipHeader<'_> for RetryAfter {
     const NAME: &'static str = "Retry-After";
     /*
      * Retry-After  =  "Retry-After" HCOLON delta-seconds
@@ -30,7 +33,7 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
      * retry-param  =  ("duration" EQUAL delta-seconds)
      *                 / generic-param
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let digits = reader.read_num()?;
         let mut comment = None;
 
@@ -46,19 +49,19 @@ impl<'a> SipHeader<'a> for RetryAfter<'a> {
         Ok(RetryAfter {
             seconds: digits,
             param,
-            comment,
+            comment: comment.map(|s| s.into()),
         })
     }
 }
 
-impl fmt::Display for RetryAfter<'_> {
+impl fmt::Display for RetryAfter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.seconds)?;
 
         if let Some(param) = &self.param {
             write!(f, ";{}", param)?;
         }
-        if let Some(comment) = self.comment {
+        if let Some(comment) = &self.comment {
             write!(f, "{}", comment)?;
         }
 
@@ -80,7 +83,10 @@ mod tests {
 
         assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 18000);
-        assert_eq!(retry_after.param.unwrap().get("duration"), Some(&"3600"));
+        assert_eq!(
+            retry_after.param.unwrap().get("duration".into()),
+            Some("3600")
+        );
 
         let src = b"120 (I'm in a meeting)\r\n";
         let mut reader = Reader::new(src);
@@ -89,6 +95,9 @@ mod tests {
 
         assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 120);
-        assert_eq!(retry_after.comment, Some("I'm in a meeting"));
+        assert_eq!(
+            retry_after.comment,
+            Some("I'm in a meeting".into())
+        );
     }
 }

@@ -33,10 +33,10 @@ use crate::{
     parser::Result,
 };
 use core::fmt;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::str;
 
-use crate::internal::Param;
+use crate::internal::{ArcStr, Param};
 
 b_map!(VIA_PARAM_SPEC_MAP => b"[:]", ALPHA_NUM, TOKEN);
 
@@ -52,39 +52,39 @@ fn is_via_param(b: &u8) -> bool {
 }
 
 // Parses a via param.
-fn parse_via_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+fn parse_via_param<'a>(reader: &mut Reader<'a>) -> Result<Param> {
     unsafe { Param::parse_unchecked(reader, is_via_param) }
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
-pub struct ViaParams<'a> {
-    ttl: Option<&'a str>,
-    maddr: Option<&'a str>,
-    received: Option<&'a str>,
-    branch: Option<&'a str>,
+pub struct ViaParams {
+    ttl: Option<ArcStr>,
+    maddr: Option<ArcStr>,
+    received: Option<ArcStr>,
+    branch: Option<ArcStr>,
     rport: Option<u16>,
 }
 
-impl<'a> ViaParams<'a> {
-    pub fn set_branch(&mut self, branch: &'a str) {
-        self.branch = Some(branch);
+impl ViaParams {
+    pub fn set_branch(&mut self, branch: &str) {
+        self.branch = Some(branch.into());
     }
 
-    pub fn set_ttl(&mut self, ttl: &'a str) {
-        self.ttl = Some(ttl);
+    pub fn set_ttl(&mut self, ttl: &str) {
+        self.ttl = Some(ttl.into());
     }
-    pub fn set_maddr(&mut self, maddr: &'a str) {
-        self.maddr = Some(maddr);
+    pub fn set_maddr(&mut self, maddr: &str) {
+        self.maddr = Some(maddr.into());
     }
-    pub fn set_received(&mut self, received: &'a str) {
-        self.received = Some(received);
+    pub fn set_received(&mut self, received: &str) {
+        self.received = Some(received.into());
     }
     pub fn set_rport(&mut self, rport: u16) {
         self.rport = Some(rport);
     }
 
-    pub fn branch(&self) -> Option<&'a str> {
-        self.branch
+    pub fn branch(&self) -> Option<&str> {
+        self.branch.as_deref()
     }
 }
 
@@ -93,25 +93,28 @@ impl<'a> ViaParams<'a> {
 /// Indicates the path taken by the request so far and the
 /// path that should be followed in routing responses.
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Via<'a> {
+pub struct Via {
     pub transport: TransportProtocol,
-    pub sent_by: HostPort<'a>,
-    pub ttl: Option<&'a str>,
-    pub maddr: Option<Host<'a>>,
+    pub sent_by: HostPort,
+    pub ttl: Option<ArcStr>,
+    pub maddr: Option<Host>,
     pub received: Option<IpAddr>,
-    pub branch: Option<&'a str>,
+    pub branch: Option<ArcStr>,
     pub rport: Option<u16>,
-    pub comment: Option<&'a str>,
-    pub params: Option<Params<'a>>,
+    pub comment: Option<ArcStr>,
+    pub params: Option<Params>,
 }
 
-impl<'a> Via<'a> {
-    pub fn new(transport: TransportProtocol, sent_by: HostPort<'a>) -> Self {
+impl Via {
+    pub fn new(
+        transport: TransportProtocol,
+        sent_by: HostPort,
+    ) -> Self {
         todo!()
     }
 }
 
-impl fmt::Display for Via<'_> {
+impl fmt::Display for Via {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}/{} {}", SIPV2, self.transport, self.sent_by)?;
 
@@ -121,19 +124,19 @@ impl fmt::Display for Via<'_> {
         if let Some(received) = self.received {
             write!(f, ";received={received}")?;
         }
-        if let Some(ttl) = self.ttl {
+        if let Some(ttl) = &self.ttl {
             write!(f, ";ttl={ttl}")?;
         }
         if let Some(maddr) = &self.maddr {
             write!(f, ";maddr={maddr}")?;
         }
-        if let Some(branch) = self.branch {
+        if let Some(branch) = &self.branch {
             write!(f, ";branch={branch}")?;
         }
         if let Some(params) = &self.params {
             write!(f, ";{params}")?;
         }
-        if let Some(comment) = self.comment {
+        if let Some(comment) = &self.comment {
             write!(f, " ({comment})")?;
         }
 
@@ -141,7 +144,7 @@ impl fmt::Display for Via<'_> {
     }
 }
 
-impl<'a> SipHeader<'a> for Via<'a> {
+impl SipHeader<'_> for Via {
     const NAME: &'static str = "Via";
     const SHORT_NAME: &'static str = "v";
     /*
@@ -164,7 +167,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
      * sent-by           =  host [ COLON port ]
      * ttl               =  1*3DIGIT ; 0 to 255
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         //@TODO: handle LWS
         parser::parse_sip_v2(reader)?;
 
@@ -204,7 +207,9 @@ impl<'a> SipHeader<'a> for Via<'a> {
             if is_valid_port(rport) {
                 Some(rport)
             } else {
-                return sip_parse_error!("Via param rport is invalid!");
+                return sip_parse_error!(
+                    "Via param rport is invalid!"
+                );
             }
         } else {
             None
@@ -223,7 +228,7 @@ impl<'a> SipHeader<'a> for Via<'a> {
             transport,
             sent_by,
             params,
-            comment,
+            comment: comment.map(|s| s.into()),
             ttl,
             maddr,
             received,
@@ -252,13 +257,18 @@ mod tests {
         assert_eq!(
             via.sent_by,
             HostPort {
-                host: Host::DomainName("bobspc.biloxi.com"),
+                host: Host::DomainName("bobspc.biloxi.com".into()),
                 port: Some(5060)
             }
         );
-        assert_eq!(via.received, Some("192.0.2.4".parse().unwrap()));
 
-        let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
+        assert_eq!(
+            via.received,
+            Some("192.0.2.4".parse().unwrap())
+        );
+
+        let src =
+            b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
         let mut reader = Reader::new(src);
         let via = Via::parse(&mut reader);
@@ -268,12 +278,17 @@ mod tests {
         assert_eq!(
             via.sent_by,
             HostPort {
-                host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))),
+                host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(
+                    192, 0, 2, 1
+                ))),
                 port: Some(5060)
             }
         );
 
-        assert_eq!(via.received, Some("192.0.2.207".parse().unwrap()));
-        assert_eq!(via.branch, Some("z9hG4bK77asjd"));
+        assert_eq!(
+            via.received,
+            Some("192.0.2.207".parse().unwrap())
+        );
+        assert_eq!(via.branch, Some("z9hG4bK77asjd".into()));
     }
 }

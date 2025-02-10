@@ -26,21 +26,21 @@ use std::fmt;
 /// assert_eq!("Accept: application/sdp, message/sipfrag".as_bytes().try_into(), Ok(accept));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Accept<'a>(Vec<MediaType<'a>>);
+pub struct Accept(Vec<MediaType>);
 
-impl<'a> Accept<'a> {
+impl Accept {
     /// Creates a empty `Accept` header.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Appends an new `MediaType` at the end of the header.
-    pub fn push(&mut self, mtype: MediaType<'a>) {
+    pub fn push(&mut self, mtype: MediaType) {
         self.0.push(mtype);
     }
 
     /// Gets the `MediaType` at the specified index.
-    pub fn get(&self, index: usize) -> Option<&MediaType<'a>> {
+    pub fn get(&self, index: usize) -> Option<&MediaType> {
         self.0.get(index)
     }
 
@@ -50,17 +50,19 @@ impl<'a> Accept<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for Accept<'a> {
+impl<'a> TryFrom<&'a [u8]> for Accept {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &'a [u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept()
             .map_err(|_| ParseHeaderError)?)
     }
 }
 
-impl<'a> SipHeader<'a> for Accept<'a> {
+impl SipHeader<'_> for Accept {
     const NAME: &'static str = "Accept";
     /*
      * Accept         =  "Accept" HCOLON [ accept-range *(COMMA accept-range) ]
@@ -74,7 +76,7 @@ impl<'a> SipHeader<'a> for Accept<'a> {
      * generic-param  =  token [ EQUAL gen-value ]
      * gen-value      =  token / host / quoted-string
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Accept<'a>> {
+    fn parse(reader: &mut Reader) -> Result<Accept> {
         let mtypes = hdr_list!(reader => {
             let mtype = parser::parse_token(reader)?;
             reader.must_read(b'/')?;
@@ -88,7 +90,7 @@ impl<'a> SipHeader<'a> for Accept<'a> {
     }
 }
 
-impl fmt::Display for Accept<'_> {
+impl fmt::Display for Accept {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
     }
@@ -110,17 +112,20 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let mtype = accept.get(0).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "application");
-        assert_eq!(mtype.mimetype.subtype, "sdp");
-        assert_eq!(mtype.param.as_ref().unwrap().get("level"), Some(&"1"));
+        assert_eq!(mtype.mimetype.mtype, "application".into());
+        assert_eq!(mtype.mimetype.subtype, "sdp".into());
+        assert_eq!(
+            mtype.param.as_ref().unwrap().get("level".into()),
+            Some("1")
+        );
 
         let mtype = accept.get(1).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "application");
-        assert_eq!(mtype.mimetype.subtype, "x-private");
+        assert_eq!(mtype.mimetype.mtype, "application".into());
+        assert_eq!(mtype.mimetype.subtype, "x-private".into());
 
         let mtype = accept.get(2).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "text");
-        assert_eq!(mtype.mimetype.subtype, "html");
+        assert_eq!(mtype.mimetype.mtype, "text".into());
+        assert_eq!(mtype.mimetype.subtype, "html".into());
 
         let src = b"application/sdp, application/pidf+xml, message/sipfrag\r\n";
         let mut reader = Reader::new(src);
@@ -130,16 +135,16 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let mtype = accept.get(0).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "application");
-        assert_eq!(mtype.mimetype.subtype, "sdp");
+        assert_eq!(mtype.mimetype.mtype, "application".into());
+        assert_eq!(mtype.mimetype.subtype, "sdp".into());
 
         let mtype = accept.get(1).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "application");
-        assert_eq!(mtype.mimetype.subtype, "pidf+xml");
+        assert_eq!(mtype.mimetype.mtype, "application".into());
+        assert_eq!(mtype.mimetype.subtype, "pidf+xml".into());
 
         let mtype = accept.get(2).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "message");
-        assert_eq!(mtype.mimetype.subtype, "sipfrag");
+        assert_eq!(mtype.mimetype.mtype, "message".into());
+        assert_eq!(mtype.mimetype.subtype, "sipfrag".into());
 
         let src = b"application/sdp;q=0.8, application/simple-message-summary+xml;q=0.6\r\n";
         let mut reader = Reader::new(src);
@@ -149,13 +154,22 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let mtype = accept.get(0).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "application");
-        assert_eq!(mtype.mimetype.subtype, "sdp");
-        assert_eq!(mtype.param.as_ref().unwrap().get("q"), Some(&"0.8"));
+        assert_eq!(mtype.mimetype.mtype, "application".into());
+        assert_eq!(mtype.mimetype.subtype, "sdp".into());
+        assert_eq!(
+            mtype.param.as_ref().unwrap().get("q".into()),
+            Some("0.8")
+        );
 
         let mtype = accept.get(1).unwrap();
-        assert_eq!(mtype.mimetype.mtype, "application");
-        assert_eq!(mtype.mimetype.subtype, "simple-message-summary+xml");
-        assert_eq!(mtype.param.as_ref().unwrap().get("q"), Some(&"0.6"));
+        assert_eq!(mtype.mimetype.mtype, "application".into());
+        assert_eq!(
+            mtype.mimetype.subtype,
+            "simple-message-summary+xml".into()
+        );
+        assert_eq!(
+            mtype.param.as_ref().unwrap().get("q".into()),
+            Some("0.6")
+        );
     }
 }

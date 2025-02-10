@@ -2,6 +2,7 @@ use std::{fmt, str};
 
 use reader::Reader;
 
+use crate::internal::ArcStr;
 use crate::parser::Result;
 
 use crate::headers::SipHeader;
@@ -10,21 +11,21 @@ use crate::headers::SipHeader;
 ///
 /// Indicate what version of the `MIME` protocol was used to construct the message.
 #[derive(Debug, PartialEq, Eq)]
-pub struct MimeVersion<'a>(&'a str);
+pub struct MimeVersion(ArcStr);
 
-impl<'a> SipHeader<'a> for MimeVersion<'a> {
+impl SipHeader<'_> for MimeVersion {
     const NAME: &'static str = "MIME-Version";
     /*
      * MIME-Version  =  "MIME-Version" HCOLON 1*DIGIT "." 1*DIGIT
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<MimeVersion<'a>> {
+    fn parse(reader: &mut Reader) -> Result<MimeVersion> {
         let expires = reader.read_number_as_str();
 
-        Ok(MimeVersion(expires))
+        Ok(MimeVersion(expires.into()))
     }
 }
 
-impl fmt::Display for MimeVersion<'_> {
+impl fmt::Display for MimeVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -40,6 +41,6 @@ mod tests {
         let mut reader = Reader::new(src);
         let mime_version = MimeVersion::parse(&mut reader).unwrap();
 
-        assert_eq!(mime_version.0, "1.0");
+        assert_eq!(mime_version.0, "1.0".into());
     }
 }

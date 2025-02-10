@@ -1,8 +1,8 @@
 use super::{Header, ParseHeaderError, SipHeader};
-use crate::parser::Result;
+use crate::{internal::ArcStr, parser::Result};
 use core::fmt;
 use reader::Reader;
-use std::str;
+use std::{str, sync::Arc};
 
 /// The `Call-ID` SIP header.
 ///
@@ -16,51 +16,53 @@ use std::str;
 ///
 /// assert_eq!("Call-ID: bs9ki9iqbee8k5kal8mpqb".as_bytes().try_into(), Ok(cid));
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CallId<'a>(pub &'a str);
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct CallId(pub ArcStr);
 
-impl<'a> From<&'a str> for CallId<'a> {
-    fn from(value: &'a str) -> Self {
-        Self::new(value)
+impl From<&str> for CallId {
+    fn from(value: &str) -> Self {
+        Self::new(value.into())
     }
 }
 
-impl<'a> CallId<'a> {
+impl CallId {
     /// Creates a new `CallId` instance with the given identifier.
-    pub fn new(id: &'a str) -> Self {
-        Self(id)
+    pub fn new(id: &str) -> Self {
+        Self(id.into())
     }
 
     /// Returns the internal `CallId` identifier.
     pub fn id(&self) -> &str {
-        self.0
+        &*self.0
     }
 }
 
-impl<'a> SipHeader<'a> for CallId<'a> {
+impl SipHeader<'_> for CallId {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: &'static str = "i";
     /*
      * Call-ID  =  ( "Call-ID" / "i" ) HCOLON callid
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let id = Self::parse_as_str(reader)?;
 
-        Ok(CallId(id))
+        Ok(CallId(id.into()))
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for CallId<'a> {
+impl TryFrom<&[u8]> for CallId {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_call_id()
             .map_err(|_| ParseHeaderError)?)
     }
 }
 
-impl fmt::Display for CallId<'_> {
+impl fmt::Display for CallId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.id())
     }

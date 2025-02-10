@@ -2,6 +2,7 @@ use reader::Reader;
 
 use crate::{
     headers::TAG_PARAM,
+    internal::ArcStr,
     macros::parse_header_param,
     message::{Params, SipUri},
     parser::{self, Result},
@@ -15,13 +16,13 @@ use std::{fmt, str};
 ///
 /// Specifies the logical recipient of the request.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct To<'a> {
-    pub uri: SipUri<'a>,
-    pub tag: Option<&'a str>,
-    pub params: Option<Params<'a>>,
+pub struct To {
+    pub uri: SipUri,
+    pub tag: Option<ArcStr>,
+    pub params: Option<Params>,
 }
 
-impl<'a> SipHeader<'a> for To<'a> {
+impl SipHeader<'_> for To {
     const NAME: &'static str = "To";
     const SHORT_NAME: &'static str = "t";
     /*
@@ -29,7 +30,7 @@ impl<'a> SipHeader<'a> for To<'a> {
      *              / addr-spec ) *( SEMI to-param )
      * to-param  =  tag-param / generic-param
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let uri = parser::parse_sip_uri(reader, false)?;
         let mut tag = None;
         let params = parse_header_param!(reader, TAG_PARAM = tag);
@@ -38,10 +39,10 @@ impl<'a> SipHeader<'a> for To<'a> {
     }
 }
 
-impl fmt::Display for To<'_> {
+impl fmt::Display for To {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.uri)?;
-        if let Some(tag) = self.tag {
+        if let Some(tag) = &self.tag {
             write!(f, ";tag={}", tag)?;
         }
         if let Some(params) = &self.params {
@@ -72,16 +73,16 @@ mod tests {
                 ..
             } => {
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(addr.display, Some("Bob"));
+                assert_eq!(addr.display, Some("Bob".into()));
                 assert_eq!(addr.uri.user.unwrap().get_user(), "bob");
                 assert_eq!(
                     addr.uri.host_port,
                     HostPort {
-                        host: Host::DomainName("biloxi.com"),
+                        host: Host::DomainName("biloxi.com".into()),
                         port: None
                     }
                 );
-                assert_eq!(tag, Some("a6c85cf"));
+                assert_eq!(tag, Some("a6c85cf".into()));
             }
             _ => unreachable!(),
         }

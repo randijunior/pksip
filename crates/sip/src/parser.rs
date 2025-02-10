@@ -59,6 +59,7 @@ use crate::message::HostPort;
 use crate::message::Params;
 use crate::message::Scheme;
 use crate::message::SipMethod;
+use crate::message::TransportProtocol;
 use crate::message::Uri;
 use crate::message::{Host, NameAddr, SipUri, StatusCode};
 
@@ -137,18 +138,21 @@ pub(crate) fn is_host(b: &u8) -> bool {
 
 #[inline(always)]
 pub(crate) fn is_token(b: &u8) -> bool {
-    TOKEN_SPEC[*b as usize]
+    match b {
+        b'A'..=b'Z' => true,
+        _ => TOKEN_SPEC[*b as usize],
+    }
 }
 
-fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param> {
     let Param { name, value } =
         unsafe { Param::parse_unchecked(reader, is_param)? };
-    let value = Some(value.unwrap_or_default());
+    let value = Some(value.unwrap_or("".into()));
 
     Ok(Param { name, value })
 }
 
-fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
+fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param> {
     Ok(unsafe { Param::parse_unchecked(reader, is_hdr)? })
 }
 
@@ -169,12 +173,8 @@ fn read_token_str<'a>(reader: &mut Reader<'a>) -> &'a str {
 }
 
 /// Parse a buff of bytes into sip message
-pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
+pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
     let mut reader = Reader::new(buff);
-    let mut cid_found = false;
-    let mut from_found = false;
-    let mut via_found = false;
-    let mut cseq_found = false;
 
     let mut msg = if is_sip_version(&reader) {
         SipMessage::Response(SipResponse {
@@ -220,7 +220,6 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
                 let via = Via::parse(reader)?;
                 msg.push_header(Header::Via(via));
                 let Some(&b',') = reader.peek() else {
-                    via_found = true;
                     break 'via;
                 };
                 reader.next();
@@ -231,10 +230,10 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
                 msg.push_header(Header::MaxForwards(max_fowards))
             }
 
-            crate::headers::From::NAME | crate::headers::From::SHORT_NAME => {
+            crate::headers::From::NAME
+            | crate::headers::From::SHORT_NAME => {
                 let from = crate::headers::From::parse(reader)?;
                 msg.push_header(Header::From(from));
-                from_found = true;
             }
 
             To::NAME | To::SHORT_NAME => {
@@ -245,13 +244,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             CallId::NAME | CallId::SHORT_NAME => {
                 let call_id = CallId::parse(reader)?;
                 msg.push_header(Header::CallId(call_id));
-                cid_found = true;
             }
 
             CSeq::NAME => {
                 let cseq = CSeq::parse(reader)?;
                 msg.push_header(Header::CSeq(cseq));
-                cseq_found = true;
             }
 
             Authorization::NAME => {
@@ -314,13 +311,19 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             }
 
             ProxyAuthenticate::NAME => {
-                let proxy_authenticate = ProxyAuthenticate::parse(reader)?;
-                msg.push_header(Header::ProxyAuthenticate(proxy_authenticate))
+                let proxy_authenticate =
+                    ProxyAuthenticate::parse(reader)?;
+                msg.push_header(Header::ProxyAuthenticate(
+                    proxy_authenticate,
+                ))
             }
 
             ProxyAuthorization::NAME => {
-                let proxy_authorization = ProxyAuthorization::parse(reader)?;
-                msg.push_header(Header::ProxyAuthorization(proxy_authorization))
+                let proxy_authorization =
+                    ProxyAuthorization::parse(reader)?;
+                msg.push_header(Header::ProxyAuthorization(
+                    proxy_authorization,
+                ))
             }
 
             ProxyRequire::NAME => {
@@ -339,8 +342,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             }
 
             ContentEncoding::NAME | ContentEncoding::SHORT_NAME => {
-                let content_encoding = ContentEncoding::parse(reader)?;
-                msg.push_header(Header::ContentEncoding(content_encoding))
+                let content_encoding =
+                    ContentEncoding::parse(reader)?;
+                msg.push_header(Header::ContentEncoding(
+                    content_encoding,
+                ))
             }
 
             ContentType::NAME | ContentType::SHORT_NAME => {
@@ -350,8 +356,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             }
 
             ContentDisposition::NAME => {
-                let content_disposition = ContentDisposition::parse(reader)?;
-                msg.push_header(Header::ContentDisposition(content_disposition))
+                let content_disposition =
+                    ContentDisposition::parse(reader)?;
+                msg.push_header(Header::ContentDisposition(
+                    content_disposition,
+                ))
             }
 
             RecordRoute::NAME => 'rr: loop {
@@ -380,7 +389,9 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 
             AcceptEncoding::NAME => {
                 let accept_encoding = AcceptEncoding::parse(reader)?;
-                msg.push_header(Header::AcceptEncoding(accept_encoding));
+                msg.push_header(Header::AcceptEncoding(
+                    accept_encoding,
+                ));
             }
 
             Accept::NAME => {
@@ -390,7 +401,9 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 
             AcceptLanguage::NAME => {
                 let accept_language = AcceptLanguage::parse(reader)?;
-                msg.push_header(Header::AcceptLanguage(accept_language));
+                msg.push_header(Header::AcceptLanguage(
+                    accept_language,
+                ));
             }
 
             AlertInfo::NAME => {
@@ -405,7 +418,9 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
 
             AuthenticationInfo::NAME => {
                 let auth_info = AuthenticationInfo::parse(reader)?;
-                msg.push_header(Header::AuthenticationInfo(auth_info));
+                msg.push_header(Header::AuthenticationInfo(
+                    auth_info,
+                ));
             }
 
             Supported::NAME | Supported::SHORT_NAME => {
@@ -423,8 +438,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             }
 
             WWWAuthenticate::NAME => {
-                let www_authenticate = WWWAuthenticate::parse(reader)?;
-                msg.push_header(Header::WWWAuthenticate(www_authenticate));
+                let www_authenticate =
+                    WWWAuthenticate::parse(reader)?;
+                msg.push_header(Header::WWWAuthenticate(
+                    www_authenticate,
+                ));
             }
 
             Warning::NAME => {
@@ -433,9 +451,13 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
             }
 
             _ => {
-                let value = Header::parse_header_value_as_str(reader)?;
+                let value =
+                    Header::parse_header_value_as_str(reader)?;
 
-                msg.push_header(Header::Other { name, value });
+                msg.push_header(Header::Other {
+                    name: name.into(),
+                    value,
+                });
             }
         };
         if !matches!(reader.next(), Some(&b'\r') | Some(&b'\n')) {
@@ -447,10 +469,6 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage<'a>> {
         if reader.is_eof() || reader.cur_is_some_and(is_newline) {
             break 'headers;
         }
-    }
-
-    if !cid_found || !via_found || !cseq_found || !from_found {
-        return sip_parse_error!("Missing required headers!");
     }
 
     newline!(reader);
@@ -487,9 +505,9 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
 
 pub(crate) fn parse_user_info<'a>(
     reader: &mut Reader<'a>,
-) -> Result<Option<UserInfo<'a>>> {
-    let peeked =
-        reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
+) -> Result<Option<UserInfo>> {
+    let peeked = reader
+        .peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
 
     let Some(&b'@') = peeked else { return Ok(None) };
     let user = read_user_str(reader);
@@ -520,7 +538,7 @@ fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
 
 pub(crate) fn parse_host_port<'a>(
     reader: &mut Reader<'a>,
-) -> Result<HostPort<'a>> {
+) -> Result<HostPort> {
     let host = match reader.peek() {
         Some(&b'[') => {
             // Is a Ipv6 host
@@ -533,7 +551,9 @@ pub(crate) fn parse_host_port<'a>(
             match host.parse() {
                 Ok(addr) => Host::IpAddr(addr),
                 Err(_) => {
-                    return sip_parse_error!("Error parsing Ipv6 HostPort!")
+                    return sip_parse_error!(
+                        "Error parsing Ipv6 HostPort!"
+                    )
                 }
             }
         }
@@ -545,7 +565,7 @@ pub(crate) fn parse_host_port<'a>(
             }
             match host.parse() {
                 Ok(addr) => Host::IpAddr(addr),
-                Err(_) => Host::DomainName(host),
+                Err(_) => Host::DomainName(host.into()),
             }
         }
     };
@@ -556,14 +576,14 @@ pub(crate) fn parse_host_port<'a>(
 
 fn parse_header_params_in_sip_uri<'a>(
     reader: &mut Reader<'a>,
-) -> Result<Params<'a>> {
+) -> Result<Params> {
     reader.must_read(b'?')?;
     let mut params = Params::new();
     loop {
         // take '&'
         reader.next();
         let Param { name, value } = parse_hdr_in_uri(reader)?;
-        let value = value.unwrap_or("");
+        let value = value.unwrap_or("".into());
         params.set(name, value);
 
         let Some(b'&') = reader.peek() else { break };
@@ -574,7 +594,7 @@ fn parse_header_params_in_sip_uri<'a>(
 pub(crate) fn parse_uri<'a>(
     reader: &mut Reader<'a>,
     parse_params: bool,
-) -> Result<Uri<'a>> {
+) -> Result<Uri> {
     let scheme = parse_scheme(reader)?;
     // take ':'
     reader.must_read(b':')?;
@@ -602,7 +622,8 @@ pub(crate) fn parse_uri<'a>(
         LR_PARAM = lr_param,
         MADDR_PARAM = maddr_param
     );
-    let transport_param = transport_param.map(|s| s.into());
+    let transport_param =
+        transport_param.map(|s| TransportProtocol::from(&*s));
 
     let hdr_params = if let Some(&b'?') = reader.peek() {
         Some(parse_header_params_in_sip_uri(reader)?)
@@ -628,7 +649,7 @@ pub(crate) fn parse_uri<'a>(
 pub(crate) fn parse_sip_uri<'a>(
     reader: &mut Reader<'a>,
     parse_params: bool,
-) -> Result<SipUri<'a>> {
+) -> Result<SipUri> {
     space!(reader);
     match reader.peek_n(3) {
         Some(SIP) | Some(SIPS) => {
@@ -642,7 +663,9 @@ pub(crate) fn parse_sip_uri<'a>(
     }
 }
 
-pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr<'a>> {
+pub fn parse_name_addr<'a>(
+    reader: &mut Reader<'a>,
+) -> Result<NameAddr> {
     space!(reader);
     let display = match reader.lookahead()? {
         &b'"' => {
@@ -667,12 +690,15 @@ pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr<'a>> {
     // must be an '>'
     reader.must_read(b'>')?;
 
-    Ok(NameAddr { display, uri })
+    Ok(NameAddr {
+        display: display.map(|s| s.into()),
+        uri,
+    })
 }
 
 pub fn parse_request_line<'a>(
     reader: &mut Reader<'a>,
-) -> Result<RequestLine<'a>> {
+) -> Result<RequestLine> {
     let method = alpha!(reader);
     let method = SipMethod::from(method);
 
@@ -688,7 +714,7 @@ pub fn parse_request_line<'a>(
 
 pub fn parse_status_line<'a>(
     reader: &mut Reader<'a>,
-) -> Result<StatusLine<'a>> {
+) -> Result<StatusLine> {
     parse_sip_v2(reader)?;
 
     space!(reader);
@@ -706,7 +732,9 @@ pub fn parse_status_line<'a>(
 }
 
 #[inline]
-pub(crate) fn parse_token<'a>(reader: &mut Reader<'a>) -> Result<&'a str> {
+pub(crate) fn parse_token<'a>(
+    reader: &mut Reader<'a>,
+) -> Result<&'a str> {
     if let Some(&b'"') = reader.peek() {
         reader.next();
         let value = until!(reader, &b'"');
@@ -753,7 +781,7 @@ impl From<Utf8Error> for SipParserError {
     }
 }
 
-impl<'a> From<reader::Error<'a>> for SipParserError {
+impl From<reader::Error<'_>> for SipParserError {
     fn from(err: reader::Error) -> Self {
         SipParserError {
             message: format!(
@@ -783,7 +811,7 @@ mod tests {
 
                 assert!(reader.is_eof());
                 assert_eq!(parsed.code, $code);
-                assert_eq!(parsed.rphrase, $code.reason_phrase());
+                assert_eq!(&*parsed.rphrase, $code.reason_phrase());
             }
         };
     }
@@ -808,7 +836,7 @@ mod tests {
             UriBuilder::new()
             .scheme(Scheme::Sip)
             .user(UserInfo::new("bob", None))
-            .host(HostPort::from(Host::DomainName("biloxi.com")))
+            .host(HostPort::from(Host::DomainName("biloxi.com".into())))
             .get()
         ))
     }
@@ -820,7 +848,7 @@ mod tests {
             UriBuilder::new()
             .scheme(Scheme::Sip)
             .user(UserInfo::new("watson", None))
-            .host(HostPort::from(Host::DomainName("bell-telephone.com")))
+            .host(HostPort::from(Host::DomainName("bell-telephone.com".into())))
             .get()
         ))
     }
@@ -844,7 +872,7 @@ mod tests {
             UriBuilder::new()
             .scheme(Scheme::Sip)
             .user(UserInfo::new("user", Some("password")))
-            .host(HostPort::new(Host::DomainName("localhost"), Some(5060)))
+            .host(HostPort::new(Host::DomainName("localhost".into()), Some(5060)))
             .get()
         ))
     }
@@ -856,7 +884,7 @@ mod tests {
             UriBuilder::new()
             .scheme(Scheme::Sip)
             .user(UserInfo::new("alice", None))
-            .host(HostPort::from(Host::DomainName("atlanta.com")))
+            .host(HostPort::from(Host::DomainName("atlanta.com".into())))
             .ttl_param("15")
             .maddr_param("239.255.255.1")
             .get()

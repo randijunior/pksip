@@ -1,5 +1,8 @@
 use super::{Header, ParseHeaderError, SipHeader};
-use crate::{macros::parse_header_param, message::Params, parser::Result};
+use crate::{
+    internal::ArcStr, macros::parse_header_param, message::Params,
+    parser::Result,
+};
 use reader::{until, Reader};
 use std::{fmt, str};
 
@@ -13,26 +16,28 @@ const PURPOSE: &'static str = "purpose";
 ///
 /// ```
 /// # use sip::headers::CallInfo;
-/// let mut info = CallInfo::default();
-/// info.set_url("http://www.example.com/alice/");
+/// let mut info = CallInfo::new("http://www.example.com/alice/", None, None);
 ///
 /// assert_eq!("Call-Info: <http://www.example.com/alice/>".as_bytes().try_into(), Ok(info));
 /// ```
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct CallInfo<'a> {
-    url: &'a str,
-    purpose: Option<&'a str>,
-    params: Option<Params<'a>>,
+#[derive(Debug, PartialEq, Eq)]
+pub struct CallInfo {
+    url: ArcStr,
+    purpose: Option<ArcStr>,
+    params: Option<Params>,
 }
 
-impl<'a> CallInfo<'a> {
+impl CallInfo {
+    pub fn new(url: &str, purpose: Option<&str>, params: Option<Params>) -> Self {
+        Self { url: url.into(), purpose: purpose.map(|p| p.into()), params }
+    }
     /// Set the url for this header.
-    pub fn set_url(&mut self, url: &'a str) {
+    pub fn set_url(&mut self, url: ArcStr) {
         self.url = url;
     }
 }
 
-impl<'a> SipHeader<'a> for CallInfo<'a> {
+impl SipHeader<'_> for CallInfo {
     const NAME: &'static str = "Call-Info";
     /*
      * Call-Info = "Call-Info" HCOLON info * (COMMA info)
@@ -40,8 +45,8 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
      * info-param = ("purpose" EQUAL ("icon" | "info" | "card" | token)) |
      *		        generic-param
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let mut purpose: Option<&'a str> = None;
+    fn parse(reader: &mut Reader) -> Result<Self> {
+        let mut purpose: Option<ArcStr> = None;
         // must be an '<'
         reader.must_read(b'<')?;
         let url = until!(reader, &b'>');
@@ -51,27 +56,29 @@ impl<'a> SipHeader<'a> for CallInfo<'a> {
         let params = parse_header_param!(reader, PURPOSE = purpose);
 
         Ok(CallInfo {
-            url,
+            url: url.into(),
             params,
             purpose,
         })
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for CallInfo<'a> {
+impl TryFrom<&[u8]> for CallInfo {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_call_info()
             .map_err(|_| ParseHeaderError)?)
     }
 }
 
-impl fmt::Display for CallInfo<'_> {
+impl fmt::Display for CallInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<{}>", self.url)?;
-        if let Some(purpose) = self.purpose {
+        if let Some(purpose) = &self.purpose {
             write!(f, ";{}", purpose)?;
         }
         if let Some(params) = &self.params {
@@ -93,14 +100,18 @@ mod tests {
         let info = CallInfo::parse(&mut reader).unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(info.url, "http://wwww.example.com/alice/photo.jpg");
-        assert_eq!(info.purpose, Some("icon"));
+        assert_eq!(
+            info.url,
+            "http://wwww.example.com/alice/photo.jpg".into()
+        );
+        assert_eq!(info.purpose, Some("icon".into()));
 
-        let src = b"<http://www.example.com/alice/> ;purpose=info\r\n";
+        let src =
+            b"<http://www.example.com/alice/> ;purpose=info\r\n";
         let mut reader = Reader::new(src);
         let info = CallInfo::parse(&mut reader).unwrap();
 
-        assert_eq!(info.url, "http://www.example.com/alice/");
-        assert_eq!(info.purpose, Some("info"));
+        assert_eq!(info.url, "http://www.example.com/alice/".into());
+        assert_eq!(info.purpose, Some("info".into()));
     }
 }

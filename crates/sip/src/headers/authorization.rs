@@ -13,10 +13,10 @@ use std::fmt;
 /// # use sip::headers::Authorization;
 /// # use sip::auth::{Credential, DigestCredential};
 /// let auth = Authorization(Credential::Digest(DigestCredential {
-///     username: Some("Alice"),
-///     realm: Some("atlanta.com"),
-///     nonce: Some("84a4cc6f3082121f32b42a2187831a9e"),
-///     response: Some("7587245234b3434cc3412213e5f113a5432"),
+///     username: Some("Alice".into()),
+///     realm: Some("atlanta.com".into()),
+///     nonce: Some("84a4cc6f3082121f32b42a2187831a9e".into()),
+///     response: Some("7587245234b3434cc3412213e5f113a5432".into()),
 ///     ..Default::default()
 /// }));
 ///
@@ -25,15 +25,15 @@ use std::fmt;
 ///             response=\"7587245234b3434cc3412213e5f113a5432\"\r\n".as_bytes().try_into(), Ok(auth));
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub struct Authorization<'a>(pub Credential<'a>);
+pub struct Authorization(pub Credential);
 
-impl<'a> Authorization<'a> {
-    pub fn credential(&self) -> &Credential<'a> {
+impl Authorization {
+    pub fn credential(&self) -> &Credential {
         &self.0
     }
 }
 
-impl<'a> SipHeader<'a> for Authorization<'a> {
+impl SipHeader<'_> for Authorization {
     const NAME: &'static str = "Authorization";
     /*
      * Authorization     =  "Authorization" HCOLON credentials
@@ -63,24 +63,26 @@ impl<'a> SipHeader<'a> for Authorization<'a> {
      *			            *(COMMA auth-param)
      * auth-scheme       =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let credential = Credential::parse(reader)?;
 
         Ok(Authorization(credential))
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for Authorization<'a> {
+impl TryFrom<&[u8]> for Authorization {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_authorization()
             .map_err(|_| ParseHeaderError)?)
     }
 }
 
-impl fmt::Display for Authorization<'_> {
+impl fmt::Display for Authorization {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -94,7 +96,8 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
+        let src =
+            b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"84a4cc6f3082121f32b42a2187831a9e\",\
         response=\"7587245234b3434cc3412213e5f113a5432\"\r\n";
         let mut reader = Reader::new(src);
@@ -102,16 +105,16 @@ mod tests {
 
         assert_eq!(reader.as_ref(), b"\r\n");
 
-        assert_matches!(auth.credential(), &Credential::Digest( DigestCredential { username, realm, nonce, response, ..}) => {
-            assert_eq!(username, Some("Alice"));
-            assert_eq!(realm, Some("atlanta.com"));
+        assert_matches!(auth.credential(), &Credential::Digest( DigestCredential { ref username, ref realm, ref nonce, ref response, ..}) => {
+            assert_eq!(username, &Some("Alice".into()));
+            assert_eq!(realm, &Some("atlanta.com".into()));
             assert_eq!(
                 nonce,
-                Some("84a4cc6f3082121f32b42a2187831a9e")
+                &Some("84a4cc6f3082121f32b42a2187831a9e".into())
             );
             assert_eq!(
                 response,
-                Some("7587245234b3434cc3412213e5f113a5432")
+                &Some("7587245234b3434cc3412213e5f113a5432".into())
             );
         });
     }

@@ -4,6 +4,7 @@ use std::str;
 use itertools::Itertools;
 use reader::Reader;
 
+use crate::internal::ArcStr;
 use crate::macros::hdr_list;
 use crate::parser;
 use crate::parser::Result;
@@ -15,11 +16,11 @@ use crate::headers::SipHeader;
 /// Indicates what decoding mechanisms must be applied to obtain the media-type
 /// referenced by the Content-Type header field.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ContentEncoding<'a>(Vec<&'a str>);
+pub struct ContentEncoding(Vec<ArcStr>);
 
-impl<'a> ContentEncoding<'a> {
-    pub fn get(&self, index: usize) -> Option<&'a str> {
-        self.0.get(index).copied()
+impl ContentEncoding {
+    pub fn get(&self, index: usize) -> Option<&str> {
+        self.0.get(index).map(|s| s.as_ref())
     }
 
     pub fn len(&self) -> usize {
@@ -27,21 +28,22 @@ impl<'a> ContentEncoding<'a> {
     }
 }
 
-impl<'a> SipHeader<'a> for ContentEncoding<'a> {
+impl SipHeader<'_> for ContentEncoding {
     const NAME: &'static str = "Content-Encoding";
     const SHORT_NAME: &'static str = "e";
     /*
      * Content-Encoding  =  ( "Content-Encoding" / "e" ) HCOLON
      *                      content-coding *(COMMA content-coding)
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<ContentEncoding<'a>> {
-        let codings = hdr_list!(reader => parser::parse_token(reader)?);
+    fn parse(reader: &mut Reader) -> Result<ContentEncoding> {
+        let codings =
+            hdr_list!(reader => parser::parse_token(reader)?.into());
 
         Ok(ContentEncoding(codings))
     }
 }
 
-impl fmt::Display for ContentEncoding<'_> {
+impl fmt::Display for ContentEncoding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format(", "))
     }

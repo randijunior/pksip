@@ -20,14 +20,19 @@ use udp::Udp;
 use crate::{
     filter_map_header, find_map_header,
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
-    message::{SipRequest, SipResponse, StatusCode, TransportProtocol},
+    message::{
+        SipMethod, SipRequest, SipResponse, StatusCode,
+        TransportProtocol,
+    },
 };
 
 pub(crate) const CRLF: &[u8] = b"\r\n";
 pub(crate) const END: &[u8] = b"\r\n\r\n";
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
 
-#[derive(Default)]
+pub(crate) type TransportSender = mpsc::Sender<(Transport, Packet)>;
+
+#[derive(Default, Debug)]
 pub struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
 
 impl Deref for MsgBuffer {
@@ -47,9 +52,9 @@ impl MsgBuffer {
         &mut self,
         data: &[u8],
     ) -> Result<(), io::Error> {
-        self.0
-            .try_extend_from_slice(data)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Buffer full"))
+        self.0.try_extend_from_slice(data).map_err(|_| {
+            io::Error::new(io::ErrorKind::Other, "Buffer full")
+        })
     }
 
     pub fn write<T>(&mut self, data: T) -> Result<(), io::Error>
@@ -67,14 +72,11 @@ pub struct ConnectionKey {
 }
 
 impl ConnectionKey {
-    pub fn new(addr: SocketAddr, protocol: TransportProtocol) -> Self {
+    pub fn new(
+        addr: SocketAddr,
+        protocol: TransportProtocol,
+    ) -> Self {
         ConnectionKey { addr, protocol }
-    }
-    pub fn from_tp(tp: &dyn SipTransport) -> Self {
-        ConnectionKey {
-            addr: tp.get_addr(),
-            protocol: tp.get_protocol(),
-        }
     }
 }
 
@@ -105,30 +107,19 @@ impl TransportLayer {
     pub fn add(&mut self, transport: Transport) {
         let mut tps = self.transports.lock().unwrap();
 
-        tps.insert(transport.get_key(), Transport(Arc::clone(&transport.0)));
+        tps.insert(
+            transport.key(),
+            Transport(Arc::clone(&transport.0)),
+        );
     }
 
-    pub async fn send_response<'a>(
+    pub async fn send_response(
         &self,
-        resp: &mut OutgoingResponse<'a>,
+        resp: &OutgoingResponse,
     ) -> io::Result<()> {
-        let mut buf = MsgBuffer::new();
-
-        buf.write(&resp.msg.st_line)?;
-        buf.write(&resp.req_hdrs)?;
-        buf.write(&resp.msg.headers)?;
-        buf.write("\r\n")?;
-        if let Some(body) = resp.msg.body {
-            if let Err(_err) = buf.try_extend_from_slice(body) {
-                return Err(io::Error::other(
-                    "Packet size exceeds MAX_PACKET_SIZE",
-                ));
-            }
-        }
         let OutgoingInfo { addr, transport } = &resp.info;
+        let buf = resp.into_buffer()?;
         let _sent = transport.send(&buf, *addr).await?;
-
-        resp.buf = Some(buf);
 
         Ok(())
     }
@@ -138,7 +129,10 @@ impl TransportLayer {
         dst: SocketAddr,
         protocol: TransportProtocol,
     ) -> Option<Transport> {
-        println!("Finding suitable transport={} for={}", protocol, dst);
+        println!(
+            "Finding suitable transport={} for={}",
+            protocol, dst
+        );
         let transports = self.transports.lock().unwrap();
 
         // find by remote addr
@@ -152,14 +146,14 @@ impl TransportLayer {
         transports
             .values()
             .filter(|transport| {
-                transport.get_protocol() == protocol
+                transport.protocol() == protocol
                     && transport.is_same_address_family(&dst)
             })
             .min_by(|a, b| a.cmp(b))
             .cloned()
     }
 
-    pub fn start(&self) -> mpsc::Receiver<(Transport, Packet)> {
+    pub fn initialize(&self) -> mpsc::Receiver<(Transport, Packet)> {
         let transports = self.transports.lock().unwrap();
         let (tx, rx) = mpsc::channel(1024);
 
@@ -173,22 +167,56 @@ impl TransportLayer {
 
 #[async_trait]
 pub trait SipTransport: Sync + Send + 'static {
-    async fn send(&self, pkt: &[u8], dest: SocketAddr) -> io::Result<usize>;
+    async fn send(
+        &self,
+        pkt: &[u8],
+        dest: SocketAddr,
+    ) -> io::Result<usize>;
 
-    fn spawn(&self, sender: mpsc::Sender<(Transport, Packet)>);
-    fn get_protocol(&self) -> TransportProtocol;
-    fn get_addr(&self) -> SocketAddr;
-    fn is_same_address_family(&self, addr: &SocketAddr) -> bool;
+    fn spawn(&self, sender: TransportSender);
+
+    fn protocol(&self) -> TransportProtocol;
+
+    fn addr(&self) -> SocketAddr;
+
+    fn is_same_address_family(&self, addr: &SocketAddr) -> bool {
+        let our_addr = self.addr();
+        (addr.is_ipv4() && our_addr.is_ipv4())
+            || (addr.is_ipv6() && our_addr.is_ipv6())
+    }
 
     fn reliable(&self) -> bool;
 
     fn secure(&self) -> bool;
 
-    fn get_key(&self) -> ConnectionKey;
+    fn key(&self) -> ConnectionKey {
+        ConnectionKey::new(
+            self.addr(),
+            self.protocol(),
+        )
+    }
 }
 
 #[derive(Clone)]
 pub struct Transport(Arc<dyn SipTransport>);
+
+impl Transport {
+    pub fn new(transport: impl SipTransport) -> Self {
+        Self(Arc::new(transport))
+    }
+}
+
+impl std::fmt::Debug for Transport {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.debug_struct("Transport")
+            .field("addr", &self.addr())
+            .field("protocol", &self.protocol())
+            .finish()
+    }
+}
 
 impl PartialOrd for Transport {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -206,7 +234,7 @@ impl Eq for Transport {}
 
 impl PartialEq for Transport {
     fn eq(&self, other: &Self) -> bool {
-        self.get_key() == other.get_key()
+        self.key() == other.key()
     }
 }
 
@@ -254,23 +282,34 @@ impl IncomingInfo {
     pub fn new(packet: Packet, transport: Transport) -> Self {
         Self { packet, transport }
     }
+
+    pub fn packet(&self) -> &Packet {
+        &self.packet
+    }
+
+    pub fn transport(&self) -> &Transport {
+        &self.transport
+    }
 }
 
-pub struct OutgoingRequest<'a> {
-    msg: SipRequest<'a>,
+pub struct OutgoingRequest {
+    msg: SipRequest,
     info: OutgoingInfo,
 }
 
-pub struct RequestHeaders<'a> {
-    pub via: Vec<Via<'a>>,
-    pub from: headers::From<'a>,
-    pub to: To<'a>,
-    pub callid: CallId<'a>,
+pub struct RequestHeaders {
+    pub via: Vec<Via>,
+    pub from: headers::From,
+    pub to: To,
+    pub callid: CallId,
     pub cseq: CSeq,
 }
 
-impl std::fmt::Display for RequestHeaders<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl std::fmt::Display for RequestHeaders {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         for via in &self.via {
             write!(f, "{}: {}\r\n", Via::NAME, via)?;
         }
@@ -283,47 +322,113 @@ impl std::fmt::Display for RequestHeaders<'_> {
     }
 }
 
-impl<'a> From<&'a Headers<'a>> for RequestHeaders<'a> {
-    fn from(hdrs: &'a Headers<'a>) -> Self {
+#[derive(Debug, PartialEq, Eq)]
+pub struct MissingHeaderError;
+
+impl TryFrom<&Headers> for RequestHeaders {
+    type Error = MissingHeaderError;
+
+    fn try_from(hdrs: &Headers) -> Result<Self, Self::Error> {
         let via = filter_map_header!(hdrs, Via);
         let from = find_map_header!(hdrs, From);
         let to = find_map_header!(hdrs, To);
         let callid = find_map_header!(hdrs, CallId);
         let cseq = find_map_header!(hdrs, CSeq);
+
+        let via: Vec<Via> = via.cloned().collect();
+
+        if via.is_empty() {
+            return Err(MissingHeaderError);
+        }
+
+        let from = from.ok_or(MissingHeaderError)?;
+        let to = to.ok_or(MissingHeaderError)?;
+        let callid = callid.ok_or(MissingHeaderError)?;
+        let cseq = cseq.ok_or(MissingHeaderError)?;
+
+        Ok(Self {
+            via,
+            from: from.clone(),
+            to: to.clone(),
+            callid: callid.clone(),
+            cseq: cseq.clone(),
+        })
+    }
+}
+
+pub struct OutgoingResponse {
+    pub req_hdrs: RequestHeaders,
+    pub msg: SipResponse,
+    pub info: OutgoingInfo,
+    pub buf: Option<Arc<MsgBuffer>>,
+}
+
+impl<'a> OutgoingResponse {
+    pub fn status_code(&self) -> StatusCode {
+        self.msg.st_line.code
+    }
+    pub fn code_num(&self) -> u32 {
+        self.msg.st_line.code as u32
+    }
+    pub fn is_provisional(&self) -> bool {
+        self.msg.st_line.code.is_provisional()
+    }
+
+    pub fn into_buffer(&self) -> io::Result<MsgBuffer> {
+        let mut buf = MsgBuffer::new();
+
+        buf.write(&self.msg.st_line)?;
+        buf.write(&self.req_hdrs)?;
+        buf.write(&self.msg.headers)?;
+        buf.write("\r\n")?;
+        if let Some(body) = &self.msg.body {
+            if let Err(_err) = buf.try_extend_from_slice(&*body) {
+                return Err(io::Error::other(
+                    "Packet size exceeds MAX_PACKET_SIZE",
+                ));
+            }
+        }
+
+        Ok(buf)
+    }
+}
+
+pub struct OutGoingRequest {
+    pub msg: SipRequest,
+    pub info: OutgoingInfo,
+    pub buf: Option<Arc<MsgBuffer>>,
+}
+
+pub struct ReceivedRequest {
+    pub msg: SipRequest,
+    pub req_hdrs: Option<RequestHeaders>,
+    pub info: IncomingInfo,
+}
+
+impl ReceivedRequest {
+    pub fn new(
+        msg: SipRequest,
+        info: IncomingInfo,
+        req_hdrs: Option<RequestHeaders>,
+    ) -> Self {
         Self {
-            via: via.cloned().collect(),
-            from: from.unwrap().clone(),
-            to: to.unwrap().clone(),
-            callid: callid.unwrap().clone(),
-            cseq: cseq.unwrap().clone(),
+            msg,
+            info,
+            req_hdrs,
         }
     }
-}
 
-pub struct OutgoingResponse<'a> {
-    pub req_hdrs: RequestHeaders<'a>,
-    pub msg: SipResponse<'a>,
-    pub info: OutgoingInfo,
-    pub buf: Option<MsgBuffer>,
-}
-
-pub struct IncomingRequest<'a> {
-    msg: SipRequest<'a>,
-    info: IncomingInfo,
-}
-
-impl<'a> IncomingRequest<'a> {
-    pub fn new(msg: SipRequest<'a>, info: IncomingInfo) -> Self {
-        Self { msg, info }
+    pub fn is_method(&self, method: &SipMethod) -> bool {
+        self.msg.method() == *method
     }
 }
 
-pub struct IncomingResponse<'a> {
-    msg: SipResponse<'a>,
+pub struct IncomingResponse {
+    msg: SipResponse,
     info: IncomingInfo,
 }
 
-impl<'a> IncomingResponse<'a> {
+impl IncomingResponse {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }
@@ -340,13 +445,13 @@ impl<'a> IncomingResponse<'a> {
     }
 }
 
-impl<'a> IncomingResponse<'a> {
-    pub fn new(msg: SipResponse<'a>, info: IncomingInfo) -> Self {
+impl IncomingResponse {
+    pub fn new(msg: SipResponse, info: IncomingInfo) -> Self {
         Self { msg, info }
     }
 }
 
-impl<'a> IncomingRequest<'a> {
+impl ReceivedRequest {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }

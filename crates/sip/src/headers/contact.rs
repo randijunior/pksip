@@ -16,28 +16,38 @@ use reader::Reader;
 /// # Examples
 ///
 /// ```
-/// # use sip::headers::{contact::{Contact, ContactUri}};
+/// # use sip::headers::contact::Contact;
 /// # use sip::message::{HostPort, Host, UserInfo, UriBuilder, SipUri, NameAddr};
 /// let uri = SipUri::NameAddr(NameAddr {
 ///     display: None,
 ///     uri: UriBuilder::new()
 ///         .user(UserInfo::new("alice", None))
-///         .host(HostPort::from(Host::DomainName("client.atlanta.example.com")))
+///         .host(HostPort::from(Host::DomainName("client.atlanta.example.com".into())))
 ///         .get()
 /// });
-/// let c = Contact::Uri(ContactUri::new(uri, None, None, None));
+/// let c = Contact::Uri {
+///     uri,
+///     q: None,
+///     expires: None,
+///     param: None
+/// };
 ///
 /// assert_eq!("Contact: <sip:alice@client.atlanta.example.com>".as_bytes().try_into(), Ok(c));
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub enum Contact<'a> {
-    Uri(ContactUri<'a>),
+pub enum Contact {
+    Uri {
+        uri: SipUri,
+        q: Option<Q>,
+        expires: Option<u32>,
+        param: Option<Params>,
+    },
     Star,
 }
 
-impl<'a> Contact<'a> {
-    pub fn uri(&self) -> Option<&ContactUri> {
-        if let Contact::Uri(uri) = self {
+impl Contact {
+    pub fn uri(&self) -> Option<&SipUri> {
+        if let Contact::Uri { uri, .. } = self {
             Some(uri)
         } else {
             None
@@ -45,7 +55,7 @@ impl<'a> Contact<'a> {
     }
 }
 
-impl<'a> SipHeader<'a> for Contact<'a> {
+impl SipHeader<'_> for Contact {
     const NAME: &'static str = "Contact";
     const SHORT_NAME: &'static str = "m";
     /*
@@ -63,7 +73,7 @@ impl<'a> SipHeader<'a> for Contact<'a> {
      * contact-extension  =  generic-param
      * delta-seconds      =  1*DIGIT
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         if reader.peek() == Some(&b'*') {
             reader.next();
             return Ok(Contact::Star);
@@ -71,80 +81,61 @@ impl<'a> SipHeader<'a> for Contact<'a> {
         let uri = parser::parse_sip_uri(reader, false)?;
         let mut q = None;
         let mut expires = None;
-        let param =
-            parse_header_param!(reader, Q_PARAM = q, EXPIRES_PARAM = expires);
+        let param = parse_header_param!(
+            reader,
+            Q_PARAM = q,
+            EXPIRES_PARAM = expires
+        );
 
         let q = q.map(|q| q.parse()).transpose()?;
-        let expires = expires.and_then(|expires| expires.parse().ok());
+        let expires =
+            expires.and_then(|expires| expires.parse().ok());
 
-        Ok(Contact::Uri(ContactUri {
+        Ok(Contact::Uri {
             uri,
             q,
             expires,
             param,
-        }))
+        })
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for Contact<'a> {
+impl TryFrom<&[u8]> for Contact {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_contact()
             .map_err(|_| ParseHeaderError)?)
     }
 }
 
-impl fmt::Display for Contact<'_> {
+impl fmt::Display for Contact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Contact::Star => write!(f, "*"),
-            Contact::Uri(uri) => write!(f, "{}", uri),
-        }
-    }
-}
+            Contact::Uri {
+                uri,
+                q,
+                expires,
+                param,
+            } => {
+                write!(f, "{}", uri)?;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ContactUri<'a> {
-    pub uri: SipUri<'a>,
-    pub q: Option<Q>,
-    pub expires: Option<u32>,
-    pub param: Option<Params<'a>>,
-}
-
-impl<'a> ContactUri<'a> {
-    /// Creates a new `ContactUri` instance.
-    pub fn new(
-        uri: SipUri<'a>,
-        q: Option<Q>,
-        expires: Option<u32>,
-        param: Option<Params<'a>>,
-    ) -> Self {
-        Self {
-            uri,
-            q,
-            expires,
-            param,
+                if let Some(q) = q {
+                    write!(f, "{}", q)?;
+                }
+                if let Some(expires) = expires {
+                    write!(f, "{}", expires)?;
+                }
+                if let Some(param) = &param {
+                    write!(f, ";{}", param)?;
+                }
+                Ok(())
+            }
         }
-    }
-}
-
-impl fmt::Display for ContactUri<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uri)?;
-
-        if let Some(q) = self.q {
-            write!(f, "{}", q)?;
-        }
-        if let Some(expires) = self.expires {
-            write!(f, "{}", expires)?;
-        }
-        if let Some(param) = &self.param {
-            write!(f, ";{}", param)?;
-        }
-
-        Ok(())
     }
 }
 
@@ -164,18 +155,18 @@ mod tests {
         let contact = Contact::parse(&mut reader);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri(ContactUri {
+        assert_matches!(contact, Contact::Uri {
             uri: SipUri::NameAddr(addr),
             q,
             expires,
             ..
-        }) => {
-            assert_eq!(addr.display, Some("Mr. Watson"));
+        } => {
+            assert_eq!(addr.display, Some("Mr. Watson".into()));
             assert_eq!(addr.uri.user.unwrap().get_user(), "watson");
             assert_eq!(
                 addr.uri.host_port,
                 HostPort {
-                    host: Host::DomainName("worcester.bell-telephone.com"),
+                    host: Host::DomainName("worcester.bell-telephone.com".into()),
                     port: None
                 },
             );
@@ -196,22 +187,25 @@ mod tests {
             )
         });
 
-        assert_eq!(reader.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
+        assert_eq!(
+            reader.as_ref(),
+            b":watson@bell-telephone.com> ;q=0.1\r\n"
+        );
 
         let src = b"sip:caller@u1.example.com\r\n";
         let mut reader = Reader::new(src);
         let contact = Contact::parse(&mut reader);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri(ContactUri {
+        assert_matches!(contact, Contact::Uri {
             uri: SipUri::Uri(uri),
             ..
-        }) => {
+        } => {
             assert_eq!(uri.user.unwrap().get_user(), "caller");
             assert_eq!(
                 uri.host_port,
                 HostPort {
-                    host: Host::DomainName("u1.example.com"),
+                    host: Host::DomainName("u1.example.com".into()),
                     port: None
                 }
             );
@@ -226,10 +220,10 @@ mod tests {
         let contact = Contact::parse(&mut reader);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri(ContactUri{
+        assert_matches!(contact, Contact::Uri {
             uri: SipUri::Uri(uri),
             ..
-        }) => {
+        } => {
             let addr: IpAddr =
             "2620:0:2ef0:7070:250:60ff:fe03:32b7".parse().unwrap();
         assert_eq!(
@@ -250,10 +244,10 @@ mod tests {
         let contact = Contact::parse(&mut reader);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri(ContactUri {
+        assert_matches!(contact, Contact::Uri {
             uri: SipUri::Uri(uri),
             ..
-        }) => {
+        } => {
             assert_eq!(
                 uri.host_port,
                 HostPort {
@@ -275,10 +269,10 @@ mod tests {
         let contact = Contact::parse(&mut reader);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri(ContactUri {
+        assert_matches!(contact, Contact::Uri {
             uri: SipUri::Uri(uri),
             ..
-        }) => {
+        } => {
             let addr = Ipv4Addr::new(192, 168, 1, 1);
             assert_eq!(
                 uri.host_port,

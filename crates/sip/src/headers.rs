@@ -102,7 +102,10 @@ use std::{
     str::{self},
 };
 
-use crate::parser::{parse_token, Result, SipParserError};
+use crate::{
+    internal::ArcStr,
+    parser::{parse_token, Result, SipParserError},
+};
 
 /// The tag parameter that is used normaly in [`From`] and [`To`] headers.
 const TAG_PARAM: &str = "tag";
@@ -133,7 +136,7 @@ pub trait SipHeader<'a>: Sized {
     }
 
     /// See the documentation for [`Header::parse_header_value_as_str`]
-    fn parse_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
+    fn parse_as_str(reader: &mut Reader<'a>) -> Result<ArcStr> {
         Header::parse_header_value_as_str(reader)
     }
 }
@@ -163,100 +166,100 @@ impl convert::From<SipParserError> for ParseHeaderError {
 /// assert_eq!(Header::from_bytes(b"Call-ID: bs9ki9iqbee8k5kal8mpqb"), Ok(cid));
 /// ```
 #[derive(Debug, PartialEq, Eq, EnumAsInner)]
-pub enum Header<'a> {
+pub enum Header {
     /// `Accept` Header
-    Accept(Accept<'a>),
+    Accept(Accept),
     /// `Accept-Enconding` Header
-    AcceptEncoding(AcceptEncoding<'a>),
+    AcceptEncoding(AcceptEncoding),
     /// `Accept-Language` Header
-    AcceptLanguage(AcceptLanguage<'a>),
+    AcceptLanguage(AcceptLanguage),
     /// `Alert-Info` Header.
-    AlertInfo(AlertInfo<'a>),
+    AlertInfo(AlertInfo),
     /// `Allow` Header
     Allow(Allow),
     /// `Authentication-Info` Header
-    AuthenticationInfo(AuthenticationInfo<'a>),
+    AuthenticationInfo(AuthenticationInfo),
     /// `Authorization` Header
-    Authorization(Authorization<'a>),
+    Authorization(Authorization),
     /// `Call-ID` Header
-    CallId(CallId<'a>),
+    CallId(CallId),
     /// `Call-Info` Header
-    CallInfo(CallInfo<'a>),
+    CallInfo(CallInfo),
     /// `Contact` Header
-    Contact(Contact<'a>),
+    Contact(Contact),
     /// `Content-Disposition` Header
-    ContentDisposition(ContentDisposition<'a>),
+    ContentDisposition(ContentDisposition),
     /// `Content-Encoding` Header
-    ContentEncoding(ContentEncoding<'a>),
+    ContentEncoding(ContentEncoding),
     /// `Content-Language` Header
-    ContentLanguage(ContentLanguage<'a>),
+    ContentLanguage(ContentLanguage),
     /// `Content-Length` Header
     ContentLength(ContentLength),
     /// `Content-Type` Header
-    ContentType(ContentType<'a>),
+    ContentType(ContentType),
     /// `CSeq` Header
     CSeq(CSeq),
     /// `Date` Header
-    Date(Date<'a>),
+    Date(Date),
     /// `Error-Info` Header
-    ErrorInfo(ErrorInfo<'a>),
+    ErrorInfo(ErrorInfo),
     /// `Expires` Header
     Expires(Expires),
     /// `From` Header
-    From(From<'a>),
+    From(From),
     /// `In-Reply-To` Header
-    InReplyTo(InReplyTo<'a>),
+    InReplyTo(InReplyTo),
     /// `Max-Fowards` Header
     MaxForwards(MaxForwards),
     /// `Min-Expires` Header
     MinExpires(MinExpires),
     /// `MIME-Version` Header
-    MimeVersion(MimeVersion<'a>),
+    MimeVersion(MimeVersion),
     /// `Organization` Header
-    Organization(Organization<'a>),
+    Organization(Organization),
     /// `Priority` Header
-    Priority(Priority<'a>),
+    Priority(Priority),
     /// `Proxy-Authenticate` Header
-    ProxyAuthenticate(ProxyAuthenticate<'a>),
+    ProxyAuthenticate(ProxyAuthenticate),
     /// `Proxy-Authorization` Header
-    ProxyAuthorization(ProxyAuthorization<'a>),
+    ProxyAuthorization(ProxyAuthorization),
     /// `Proxy-Require` Header
-    ProxyRequire(ProxyRequire<'a>),
+    ProxyRequire(ProxyRequire),
     /// `Retry-After` Header
-    RetryAfter(RetryAfter<'a>),
+    RetryAfter(RetryAfter),
     /// `Route` Header
-    Route(Route<'a>),
+    Route(Route),
     /// `Record-Route` Header
-    RecordRoute(RecordRoute<'a>),
+    RecordRoute(RecordRoute),
     /// `Reply-To` Header
-    ReplyTo(ReplyTo<'a>),
+    ReplyTo(ReplyTo),
     /// `Require` Header
-    Require(Require<'a>),
+    Require(Require),
     /// `Server` Header
-    Server(Server<'a>),
+    Server(Server),
     /// `Subject` Header
-    Subject(Subject<'a>),
+    Subject(Subject),
     /// `Supported` Header
-    Supported(Supported<'a>),
+    Supported(Supported),
     /// `Timestamp` Header
-    Timestamp(Timestamp<'a>),
+    Timestamp(Timestamp),
     /// `To` Header
-    To(To<'a>),
+    To(To),
     /// `Unsupported` Header
-    Unsupported(Unsupported<'a>),
+    Unsupported(Unsupported),
     /// `User-Agent` Header
-    UserAgent(UserAgent<'a>),
+    UserAgent(UserAgent),
     /// `Via` Header
-    Via(Via<'a>),
+    Via(Via),
     /// `Warning` Header
-    Warning(Warning<'a>),
+    Warning(Warning),
     /// `WWW-Authenticate` Header
-    WWWAuthenticate(WWWAuthenticate<'a>),
+    WWWAuthenticate(WWWAuthenticate),
     /// Other Generic Header
-    Other { name: &'a str, value: &'a str },
+    Other { name: ArcStr, value: ArcStr },
 }
 
-impl fmt::Display for Header<'_> {
+impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Header::Via(h) => write!(f, "{}: {}", Via::NAME, h),
@@ -267,7 +270,9 @@ impl fmt::Display for Header<'_> {
             Header::AcceptLanguage(h) => {
                 write!(f, "{}: {}", AcceptLanguage::NAME, h)
             }
-            Header::AlertInfo(h) => write!(f, "{}: {}", AlertInfo::NAME, h),
+            Header::AlertInfo(h) => {
+                write!(f, "{}: {}", AlertInfo::NAME, h)
+            }
             Header::Allow(h) => write!(f, "{}: {}", Allow::NAME, h),
             Header::AuthenticationInfo(h) => {
                 write!(f, "{}: {}", AuthenticationInfo::NAME, h)
@@ -276,8 +281,12 @@ impl fmt::Display for Header<'_> {
                 write!(f, "{}: {}", Authorization::NAME, h)
             }
             Header::CallId(h) => write!(f, "{}: {}", CallId::NAME, h),
-            Header::CallInfo(h) => write!(f, "{}: {}", CallInfo::NAME, h),
-            Header::Contact(h) => write!(f, "{}: {}", Contact::NAME, h),
+            Header::CallInfo(h) => {
+                write!(f, "{}: {}", CallInfo::NAME, h)
+            }
+            Header::Contact(h) => {
+                write!(f, "{}: {}", Contact::NAME, h)
+            }
             Header::ContentDisposition(h) => {
                 write!(f, "{}: {}", ContentDisposition::NAME, h)
             }
@@ -295,10 +304,16 @@ impl fmt::Display for Header<'_> {
             }
             Header::CSeq(h) => write!(f, "{}: {}", CSeq::NAME, h),
             Header::Date(h) => write!(f, "{}: {}", Date::NAME, h),
-            Header::ErrorInfo(h) => write!(f, "{}: {}", ErrorInfo::NAME, h),
-            Header::Expires(h) => write!(f, "{}: {}", Expires::NAME, h),
+            Header::ErrorInfo(h) => {
+                write!(f, "{}: {}", ErrorInfo::NAME, h)
+            }
+            Header::Expires(h) => {
+                write!(f, "{}: {}", Expires::NAME, h)
+            }
             Header::From(h) => write!(f, "{}: {}", From::NAME, h),
-            Header::InReplyTo(h) => write!(f, "{}: {}", InReplyTo::NAME, h),
+            Header::InReplyTo(h) => {
+                write!(f, "{}: {}", InReplyTo::NAME, h)
+            }
             Header::MaxForwards(h) => {
                 write!(f, "{}: {}", MaxForwards::NAME, h)
             }
@@ -311,7 +326,9 @@ impl fmt::Display for Header<'_> {
             Header::Organization(h) => {
                 write!(f, "{}: {}", Organization::NAME, h)
             }
-            Header::Priority(h) => write!(f, "{}: {}", Priority::NAME, h),
+            Header::Priority(h) => {
+                write!(f, "{}: {}", Priority::NAME, h)
+            }
             Header::ProxyAuthenticate(h) => {
                 write!(f, "{}: {}", ProxyAuthenticate::NAME, h)
             }
@@ -328,18 +345,32 @@ impl fmt::Display for Header<'_> {
             Header::RecordRoute(h) => {
                 write!(f, "{}: {}", RecordRoute::NAME, h)
             }
-            Header::ReplyTo(h) => write!(f, "{}: {}", ReplyTo::NAME, h),
-            Header::Require(h) => write!(f, "{}: {}", Require::NAME, h),
+            Header::ReplyTo(h) => {
+                write!(f, "{}: {}", ReplyTo::NAME, h)
+            }
+            Header::Require(h) => {
+                write!(f, "{}: {}", Require::NAME, h)
+            }
             Header::Server(h) => write!(f, "{}: {}", Server::NAME, h),
-            Header::Subject(h) => write!(f, "{}: {}", Subject::NAME, h),
-            Header::Supported(h) => write!(f, "{}: {}", Supported::NAME, h),
-            Header::Timestamp(h) => write!(f, "{}: {}", Timestamp::NAME, h),
+            Header::Subject(h) => {
+                write!(f, "{}: {}", Subject::NAME, h)
+            }
+            Header::Supported(h) => {
+                write!(f, "{}: {}", Supported::NAME, h)
+            }
+            Header::Timestamp(h) => {
+                write!(f, "{}: {}", Timestamp::NAME, h)
+            }
             Header::To(h) => write!(f, "{}: {}", To::NAME, h),
             Header::Unsupported(h) => {
                 write!(f, "{}: {}", Unsupported::NAME, h)
             }
-            Header::UserAgent(h) => write!(f, "{}: {}", UserAgent::NAME, h),
-            Header::Warning(h) => write!(f, "{}: {}", Warning::NAME, h),
+            Header::UserAgent(h) => {
+                write!(f, "{}: {}", UserAgent::NAME, h)
+            }
+            Header::Warning(h) => {
+                write!(f, "{}: {}", Warning::NAME, h)
+            }
             Header::WWWAuthenticate(h) => {
                 write!(f, "{}: {}", WWWAuthenticate::NAME, h)
             }
@@ -351,14 +382,14 @@ impl fmt::Display for Header<'_> {
     }
 }
 
-impl<'a> Header<'a> {
+impl Header {
     /// Parses the header value as a string slice using the provided `reader`.
     pub fn parse_header_value_as_str(
-        reader: &mut Reader<'a>,
-    ) -> Result<&'a str> {
+        reader: &mut Reader,
+    ) -> Result<ArcStr> {
         let str = reader::until_newline!(reader);
 
-        Ok(str::from_utf8(str)?)
+        Ok(str::from_utf8(str)?.into())
     }
 
     /// Parses a SIP `Header` from a byte slice.
@@ -370,7 +401,7 @@ impl<'a> Header<'a> {
     ///
     /// assert_eq!(Header::from_bytes(b"Content-Length: 10"), Ok(c_len));
     /// ```
-    pub fn from_bytes(bytes: &'a [u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut reader = Reader::new(bytes);
         let reader = &mut reader;
 
@@ -381,45 +412,65 @@ impl<'a> Header<'a> {
         space!(reader);
 
         match header_name {
-            Accept::NAME => Ok(Header::Accept(Accept::parse(reader)?)),
-            AcceptEncoding::NAME => {
-                Ok(Header::AcceptEncoding(AcceptEncoding::parse(reader)?))
+            Accept::NAME => {
+                Ok(Header::Accept(Accept::parse(reader)?))
             }
-            AcceptLanguage::NAME => {
-                Ok(Header::AcceptLanguage(AcceptLanguage::parse(reader)?))
+            AcceptEncoding::NAME => Ok(Header::AcceptEncoding(
+                AcceptEncoding::parse(reader)?,
+            )),
+            AcceptLanguage::NAME => Ok(Header::AcceptLanguage(
+                AcceptLanguage::parse(reader)?,
+            )),
+            AlertInfo::NAME => {
+                Ok(Header::AlertInfo(AlertInfo::parse(reader)?))
             }
-            AlertInfo::NAME => Ok(Header::AlertInfo(AlertInfo::parse(reader)?)),
             Allow::NAME => Ok(Header::Allow(Allow::parse(reader)?)),
-            AuthenticationInfo::NAME => Ok(Header::AuthenticationInfo(
-                AuthenticationInfo::parse(reader)?,
+            AuthenticationInfo::NAME => {
+                Ok(Header::AuthenticationInfo(
+                    AuthenticationInfo::parse(reader)?,
+                ))
+            }
+            Authorization::NAME => Ok(Header::Authorization(
+                Authorization::parse(reader)?,
             )),
-            Authorization::NAME => {
-                Ok(Header::Authorization(Authorization::parse(reader)?))
+            CallId::NAME => {
+                Ok(Header::CallId(CallId::parse(reader)?))
             }
-            CallId::NAME => Ok(Header::CallId(CallId::parse(reader)?)),
-            CallInfo::NAME => Ok(Header::CallInfo(CallInfo::parse(reader)?)),
-            Contact::NAME => Ok(Header::Contact(Contact::parse(reader)?)),
-            ContentDisposition::NAME => Ok(Header::ContentDisposition(
-                ContentDisposition::parse(reader)?,
+            CallInfo::NAME => {
+                Ok(Header::CallInfo(CallInfo::parse(reader)?))
+            }
+            Contact::NAME => {
+                Ok(Header::Contact(Contact::parse(reader)?))
+            }
+            ContentDisposition::NAME => {
+                Ok(Header::ContentDisposition(
+                    ContentDisposition::parse(reader)?,
+                ))
+            }
+            ContentEncoding::NAME => Ok(Header::ContentEncoding(
+                ContentEncoding::parse(reader)?,
             )),
-            ContentEncoding::NAME => {
-                Ok(Header::ContentEncoding(ContentEncoding::parse(reader)?))
-            }
-            ContentLanguage::NAME => {
-                Ok(Header::ContentLanguage(ContentLanguage::parse(reader)?))
-            }
-            ContentLength::NAME => {
-                Ok(Header::ContentLength(ContentLength::parse(reader)?))
-            }
+            ContentLanguage::NAME => Ok(Header::ContentLanguage(
+                ContentLanguage::parse(reader)?,
+            )),
+            ContentLength::NAME => Ok(Header::ContentLength(
+                ContentLength::parse(reader)?,
+            )),
             ContentType::NAME => {
                 Ok(Header::ContentType(ContentType::parse(reader)?))
             }
             CSeq::NAME => Ok(Header::CSeq(CSeq::parse(reader)?)),
             Date::NAME => Ok(Header::Date(Date::parse(reader)?)),
-            ErrorInfo::NAME => Ok(Header::ErrorInfo(ErrorInfo::parse(reader)?)),
-            Expires::NAME => Ok(Header::Expires(Expires::parse(reader)?)),
+            ErrorInfo::NAME => {
+                Ok(Header::ErrorInfo(ErrorInfo::parse(reader)?))
+            }
+            Expires::NAME => {
+                Ok(Header::Expires(Expires::parse(reader)?))
+            }
             From::NAME => Ok(Header::From(From::parse(reader)?)),
-            InReplyTo::NAME => Ok(Header::InReplyTo(InReplyTo::parse(reader)?)),
+            InReplyTo::NAME => {
+                Ok(Header::InReplyTo(InReplyTo::parse(reader)?))
+            }
             MaxForwards::NAME => {
                 Ok(Header::MaxForwards(MaxForwards::parse(reader)?))
             }
@@ -432,13 +483,17 @@ impl<'a> Header<'a> {
             Organization::NAME => {
                 Ok(Header::Organization(Organization::parse(reader)?))
             }
-            Priority::NAME => Ok(Header::Priority(Priority::parse(reader)?)),
-            ProxyAuthenticate::NAME => {
-                Ok(Header::ProxyAuthenticate(ProxyAuthenticate::parse(reader)?))
+            Priority::NAME => {
+                Ok(Header::Priority(Priority::parse(reader)?))
             }
-            ProxyAuthorization::NAME => Ok(Header::ProxyAuthorization(
-                ProxyAuthorization::parse(reader)?,
+            ProxyAuthenticate::NAME => Ok(Header::ProxyAuthenticate(
+                ProxyAuthenticate::parse(reader)?,
             )),
+            ProxyAuthorization::NAME => {
+                Ok(Header::ProxyAuthorization(
+                    ProxyAuthorization::parse(reader)?,
+                ))
+            }
             ProxyRequire::NAME => {
                 Ok(Header::ProxyRequire(ProxyRequire::parse(reader)?))
             }
@@ -449,24 +504,40 @@ impl<'a> Header<'a> {
             RecordRoute::NAME => {
                 Ok(Header::RecordRoute(RecordRoute::parse(reader)?))
             }
-            ReplyTo::NAME => Ok(Header::ReplyTo(ReplyTo::parse(reader)?)),
-            Require::NAME => Ok(Header::Require(Require::parse(reader)?)),
-            Server::NAME => Ok(Header::Server(Server::parse(reader)?)),
-            Subject::NAME => Ok(Header::Subject(Subject::parse(reader)?)),
-            Supported::NAME => Ok(Header::Supported(Supported::parse(reader)?)),
-            Timestamp::NAME => Ok(Header::Timestamp(Timestamp::parse(reader)?)),
+            ReplyTo::NAME => {
+                Ok(Header::ReplyTo(ReplyTo::parse(reader)?))
+            }
+            Require::NAME => {
+                Ok(Header::Require(Require::parse(reader)?))
+            }
+            Server::NAME => {
+                Ok(Header::Server(Server::parse(reader)?))
+            }
+            Subject::NAME => {
+                Ok(Header::Subject(Subject::parse(reader)?))
+            }
+            Supported::NAME => {
+                Ok(Header::Supported(Supported::parse(reader)?))
+            }
+            Timestamp::NAME => {
+                Ok(Header::Timestamp(Timestamp::parse(reader)?))
+            }
             To::NAME => Ok(Header::To(To::parse(reader)?)),
             Unsupported::NAME => {
                 Ok(Header::Unsupported(Unsupported::parse(reader)?))
             }
-            UserAgent::NAME => Ok(Header::UserAgent(UserAgent::parse(reader)?)),
-            Via::NAME => Ok(Header::Via(Via::parse(reader)?)),
-            Warning::NAME => Ok(Header::Warning(Warning::parse(reader)?)),
-            WWWAuthenticate::NAME => {
-                Ok(Header::WWWAuthenticate(WWWAuthenticate::parse(reader)?))
+            UserAgent::NAME => {
+                Ok(Header::UserAgent(UserAgent::parse(reader)?))
             }
+            Via::NAME => Ok(Header::Via(Via::parse(reader)?)),
+            Warning::NAME => {
+                Ok(Header::Warning(Warning::parse(reader)?))
+            }
+            WWWAuthenticate::NAME => Ok(Header::WWWAuthenticate(
+                WWWAuthenticate::parse(reader)?,
+            )),
             _ => Ok(Header::Other {
-                name: header_name,
+                name: header_name.into(),
                 value: Self::parse_header_value_as_str(reader)?,
             }),
         }
@@ -489,9 +560,9 @@ impl<'a> Header<'a> {
 ///
 /// ```
 #[derive(Debug)]
-pub struct Headers<'a>(Vec<Header<'a>>);
+pub struct Headers(Vec<Header>);
 
-impl<'a> Headers<'a> {
+impl Headers {
     /// Create a new empty collection of headers.
     ///
     /// # Examples
@@ -521,15 +592,15 @@ impl<'a> Headers<'a> {
     ///
     /// assert!(expires.is_some());
     ///
-    pub fn find_map<'b, T: 'a, F>(&'b self, f: F) -> Option<&T>
+    pub fn find_map<T, F>(&self, f: F) -> Option<&T>
     where
-        F: Fn(&'b Header) -> Option<&'a T>,
+        F: Fn(&Header) -> Option<&T>,
     {
         self.0.iter().find_map(f)
     }
 
     /// Returns an iterator over headers.
-    pub fn iter(&self) -> impl Iterator<Item = &Header<'a>> {
+    pub fn iter(&self) -> impl Iterator<Item = &Header> {
         self.0.iter()
     }
 
@@ -553,12 +624,12 @@ impl<'a> Headers<'a> {
     /// assert_eq!(iter.next(), Some(&Expires::new(10)));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn filter_map<'b, T: 'a, F>(
-        &'b self,
+    pub fn filter_map<T, F>(
+        &self,
         f: F,
-    ) -> FilterMap<impl Iterator<Item = &Header<'a>>, F>
+    ) -> FilterMap<impl Iterator<Item = &Header>, F>
     where
-        F: FnMut(&'b Header) -> Option<&'a T>,
+        F: FnMut(&Header) -> Option<&T>,
     {
         self.0.iter().filter_map(f)
     }
@@ -582,7 +653,7 @@ impl<'a> Headers<'a> {
     pub fn filter<F>(
         &self,
         f: F,
-    ) -> Filter<impl Iterator<Item = &Header<'a>>, F>
+    ) -> Filter<impl Iterator<Item = &Header>, F>
     where
         F: FnMut(&&Header) -> bool,
     {
@@ -630,7 +701,7 @@ impl<'a> Headers<'a> {
     ///
     /// assert_eq!(headers.len(), 1);
     /// assert!(headers.get(0).is_some());
-    pub fn push(&mut self, hdr: Header<'a>) {
+    pub fn push(&mut self, hdr: Header) {
         self.0.push(hdr);
     }
 
@@ -645,7 +716,7 @@ impl<'a> Headers<'a> {
     }
 }
 
-impl fmt::Display for Headers<'_> {
+impl fmt::Display for Headers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for hdr in self.iter() {
             write!(f, "{hdr}")?;
@@ -654,7 +725,7 @@ impl fmt::Display for Headers<'_> {
     }
 }
 
-impl Default for Headers<'_> {
+impl Default for Headers {
     fn default() -> Self {
         Self::new()
     }

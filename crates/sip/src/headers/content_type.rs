@@ -15,9 +15,9 @@ use crate::internal::MediaType;
 ///
 /// Indicates the media type of the `message-body` sent to the recipient.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ContentType<'a>(pub MediaType<'a>);
+pub struct ContentType(pub MediaType);
 
-impl<'a> SipHeader<'a> for ContentType<'a> {
+impl SipHeader<'_> for ContentType {
     const NAME: &'static str = "Content-Type";
     const SHORT_NAME: &'static str = "c";
     /*
@@ -36,7 +36,7 @@ impl<'a> SipHeader<'a> for ContentType<'a> {
      * m-attribute      =  token
      * m-value          =  token / quoted-string
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<ContentType<'a>> {
+    fn parse(reader: &mut Reader) -> Result<ContentType> {
         let mtype = parser::parse_token(reader)?;
         reader.must_read(b'/')?;
         let subtype = parser::parse_token(reader)?;
@@ -47,7 +47,7 @@ impl<'a> SipHeader<'a> for ContentType<'a> {
     }
 }
 
-impl fmt::Display for ContentType<'_> {
+impl fmt::Display for ContentType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -65,8 +65,8 @@ mod tests {
         let c_type = c_type.unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(c_type.0.mimetype.mtype, "application");
-        assert_eq!(c_type.0.mimetype.subtype, "sdp");
+        assert_eq!(c_type.0.mimetype.mtype, "application".into());
+        assert_eq!(c_type.0.mimetype.subtype, "sdp".into());
 
         let src = b"text/html; charset=ISO-8859-4\r\n";
         let mut reader = Reader::new(src);
@@ -74,8 +74,11 @@ mod tests {
         let c_type = c_type.unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(c_type.0.mimetype.mtype, "text");
-        assert_eq!(c_type.0.mimetype.subtype, "html");
-        assert_eq!(c_type.0.param.unwrap().get("charset"), Some(&"ISO-8859-4"));
+        assert_eq!(c_type.0.mimetype.mtype, "text".into());
+        assert_eq!(c_type.0.mimetype.subtype, "html".into());
+        assert_eq!(
+            c_type.0.param.unwrap().get("charset".into()),
+            Some("ISO-8859-4")
+        );
     }
 }

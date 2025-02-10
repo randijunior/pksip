@@ -10,9 +10,9 @@ use crate::headers::SipHeader;
 ///
 /// The authentication requirements from a proxy server to a client.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ProxyAuthenticate<'a>(Challenge<'a>);
+pub struct ProxyAuthenticate(Challenge);
 
-impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
+impl SipHeader<'_> for ProxyAuthenticate {
     const NAME: &'static str = "Proxy-Authenticate";
     /*
      * Proxy-Authenticate  =  "Proxy-Authenticate" HCOLON challenge
@@ -38,14 +38,14 @@ impl<'a> SipHeader<'a> for ProxyAuthenticate<'a> {
      *                        *("," qop-value) RDQUOT
      * qop-value           =  "auth" / "auth-int" / token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let challenge = Challenge::parse(reader)?;
 
         Ok(ProxyAuthenticate(challenge))
     }
 }
 
-impl fmt::Display for ProxyAuthenticate<'_> {
+impl fmt::Display for ProxyAuthenticate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -62,16 +62,17 @@ mod tests {
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\", \
         opaque=\"\", stale=FALSE, algorithm=MD5\r\n";
         let mut reader = Reader::new(src);
-        let proxy_auth = ProxyAuthenticate::parse(&mut reader).unwrap();
+        let proxy_auth =
+            ProxyAuthenticate::parse(&mut reader).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest { realm, domain, nonce, opaque, stale, algorithm, qop, .. } => {
-            assert_eq!(realm, Some("atlanta.com"));
-            assert_eq!(algorithm, Some("MD5"));
-            assert_eq!(domain, Some("sip:ss1.carrier.com"));
-            assert_eq!(qop, Some("auth"));
-            assert_eq!(nonce, Some("f84f1cec41e6cbe5aea9c8e88d359"));
-            assert_eq!(opaque, Some(""));
-            assert_eq!(stale, Some("FALSE"));
+            assert_eq!(realm, Some("atlanta.com".into()));
+            assert_eq!(algorithm, Some("MD5".into()));
+            assert_eq!(domain, Some("sip:ss1.carrier.com".into()));
+            assert_eq!(qop, Some("auth".into()));
+            assert_eq!(nonce, Some("f84f1cec41e6cbe5aea9c8e88d359".into()));
+            assert_eq!(opaque, Some("".into()));
+            assert_eq!(stale, Some("FALSE".into()));
         });
     }
 }

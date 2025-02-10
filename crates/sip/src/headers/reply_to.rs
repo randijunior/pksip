@@ -14,12 +14,12 @@ use crate::headers::SipHeader;
 ///
 /// Contains a logical return URI that may be different from the From header field
 #[derive(Debug, PartialEq, Eq)]
-pub struct ReplyTo<'a> {
-    uri: SipUri<'a>,
-    param: Option<Params<'a>>,
+pub struct ReplyTo {
+    uri: SipUri,
+    param: Option<Params>,
 }
 
-impl<'a> SipHeader<'a> for ReplyTo<'a> {
+impl SipHeader<'_> for ReplyTo {
     const NAME: &'static str = "Reply-To";
     /*
      * Reply-To      =  "Reply-To" HCOLON rplyto-spec
@@ -27,7 +27,7 @@ impl<'a> SipHeader<'a> for ReplyTo<'a> {
      *                  *( SEMI rplyto-param )
      * rplyto-param  =  generic-param
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let uri = parser::parse_sip_uri(reader, false)?;
         let param = parse_header_param!(reader);
 
@@ -35,7 +35,7 @@ impl<'a> SipHeader<'a> for ReplyTo<'a> {
     }
 }
 
-impl fmt::Display for ReplyTo<'_> {
+impl fmt::Display for ReplyTo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.uri)?;
         if let Some(param) = &self.param {
@@ -68,7 +68,7 @@ mod tests {
             assert_eq!(
                 addr.uri.host_port,
                 HostPort {
-                    host: Host::DomainName("biloxi.com"),
+                    host: Host::DomainName("biloxi.com".into()),
                     port: None
                 }
             );

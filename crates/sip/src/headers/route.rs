@@ -15,25 +15,25 @@ use crate::headers::SipHeader;
 /// Specify the sequence of proxy servers and other intermediaries
 /// that a SIP message should pass through on its way to the final destination.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Route<'a> {
-    pub(crate) addr: NameAddr<'a>,
-    pub(crate) param: Option<Params<'a>>,
+pub struct Route {
+    pub(crate) addr: NameAddr,
+    pub(crate) param: Option<Params>,
 }
 
-impl<'a> SipHeader<'a> for Route<'a> {
+impl SipHeader<'_> for Route {
     const NAME: &'static str = "Route";
     /*
      * Route        =  "Route" HCOLON route-param *(COMMA route-param)
      * route-param  =  name-addr *( SEMI rr-param )
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let addr = parser::parse_name_addr(reader)?;
         let param = parse_header_param!(reader);
         Ok(Route { addr, param })
     }
 }
 
-impl fmt::Display for Route<'_> {
+impl fmt::Display for Route {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.addr)?;
 
@@ -63,7 +63,9 @@ mod tests {
         assert_eq!(
             r.addr.uri.host_port,
             HostPort {
-                host: Host::DomainName("bigbox3.site3.atlanta.com"),
+                host: Host::DomainName(
+                    "bigbox3.site3.atlanta.com".into()
+                ),
                 port: None
             }
         );
@@ -79,10 +81,10 @@ mod tests {
         assert_eq!(
             r.addr.uri.host_port,
             HostPort {
-                host: Host::DomainName("server10.biloxi.com"),
+                host: Host::DomainName("server10.biloxi.com".into()),
                 port: None
             }
         );
-        assert_eq!(r.param.unwrap().get("foo"), Some(&"bar"));
+        assert_eq!(r.param.unwrap().get("foo".into()), Some("bar"));
     }
 }

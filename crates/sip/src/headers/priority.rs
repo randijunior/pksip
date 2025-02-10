@@ -2,6 +2,7 @@ use std::{fmt, str};
 
 use reader::Reader;
 
+use crate::internal::ArcStr;
 use crate::parser::{self, Result};
 
 use crate::headers::SipHeader;
@@ -10,9 +11,9 @@ use crate::headers::SipHeader;
 ///
 /// Indicates the urgency of the request as received by the client.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Priority<'a>(&'a str);
+pub struct Priority(ArcStr);
 
-impl<'a> SipHeader<'a> for Priority<'a> {
+impl SipHeader<'_> for Priority {
     const NAME: &'static str = "Priority";
     /*
      * Priority        =  "Priority" HCOLON priority-value
@@ -20,14 +21,14 @@ impl<'a> SipHeader<'a> for Priority<'a> {
      *                    / "non-urgent" / other-priority
      * other-priority  =  token
      */
-    fn parse(reader: &mut Reader<'a>) -> Result<Self> {
+    fn parse(reader: &mut Reader) -> Result<Self> {
         let priority = parser::parse_token(reader)?;
 
-        Ok(Priority(priority))
+        Ok(Priority(priority.into()))
     }
 }
 
-impl fmt::Display for Priority<'_> {
+impl fmt::Display for Priority {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -43,6 +44,6 @@ mod tests {
         let mut reader = Reader::new(src);
         let priority = Priority::parse(&mut reader).unwrap();
 
-        assert_eq!(priority.0, "emergency");
+        assert_eq!(priority.0, "emergency".into());
     }
 }

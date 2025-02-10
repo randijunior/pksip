@@ -1,9 +1,10 @@
+use std::io;
+
 use async_trait::async_trait;
 
-use crate::{
-    transaction::Transaction,
-    transport::{IncomingRequest, IncomingResponse},
-};
+use crate::message::StatusLine;
+use crate::transaction::{TsxMsg, TsxSender};
+use crate::transport::{ReceivedRequest, IncomingResponse};
 
 use crate::endpoint::Endpoint;
 
@@ -11,25 +12,36 @@ use crate::endpoint::Endpoint;
 pub trait SipService: Sync + Send + 'static {
     fn name(&self) -> &str;
 
-    async fn on_request(
-        &self,
-        endpt: &Endpoint,
-        inc: &mut Option<IncomingRequest>,
-    ) {
+    async fn on_request(&self, req: &mut Request) -> io::Result<()> {
+        Ok(())
     }
 
     async fn on_response(
         &self,
         endpt: &Endpoint,
-        inc: &mut Option<IncomingResponse>,
-    ) {
+        response: &mut Option<IncomingResponse>,
+    ) -> io::Result<()> {
+        Ok(())
     }
+}
 
-    async fn on_transaction_response(
-        &self,
-        endpt: &Endpoint,
-        res: &mut Option<IncomingResponse>,
-        tsx: &Transaction<'_>,
-    ) {
+pub struct Request {
+    pub endpoint: Endpoint,
+    pub msg: Option<ReceivedRequest>,
+    pub tsx: TsxSender,
+}
+
+impl Request {
+    pub async fn reply(
+        &mut self,
+        st_line: StatusLine,
+    ) -> io::Result<()> {
+        let mut msg = self.msg.take().unwrap();
+        let response =
+            self.endpoint.new_response(&mut msg, st_line).await?;
+
+        let _res = self.tsx.send(TsxMsg::Response(response)).await;
+
+        Ok(())
     }
 }
