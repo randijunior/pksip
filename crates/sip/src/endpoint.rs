@@ -7,8 +7,8 @@ use crate::parser::SipParserError;
 use crate::service::Request;
 use crate::transaction::{TsxKey, TsxSender};
 use crate::transport::{
-    IncomingInfo, ReceivedRequest, IncomingResponse, OutGoingRequest,
-    OutgoingInfo, OutgoingResponse, Packet, Transport,
+    IncomingInfo, IncomingResponse, OutGoingRequest, OutgoingInfo,
+    OutgoingResponse, Packet, ReceivedRequest, Transport,
     TransportLayer, CRLF, END,
 };
 use crate::{
@@ -332,4 +332,3 @@ impl Endpoint {
         &self.0.name
     }
 }
-

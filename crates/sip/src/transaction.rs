@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use invite_server::ServerInviteTsx;
 use non_invite_server::ServerNonInviteTsx;
 use tokio::sync::{
-        mpsc::{self},
-        oneshot,
-    };
+    mpsc::{self},
+    oneshot,
+};
 
 use crate::{
     endpoint::Endpoint,
@@ -12,7 +12,7 @@ use crate::{
     internal::ArcStr,
     message::{HostPort, SipMethod, StatusCode},
     transport::{
-        ReceivedRequest, MsgBuffer, OutgoingResponse, Transport,
+        MsgBuffer, OutgoingResponse, ReceivedRequest, Transport,
     },
 };
 use std::{
@@ -194,7 +194,7 @@ impl Transaction {
     ) -> io::Result<()> {
         if let Some(buf) = response.buf {
             self.send_msg(&buf).await?;
-            return Ok(())
+            return Ok(());
         }
         let buf = response.into_buffer()?;
         self.send_msg(&buf).await?;

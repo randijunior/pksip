@@ -8,7 +8,8 @@ use tokio::{
 use crate::message::TransportProtocol;
 
 use super::{
-    ConnectionKey, Packet, SipTransport, Transport, TransportSender, MAX_PACKET_SIZE
+    ConnectionKey, Packet, SipTransport, Transport, TransportSender,
+    MAX_PACKET_SIZE,
 };
 
 #[derive(Debug)]

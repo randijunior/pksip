@@ -262,10 +262,7 @@ mod tests {
             }
         );
 
-        assert_eq!(
-            via.received,
-            Some("192.0.2.4".parse().unwrap())
-        );
+        assert_eq!(via.received, Some("192.0.2.4".parse().unwrap()));
 
         let src =
             b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \

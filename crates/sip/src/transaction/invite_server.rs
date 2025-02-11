@@ -1,5 +1,7 @@
 use std::{
-    cmp, io, net::SocketAddr, ops::{Deref, DerefMut}
+    cmp, io,
+    net::SocketAddr,
+    ops::{Deref, DerefMut},
 };
 
 use async_trait::async_trait;
@@ -10,21 +12,20 @@ use tokio::{
 };
 
 use crate::{
-    message::SipMethod, transaction::T2, transport::{ReceivedRequest, Transport},
+    message::SipMethod,
+    transaction::T2,
+    transport::{ReceivedRequest, Transport},
 };
 
 use super::{
-    SipTransaction, Transaction,TsxMsg,
-    TsxState, TsxStateMachine, T1, T4,
+    SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine,
+    T1, T4,
 };
 
 pub struct ServerInviteTsx(Transaction);
 
 impl ServerInviteTsx {
-    pub fn new(
-        addr: SocketAddr,
-        transport: Transport
-    ) -> Self {
+    pub fn new(addr: SocketAddr, transport: Transport) -> Self {
         Self(Transaction {
             //When a server transaction is constructed for a request,
             // it enters the "Proceeding" state.
@@ -143,4 +144,3 @@ impl DerefMut for ServerInviteTsx {
         &mut self.0
     }
 }
-

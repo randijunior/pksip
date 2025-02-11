@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::message::StatusLine;
 use crate::transaction::{TsxMsg, TsxSender};
-use crate::transport::{ReceivedRequest, IncomingResponse};
+use crate::transport::{IncomingResponse, ReceivedRequest};
 
 use crate::endpoint::Endpoint;
 

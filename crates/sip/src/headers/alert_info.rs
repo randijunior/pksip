@@ -26,7 +26,10 @@ pub struct AlertInfo {
 
 impl AlertInfo {
     pub fn new(url: &str, params: Option<Params>) -> Self {
-        Self { url: url.into(), params }
+        Self {
+            url: url.into(),
+            params,
+        }
     }
 
     /// Set the url for this header.

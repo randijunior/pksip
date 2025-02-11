@@ -190,10 +190,7 @@ pub trait SipTransport: Sync + Send + 'static {
     fn secure(&self) -> bool;
 
     fn key(&self) -> ConnectionKey {
-        ConnectionKey::new(
-            self.addr(),
-            self.protocol(),
-        )
+        ConnectionKey::new(self.addr(), self.protocol())
     }
 }
 

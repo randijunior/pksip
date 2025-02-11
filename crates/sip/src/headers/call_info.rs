@@ -28,8 +28,16 @@ pub struct CallInfo {
 }
 
 impl CallInfo {
-    pub fn new(url: &str, purpose: Option<&str>, params: Option<Params>) -> Self {
-        Self { url: url.into(), purpose: purpose.map(|p| p.into()), params }
+    pub fn new(
+        url: &str,
+        purpose: Option<&str>,
+        params: Option<Params>,
+    ) -> Self {
+        Self {
+            url: url.into(),
+            purpose: purpose.map(|p| p.into()),
+            params,
+        }
     }
     /// Set the url for this header.
     pub fn set_url(&mut self, url: ArcStr) {
