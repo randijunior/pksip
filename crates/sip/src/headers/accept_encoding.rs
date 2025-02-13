@@ -77,9 +77,7 @@ impl AcceptEncoding {
 impl TryFrom<&[u8]> for AcceptEncoding {
     type Error = ParseHeaderError;
 
-    fn try_from(
-        value: &[u8],
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept_encoding()
             .map_err(|_| ParseHeaderError)?)
@@ -134,11 +132,7 @@ pub struct Coding {
 
 impl Coding {
     /// Creates a new `Coding` instance.
-    pub fn new(
-        coding: &str,
-        q: Option<Q>,
-        param: Option<Params>,
-    ) -> Self {
+    pub fn new(coding: &str, q: Option<Q>, param: Option<Params>) -> Self {
         Self {
             coding: coding.into(),
             q,

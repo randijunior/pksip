@@ -5,12 +5,12 @@ use crate::{
     internal::ArcStr,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::{self, Result},
+    parser::{self, Result, SipParserError},
 };
 
 use crate::headers::SipHeader;
 
-use std::{fmt, str};
+use std::{fmt, str::{self, FromStr}};
 
 /// The `To` SIP header.
 ///
@@ -37,6 +37,15 @@ impl SipHeader<'_> for To {
 
         Ok(To { tag, uri, params })
     }
+}
+
+impl FromStr for To {
+    type Err = SipParserError;
+    
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::parse(&mut Reader::new(s.as_bytes()))
+    }
+    
 }
 
 impl fmt::Display for To {

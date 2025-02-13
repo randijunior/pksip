@@ -7,19 +7,17 @@ use std::{
 use async_trait::async_trait;
 use tokio::{
     pin,
-    sync::oneshot,
     time::{self, Instant},
 };
 
 use crate::{
     message::SipMethod,
     transaction::T2,
-    transport::{ReceivedRequest, Transport},
+    transport::Transport,
 };
 
 use super::{
-    SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine,
-    T1, T4,
+    SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine, T1, T4,
 };
 
 pub struct ServerInviteTsx(Transaction);
@@ -32,7 +30,7 @@ impl ServerInviteTsx {
             state: TsxStateMachine::new(TsxState::Proceeding),
             addr,
             transport,
-            last_msg: None,
+            last_response: None,
             tx: None,
         })
     }
@@ -43,10 +41,7 @@ impl ServerInviteTsx {
 
 #[async_trait]
 impl SipTransaction for ServerInviteTsx {
-    async fn receive_message(
-        &mut self,
-        msg: TsxMsg,
-    ) -> io::Result<()> {
+    async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()> {
         let state = self.get_state();
         match msg {
             TsxMsg::Request(req) => {
@@ -70,7 +65,7 @@ impl SipTransaction for ServerInviteTsx {
                 return Ok(());
             }
             TsxMsg::Response(response) => {
-                let code = response.code_num();
+                let code = response.status_code_u32();
                 if response.is_provisional() {
                     self.send(response).await?;
                     return Ok(());
@@ -88,7 +83,7 @@ impl SipTransaction for ServerInviteTsx {
                         300..=699 => {
                             self.state.completed();
                             let buf = self
-                                .last_msg
+                                .last_response
                                 .as_ref()
                                 .unwrap()
                                 .buf

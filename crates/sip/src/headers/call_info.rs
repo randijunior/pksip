@@ -74,9 +74,7 @@ impl SipHeader<'_> for CallInfo {
 impl TryFrom<&[u8]> for CallInfo {
     type Error = ParseHeaderError;
 
-    fn try_from(
-        value: &[u8],
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_call_info()
             .map_err(|_| ParseHeaderError)?)
@@ -108,14 +106,10 @@ mod tests {
         let info = CallInfo::parse(&mut reader).unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
-        assert_eq!(
-            info.url,
-            "http://wwww.example.com/alice/photo.jpg".into()
-        );
+        assert_eq!(info.url, "http://wwww.example.com/alice/photo.jpg".into());
         assert_eq!(info.purpose, Some("icon".into()));
 
-        let src =
-            b"<http://www.example.com/alice/> ;purpose=info\r\n";
+        let src = b"<http://www.example.com/alice/> ;purpose=info\r\n";
         let mut reader = Reader::new(src);
         let info = CallInfo::parse(&mut reader).unwrap();
 

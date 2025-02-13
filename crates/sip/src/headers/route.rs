@@ -63,9 +63,7 @@ mod tests {
         assert_eq!(
             r.addr.uri.host_port,
             HostPort {
-                host: Host::DomainName(
-                    "bigbox3.site3.atlanta.com".into()
-                ),
+                host: Host::DomainName("bigbox3.site3.atlanta.com".into()),
                 port: None
             }
         );

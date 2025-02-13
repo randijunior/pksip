@@ -1,15 +1,11 @@
 use async_trait::async_trait;
 use std::{io, net::SocketAddr, sync::Arc, time::SystemTime};
-use tokio::{
-    net::{ToSocketAddrs, UdpSocket},
-    sync::mpsc,
-};
+use tokio::net::{ToSocketAddrs, UdpSocket};
 
 use crate::message::TransportProtocol;
 
 use super::{
-    ConnectionKey, Packet, SipTransport, Transport, TransportSender,
-    MAX_PACKET_SIZE,
+    Packet, SipTransport, Transport, TpSender, MAX_PACKET_SIZE,
 };
 
 #[derive(Debug)]
@@ -23,15 +19,11 @@ pub struct Udp(Arc<Inner>);
 
 #[async_trait]
 impl SipTransport for Udp {
-    async fn send(
-        &self,
-        buf: &[u8],
-        dest: SocketAddr,
-    ) -> io::Result<usize> {
-        self.0.sock.send_to(buf, dest).await
+    async fn send(&self, buf: &[u8], addr: SocketAddr) -> io::Result<usize> {
+        self.0.sock.send_to(buf, addr).await
     }
 
-    fn spawn(&self, sender: TransportSender) {
+    fn init_recv(&self, sender: TpSender) {
         tokio::spawn(Udp::recv_from(self.clone(), sender));
     }
 
@@ -53,9 +45,7 @@ impl SipTransport for Udp {
 }
 
 impl Udp {
-    pub async fn bind<A: ToSocketAddrs>(
-        addr: A,
-    ) -> io::Result<Transport> {
+    pub async fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Transport> {
         let sock = UdpSocket::bind(addr).await?;
         let addr = sock.local_addr()?;
         let udp = Arc::new(Inner { sock, addr });
@@ -67,10 +57,7 @@ impl Udp {
         Self::bind("127.0.0.1:5060").await.unwrap()
     }
 
-    async fn recv_from(
-        self,
-        sender: TransportSender,
-    ) -> io::Result<()> {
+    async fn recv_from(self, sender: TpSender) -> io::Result<()> {
         let mut buf = [0u8; MAX_PACKET_SIZE];
         loop {
             let (len, addr) = self.0.sock.recv_from(&mut buf).await?;
@@ -86,7 +73,51 @@ impl Udp {
 }
 
 #[cfg(test)]
+pub(crate) mod mock {
+    use super::*;
+    use crate::{
+        message::TransportProtocol,
+        transport::{SipTransport, TpSender},
+    };
+
+    pub struct MockUdpTransport;
+
+    #[async_trait]
+    impl SipTransport for MockUdpTransport {
+        async fn send(
+            &self,
+            buf: &[u8],
+            _addr: SocketAddr,
+        ) -> io::Result<usize> {
+            Ok(buf.len())
+        }
+
+        fn init_recv(&self, _sender: TpSender) {
+            // Mock implementation
+        }
+
+        fn protocol(&self) -> TransportProtocol {
+            TransportProtocol::UDP
+        }
+
+        fn addr(&self) -> SocketAddr {
+            "127.0.0.1:5060".parse().unwrap()
+        }
+
+        fn reliable(&self) -> bool {
+            false
+        }
+
+        fn secure(&self) -> bool {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use tokio::sync::mpsc;
+
     use super::*;
 
     #[tokio::test]
@@ -104,7 +135,7 @@ mod tests {
 
         let (tx, mut rx) = mpsc::channel(100);
 
-        udp_transport.spawn(tx);
+        udp_transport.init_recv(tx);
 
         client.send_to(buf, udp_transport.addr()).await.unwrap();
         let (transport, packet) = rx.recv().await.unwrap();

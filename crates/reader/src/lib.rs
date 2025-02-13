@@ -74,9 +74,8 @@ impl<'a> Reader<'a> {
 
     /// Same as [Reader::peek] but will return an `Result` instead a `Option`.
     pub fn lookahead(&self) -> Result<&u8> {
-        self.peek().ok_or_else(|| {
-            self.error::<&u8>(ErrorKind::Eof).unwrap_err()
-        })
+        self.peek()
+            .ok_or_else(|| self.error::<&u8>(ErrorKind::Eof).unwrap_err())
     }
 
     /// Get `n` bytes without advance.

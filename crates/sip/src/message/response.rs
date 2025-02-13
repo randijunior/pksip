@@ -20,12 +20,7 @@ pub struct StatusLine {
 
 impl fmt::Display for StatusLine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{SIPV2} {} {}\r\n",
-            self.code.as_str(),
-            self.rphrase
-        )
+        write!(f, "{SIPV2} {} {}\r\n", self.code.as_str(), self.rphrase)
     }
 }
 

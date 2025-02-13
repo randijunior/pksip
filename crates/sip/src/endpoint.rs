@@ -7,15 +7,14 @@ use crate::parser::SipParserError;
 use crate::service::Request;
 use crate::transaction::{TsxKey, TsxSender};
 use crate::transport::{
-    IncomingInfo, IncomingResponse, OutGoingRequest, OutgoingInfo,
-    OutgoingResponse, Packet, ReceivedRequest, Transport,
-    TransportLayer, CRLF, END,
+    IncomingInfo, IncomingRequest, IncomingResponse, OutGoingRequest,
+    OutgoingInfo, OutgoingResponse, Packet, Transport, TransportLayer, CRLF,
+    END,
 };
 use crate::{
     headers::{Headers, Via},
     message::{
-        HostPort, SipMessage, SipResponse, SipUri, StatusCode,
-        UriBuilder,
+        HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
     },
     parser::parse_sip_msg,
     resolver::{Resolver, ServerAddress},
@@ -96,37 +95,9 @@ impl Endpoint {
         let mut rx = self.tp_layer.initialize();
         while let Some(msg) = rx.recv().await {
             let endpt = self.clone();
-            tokio::spawn(async move {
-                endpt.on_transport_message(msg).await
-            });
+            tokio::spawn(async move { endpt.on_transport_message(msg).await });
         }
         Ok(())
-    }
-
-    // Create an request outside a dialog
-    pub fn create_request(
-        method: SipMethod,
-        target: &str,
-        from: &str,
-        to: &str,
-        contact: Option<&str>,
-        call_id: &str,
-        cseq: u32,
-        body: Option<&str>,
-    ) -> Result<OutGoingRequest, SipParserError> {
-        let Ok(SipUri::Uri(req_uri)) = target.parse() else {
-            return sip_parse_error!("Invalid request uri!");
-        };
-        let from = Header::from_bytes(from.as_bytes());
-        let Ok(Header::From(from)) = from else {
-            return sip_parse_error!("Invalid 'from' header!");
-        };
-        let to = Header::from_bytes(to.as_bytes());
-        let Ok(Header::To(to)) = to else {
-            return sip_parse_error!("Invalid 'to' header!");
-        };
-
-        todo!()
     }
 
     async fn on_transport_message(
@@ -153,17 +124,10 @@ impl Endpoint {
         let info = IncomingInfo::new(packet, transport);
         match msg {
             SipMessage::Request(msg) => {
-                let Ok(req_headers) = (&msg.headers).try_into()
-                else {
-                    return Err(io::Error::other(
-                        "Could not parse headers",
-                    ));
+                let Ok(req_headers) = (&msg.headers).try_into() else {
+                    return Err(io::Error::other("Could not parse headers"));
                 };
-                let req = ReceivedRequest::new(
-                    msg,
-                    info,
-                    Some(req_headers),
-                );
+                let req = IncomingRequest::new(msg, info, Some(req_headers));
                 let _ = self.receive_request(req).await;
             }
             SipMessage::Response(msg) => {
@@ -176,11 +140,11 @@ impl Endpoint {
 
     pub async fn new_response(
         &self,
-        req: &mut ReceivedRequest,
+        req: &mut IncomingRequest,
         st_line: StatusLine,
     ) -> io::Result<OutgoingResponse> {
-        let mut req_hdrs = req.req_hdrs.take().unwrap();
-        let topmost_via = &mut req_hdrs.via[0];
+        let mut hdrs = req.req_hdrs.take().unwrap();
+        let topmost_via = &mut hdrs.via[0];
 
         let info = self
             .get_outgoing_info(
@@ -191,17 +155,14 @@ impl Endpoint {
             .await?;
 
         topmost_via.received = Some(req.info.packet().addr().ip());
-        if req_hdrs.to.tag.is_none()
-            && st_line.code > StatusCode::Trying
-        {
-            req_hdrs.to.tag =
-                topmost_via.branch.as_ref().map(|s| s.clone());
+        if hdrs.to.tag.is_none() && st_line.code > StatusCode::Trying {
+            hdrs.to.tag = topmost_via.branch.as_ref().map(|s| s.clone());
         }
 
         let msg = SipResponse::new(st_line, Headers::default(), None);
 
         Ok(OutgoingResponse {
-            req_hdrs,
+            hdrs,
             info,
             msg,
             buf: None,
@@ -225,17 +186,13 @@ impl Endpoint {
                 .transport_param(transport.protocol())
                 .get();
             let temp_uri = SipUri::Uri(temp_uri);
-            let addresses =
-                self.dns_resolver.resolve(&temp_uri).await?;
+            let addresses = self.dns_resolver.resolve(&temp_uri).await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
             //TODO: the transport tp_layer must create a transport if it cannot find
-            let transport = self
-                .tp_layer
-                .find(addr, protocol)
-                .ok_or(io::Error::other(
-                    "Coun'd not find a suitable transport!",
-                ))?;
+            let transport = self.tp_layer.find(addr, protocol).ok_or(
+                io::Error::other("Coun'd not find a suitable transport!"),
+            )?;
 
             Ok(OutgoingInfo { addr, transport })
         } else if let Some(rport) = via.rport {
@@ -270,7 +227,7 @@ impl Endpoint {
     pub async fn create_uas_tsx(
         &self,
         key: &TsxKey,
-        request: &mut ReceivedRequest,
+        request: &mut IncomingRequest,
     ) -> io::Result<(TsxSender, oneshot::Receiver<()>)> {
         if request.is_method(&SipMethod::Ack)
             || request.is_method(&SipMethod::Cancel)
@@ -283,21 +240,16 @@ impl Endpoint {
         self.tsx_layer.create_uas_tsx(key, self, request).await
     }
 
-    pub async fn receive_request(
-        self,
-        msg: ReceivedRequest,
-    ) -> io::Result<()> {
+    pub async fn receive_request(self, msg: IncomingRequest) -> io::Result<()> {
         let key = TsxKey::try_from(&msg).unwrap();
         // Check transaction.
-        let Some(mut msg) =
-            self.tsx_layer.handle_request(&key, msg).await?
+        let Some(mut msg) = self.tsx_layer.handle_request(&key, msg).await?
         else {
             return Ok(());
         };
 
         // Create the server transaction.
-        let (tsx, drop_notifier) =
-            self.create_uas_tsx(&key, &mut msg).await?;
+        let (tsx, drop_notifier) = self.create_uas_tsx(&key, &mut msg).await?;
 
         self.clone().spawn_tsx_drop_notifier(key, drop_notifier);
 

@@ -11,9 +11,7 @@ use crate::{
     headers::CallId,
     internal::ArcStr,
     message::{HostPort, SipMethod, StatusCode},
-    transport::{
-        MsgBuffer, OutgoingResponse, ReceivedRequest, Transport,
-    },
+    transport::{IncomingRequest, MsgBuffer, OutgoingResponse, Transport},
 };
 use std::{
     collections::HashMap,
@@ -68,6 +66,17 @@ impl TsxStateMachine {
     pub fn get_state(&self) -> TsxState {
         *self.0.lock().unwrap()
     }
+
+    pub fn is_proceeding(&self) -> bool {
+        self.get_state() == TsxState::Proceeding
+    }
+    pub fn is_trying(&self) -> bool {
+        self.get_state() == TsxState::Trying
+    }
+
+    pub fn is_completed(&self) -> bool {
+        self.get_state() == TsxState::Completed
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,10 +112,10 @@ pub struct Rfc3261 {
     cseq: u32,
 }
 
-impl TryFrom<&ReceivedRequest> for TsxKey {
+impl TryFrom<&IncomingRequest> for TsxKey {
     type Error = TsxKeyError;
 
-    fn try_from(req: &ReceivedRequest) -> Result<Self, Self::Error> {
+    fn try_from(req: &IncomingRequest) -> Result<Self, Self::Error> {
         let headers = req.req_hdrs.as_ref().unwrap();
         let via = &headers.via[0];
 
@@ -134,31 +143,32 @@ type SharedMsgBuffer = Arc<MsgBuffer>;
 
 #[async_trait]
 pub trait SipTransaction: Sync + Send + 'static {
-    async fn receive_message(
-        &mut self,
-        msg: TsxMsg,
-    ) -> io::Result<()>;
+    async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()>;
 }
 
 pub struct Transaction {
     state: TsxStateMachine,
     addr: SocketAddr,
     transport: Transport,
-    last_msg: Option<OutgoingResponse>,
+    last_response: Option<OutgoingResponse>,
     tx: Option<oneshot::Sender<()>>,
 }
 
 impl Transaction {
     async fn retransmit(&self) -> io::Result<()> {
-        if let Some(msg) = self.last_msg.as_ref() {
+        if let Some(msg) = self.last_response.as_ref() {
             let buf = msg.buf.as_ref().unwrap();
             self.send_msg(buf).await?;
         }
         Ok(())
     }
 
-    pub fn last_code_num(&self) -> Option<u32> {
-        self.last_msg.as_ref().map(|msg| msg.code_num())
+    pub fn last_response(&self) -> &Option<OutgoingResponse> {
+        &self.last_response
+    }
+
+    pub fn last_response_code(&self) -> Option<u32> {
+        self.last_response.as_ref().map(|msg| msg.status_code_u32())
     }
 
     fn do_terminate(&mut self, time: Duration) {
@@ -188,10 +198,7 @@ impl Transaction {
         self.state.get_state()
     }
 
-    async fn send(
-        &mut self,
-        mut response: OutgoingResponse,
-    ) -> io::Result<()> {
+    async fn send(&mut self, mut response: OutgoingResponse) -> io::Result<()> {
         if let Some(buf) = response.buf {
             self.send_msg(&buf).await?;
             return Ok(());
@@ -200,7 +207,7 @@ impl Transaction {
         self.send_msg(&buf).await?;
 
         response.buf = Some(buf.into());
-        self.last_msg = Some(response.into());
+        self.last_response = Some(response.into());
         Ok(())
     }
 
@@ -215,12 +222,12 @@ impl Transaction {
 const BRANCH_RFC3261: &str = "z9hG4bK";
 
 pub enum TsxMsg {
-    Request(ReceivedRequest),
+    Request(IncomingRequest),
     Response(OutgoingResponse),
 }
 
-impl From<ReceivedRequest> for TsxMsg {
-    fn from(value: ReceivedRequest) -> Self {
+impl From<IncomingRequest> for TsxMsg {
+    fn from(value: IncomingRequest) -> Self {
         TsxMsg::Request(value)
     }
 }
@@ -254,8 +261,8 @@ impl TransactionLayer {
     pub async fn handle_request(
         &self,
         key: &TsxKey,
-        request: ReceivedRequest,
-    ) -> io::Result<Option<ReceivedRequest>> {
+        request: IncomingRequest,
+    ) -> io::Result<Option<IncomingRequest>> {
         if let Some(sender) = self.get(key) {
             println!("TSX FOUND!");
             // Check if is retransmission
@@ -277,7 +284,7 @@ impl TransactionLayer {
     ) {
         tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
-                tsx.receive_message(msg).await.unwrap()
+                tsx.recv_msg(msg).await.unwrap()
             }
         });
     }
@@ -286,7 +293,7 @@ impl TransactionLayer {
         &self,
         key: &TsxKey,
         endpoint: &Endpoint,
-        request: &mut ReceivedRequest,
+        request: &mut IncomingRequest,
     ) -> io::Result<(TsxSender, oneshot::Receiver<()>)> {
         let (sender, receiver) = mpsc::channel(100);
         let (tx, rx) = oneshot::channel();

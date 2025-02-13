@@ -62,17 +62,13 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let src =
-            b"307 isi.edu \"Session parameter 'foo' not understood\"";
+        let src = b"307 isi.edu \"Session parameter 'foo' not understood\"";
         let mut reader = Reader::new(src);
         let warn = Warning::parse(&mut reader);
         let warn = warn.unwrap();
 
         assert_eq!(warn.code, 307);
         assert_eq!(warn.host, "isi.edu".into());
-        assert_eq!(
-            warn.text,
-            "Session parameter 'foo' not understood".into()
-        );
+        assert_eq!(warn.text, "Session parameter 'foo' not understood".into());
     }
 }

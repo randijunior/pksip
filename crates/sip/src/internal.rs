@@ -158,11 +158,7 @@ impl fmt::Display for MediaType {
 }
 
 impl MediaType {
-    pub fn new(
-        mtype: &str,
-        subtype: &str,
-        param: Option<Params>,
-    ) -> Self {
+    pub fn new(mtype: &str, subtype: &str, param: Option<Params>) -> Self {
         Self {
             mimetype: MimeType {
                 mtype: mtype.into(),

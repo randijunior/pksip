@@ -53,9 +53,7 @@ impl Accept {
 impl<'a> TryFrom<&'a [u8]> for Accept {
     type Error = ParseHeaderError;
 
-    fn try_from(
-        value: &'a [u8],
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept()
             .map_err(|_| ParseHeaderError)?)
@@ -156,20 +154,11 @@ mod tests {
         let mtype = accept.get(0).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application".into());
         assert_eq!(mtype.mimetype.subtype, "sdp".into());
-        assert_eq!(
-            mtype.param.as_ref().unwrap().get("q".into()),
-            Some("0.8")
-        );
+        assert_eq!(mtype.param.as_ref().unwrap().get("q".into()), Some("0.8"));
 
         let mtype = accept.get(1).unwrap();
         assert_eq!(mtype.mimetype.mtype, "application".into());
-        assert_eq!(
-            mtype.mimetype.subtype,
-            "simple-message-summary+xml".into()
-        );
-        assert_eq!(
-            mtype.param.as_ref().unwrap().get("q".into()),
-            Some("0.6")
-        );
+        assert_eq!(mtype.mimetype.subtype, "simple-message-summary+xml".into());
+        assert_eq!(mtype.param.as_ref().unwrap().get("q".into()), Some("0.6"));
     }
 }

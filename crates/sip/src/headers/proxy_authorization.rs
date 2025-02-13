@@ -36,13 +36,11 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let src =
-            b"Digest username=\"Alice\", realm=\"atlanta.com\", \
+        let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"c60f3082ee1212b402a21831ae\", \
         response=\"245f23415f11432b3434341c022\"\r\n";
         let mut reader = Reader::new(src);
-        let proxy_auth =
-            ProxyAuthorization::parse(&mut reader).unwrap();
+        let proxy_auth = ProxyAuthorization::parse(&mut reader).unwrap();
 
         assert_matches!(proxy_auth.0, Credential::Digest (DigestCredential { realm, username, nonce, response, .. }) => {
             assert_eq!(username, Some("Alice".into()));

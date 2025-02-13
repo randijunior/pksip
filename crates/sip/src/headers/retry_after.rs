@@ -7,9 +7,7 @@ use reader::until;
 use reader::Reader;
 
 use crate::internal::ArcStr;
-use crate::{
-    macros::parse_header_param, message::Params, parser::Result,
-};
+use crate::{macros::parse_header_param, message::Params, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -95,9 +93,6 @@ mod tests {
 
         assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(retry_after.seconds, 120);
-        assert_eq!(
-            retry_after.comment,
-            Some("I'm in a meeting".into())
-        );
+        assert_eq!(retry_after.comment, Some("I'm in a meeting".into()));
     }
 }

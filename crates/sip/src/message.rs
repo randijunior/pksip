@@ -59,12 +59,8 @@ impl SipMessage {
 
     pub fn set_body(&mut self, body: Option<&[u8]>) {
         match self {
-            SipMessage::Request(req) => {
-                req.body = body.map(|b| b.into())
-            }
-            SipMessage::Response(res) => {
-                res.body = body.map(|b| b.into())
-            }
+            SipMessage::Request(req) => req.body = body.map(|b| b.into()),
+            SipMessage::Response(res) => res.body = body.map(|b| b.into()),
         }
     }
 
@@ -124,9 +120,7 @@ impl SipUri {
     pub fn transport_param(&self) -> Option<TransportProtocol> {
         match self {
             SipUri::Uri(uri) => uri.transport_param,
-            SipUri::NameAddr(name_addr) => {
-                name_addr.uri.transport_param
-            }
+            SipUri::NameAddr(name_addr) => name_addr.uri.transport_param,
         }
     }
 
@@ -174,10 +168,7 @@ pub enum Host {
 }
 
 impl fmt::Display for Host {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Host::DomainName(domain) => write!(f, "{domain}"),
             Host::IpAddr(ip_addr) => write!(f, "{ip_addr}"),
@@ -194,9 +185,7 @@ impl Host {
     }
     pub fn as_str(&self) -> String {
         match self {
-            Host::DomainName(host) => {
-                String::from(host.as_ref() as &str)
-            }
+            Host::DomainName(host) => String::from(host.as_ref() as &str),
             Host::IpAddr(host) => host.to_string(),
         }
     }
@@ -221,10 +210,7 @@ impl HostPort {
 }
 
 impl fmt::Display for HostPort {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.host {
             Host::DomainName(domain) => write!(f, "{domain}")?,
             Host::IpAddr(ip_addr) => write!(f, "{ip_addr}")?,
@@ -245,9 +231,7 @@ impl From<Host> for HostPort {
 impl Default for HostPort {
     fn default() -> Self {
         Self {
-            host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(
-                127, 0, 0, 1,
-            ))),
+            host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
             port: Some(5060),
         }
     }
@@ -324,10 +308,9 @@ impl fmt::Display for Uri {
             write!(f, ";{}", params)?;
         }
         if let Some(hdr_params) = &self.hdr_params {
-            let formater =
-                hdr_params.iter().format_with("&", |it, f| {
-                    f(&format_args!("{}={}", it.0, it.1))
-                });
+            let formater = hdr_params.iter().format_with("&", |it, f| {
+                f(&format_args!("{}={}", it.0, it.1))
+            });
             write!(f, "?{}", formater)?;
         }
 
@@ -442,9 +425,9 @@ pub struct Params {
 
 impl fmt::Display for Params {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let formater = self.iter().format_with(";", |it, f| {
-            f(&format_args!("{}={}", it.0, it.1))
-        });
+        let formater = self
+            .iter()
+            .format_with(";", |it, f| f(&format_args!("{}={}", it.0, it.1)));
         write!(f, "{}", formater)
     }
 }
@@ -732,9 +715,7 @@ impl StatusCode {
             // 1xx — Provisional Responses
             StatusCode::Trying => "Trying",
             StatusCode::Ringing => "Ringing",
-            StatusCode::CallIsBeingForwarded => {
-                "Call Is Being Forwarded"
-            }
+            StatusCode::CallIsBeingForwarded => "Call Is Being Forwarded",
             StatusCode::Queued => "Queued",
             StatusCode::SessionProgress => "Session Progress",
 
@@ -763,22 +744,14 @@ impl StatusCode {
             }
             StatusCode::RequestTimeout => "Request Timeout",
             StatusCode::Gone => "Gone",
-            StatusCode::RequestEntityTooLarge => {
-                "Request Entity Too Large"
-            }
+            StatusCode::RequestEntityTooLarge => "Request Entity Too Large",
             StatusCode::RequestUriTooLong => "Request-URI Too Long",
-            StatusCode::UnsupportedMediaType => {
-                "Unsupported Media Type"
-            }
-            StatusCode::UnsupportedUriScheme => {
-                "Unsupported URI Scheme"
-            }
+            StatusCode::UnsupportedMediaType => "Unsupported Media Type",
+            StatusCode::UnsupportedUriScheme => "Unsupported URI Scheme",
             StatusCode::BadExtension => "Bad Extension",
             StatusCode::ExtensionRequired => "Extension Required",
             StatusCode::IntervalTooBrief => "Interval Too Brief",
-            StatusCode::TemporarilyUnavailable => {
-                "Temporarily Unavailable"
-            }
+            StatusCode::TemporarilyUnavailable => "Temporarily Unavailable",
             StatusCode::CallOrTransactionDoesNotExist => {
                 "Call/Transaction Does Not Exist"
             }
@@ -793,24 +766,18 @@ impl StatusCode {
             StatusCode::Undecipherable => "Undecipherable",
 
             // 5xx — Server Failure Responses
-            StatusCode::ServerInternalError => {
-                "Server Internal Error"
-            }
+            StatusCode::ServerInternalError => "Server Internal Error",
             StatusCode::NotImplemented => "Not Implemented",
             StatusCode::BadGateway => "Bad Gateway",
             StatusCode::ServiceUnavailable => "Service Unavailable",
             StatusCode::ServerTimeout => "Server Time-out",
-            StatusCode::VersionNotSupported => {
-                "Version Not Supported"
-            }
+            StatusCode::VersionNotSupported => "Version Not Supported",
             StatusCode::MessageTooLarge => "Message Too Large",
 
             // 6xx — Global Failure Responses
             StatusCode::BusyEverywhere => "Busy Everywhere",
             StatusCode::Decline => "Decline",
-            StatusCode::DoesNotExistAnywhere => {
-                "Does Not Exist Anywhere"
-            }
+            StatusCode::DoesNotExistAnywhere => "Does Not Exist Anywhere",
             StatusCode::NotAcceptableAnywhere => "Not Acceptable",
 
             // Unknown or custom status

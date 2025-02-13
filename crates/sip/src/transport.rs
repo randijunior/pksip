@@ -21,8 +21,7 @@ use crate::{
     filter_map_header, find_map_header,
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
     message::{
-        SipMethod, SipRequest, SipResponse, StatusCode,
-        TransportProtocol,
+        SipMethod, SipRequest, SipResponse, StatusCode, TransportProtocol,
     },
 };
 
@@ -30,7 +29,7 @@ pub(crate) const CRLF: &[u8] = b"\r\n";
 pub(crate) const END: &[u8] = b"\r\n\r\n";
 pub(crate) const MAX_PACKET_SIZE: usize = 4000;
 
-pub(crate) type TransportSender = mpsc::Sender<(Transport, Packet)>;
+pub(crate) type TpSender = mpsc::Sender<(Transport, Packet)>;
 
 #[derive(Default, Debug)]
 pub struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
@@ -52,9 +51,9 @@ impl MsgBuffer {
         &mut self,
         data: &[u8],
     ) -> Result<(), io::Error> {
-        self.0.try_extend_from_slice(data).map_err(|_| {
-            io::Error::new(io::ErrorKind::Other, "Buffer full")
-        })
+        self.0
+            .try_extend_from_slice(data)
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Buffer full"))
     }
 
     pub fn write<T>(&mut self, data: T) -> Result<(), io::Error>
@@ -72,10 +71,7 @@ pub struct ConnectionKey {
 }
 
 impl ConnectionKey {
-    pub fn new(
-        addr: SocketAddr,
-        protocol: TransportProtocol,
-    ) -> Self {
+    pub fn new(addr: SocketAddr, protocol: TransportProtocol) -> Self {
         ConnectionKey { addr, protocol }
     }
 }
@@ -107,10 +103,7 @@ impl TransportLayer {
     pub fn add(&mut self, transport: Transport) {
         let mut tps = self.transports.lock().unwrap();
 
-        tps.insert(
-            transport.key(),
-            Transport(Arc::clone(&transport.0)),
-        );
+        tps.insert(transport.key(), Transport(Arc::clone(&transport.0)));
     }
 
     pub async fn send_response(
@@ -129,10 +122,7 @@ impl TransportLayer {
         dst: SocketAddr,
         protocol: TransportProtocol,
     ) -> Option<Transport> {
-        println!(
-            "Finding suitable transport={} for={}",
-            protocol, dst
-        );
+        println!("Finding suitable transport={} for={}", protocol, dst);
         let transports = self.transports.lock().unwrap();
 
         // find by remote addr
@@ -158,7 +148,7 @@ impl TransportLayer {
         let (tx, rx) = mpsc::channel(1024);
 
         for transport in transports.values() {
-            transport.spawn(tx.clone());
+            transport.init_recv(tx.clone());
         }
 
         rx
@@ -167,13 +157,9 @@ impl TransportLayer {
 
 #[async_trait]
 pub trait SipTransport: Sync + Send + 'static {
-    async fn send(
-        &self,
-        pkt: &[u8],
-        dest: SocketAddr,
-    ) -> io::Result<usize>;
+    async fn send(&self, buf: &[u8], addr: SocketAddr) -> io::Result<usize>;
 
-    fn spawn(&self, sender: TransportSender);
+    fn init_recv(&self, sender: TpSender);
 
     fn protocol(&self) -> TransportProtocol;
 
@@ -204,10 +190,7 @@ impl Transport {
 }
 
 impl std::fmt::Debug for Transport {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Transport")
             .field("addr", &self.addr())
             .field("protocol", &self.protocol())
@@ -303,10 +286,7 @@ pub struct RequestHeaders {
 }
 
 impl std::fmt::Display for RequestHeaders {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for via in &self.via {
             write!(f, "{}: {}\r\n", Via::NAME, via)?;
         }
@@ -354,7 +334,7 @@ impl TryFrom<&Headers> for RequestHeaders {
 }
 
 pub struct OutgoingResponse {
-    pub req_hdrs: RequestHeaders,
+    pub hdrs: RequestHeaders,
     pub msg: SipResponse,
     pub info: OutgoingInfo,
     pub buf: Option<Arc<MsgBuffer>>,
@@ -364,7 +344,7 @@ impl<'a> OutgoingResponse {
     pub fn status_code(&self) -> StatusCode {
         self.msg.st_line.code
     }
-    pub fn code_num(&self) -> u32 {
+    pub fn status_code_u32(&self) -> u32 {
         self.msg.st_line.code as u32
     }
     pub fn is_provisional(&self) -> bool {
@@ -375,7 +355,7 @@ impl<'a> OutgoingResponse {
         let mut buf = MsgBuffer::new();
 
         buf.write(&self.msg.st_line)?;
-        buf.write(&self.req_hdrs)?;
+        buf.write(&self.hdrs)?;
         buf.write(&self.msg.headers)?;
         buf.write("\r\n")?;
         if let Some(body) = &self.msg.body {
@@ -396,13 +376,13 @@ pub struct OutGoingRequest {
     pub buf: Option<Arc<MsgBuffer>>,
 }
 
-pub struct ReceivedRequest {
+pub struct IncomingRequest {
     pub msg: SipRequest,
     pub req_hdrs: Option<RequestHeaders>,
     pub info: IncomingInfo,
 }
 
-impl ReceivedRequest {
+impl IncomingRequest {
     pub fn new(
         msg: SipRequest,
         info: IncomingInfo,
@@ -448,7 +428,7 @@ impl IncomingResponse {
     }
 }
 
-impl ReceivedRequest {
+impl IncomingRequest {
     pub fn packet(&self) -> &Packet {
         &self.info.packet
     }

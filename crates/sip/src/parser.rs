@@ -230,8 +230,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
                 msg.push_header(Header::MaxForwards(max_fowards))
             }
 
-            crate::headers::From::NAME
-            | crate::headers::From::SHORT_NAME => {
+            crate::headers::From::NAME | crate::headers::From::SHORT_NAME => {
                 let from = crate::headers::From::parse(reader)?;
                 msg.push_header(Header::From(from));
             }
@@ -311,19 +310,13 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             }
 
             ProxyAuthenticate::NAME => {
-                let proxy_authenticate =
-                    ProxyAuthenticate::parse(reader)?;
-                msg.push_header(Header::ProxyAuthenticate(
-                    proxy_authenticate,
-                ))
+                let proxy_authenticate = ProxyAuthenticate::parse(reader)?;
+                msg.push_header(Header::ProxyAuthenticate(proxy_authenticate))
             }
 
             ProxyAuthorization::NAME => {
-                let proxy_authorization =
-                    ProxyAuthorization::parse(reader)?;
-                msg.push_header(Header::ProxyAuthorization(
-                    proxy_authorization,
-                ))
+                let proxy_authorization = ProxyAuthorization::parse(reader)?;
+                msg.push_header(Header::ProxyAuthorization(proxy_authorization))
             }
 
             ProxyRequire::NAME => {
@@ -342,11 +335,8 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             }
 
             ContentEncoding::NAME | ContentEncoding::SHORT_NAME => {
-                let content_encoding =
-                    ContentEncoding::parse(reader)?;
-                msg.push_header(Header::ContentEncoding(
-                    content_encoding,
-                ))
+                let content_encoding = ContentEncoding::parse(reader)?;
+                msg.push_header(Header::ContentEncoding(content_encoding))
             }
 
             ContentType::NAME | ContentType::SHORT_NAME => {
@@ -356,11 +346,8 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             }
 
             ContentDisposition::NAME => {
-                let content_disposition =
-                    ContentDisposition::parse(reader)?;
-                msg.push_header(Header::ContentDisposition(
-                    content_disposition,
-                ))
+                let content_disposition = ContentDisposition::parse(reader)?;
+                msg.push_header(Header::ContentDisposition(content_disposition))
             }
 
             RecordRoute::NAME => 'rr: loop {
@@ -389,9 +376,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
 
             AcceptEncoding::NAME => {
                 let accept_encoding = AcceptEncoding::parse(reader)?;
-                msg.push_header(Header::AcceptEncoding(
-                    accept_encoding,
-                ));
+                msg.push_header(Header::AcceptEncoding(accept_encoding));
             }
 
             Accept::NAME => {
@@ -401,9 +386,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
 
             AcceptLanguage::NAME => {
                 let accept_language = AcceptLanguage::parse(reader)?;
-                msg.push_header(Header::AcceptLanguage(
-                    accept_language,
-                ));
+                msg.push_header(Header::AcceptLanguage(accept_language));
             }
 
             AlertInfo::NAME => {
@@ -418,9 +401,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
 
             AuthenticationInfo::NAME => {
                 let auth_info = AuthenticationInfo::parse(reader)?;
-                msg.push_header(Header::AuthenticationInfo(
-                    auth_info,
-                ));
+                msg.push_header(Header::AuthenticationInfo(auth_info));
             }
 
             Supported::NAME | Supported::SHORT_NAME => {
@@ -438,11 +419,8 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             }
 
             WWWAuthenticate::NAME => {
-                let www_authenticate =
-                    WWWAuthenticate::parse(reader)?;
-                msg.push_header(Header::WWWAuthenticate(
-                    www_authenticate,
-                ));
+                let www_authenticate = WWWAuthenticate::parse(reader)?;
+                msg.push_header(Header::WWWAuthenticate(www_authenticate));
             }
 
             Warning::NAME => {
@@ -451,8 +429,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             }
 
             _ => {
-                let value =
-                    Header::parse_header_value_as_str(reader)?;
+                let value = Header::parse_header_value_as_str(reader)?;
 
                 msg.push_header(Header::Other {
                     name: name.into(),
@@ -506,8 +483,8 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
 pub(crate) fn parse_user_info<'a>(
     reader: &mut Reader<'a>,
 ) -> Result<Option<UserInfo>> {
-    let peeked = reader
-        .peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
+    let peeked =
+        reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
 
     let Some(&b'@') = peeked else { return Ok(None) };
     let user = read_user_str(reader);
@@ -536,9 +513,7 @@ fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
     }
 }
 
-pub(crate) fn parse_host_port<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<HostPort> {
+pub(crate) fn parse_host_port<'a>(reader: &mut Reader<'a>) -> Result<HostPort> {
     let host = match reader.peek() {
         Some(&b'[') => {
             // Is a Ipv6 host
@@ -551,9 +526,7 @@ pub(crate) fn parse_host_port<'a>(
             match host.parse() {
                 Ok(addr) => Host::IpAddr(addr),
                 Err(_) => {
-                    return sip_parse_error!(
-                        "Error parsing Ipv6 HostPort!"
-                    )
+                    return sip_parse_error!("Error parsing Ipv6 HostPort!")
                 }
             }
         }
@@ -622,8 +595,7 @@ pub(crate) fn parse_uri<'a>(
         LR_PARAM = lr_param,
         MADDR_PARAM = maddr_param
     );
-    let transport_param =
-        transport_param.map(|s| TransportProtocol::from(&*s));
+    let transport_param = transport_param.map(|s| TransportProtocol::from(&*s));
 
     let hdr_params = if let Some(&b'?') = reader.peek() {
         Some(parse_header_params_in_sip_uri(reader)?)
@@ -663,9 +635,7 @@ pub(crate) fn parse_sip_uri<'a>(
     }
 }
 
-pub fn parse_name_addr<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<NameAddr> {
+pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr> {
     space!(reader);
     let display = match reader.lookahead()? {
         &b'"' => {
@@ -696,9 +666,7 @@ pub fn parse_name_addr<'a>(
     })
 }
 
-pub fn parse_request_line<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<RequestLine> {
+pub fn parse_request_line<'a>(reader: &mut Reader<'a>) -> Result<RequestLine> {
     let method = alpha!(reader);
     let method = SipMethod::from(method);
 
@@ -712,9 +680,7 @@ pub fn parse_request_line<'a>(
     Ok(RequestLine { method, uri })
 }
 
-pub fn parse_status_line<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<StatusLine> {
+pub fn parse_status_line<'a>(reader: &mut Reader<'a>) -> Result<StatusLine> {
     parse_sip_v2(reader)?;
 
     space!(reader);
@@ -732,9 +698,7 @@ pub fn parse_status_line<'a>(
 }
 
 #[inline]
-pub(crate) fn parse_token<'a>(
-    reader: &mut Reader<'a>,
-) -> Result<&'a str> {
+pub(crate) fn parse_token<'a>(reader: &mut Reader<'a>) -> Result<&'a str> {
     if let Some(&b'"') = reader.peek() {
         reader.next();
         let value = until!(reader, &b'"');

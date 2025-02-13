@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::message::StatusLine;
 use crate::transaction::{TsxMsg, TsxSender};
-use crate::transport::{IncomingResponse, ReceivedRequest};
+use crate::transport::{IncomingRequest, IncomingResponse};
 
 use crate::endpoint::Endpoint;
 
@@ -27,18 +27,14 @@ pub trait SipService: Sync + Send + 'static {
 
 pub struct Request {
     pub endpoint: Endpoint,
-    pub msg: Option<ReceivedRequest>,
+    pub msg: Option<IncomingRequest>,
     pub tsx: TsxSender,
 }
 
 impl Request {
-    pub async fn reply(
-        &mut self,
-        st_line: StatusLine,
-    ) -> io::Result<()> {
+    pub async fn reply(&mut self, st_line: StatusLine) -> io::Result<()> {
         let mut msg = self.msg.take().unwrap();
-        let response =
-            self.endpoint.new_response(&mut msg, st_line).await?;
+        let response = self.endpoint.new_response(&mut msg, st_line).await?;
 
         let _res = self.tsx.send(TsxMsg::Response(response)).await;
 

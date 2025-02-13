@@ -5,13 +5,13 @@ use crate::{
     internal::ArcStr,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::{self, Result},
+    parser::{self, Result, SipParserError},
 };
 
 use crate::headers::SipHeader;
 
 use core::fmt;
-use std::str;
+use std::str::{self, FromStr};
 
 /// The `From` SIP header.
 ///
@@ -42,13 +42,20 @@ impl SipHeader<'_> for From {
     }
 }
 
+impl FromStr for From {
+    type Err = SipParserError;
+    
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::parse(&mut Reader::new(s.as_bytes()))
+    }
+    
+}
+
 impl fmt::Display for From {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.uri {
             SipUri::Uri(uri) => write!(f, "{}", uri)?,
-            SipUri::NameAddr(name_addr) => {
-                write!(f, "{}", name_addr)?
-            }
+            SipUri::NameAddr(name_addr) => write!(f, "{}", name_addr)?,
         }
         if let Some(tag) = &self.tag {
             write!(f, ";tag={}", tag)?;
@@ -91,8 +98,7 @@ mod tests {
             assert_eq!(tag, Some("a48s".into()));
         });
 
-        let src =
-            b"sip:+12125551212@server.phone2net.com;tag=887s\r\n";
+        let src = b"sip:+12125551212@server.phone2net.com;tag=887s\r\n";
         let mut reader = Reader::new(src);
         let from = From::parse(&mut reader).unwrap();
 
@@ -113,8 +119,7 @@ mod tests {
             assert_eq!(tag, Some("887s".into()));
         });
 
-        let src =
-            b"Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8\r\n";
+        let src = b"Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8\r\n";
         let mut reader = Reader::new(src);
         let from = From::parse(&mut reader).unwrap();
 

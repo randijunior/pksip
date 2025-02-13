@@ -49,10 +49,7 @@ impl<'a> SipHeader<'a> for ContentLength {
 }
 
 impl fmt::Display for ContentLength {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }

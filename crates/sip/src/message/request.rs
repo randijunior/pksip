@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use crate::headers::Headers;
+use crate::headers::{CSeq, CallId, Header, Headers, SipHeader};
 
-use super::{SipMethod, Uri};
+use super::{SipMethod, SipUri, Uri};
 
 /// Represents an SIP Request-Line.
 #[derive(Debug)]

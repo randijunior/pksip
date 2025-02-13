@@ -23,8 +23,7 @@ impl SipHeader<'_> for ProxyRequire {
      * option-tag     =  token
      */
     fn parse(reader: &mut Reader) -> Result<Self> {
-        let tags =
-            hdr_list!(reader => parser::parse_token(reader)?.into());
+        let tags = hdr_list!(reader => parser::parse_token(reader)?.into());
 
         Ok(ProxyRequire(tags))
     }

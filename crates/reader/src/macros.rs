@@ -31,8 +31,7 @@ macro_rules! until {
 #[macro_export]
 macro_rules! until_newline {
     ($reader:ident) => {{
-        let range =
-            $reader.read_while(|b| !$crate::util::is_newline(b));
+        let range = $reader.read_while(|b| !$crate::util::is_newline(b));
 
         &$reader.src[range]
     }};
