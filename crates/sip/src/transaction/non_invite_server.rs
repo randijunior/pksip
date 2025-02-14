@@ -44,18 +44,18 @@ impl SipTransaction for ServerNonInviteTsx {
             return Ok(());
         };
 
-        if response.is_provisional() {
-            self.send(response).await?;
+        let is_provisional = response.is_provisional();
+        self.send(response).await?;
+        
+        if is_provisional {
             if let TsxState::Trying = state {
                 self.state.proceeding();
-                return Ok(());
             }
-        } else {
-            self.send(response).await?;
-            if matches!(state, TsxState::Proceeding | TsxState::Trying) {
-                self.state.completed();
-                self.do_terminate(T1 * 64);
-            }
+            return Ok(());
+        }
+        if matches!(state, TsxState::Proceeding | TsxState::Trying) {
+            self.state.completed();
+            self.do_terminate(T1 * 64);
         }
         Ok(())
     }

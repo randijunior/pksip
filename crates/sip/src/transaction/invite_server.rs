@@ -139,3 +139,8 @@ impl DerefMut for ServerInviteTsx {
         &mut self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    
+}
