@@ -4,9 +4,7 @@ use tokio::net::{ToSocketAddrs, UdpSocket};
 
 use crate::message::TransportProtocol;
 
-use super::{
-    Packet, SipTransport, Transport, TpSender, MAX_PACKET_SIZE,
-};
+use super::{Packet, SipTransport, TpSender, Transport, MAX_PACKET_SIZE};
 
 #[derive(Debug)]
 pub struct Inner {

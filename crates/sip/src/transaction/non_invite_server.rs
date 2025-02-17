@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 
-use crate::{transaction::TsxState, transport::Transport};
+use crate::{
+    transaction::TsxState,
+    transport::IncomingRequest,
+};
 use std::{
     io,
-    net::SocketAddr,
     ops::{Deref, DerefMut},
 };
 
@@ -14,13 +16,14 @@ pub struct ServerNonInviteTsx(Transaction);
 impl ServerNonInviteTsx {
     // The state machine is initialized in the "Trying" state and is passed
     // a request other than INVITE or ACK when initialized.
-    pub fn new(addr: SocketAddr, transport: Transport) -> Self {
+    pub fn new(request: &IncomingRequest) -> Self {
         Self(Transaction {
             state: TsxStateMachine::new(TsxState::Trying),
-            addr,
-            transport,
+            addr: request.packet().addr,
+            transport: request.transport().clone(),
             last_response: None,
             tx: None,
+            retransmit_count: 0
         })
     }
 }
@@ -29,31 +32,32 @@ impl ServerNonInviteTsx {
 impl SipTransaction for ServerNonInviteTsx {
     async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()> {
         let state = self.get_state();
-        if let TsxState::Completed = state {
-            return Ok(());
-        }
+        let completed = state.is_completed();
+        let trying = state.is_trying();
+        let proceding = state.is_proceeding();
         let TsxMsg::Response(response) = msg else {
-            if let TsxState::Trying = state {
+            if trying {
                 // Once in the "Trying" state, any further request
                 // retransmissions are discarded.
                 return Ok(());
             }
-            if let TsxState::Proceeding = state {
+            if proceding || completed {
                 self.retransmit().await?;
             }
             return Ok(());
         };
-
-        let is_provisional = response.is_provisional();
+        let provisional = response.is_provisional();
         self.send(response).await?;
-        
-        if is_provisional {
-            if let TsxState::Trying = state {
-                self.state.proceeding();
-            }
+
+        if completed {
             return Ok(());
         }
-        if matches!(state, TsxState::Proceeding | TsxState::Trying) {
+
+        if provisional && trying {
+            self.state.proceeding();
+            return Ok(());
+        }
+        if trying || proceding {
             self.state.completed();
             self.do_terminate(T1 * 64);
         }
@@ -79,51 +83,18 @@ impl DerefMut for ServerNonInviteTsx {
 mod tests {
     use super::*;
     use crate::{
-        headers::{CSeq, CallId, Headers},
-        message::{SipMethod, SipResponse, StatusCode},
-        transport::{
-            udp::mock::MockUdpTransport, OutgoingInfo, OutgoingResponse,
-            RequestHeaders, Transport,
-        },
+        message::{SipMethod, StatusCode},
+        transaction::mock,
     };
-
-    fn resp(c: StatusCode) -> TsxMsg {
-        let from = "sip:alice@127.0.0.1:5060".parse().unwrap();
-        let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
-        let cseq = CSeq {
-            cseq: 1,
-            method: SipMethod::Options,
-        };
-        let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
-        let hdrs = RequestHeaders {
-            via: vec![],
-            from,
-            to,
-            callid,
-            cseq,
-        };
-        let transport = Transport::new(MockUdpTransport);
-        let info = OutgoingInfo {
-            addr: transport.addr(),
-            transport,
-        };
-        let msg = SipResponse::new(c.into(), Headers::new(), None);
-        let response = OutgoingResponse {
-            hdrs,
-            msg,
-            info,
-            buf: None,
-        };
-
-        response.into()
-    }
 
     #[tokio::test]
     async fn test_receives_100_trying() {
-        let tp = Transport::new(MockUdpTransport);
-        let mut tsx = ServerNonInviteTsx::new(tp.addr(), tp);
+        let request = mock::request(SipMethod::Options);
+        let incoming = request.request().unwrap();
+        let mut tsx = ServerNonInviteTsx::new(incoming);
+        let response = mock::response(StatusCode::Trying);
 
-        tsx.recv_msg(resp(StatusCode::Trying)).await.unwrap();
+        tsx.recv_msg(response).await.unwrap();
 
         assert!(tsx.last_response_code() == Some(100));
         assert!(tsx.state.is_proceeding());
@@ -131,11 +102,43 @@ mod tests {
 
     #[tokio::test]
     async fn test_receives_200_ok() {
-        let tp = Transport::new(MockUdpTransport);
-        let mut tsx = ServerNonInviteTsx::new(tp.addr(), tp);
+        let request = mock::request(SipMethod::Options);
+        let incoming = request.request().unwrap();
+        let mut tsx = ServerNonInviteTsx::new(incoming);
+        let response = mock::response(StatusCode::Ok);
 
-        tsx.recv_msg(resp(StatusCode::Ok)).await.unwrap();
+        tsx.recv_msg(response).await.unwrap();
 
+        assert!(tsx.last_response_code() == Some(200));
+        assert!(tsx.state.is_completed());
+    }
+
+    #[tokio::test]
+    async fn test_retransmit_proceeding() {
+        let request = mock::request(SipMethod::Options);
+        let incoming = request.request().unwrap();
+        let mut tsx = ServerNonInviteTsx::new(incoming);
+        let response = mock::response(StatusCode::Trying);
+
+        tsx.recv_msg(response).await.unwrap();
+        tsx.recv_msg(request).await.unwrap();
+
+        assert!(tsx.retransmit_count == 1);
+        assert!(tsx.last_response_code() == Some(100));
+        assert!(tsx.state.is_proceeding());
+    }
+
+    #[tokio::test]
+    async fn test_retransmit_completed() {
+        let request = mock::request(SipMethod::Options);
+        let incoming = request.request().unwrap();
+        let mut tsx = ServerNonInviteTsx::new(incoming);
+        let response = mock::response(StatusCode::Ok);
+
+        tsx.recv_msg(response).await.unwrap();
+        tsx.recv_msg(request).await.unwrap();
+
+        assert!(tsx.retransmit_count == 1);
         assert!(tsx.last_response_code() == Some(200));
         assert!(tsx.state.is_completed());
     }

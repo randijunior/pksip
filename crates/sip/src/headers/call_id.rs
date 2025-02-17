@@ -1,5 +1,8 @@
 use super::{Header, ParseHeaderError, SipHeader};
-use crate::{internal::ArcStr, parser::{Result, SipParserError}};
+use crate::{
+    internal::ArcStr,
+    parser::{Result, SipParserError},
+};
 use core::fmt;
 use reader::Reader;
 use std::str::{self, FromStr};
@@ -52,11 +55,10 @@ impl SipHeader<'_> for CallId {
 
 impl FromStr for CallId {
     type Err = SipParserError;
-    
+
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::parse(&mut Reader::new(s.as_bytes()))
     }
-    
 }
 
 impl TryFrom<&[u8]> for CallId {

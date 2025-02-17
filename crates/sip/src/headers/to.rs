@@ -10,7 +10,10 @@ use crate::{
 
 use crate::headers::SipHeader;
 
-use std::{fmt, str::{self, FromStr}};
+use std::{
+    fmt,
+    str::{self, FromStr},
+};
 
 /// The `To` SIP header.
 ///
@@ -41,11 +44,10 @@ impl SipHeader<'_> for To {
 
 impl FromStr for To {
     type Err = SipParserError;
-    
+
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::parse(&mut Reader::new(s.as_bytes()))
     }
-    
 }
 
 impl fmt::Display for To {

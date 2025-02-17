@@ -44,11 +44,10 @@ impl SipHeader<'_> for From {
 
 impl FromStr for From {
     type Err = SipParserError;
-    
+
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::parse(&mut Reader::new(s.as_bytes()))
     }
-    
 }
 
 impl fmt::Display for From {

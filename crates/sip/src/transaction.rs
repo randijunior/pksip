@@ -68,14 +68,14 @@ impl TsxStateMachine {
     }
 
     pub fn is_proceeding(&self) -> bool {
-        self.get_state() == TsxState::Proceeding
+        self.get_state().is_proceeding()
     }
     pub fn is_trying(&self) -> bool {
-        self.get_state() == TsxState::Trying
+        self.get_state().is_trying()
     }
 
     pub fn is_completed(&self) -> bool {
-        self.get_state() == TsxState::Completed
+        self.get_state().is_completed()
     }
 }
 
@@ -86,6 +86,19 @@ pub enum TsxState {
     Completed,
     Confirmed,
     Terminated,
+}
+
+impl TsxState {
+    pub fn is_proceeding(&self) -> bool {
+        *self == TsxState::Proceeding
+    }
+    pub fn is_trying(&self) -> bool {
+        *self == TsxState::Trying
+    }
+
+    pub fn is_completed(&self) -> bool {
+        *self == TsxState::Completed
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -152,13 +165,15 @@ pub struct Transaction {
     transport: Transport,
     last_response: Option<OutgoingResponse>,
     tx: Option<oneshot::Sender<()>>,
+    retransmit_count: u32,
 }
 
 impl Transaction {
-    async fn retransmit(&self) -> io::Result<()> {
+    async fn retransmit(&mut self) -> io::Result<()> {
         if let Some(msg) = self.last_response.as_ref() {
             let buf = msg.buf.as_ref().unwrap();
             self.send_msg(buf).await?;
+            self.retransmit_count += 1;
         }
         Ok(())
     }
@@ -224,6 +239,16 @@ const BRANCH_RFC3261: &str = "z9hG4bK";
 pub enum TsxMsg {
     Request(IncomingRequest),
     Response(OutgoingResponse),
+}
+
+impl TsxMsg {
+    pub fn request(&self) -> Option<&IncomingRequest> {
+        if let TsxMsg::Request(req) = self {
+            Some(req)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<IncomingRequest> for TsxMsg {
@@ -318,7 +343,7 @@ impl TransactionLayer {
 
             self.spawn_new_tsx(tsx, receiver);
         } else {
-            let mut tsx = ServerNonInviteTsx::new(addr, transport);
+            let mut tsx = ServerNonInviteTsx::new(request);
             tsx.tx = tx.into();
 
             self.spawn_new_tsx(tsx, receiver);
@@ -344,5 +369,73 @@ impl TransactionLayer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod mock {
+    use std::time::SystemTime;
+
+    use crate::{
+        headers::{CSeq, Headers},
+        message::{RequestLine, SipRequest, SipResponse, SipUri},
+        transport::{
+            udp::mock::MockUdpTransport, IncomingInfo, OutgoingInfo, Packet, RequestHeaders
+        },
+    };
+
+    use super::*;
+    pub fn response(c: StatusCode) -> TsxMsg {
+        let from = "sip:alice@127.0.0.1:5060".parse().unwrap();
+        let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
+        let cseq = CSeq {
+            cseq: 1,
+            method: SipMethod::Options,
+        };
+        let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
+        let hdrs = RequestHeaders {
+            via: vec![],
+            from,
+            to,
+            callid,
+            cseq,
+        };
+        let transport = Transport::new(MockUdpTransport);
+        let info = OutgoingInfo {
+            addr: transport.addr(),
+            transport,
+        };
+        let msg = SipResponse::new(c.into(), Headers::new(), None);
+        let response = OutgoingResponse {
+            hdrs,
+            msg,
+            info,
+            buf: None,
+        };
+
+        response.into()
+    }
+
+    pub fn request(m: SipMethod) -> TsxMsg {
+        let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
+        let SipUri::Uri(uri) = to else {
+            unreachable!()
+        };
+        let transport = Transport::new(MockUdpTransport);
+        let packet  = Packet {
+            payload: "".as_bytes().into(),
+            addr: transport.addr(),
+            time: SystemTime::now(),
+        };
+
+        let info = IncomingInfo::new(packet, transport);
+        let req_line = RequestLine {
+            method: m,
+            uri,
+        };
+        let req = SipRequest::new(req_line, Headers::new(), None);
+        let incoming = IncomingRequest::new(req, info, None);
+    
+        incoming.into()
     }
 }

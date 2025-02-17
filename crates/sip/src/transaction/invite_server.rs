@@ -10,11 +10,7 @@ use tokio::{
     time::{self, Instant},
 };
 
-use crate::{
-    message::SipMethod,
-    transaction::T2,
-    transport::Transport,
-};
+use crate::{message::SipMethod, transaction::T2, transport::Transport};
 
 use super::{
     SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine, T1, T4,
@@ -32,6 +28,7 @@ impl ServerInviteTsx {
             transport,
             last_response: None,
             tx: None,
+            retransmit_count: 0
         })
     }
 }
@@ -141,6 +138,4 @@ impl DerefMut for ServerInviteTsx {
 }
 
 #[cfg(test)]
-mod tests {
-    
-}
+mod tests {}
