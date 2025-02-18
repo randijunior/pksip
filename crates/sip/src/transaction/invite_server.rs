@@ -1,63 +1,86 @@
 use std::{
     cmp, io,
-    net::SocketAddr,
     ops::{Deref, DerefMut},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 use async_trait::async_trait;
 use tokio::{
     pin,
+    task::AbortHandle,
     time::{self, Instant},
 };
 
-use crate::{message::SipMethod, transaction::T2, transport::Transport};
+use crate::{
+    endpoint::Endpoint,
+    message::{SipMethod, StatusCode},
+    transaction::T2,
+    transport::IncomingRequest,
+};
 
 use super::{
     SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine, T1, T4,
 };
 
-pub struct ServerInviteTsx(Transaction);
+pub struct TsxUasInv {
+    inner: Transaction,
+    retrans_abort_handle: Option<AbortHandle>,
+}
 
-impl ServerInviteTsx {
-    pub fn new(addr: SocketAddr, transport: Transport) -> Self {
-        Self(Transaction {
-            //When a server transaction is constructed for a request,
-            // it enters the "Proceeding" state.
-            state: TsxStateMachine::new(TsxState::Proceeding),
-            addr,
-            transport,
-            last_response: None,
-            tx: None,
-            retransmit_count: 0,
-        })
+impl TsxUasInv {
+    pub async fn new(
+        request: &mut IncomingRequest,
+        endpoint: &Endpoint,
+    ) -> io::Result<Self> {
+        let mut tsx = Self {
+            inner: Transaction {
+                state: TsxStateMachine::new(TsxState::Proceeding),
+                addr: request.packet().addr,
+                transport: request.transport().clone(),
+                last_response: None,
+                tx: None,
+                retransmit_count: AtomicUsize::new(0).into(),
+            },
+            retrans_abort_handle: None,
+        };
+        let response = endpoint
+            .new_response(request, StatusCode::Trying.into())
+            .await?;
+        tsx.recv_msg(response.into()).await?;
+
+        Ok(tsx)
     }
 }
 
 //The TU passes any number of provisional responses to the server
 // transaction.
-
 #[async_trait]
-impl SipTransaction for ServerInviteTsx {
+impl SipTransaction for TsxUasInv {
     async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()> {
         let state = self.get_state();
         match msg {
-            TsxMsg::Request(req) => {
+            TsxMsg::Request(request) => {
+                if request.is_method(&SipMethod::Ack)
+                    && state.is_completed()
+                {
+                    self.state.confirmed();
+                    if let Some(handle) = &self.retrans_abort_handle {
+                        handle.abort();
+                    }
+                    self.do_terminate(T4);
+                    return Ok(());
+                }
                 /*
                  * If a request retransmission is received while in the
                  * "Proceeding" state, the most recent provisional response
                  * that was received from the TU MUST be passed
                  * to the transport layer for retransmission.
                  */
-                if let TsxState::Proceeding = state {
+                if matches!(state, TsxState::Proceeding) {
                     self.retransmit().await?;
-                }
-
-                if req.is_method(&SipMethod::Ack)
-                    && state == TsxState::Completed
-                    && !self.reliable()
-                {
-                    self.state.confirmed();
-                    self.do_terminate(T4);
                 }
                 return Ok(());
             }
@@ -90,29 +113,38 @@ impl SipTransaction for ServerInviteTsx {
                             let transport = self.transport.clone();
                             let addr = self.addr;
                             let redable = self.reliable();
-                            let sender = self.tx.take().unwrap();
+                            let sender = self.tx.take();
                             let state = self.state.clone();
+                            let retrans_count =
+                                Arc::clone(&self.retransmit_count);
 
-                            tokio::spawn(async move {
+                            self.retrans_abort_handle = tokio::spawn(async move {
                                 pin! {
                                     let timer_g = time::sleep(T1);
                                     let timer_h = time::sleep(64*T1);
                                 }
-                                tokio::select! {
-                                    _ = &mut timer_g => {
-                                        if !redable && !matches!(state.get_state(), TsxState::Confirmed) {
-                                            let _ = transport.send(&buf, addr);
-                                            let next_interval = cmp::min(T1*2, T2);
-                                            timer_g.reset(Instant::now() + next_interval);
+                                loop {
+                                    tokio::select! {
+                                        _ = &mut timer_g => {
+                                            if !redable && !state.is_confirmed() {
+                                                let _ = transport.send(&buf, addr).await;
+                                                let retransmissions = retrans_count.fetch_add(1, Ordering::SeqCst);
+                                                let retransmissions = 2u32.pow((retransmissions + 1) as u32);
+                                                let next_interval = cmp::min(T1*retransmissions, T2);
+                                                timer_g.as_mut().reset(Instant::now() + next_interval);
+                                            }
+                                        }
+                                        _= &mut timer_h => {
+                                            println!("Timer H Expired!");
+                                            state.terminated();
+                                            if let Some(sender) = sender {
+                                                sender.send(()).unwrap();
+                                            }
+                                            break;
                                         }
                                     }
-                                    _= timer_h => {
-                                        println!("Timer H Expired!");
-                                        sender.send(()).unwrap();
-                                        return;
-                                    }
                                 }
-                            });
+                            }).abort_handle().into();
                         }
                         _ => unreachable!(),
                     }
@@ -123,21 +155,146 @@ impl SipTransaction for ServerInviteTsx {
     }
 }
 
-impl Deref for ServerInviteTsx {
+impl Deref for TsxUasInv {
     type Target = Transaction;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
-impl DerefMut for ServerInviteTsx {
+impl DerefMut for TsxUasInv {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{endpoint::EndpointBuilder, transaction::mock};
+    use tokio::time::Duration;
+
+    fn tsx_uas_params() -> (Endpoint, TsxMsg) {
+        let endpoint = EndpointBuilder::new().build();
+        let request = mock::request(SipMethod::Invite);
+
+        (endpoint, request)
+    }
+
+    #[tokio::test]
+    async fn test_receives_100_trying() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        assert!(tsx.last_response_code().unwrap().into_u32() == 100);
+        assert!(tsx.state.is_proceeding());
+    }
+
+    #[tokio::test]
+    async fn test_receives_180_ringing() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        assert!(tsx.last_response_code().unwrap().into_u32() == 100);
+
+        let response = mock::response(StatusCode::Ringing);
+        tsx.recv_msg(response.into()).await.unwrap();
+
+        assert!(tsx.last_response_code().unwrap().into_u32() == 180);
+        assert!(tsx.state.is_proceeding());
+    }
+
+    #[tokio::test]
+    async fn test_receives_ack_and_terminates() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        let response = mock::response(StatusCode::Ok);
+        tsx.recv_msg(response.into()).await.unwrap();
+
+        assert!(tsx.last_response_code().unwrap().into_u32() == 200);
+
+        let request = mock::request(SipMethod::Ack);
+        tsx.recv_msg(request.into()).await.unwrap();
+
+        assert!(tsx.state.is_terminated());
+    }
+
+    #[tokio::test]
+    async fn test_invite_retransmit_100_trying() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        let request = mock::request(SipMethod::Invite);
+        tsx.recv_msg(request.into()).await.unwrap();
+
+        let response = mock::response(StatusCode::Ok);
+        tsx.recv_msg(response.into()).await.unwrap();
+
+        assert!(tsx.last_response_code().unwrap().into_u32() == 200);
+        assert!(tsx.retransmission_count() == 1);
+        assert!(tsx.state.is_terminated());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_invite_timer_g_retransmission() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        let response = mock::response(StatusCode::BusyHere);
+        tsx.recv_msg(response.into()).await.unwrap();
+        assert!(tsx.state.is_completed());
+
+        time::sleep(T1 + Duration::from_millis(1)).await;
+        assert!(tsx.retransmission_count() == 1);
+
+        time::sleep(T1 * 2 + Duration::from_millis(1)).await;
+        assert!(tsx.retransmission_count() == 2);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_timer_h_expiration() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        let response = mock::response(StatusCode::BusyHere);
+        tsx.recv_msg(response.into()).await.unwrap();
+        assert!(tsx.state.is_completed());
+
+        time::sleep(T1 * 64 + Duration::from_millis(1)).await;
+        assert!(tsx.state.is_terminated());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_ack_received_before_timer_h() {
+        let (endpoint, mut request) = tsx_uas_params();
+        let incoming = request.request_mut().unwrap();
+
+        let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
+
+        let response = mock::response(StatusCode::BusyHere);
+        tsx.recv_msg(response.into()).await.unwrap();
+        assert!(tsx.state.is_completed());
+
+        let request = mock::request(SipMethod::Ack);
+        tsx.recv_msg(request.into()).await.unwrap();
+        assert!(tsx.state.is_confirmed());
+
+        tokio::time::sleep(T4 + Duration::from_millis(1)).await;
+
+        assert!(tsx.state.is_terminated());
+    }
 }

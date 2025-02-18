@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use invite_server::ServerInviteTsx;
-use non_invite_server::ServerNonInviteTsx;
+use invite_server::TsxUasInv;
+use non_invite_server::TsxUas;
 use tokio::sync::{
     mpsc::{self},
     oneshot,
@@ -17,7 +17,10 @@ use std::{
     collections::HashMap,
     io,
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 
@@ -80,6 +83,9 @@ impl TsxStateMachine {
     pub fn is_terminated(&self) -> bool {
         self.get_state().is_terminated()
     }
+    pub fn is_confirmed(&self) -> bool {
+        self.get_state().is_confirmed()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +111,10 @@ impl TsxState {
 
     pub fn is_terminated(&self) -> bool {
         *self == TsxState::Terminated
+    }
+
+    pub fn is_confirmed(&self) -> bool {
+        *self == TsxState::Confirmed
     }
 }
 
@@ -170,18 +180,21 @@ pub struct Transaction {
     transport: Transport,
     last_response: Option<OutgoingResponse>,
     tx: Option<oneshot::Sender<()>>,
-    retransmit_count: u32,
+    retransmit_count: Arc<AtomicUsize>,
 }
 
 impl Transaction {
     pub fn set_tsx_timers(&mut self) {
         todo!()
     }
+    pub fn retransmission_count(&self) -> u32 {
+        self.retransmit_count.load(Ordering::SeqCst) as u32
+    }
     async fn retransmit(&mut self) -> io::Result<()> {
         if let Some(msg) = self.last_response.as_ref() {
             let buf = msg.buf.as_ref().unwrap();
             self.send_buf(buf).await?;
-            self.retransmit_count += 1;
+            self.retransmit_count.fetch_add(1, Ordering::SeqCst);
         }
         Ok(())
     }
@@ -251,6 +264,14 @@ pub enum TsxMsg {
 
 impl TsxMsg {
     pub fn request(&self) -> Option<&IncomingRequest> {
+        if let TsxMsg::Request(req) = self {
+            Some(req)
+        } else {
+            None
+        }
+    }
+
+    pub fn request_mut(&mut self) -> Option<&mut IncomingRequest> {
         if let TsxMsg::Request(req) = self {
             Some(req)
         } else {
@@ -330,17 +351,15 @@ impl TransactionLayer {
     ) -> io::Result<(TsxSender, oneshot::Receiver<()>)> {
         let (sender, receiver) = mpsc::channel(100);
         let (tx, rx) = oneshot::channel();
-        let addr = request.info.packet().addr();
-        let transport = request.info.transport().clone();
 
         if request.is_method(&SipMethod::Invite) {
-            let mut tsx = ServerInviteTsx::new(addr, transport);
-            tsx.tx = tx.into();
+            let mut tsx = TsxUasInv::new(request, endpoint).await?;
+            tsx.tx = Some(tx);
             let response = endpoint
                 .new_response(request, StatusCode::Trying.into())
                 .await?;
 
-            sender.send(TsxMsg::Response(response)).await.unwrap();
+            sender.send(response.into()).await.unwrap();
             // let buf = response.into_buffer()?;
 
             // response
@@ -351,8 +370,8 @@ impl TransactionLayer {
 
             self.spawn_new_tsx(tsx, receiver);
         } else {
-            let mut tsx = ServerNonInviteTsx::new(request);
-            tsx.tx = tx.into();
+            let mut tsx = TsxUas::new(request);
+            tsx.tx = Some(tx);
 
             self.spawn_new_tsx(tsx, receiver);
         };
@@ -426,8 +445,22 @@ pub(crate) mod mock {
     }
 
     pub fn request(m: SipMethod) -> TsxMsg {
+        let target = "sip:bob@127.0.0.1:5060".parse().unwrap();
+        let from = "sip:alice@127.0.0.1:5060".parse().unwrap();
         let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
-        let SipUri::Uri(uri) = to else { unreachable!() };
+        let via = "SIP/2.0/UDP 127.0.0.1:5060".parse().unwrap();
+        let SipUri::Uri(uri) = target else {
+            unreachable!()
+        };
+        let cseq = CSeq { cseq: 1, method: m };
+        let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
+        let hdrs = RequestHeaders {
+            via: vec![via],
+            from,
+            to,
+            callid,
+            cseq,
+        };
         let transport = Transport::new(MockUdpTransport);
         let packet = Packet {
             payload: "".as_bytes().into(),
@@ -438,7 +471,7 @@ pub(crate) mod mock {
         let info = IncomingInfo::new(packet, transport);
         let req_line = RequestLine { method: m, uri };
         let req = SipRequest::new(req_line, Headers::new(), None);
-        let incoming = IncomingRequest::new(req, info, None);
+        let incoming = IncomingRequest::new(req, info, Some(hdrs));
 
         incoming.into()
     }

@@ -21,7 +21,8 @@ use crate::{
     filter_map_header, find_map_header,
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
     message::{
-        SipMethod, SipRequest, SipResponse, StatusCode, TransportProtocol,
+        SipMethod, SipRequest, SipResponse, StatusCode, StatusLine,
+        TransportProtocol,
     },
 };
 

@@ -25,7 +25,7 @@ use reader::{space, until, Reader};
 use crate::headers::SipHeader;
 use crate::macros::{b_map, parse_param};
 use crate::message::Host;
-use crate::parser::{self, ALPHA_NUM, SIPV2, TOKEN};
+use crate::parser::{self, SipParserError, ALPHA_NUM, SIPV2, TOKEN};
 use crate::{
     macros::sip_parse_error,
     message::TransportProtocol,
@@ -34,7 +34,7 @@ use crate::{
 };
 use core::fmt;
 use std::net::{IpAddr, SocketAddr};
-use std::str;
+use std::str::{self, FromStr};
 
 use crate::internal::{ArcStr, Param};
 
@@ -105,9 +105,11 @@ pub struct Via {
     pub params: Option<Params>,
 }
 
-impl Via {
-    pub fn new(transport: TransportProtocol, sent_by: HostPort) -> Self {
-        todo!()
+impl FromStr for Via {
+    type Err = SipParserError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::parse(&mut Reader::new(s.as_bytes()))
     }
 }
 

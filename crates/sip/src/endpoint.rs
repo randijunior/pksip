@@ -1,15 +1,11 @@
 use tokio::sync::oneshot::{self};
 
-use crate::headers::Header;
-use crate::macros::sip_parse_error;
 use crate::message::{SipMethod, StatusLine};
-use crate::parser::SipParserError;
 use crate::service::Request;
 use crate::transaction::{TsxKey, TsxSender};
 use crate::transport::{
-    IncomingInfo, IncomingRequest, IncomingResponse, OutGoingRequest,
-    OutgoingInfo, OutgoingResponse, Packet, Transport, TransportLayer, CRLF,
-    END,
+    IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
+    OutgoingResponse, Packet, Transport, TransportLayer, CRLF, END,
 };
 use crate::{
     headers::{Headers, Via},
