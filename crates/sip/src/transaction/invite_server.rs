@@ -28,7 +28,7 @@ impl ServerInviteTsx {
             transport,
             last_response: None,
             tx: None,
-            retransmit_count: 0
+            retransmit_count: 0,
         })
     }
 }
@@ -62,7 +62,7 @@ impl SipTransaction for ServerInviteTsx {
                 return Ok(());
             }
             TsxMsg::Response(response) => {
-                let code = response.status_code_u32();
+                let code = response.status_code().into_u32();
                 if response.is_provisional() {
                     self.send(response).await?;
                     return Ok(());
@@ -138,4 +138,6 @@ impl DerefMut for ServerInviteTsx {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+}

@@ -879,6 +879,10 @@ impl StatusCode {
             _ => false,
         }
     }
+
+    pub fn into_u32(self) -> u32 {
+        self as u32
+    }
 }
 
 impl From<&[u8]> for StatusCode {

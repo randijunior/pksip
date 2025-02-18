@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{
-    transaction::TsxState,
-    transport::IncomingRequest,
-};
+use crate::{transaction::TsxState, transport::IncomingRequest};
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -23,7 +20,7 @@ impl ServerNonInviteTsx {
             transport: request.transport().clone(),
             last_response: None,
             tx: None,
-            retransmit_count: 0
+            retransmit_count: 0,
         })
     }
 }
@@ -35,6 +32,7 @@ impl SipTransaction for ServerNonInviteTsx {
         let completed = state.is_completed();
         let trying = state.is_trying();
         let proceding = state.is_proceeding();
+
         let TsxMsg::Response(response) = msg else {
             if trying {
                 // Once in the "Trying" state, any further request
@@ -46,6 +44,7 @@ impl SipTransaction for ServerNonInviteTsx {
             }
             return Ok(());
         };
+
         let provisional = response.is_provisional();
         self.send(response).await?;
 
@@ -81,6 +80,8 @@ impl DerefMut for ServerNonInviteTsx {
 
 #[cfg(test)]
 mod tests {
+    use tokio::time::{self, Instant};
+
     use super::*;
     use crate::{
         message::{SipMethod, StatusCode},
@@ -96,7 +97,7 @@ mod tests {
 
         tsx.recv_msg(response).await.unwrap();
 
-        assert!(tsx.last_response_code() == Some(100));
+        assert!(tsx.last_response_code().unwrap().into_u32() == 100);
         assert!(tsx.state.is_proceeding());
     }
 
@@ -109,7 +110,7 @@ mod tests {
 
         tsx.recv_msg(response).await.unwrap();
 
-        assert!(tsx.last_response_code() == Some(200));
+        assert!(tsx.last_response_code().unwrap().into_u32() == 200);
         assert!(tsx.state.is_completed());
     }
 
@@ -124,7 +125,7 @@ mod tests {
         tsx.recv_msg(request).await.unwrap();
 
         assert!(tsx.retransmit_count == 1);
-        assert!(tsx.last_response_code() == Some(100));
+        assert!(tsx.last_response_code().unwrap().into_u32() == 100);
         assert!(tsx.state.is_proceeding());
     }
 
@@ -139,7 +140,22 @@ mod tests {
         tsx.recv_msg(request).await.unwrap();
 
         assert!(tsx.retransmit_count == 1);
-        assert!(tsx.last_response_code() == Some(200));
+        assert!(tsx.last_response_code().unwrap().into_u32() == 200);
         assert!(tsx.state.is_completed());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_terminated_timer_j() {
+        let request = mock::request(SipMethod::Options);
+        let incoming = request.request().unwrap();
+        let mut tsx = ServerNonInviteTsx::new(incoming);
+        let response = mock::response(StatusCode::Ok);
+
+        tsx.recv_msg(response).await.unwrap();
+
+        time::sleep_until(Instant::now() + T1 * 65).await;
+
+        assert!(tsx.last_response_code().unwrap().into_u32() == 200);
+        assert!(tsx.state.is_terminated());
     }
 }

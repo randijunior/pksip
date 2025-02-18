@@ -77,6 +77,9 @@ impl TsxStateMachine {
     pub fn is_completed(&self) -> bool {
         self.get_state().is_completed()
     }
+    pub fn is_terminated(&self) -> bool {
+        self.get_state().is_terminated()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +101,10 @@ impl TsxState {
 
     pub fn is_completed(&self) -> bool {
         *self == TsxState::Completed
+    }
+
+    pub fn is_terminated(&self) -> bool {
+        *self == TsxState::Terminated
     }
 }
 
@@ -152,8 +159,6 @@ impl TryFrom<&IncomingRequest> for TsxKey {
 #[derive(Debug, PartialEq, Eq)]
 pub struct TsxKeyError;
 
-type SharedMsgBuffer = Arc<MsgBuffer>;
-
 #[async_trait]
 pub trait SipTransaction: Sync + Send + 'static {
     async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()>;
@@ -169,10 +174,13 @@ pub struct Transaction {
 }
 
 impl Transaction {
+    pub fn set_tsx_timers(&mut self) {
+        todo!()
+    }
     async fn retransmit(&mut self) -> io::Result<()> {
         if let Some(msg) = self.last_response.as_ref() {
             let buf = msg.buf.as_ref().unwrap();
-            self.send_msg(buf).await?;
+            self.send_buf(buf).await?;
             self.retransmit_count += 1;
         }
         Ok(())
@@ -182,8 +190,8 @@ impl Transaction {
         &self.last_response
     }
 
-    pub fn last_response_code(&self) -> Option<u32> {
-        self.last_response.as_ref().map(|msg| msg.status_code_u32())
+    pub fn last_response_code(&self) -> Option<StatusCode> {
+        self.last_response.as_ref().map(|msg| msg.status_code())
     }
 
     fn do_terminate(&mut self, time: Duration) {
@@ -213,20 +221,20 @@ impl Transaction {
         self.state.get_state()
     }
 
-    async fn send(&mut self, mut response: OutgoingResponse) -> io::Result<()> {
-        if let Some(buf) = response.buf {
-            self.send_msg(&buf).await?;
+    async fn send(&mut self, mut res: OutgoingResponse) -> io::Result<()> {
+        if let Some(buf) = res.buf {
+            self.send_buf(&buf).await?;
             return Ok(());
         }
-        let buf = response.into_buffer()?;
-        self.send_msg(&buf).await?;
+        let buf = res.into_buffer()?;
+        self.send_buf(&buf).await?;
 
-        response.buf = Some(buf.into());
-        self.last_response = Some(response.into());
+        res.buf = Some(buf.into());
+        self.last_response = Some(res.into());
         Ok(())
     }
 
-    pub async fn send_msg(&self, buf: &MsgBuffer) -> io::Result<()> {
+    pub async fn send_buf(&self, buf: &MsgBuffer) -> io::Result<()> {
         let sended = self.transport.send(buf, self.addr).await?;
 
         println!("Sended: {sended} bytes");
@@ -380,7 +388,8 @@ pub(crate) mod mock {
         headers::{CSeq, Headers},
         message::{RequestLine, SipRequest, SipResponse, SipUri},
         transport::{
-            udp::mock::MockUdpTransport, IncomingInfo, OutgoingInfo, Packet, RequestHeaders
+            udp::mock::MockUdpTransport, IncomingInfo, OutgoingInfo, Packet,
+            RequestHeaders,
         },
     };
 
@@ -418,24 +427,19 @@ pub(crate) mod mock {
 
     pub fn request(m: SipMethod) -> TsxMsg {
         let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
-        let SipUri::Uri(uri) = to else {
-            unreachable!()
-        };
+        let SipUri::Uri(uri) = to else { unreachable!() };
         let transport = Transport::new(MockUdpTransport);
-        let packet  = Packet {
+        let packet = Packet {
             payload: "".as_bytes().into(),
             addr: transport.addr(),
             time: SystemTime::now(),
         };
 
         let info = IncomingInfo::new(packet, transport);
-        let req_line = RequestLine {
-            method: m,
-            uri,
-        };
+        let req_line = RequestLine { method: m, uri };
         let req = SipRequest::new(req_line, Headers::new(), None);
         let incoming = IncomingRequest::new(req, info, None);
-    
+
         incoming.into()
     }
 }

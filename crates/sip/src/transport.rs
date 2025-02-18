@@ -344,9 +344,7 @@ impl<'a> OutgoingResponse {
     pub fn status_code(&self) -> StatusCode {
         self.msg.st_line.code
     }
-    pub fn status_code_u32(&self) -> u32 {
-        self.msg.st_line.code as u32
-    }
+
     pub fn is_provisional(&self) -> bool {
         self.msg.st_line.code.is_provisional()
     }
