@@ -47,13 +47,13 @@ macro_rules! parse_param {
                         $reader.next();
                         let param = $func($reader)?;
                         $(
-                            if param.name == $name.into() {
-                                $var = param.value;
+                            if param.name == $name {
+                                $var = $crate::internal::ArcStr::from_option_str(param.value);
                                 reader::space!($reader);
                                 continue;
                             }
                         )*
-                        params.set(param.name, param.value.unwrap_or("".into()));
+                        params.set(param.name.into(), param.value.unwrap_or("".into()).into());
                         reader::space!($reader);
                     }
                     if params.is_empty() {

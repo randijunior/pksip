@@ -19,24 +19,32 @@ use crate::parser::{self, Result};
 ///
 /// ```
 /// use sip::internal::Param;
-/// use reader::Reader;
 ///
-/// let mut reader = Reader::new(b"param=value");
-/// let param = Param::parse(&mut reader).unwrap();
+/// let param: Param = "param=value".try_into().unwrap();
 ///
-/// assert_eq!(param.name, "param".into());
-/// assert_eq!(param.value, Some("value".into()));
+/// assert_eq!(param.name, "param");
+/// assert_eq!(param.value, Some("value"));
 /// ```
-pub struct Param {
-    pub name: ArcStr,
-    pub value: Option<ArcStr>,
+pub struct Param<'a> {
+    pub name: &'a str,
+    pub value: Option<&'a str>,
 }
 
-impl Param {
+impl<'a> TryFrom<&'a str> for Param<'a> {
+    type Error = SipParserError;
+
+    fn try_from(s: &'a str) -> std::result::Result<Self, Self::Error> {
+        Self::parse(&mut Reader::new(s.as_bytes()))
+    }
+}
+
+
+
+impl<'a> Param<'a> {
     pub unsafe fn parse_unchecked<F>(
-        reader: &mut Reader,
+        reader: &mut Reader<'a>,
         func: F,
-    ) -> Result<Param>
+    ) -> Result<Self>
     where
         F: Fn(&u8) -> bool,
     {
@@ -44,7 +52,7 @@ impl Param {
         let name = unsafe { reader.read_as_str(&func) };
         let Some(&b'=') = reader.peek() else {
             return Ok(Param {
-                name: name.into(),
+                name,
                 value: None,
             });
         };
@@ -65,7 +73,7 @@ impl Param {
         });
     }
 
-    pub fn parse(reader: &mut Reader) -> Result<Param> {
+    pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
         unsafe { Self::parse_unchecked(reader, parser::is_token) }
     }
 }
@@ -171,6 +179,12 @@ impl MediaType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ArcStr(Arc<str>);
+
+impl ArcStr {
+    pub fn from_option_str(value: Option<&str>) -> Option<Self> {
+        value.map(|v| Self(v.into()))
+    }
+}
 
 impl Deref for ArcStr {
     type Target = str;

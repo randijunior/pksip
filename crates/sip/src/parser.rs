@@ -144,7 +144,7 @@ pub(crate) fn is_token(b: &u8) -> bool {
     }
 }
 
-fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param> {
+fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
     let Param { name, value } =
         unsafe { Param::parse_unchecked(reader, is_param)? };
     let value = Some(value.unwrap_or("".into()));
@@ -152,7 +152,7 @@ fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param> {
     Ok(Param { name, value })
 }
 
-fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param> {
+fn parse_hdr_in_uri<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
     Ok(unsafe { Param::parse_unchecked(reader, is_hdr)? })
 }
 
@@ -557,7 +557,7 @@ fn parse_header_params_in_sip_uri<'a>(
         reader.next();
         let Param { name, value } = parse_hdr_in_uri(reader)?;
         let value = value.unwrap_or("".into());
-        params.set(name, value);
+        params.set(name.into(),value.into());
 
         let Some(b'&') = reader.peek() else { break };
     }

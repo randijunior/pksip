@@ -52,7 +52,7 @@ fn is_via_param(b: &u8) -> bool {
 }
 
 // Parses a via param.
-fn parse_via_param<'a>(reader: &mut Reader<'a>) -> Result<Param> {
+fn parse_via_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
     unsafe { Param::parse_unchecked(reader, is_via_param) }
 }
 
@@ -196,7 +196,7 @@ impl SipHeader<'_> for Via {
         let received = received.and_then(|r| r.parse().ok());
         let maddr = maddr.and_then(|a| match a.parse() {
             Ok(addr) => Some(Host::IpAddr(addr)),
-            Err(_) => Some(Host::DomainName(a)),
+            Err(_) => Some(Host::DomainName(a.into())),
         });
 
         let rport = if let Some(rport) = rport_p
