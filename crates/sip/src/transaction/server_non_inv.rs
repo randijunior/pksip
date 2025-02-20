@@ -9,20 +9,24 @@ use std::{
 
 use super::{SipTransaction, Transaction, TsxMsg, TsxStateMachine, T1};
 
-pub struct TsxUas(Transaction);
+pub struct TsxUas {
+    tsx: Transaction,
+}
 
 impl TsxUas {
     // The state machine is initialized in the "Trying" state and is passed
     // a request other than INVITE or ACK when initialized.
     pub fn new(request: &IncomingRequest) -> Self {
-        Self(Transaction {
-            state: TsxStateMachine::new(TsxState::Trying),
-            addr: request.packet().addr,
-            transport: request.transport().clone(),
-            last_response: None,
-            tx: None,
-            retransmit_count: AtomicUsize::new(0).into(),
-        })
+        Self {
+            tsx: Transaction {
+                state: TsxStateMachine::new(TsxState::Trying),
+                addr: request.packet().addr,
+                transport: request.transport().clone(),
+                last_response: None,
+                tx: None,
+                retransmit_count: AtomicUsize::new(0).into(),
+            },
+        }
     }
 }
 
@@ -65,13 +69,13 @@ impl Deref for TsxUas {
     type Target = Transaction;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.tsx
     }
 }
 
 impl DerefMut for TsxUas {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.tsx
     }
 }
 

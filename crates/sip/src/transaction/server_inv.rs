@@ -1,30 +1,24 @@
 use std::{
     cmp, io,
     ops::{Deref, DerefMut},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicUsize, Ordering}
 };
-
 use async_trait::async_trait;
 use tokio::{
-    pin, sync::oneshot, task::AbortHandle, time::{self, Instant}
+    pin, sync::oneshot, time::{self, Instant}
 };
-
 use crate::{
     endpoint::Endpoint,
     message::{SipMethod, StatusCode},
     transaction::T2,
     transport::IncomingRequest,
 };
-
 use super::{
     SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine, T1, T4,
 };
 
 pub struct TsxUasInv {
-    inner: Transaction,
+    tsx: Transaction,
     tx_confirmed_state: Option<oneshot::Sender<()>>
 }
 
@@ -34,7 +28,7 @@ impl TsxUasInv {
         endpoint: &Endpoint,
     ) -> io::Result<Self> {
         let mut tsx = Self {
-            inner: Transaction {
+            tsx: Transaction {
                 state: TsxStateMachine::new(TsxState::Proceeding),
                 addr: request.packet().addr,
                 transport: request.transport().clone(),
@@ -111,8 +105,7 @@ impl SipTransaction for TsxUasInv {
                             let redable = self.reliable();
                             let sender = self.tx.take();
                             let state = self.state.clone();
-                            let retrans_count =
-                                Arc::clone(&self.retransmit_count);
+                            let retrans_count = self.retransmit_count.clone();
                             let (tx_confirmed_state, mut rx_confirmed_state) = oneshot::channel();
                             self.tx_confirmed_state = Some(tx_confirmed_state);
 
@@ -162,13 +155,13 @@ impl Deref for TsxUasInv {
     type Target = Transaction;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.tsx
     }
 }
 
 impl DerefMut for TsxUasInv {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+        &mut self.tsx
     }
 }
 

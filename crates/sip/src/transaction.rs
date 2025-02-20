@@ -1,11 +1,3 @@
-use async_trait::async_trait;
-use invite_server::TsxUasInv;
-use non_invite_server::TsxUas;
-use tokio::sync::{
-    mpsc::{self},
-    oneshot,
-};
-
 use crate::{
     endpoint::Endpoint,
     headers::CallId,
@@ -16,6 +8,9 @@ use crate::{
         OutgoingResponse, Transport,
     },
 };
+use async_trait::async_trait;
+use server_inv::TsxUasInv;
+use server_non_inv::TsxUas;
 use std::{
     collections::HashMap,
     io,
@@ -26,9 +21,14 @@ use std::{
     },
     time::Duration,
 };
+use tokio::sync::{
+    mpsc::{self},
+    oneshot,
+};
 
-pub mod invite_server;
-pub mod non_invite_server;
+pub mod client_non_inv;
+pub mod server_inv;
+pub mod server_non_inv;
 
 type TsxReceiver = mpsc::Receiver<TsxMsg>;
 pub type TsxSender = mpsc::Sender<TsxMsg>;
@@ -36,6 +36,94 @@ pub type TsxSender = mpsc::Sender<TsxMsg>;
 const T1: Duration = Duration::from_millis(500);
 const T2: Duration = Duration::from_secs(4);
 const T4: Duration = Duration::from_secs(5);
+
+#[async_trait]
+pub trait SipTransaction: Sync + Send + 'static {
+    async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()>;
+}
+
+pub struct Transaction {
+    state: TsxStateMachine,
+    addr: SocketAddr,
+    transport: Transport,
+    last_response: Option<OutgoingResponse>,
+    tx: Option<oneshot::Sender<()>>,
+    retransmit_count: Arc<AtomicUsize>,
+}
+
+impl Transaction {
+    pub fn set_tsx_timers(&mut self) {
+        todo!()
+    }
+    pub fn retransmission_count(&self) -> u32 {
+        self.retransmit_count.load(Ordering::SeqCst) as u32
+    }
+    async fn retransmit(&mut self) -> io::Result<()> {
+        if let Some(msg) = self.last_response.as_ref() {
+            let buf = msg.buf.as_ref().unwrap();
+            self.send_buf(buf).await?;
+            self.retransmit_count.fetch_add(1, Ordering::SeqCst);
+        }
+        Ok(())
+    }
+
+    pub fn last_response(&self) -> &Option<OutgoingResponse> {
+        &self.last_response
+    }
+
+    pub fn last_response_code(&self) -> Option<StatusCode> {
+        self.last_response.as_ref().map(|msg| msg.status_code())
+    }
+
+    fn do_terminate(&mut self, time: Duration) {
+        let tx = self.tx.take();
+        if self.reliable() {
+            self.state.terminated();
+            if let Some(tx) = tx {
+                tx.send(()).unwrap();
+            }
+            return;
+        }
+        let state = self.state.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(time).await;
+            state.terminated();
+            if let Some(tx) = tx {
+                tx.send(()).unwrap();
+            }
+        });
+    }
+
+    fn reliable(&self) -> bool {
+        self.transport.reliable()
+    }
+
+    fn get_state(&self) -> TsxState {
+        self.state.get_state()
+    }
+
+    async fn send(&mut self, mut res: OutgoingResponse) -> io::Result<()> {
+        if let Some(buf) = res.buf {
+            self.send_buf(&buf).await?;
+            return Ok(());
+        }
+        let buf = res.into_buffer()?;
+        self.send_buf(&buf).await?;
+
+        res.buf = Some(buf.into());
+        self.last_response = Some(res.into());
+        Ok(())
+    }
+
+    pub async fn send_buf(&self, buf: &MsgBuffer) -> io::Result<()> {
+        let sended = self.transport.send(buf, self.addr).await?;
+
+        println!("Sended: {sended} bytes");
+        Ok(())
+    }
+}
+
+const BRANCH_RFC3261: &str = "z9hG4bK";
 
 #[derive(Clone)]
 pub struct TsxStateMachine(Arc<Mutex<TsxState>>);
@@ -172,104 +260,11 @@ impl TryFrom<&IncomingRequest> for TsxKey {
 #[derive(Debug, PartialEq, Eq)]
 pub struct TsxKeyError;
 
-#[async_trait]
-pub trait SipTransaction: Sync + Send + 'static {
-    async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()>;
-}
-
-pub struct Transaction {
-    state: TsxStateMachine,
-    addr: SocketAddr,
-    transport: Transport,
-    last_response: Option<OutgoingResponse>,
-    tx: Option<oneshot::Sender<()>>,
-    retransmit_count: Arc<AtomicUsize>,
-}
-
-impl Transaction {
-    pub fn set_tsx_timers(&mut self) {
-        todo!()
-    }
-    pub fn retransmission_count(&self) -> u32 {
-        self.retransmit_count.load(Ordering::SeqCst) as u32
-    }
-    async fn retransmit(&mut self) -> io::Result<()> {
-        if let Some(msg) = self.last_response.as_ref() {
-            let buf = msg.buf.as_ref().unwrap();
-            self.send_buf(buf).await?;
-            self.retransmit_count.fetch_add(1, Ordering::SeqCst);
-        }
-        Ok(())
-    }
-
-    pub fn last_response(&self) -> &Option<OutgoingResponse> {
-        &self.last_response
-    }
-
-    pub fn last_response_code(&self) -> Option<StatusCode> {
-        self.last_response.as_ref().map(|msg| msg.status_code())
-    }
-
-    fn do_terminate(&mut self, time: Duration) {
-        let tx = self.tx.take();
-        if self.reliable() {
-            self.state.terminated();
-            if let Some(tx) = tx {
-                tx.send(()).unwrap();
-            }
-            return;
-        }
-        let state = self.state.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(time).await;
-            state.terminated();
-            if let Some(tx) = tx {
-                tx.send(()).unwrap();
-            }
-        });
-    }
-
-    fn reliable(&self) -> bool {
-        self.transport.reliable()
-    }
-
-    fn get_state(&self) -> TsxState {
-        self.state.get_state()
-    }
-
-    async fn send(&mut self, mut res: OutgoingResponse) -> io::Result<()> {
-        if let Some(buf) = res.buf {
-            self.send_buf(&buf).await?;
-            return Ok(());
-        }
-        let buf = res.into_buffer()?;
-        self.send_buf(&buf).await?;
-
-        res.buf = Some(buf.into());
-        self.last_response = Some(res.into());
-        Ok(())
-    }
-
-    pub async fn send_buf(&self, buf: &MsgBuffer) -> io::Result<()> {
-        let sended = self.transport.send(buf, self.addr).await?;
-
-        println!("Sended: {sended} bytes");
-        Ok(())
-    }
-}
-
-const BRANCH_RFC3261: &str = "z9hG4bK";
-
 pub enum TsxMsg {
     UasRequest(IncomingRequest),
     UasResponse(OutgoingResponse),
     UacRequest(OutGoingRequest),
     UacResponse(IncomingResponse),
-}
-
-pub enum TsxUacMsg {
-    Request(OutGoingRequest),
-    Response(IncomingResponse),
 }
 
 impl TsxMsg {
@@ -340,7 +335,7 @@ impl TransactionLayer {
         }
     }
 
-    pub(crate) fn spawn_new_tsx(
+    pub(crate) fn tsx_recv_msg(
         &self,
         mut tsx: impl SipTransaction,
         mut rx: TsxReceiver,
@@ -364,25 +359,11 @@ impl TransactionLayer {
         if request.is_method(&SipMethod::Invite) {
             let mut tsx = TsxUasInv::new(request, endpoint).await?;
             tsx.tx = Some(tx);
-            let response = endpoint
-                .new_response(request, StatusCode::Trying.into())
-                .await?;
-
-            sender.send(response.into()).await.unwrap();
-            // let buf = response.into_buffer()?;
-
-            // response
-            //     .info
-            //     .transport
-            //     .send(&buf, response.info.addr)
-            //     .await?;
-
-            self.spawn_new_tsx(tsx, receiver);
+            self.tsx_recv_msg(tsx, receiver);
         } else {
             let mut tsx = TsxUas::new(request);
             tsx.tx = Some(tx);
-
-            self.spawn_new_tsx(tsx, receiver);
+            self.tsx_recv_msg(tsx, receiver);
         };
 
         self.insert(key.clone(), sender.clone());

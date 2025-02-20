@@ -433,7 +433,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
 
                 msg.push_header(Header::Other {
                     name: name.into(),
-                    value,
+                    value: value.into(),
                 });
             }
         };

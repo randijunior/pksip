@@ -136,7 +136,7 @@ pub trait SipHeader<'a>: Sized {
     }
 
     /// See the documentation for [`Header::parse_header_value_as_str`]
-    fn parse_as_str(reader: &mut Reader<'a>) -> Result<ArcStr> {
+    fn parse_as_str(reader: &mut Reader<'a>) -> Result<&'a str> {
         Header::parse_header_value_as_str(reader)
     }
 }
@@ -384,10 +384,10 @@ impl fmt::Display for Header {
 
 impl Header {
     /// Parses the header value as a string slice using the provided `reader`.
-    pub fn parse_header_value_as_str(reader: &mut Reader) -> Result<ArcStr> {
+    pub fn parse_header_value_as_str<'a>(reader: &mut Reader<'a>) -> Result<&'a str> {
         let str = reader::until_newline!(reader);
 
-        Ok(str::from_utf8(str)?.into())
+        Ok(str::from_utf8(str)?)
     }
 
     /// Parses a SIP `Header` from a byte slice.
@@ -496,7 +496,7 @@ impl Header {
             }
             _ => Ok(Header::Other {
                 name: header_name.into(),
-                value: Self::parse_header_value_as_str(reader)?,
+                value: Self::parse_header_value_as_str(reader)?.into(),
             }),
         }
     }
