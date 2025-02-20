@@ -17,6 +17,7 @@ use std::{fmt, result};
 ///
 /// ```
 /// # use sip::headers::Accept;
+/// # use sip::internal::MediaType;
 /// let mut accept = Accept::new();
 ///
 /// accept.push(MediaType::new("application", "sdp"));

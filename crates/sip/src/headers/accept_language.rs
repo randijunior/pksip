@@ -18,13 +18,12 @@ use std::{fmt, str};
 ///
 /// ```
 /// # use sip::{headers::{AcceptLanguage, accept_language::Language}};
-/// # use sip::internal::Q;
 /// let mut language = AcceptLanguage::new();
 ///
 /// language.push(Language::new("en"));
 /// language.push(Language::new("fr"));
 ///
-/// assert_eq!("Accept-Language: en, fr;q=0.8".as_bytes().try_into(), Ok(language));
+/// assert_eq!("Accept-Language: en, fr".as_bytes().try_into(), Ok(language));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptLanguage(Vec<Language>);
