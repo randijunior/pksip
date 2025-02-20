@@ -9,9 +9,7 @@ use std::{
 
 use async_trait::async_trait;
 use tokio::{
-    pin,
-    task::AbortHandle,
-    time::{self, Instant},
+    pin, sync::oneshot, task::AbortHandle, time::{self, Instant}
 };
 
 use crate::{
@@ -27,7 +25,7 @@ use super::{
 
 pub struct TsxUasInv {
     inner: Transaction,
-    retrans_abort_handle: Option<AbortHandle>,
+    tx_confirmed_state: Option<oneshot::Sender<()>>
 }
 
 impl TsxUasInv {
@@ -44,7 +42,7 @@ impl TsxUasInv {
                 tx: None,
                 retransmit_count: AtomicUsize::new(0).into(),
             },
-            retrans_abort_handle: None,
+            tx_confirmed_state: None,
         };
         let response = endpoint
             .new_response(request, StatusCode::Trying.into())
@@ -62,13 +60,11 @@ impl SipTransaction for TsxUasInv {
     async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()> {
         let state = self.get_state();
         match msg {
-            TsxMsg::Request(request) => {
-                if request.is_method(&SipMethod::Ack)
-                    && state.is_completed()
-                {
+            TsxMsg::UasRequest(request) => {
+                if request.is_method(&SipMethod::Ack) && state.is_completed() {
                     self.state.confirmed();
-                    if let Some(handle) = &self.retrans_abort_handle {
-                        handle.abort();
+                    if let Some(sender) = self.tx_confirmed_state.take() {
+                        sender.send(()).unwrap();
                     }
                     self.do_terminate(T4);
                     return Ok(());
@@ -84,7 +80,7 @@ impl SipTransaction for TsxUasInv {
                 }
                 return Ok(());
             }
-            TsxMsg::Response(response) => {
+            TsxMsg::UasResponse(response) => {
                 let code = response.status_code().into_u32();
                 if response.is_provisional() {
                     self.send(response).await?;
@@ -117,8 +113,10 @@ impl SipTransaction for TsxUasInv {
                             let state = self.state.clone();
                             let retrans_count =
                                 Arc::clone(&self.retransmit_count);
+                            let (tx_confirmed_state, mut rx_confirmed_state) = oneshot::channel();
+                            self.tx_confirmed_state = Some(tx_confirmed_state);
 
-                            self.retrans_abort_handle = tokio::spawn(async move {
+                            tokio::spawn(async move {
                                 pin! {
                                     let timer_g = time::sleep(T1);
                                     let timer_h = time::sleep(64*T1);
@@ -142,14 +140,19 @@ impl SipTransaction for TsxUasInv {
                                             }
                                             break;
                                         }
+                                        _ = &mut rx_confirmed_state => {
+                                            println!("Got confirmed state!");
+                                            break;
+                                        }
                                     }
                                 }
-                            }).abort_handle().into();
+                            });
                         }
                         _ => unreachable!(),
                     }
                 }
             }
+            _ => unreachable!(),
         }
         Ok(())
     }
@@ -185,7 +188,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_100_trying() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 
@@ -196,7 +199,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_180_ringing() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 
@@ -212,7 +215,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_ack_and_terminates() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 
@@ -230,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn test_invite_retransmit_100_trying() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 
@@ -248,7 +251,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn test_invite_timer_g_retransmission() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 
@@ -266,7 +269,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn test_timer_h_expiration() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 
@@ -281,7 +284,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn test_ack_received_before_timer_h() {
         let (endpoint, mut request) = tsx_uas_params();
-        let incoming = request.request_mut().unwrap();
+        let incoming = request.uas_request_mut().unwrap();
 
         let mut tsx = TsxUasInv::new(incoming, &endpoint).await.unwrap();
 

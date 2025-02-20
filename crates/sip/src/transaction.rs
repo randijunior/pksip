@@ -11,7 +11,10 @@ use crate::{
     headers::CallId,
     internal::ArcStr,
     message::{HostPort, SipMethod, StatusCode},
-    transport::{IncomingRequest, MsgBuffer, OutgoingResponse, Transport},
+    transport::{
+        IncomingRequest, IncomingResponse, MsgBuffer, OutGoingRequest,
+        OutgoingResponse, Transport,
+    },
 };
 use std::{
     collections::HashMap,
@@ -258,21 +261,28 @@ impl Transaction {
 const BRANCH_RFC3261: &str = "z9hG4bK";
 
 pub enum TsxMsg {
-    Request(IncomingRequest),
-    Response(OutgoingResponse),
+    UasRequest(IncomingRequest),
+    UasResponse(OutgoingResponse),
+    UacRequest(OutGoingRequest),
+    UacResponse(IncomingResponse),
+}
+
+pub enum TsxUacMsg {
+    Request(OutGoingRequest),
+    Response(IncomingResponse),
 }
 
 impl TsxMsg {
-    pub fn request(&self) -> Option<&IncomingRequest> {
-        if let TsxMsg::Request(req) = self {
+    pub fn uas_request(&self) -> Option<&IncomingRequest> {
+        if let TsxMsg::UasRequest(req) = self {
             Some(req)
         } else {
             None
         }
     }
 
-    pub fn request_mut(&mut self) -> Option<&mut IncomingRequest> {
-        if let TsxMsg::Request(req) = self {
+    pub fn uas_request_mut(&mut self) -> Option<&mut IncomingRequest> {
+        if let TsxMsg::UasRequest(req) = self {
             Some(req)
         } else {
             None
@@ -282,13 +292,13 @@ impl TsxMsg {
 
 impl From<IncomingRequest> for TsxMsg {
     fn from(value: IncomingRequest) -> Self {
-        TsxMsg::Request(value)
+        TsxMsg::UasRequest(value)
     }
 }
 
 impl From<OutgoingResponse> for TsxMsg {
     fn from(value: OutgoingResponse) -> Self {
-        TsxMsg::Response(value)
+        TsxMsg::UasResponse(value)
     }
 }
 
@@ -320,8 +330,7 @@ impl TransactionLayer {
         if let Some(sender) = self.get(key) {
             println!("TSX FOUND!");
             // Check if is retransmission
-            let tsx_msg = TsxMsg::Request(request);
-            if let Err(_) = sender.send(tsx_msg).await {
+            if let Err(_) = sender.send(request.into()).await {
                 println!("receiver droped!");
             };
             Ok(None)
@@ -388,9 +397,7 @@ impl TransactionLayer {
     ) -> io::Result<()> {
         if let Some(tsx) = self.get(&key) {
             println!("TSX FOUND RESPONSE!");
-            // Check if is retransmission
-            let tsx_msg = TsxMsg::Response(response);
-            if let Err(_) = tsx.send(tsx_msg).await {
+            if let Err(_) = tsx.send(response.into()).await {
                 println!("receiver droped!");
             };
         }

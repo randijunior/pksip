@@ -36,7 +36,7 @@ impl Request {
         let mut msg = self.msg.take().unwrap();
         let response = self.endpoint.new_response(&mut msg, st_line).await?;
 
-        let _res = self.tsx.send(TsxMsg::Response(response)).await;
+        let _res = self.tsx.send(response.into()).await;
 
         Ok(())
     }

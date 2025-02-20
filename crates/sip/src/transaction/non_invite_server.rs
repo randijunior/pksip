@@ -30,17 +30,13 @@ impl TsxUas {
 impl SipTransaction for TsxUas {
     async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()> {
         let state = self.get_state();
-        let completed = state.is_completed();
-        let trying = state.is_trying();
-        let proceding = state.is_proceeding();
-
-        let TsxMsg::Response(response) = msg else {
-            if trying {
+        let TsxMsg::UasResponse(response) = msg else {
+            if state == TsxState::Trying {
                 // Once in the "Trying" state, any further request
                 // retransmissions are discarded.
                 return Ok(());
             }
-            if proceding || completed {
+            if matches!(state, TsxState::Proceeding | TsxState::Completed) {
                 self.retransmit().await?;
             }
             return Ok(());
@@ -49,15 +45,15 @@ impl SipTransaction for TsxUas {
         let provisional = response.is_provisional();
         self.send(response).await?;
 
-        if completed {
+        if state == TsxState::Completed {
             return Ok(());
         }
 
-        if provisional && trying {
+        if provisional && state == TsxState::Trying {
             self.state.proceeding();
             return Ok(());
         }
-        if trying || proceding {
+        if matches!(state, TsxState::Trying | TsxState::Proceeding) {
             self.state.completed();
             self.do_terminate(T1 * 64);
         }
@@ -92,7 +88,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_100_trying() {
         let request = mock::request(SipMethod::Options);
-        let incoming = request.request().unwrap();
+        let incoming = request.uas_request().unwrap();
         let mut tsx = TsxUas::new(incoming);
         let response = mock::response(StatusCode::Trying);
 
@@ -105,7 +101,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_200_ok() {
         let request = mock::request(SipMethod::Options);
-        let incoming = request.request().unwrap();
+        let incoming = request.uas_request().unwrap();
         let mut tsx = TsxUas::new(incoming);
         let response = mock::response(StatusCode::Ok);
 
@@ -118,7 +114,7 @@ mod tests {
     #[tokio::test]
     async fn test_retransmit_proceeding() {
         let request = mock::request(SipMethod::Options);
-        let incoming = request.request().unwrap();
+        let incoming = request.uas_request().unwrap();
         let mut tsx = TsxUas::new(incoming);
         let response = mock::response(StatusCode::Trying);
 
@@ -133,7 +129,7 @@ mod tests {
     #[tokio::test]
     async fn test_retransmit_completed() {
         let request = mock::request(SipMethod::Options);
-        let incoming = request.request().unwrap();
+        let incoming = request.uas_request().unwrap();
         let mut tsx = TsxUas::new(incoming);
         let response = mock::response(StatusCode::Ok);
 
@@ -148,7 +144,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn test_terminated_timer_j() {
         let request = mock::request(SipMethod::Options);
-        let incoming = request.request().unwrap();
+        let incoming = request.uas_request().unwrap();
         let mut tsx = TsxUas::new(incoming);
         let response = mock::response(StatusCode::Ok);
 
