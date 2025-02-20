@@ -38,8 +38,6 @@ impl<'a> TryFrom<&'a str> for Param<'a> {
     }
 }
 
-
-
 impl<'a> Param<'a> {
     pub unsafe fn parse_unchecked<F>(
         reader: &mut Reader<'a>,
@@ -51,10 +49,7 @@ impl<'a> Param<'a> {
         space!(reader);
         let name = unsafe { reader.read_as_str(&func) };
         let Some(&b'=') = reader.peek() else {
-            return Ok(Param {
-                name,
-                value: None,
-            });
+            return Ok(Param { name, value: None });
         };
         reader.next();
         let value = if let Some(&b'"') = reader.peek() {
@@ -166,7 +161,23 @@ impl fmt::Display for MediaType {
 }
 
 impl MediaType {
-    pub fn new(mtype: &str, subtype: &str, param: Option<Params>) -> Self {
+    /// Constructs a `MediaType` from a type and a subtype.
+    pub fn new(mtype: &str, subtype: &str) -> Self {
+        Self {
+            mimetype: MimeType {
+                mtype: mtype.into(),
+                subtype: subtype.into(),
+            },
+            param: None
+        }
+    }
+
+    /// Constructs a `MediaType` with an optional parameters.
+    pub fn from_parts(
+        mtype: &str,
+        subtype: &str,
+        param: Option<Params>,
+    ) -> Self {
         Self {
             mimetype: MimeType {
                 mtype: mtype.into(),

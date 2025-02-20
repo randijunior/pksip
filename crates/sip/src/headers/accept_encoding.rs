@@ -8,7 +8,7 @@ use crate::{
 };
 use itertools::Itertools;
 use reader::{util::is_newline, Reader};
-use std::{fmt, str};
+use std::{fmt, result, str};
 
 /// The `Accept-Encoding` SIP header.
 ///
@@ -18,57 +18,38 @@ use std::{fmt, str};
 ///
 /// ```
 /// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}};
-/// # use sip::internal::Q;
 /// let mut encoding = AcceptEncoding::new();
 ///
-/// encoding.push(Coding::new("gzip", Some(Q::from(1)), None));
-/// encoding.push(Coding::new("compress", None, None));
+/// encoding.push(Coding::new("gzip"));
+/// encoding.push(Coding::new("compress"));
 ///
-/// assert_eq!("Accept-Encoding: gzip;q=1, compress".as_bytes().try_into(), Ok(encoding));
+/// assert_eq!("Accept-Encoding: gzip, compress".as_bytes().try_into(), Ok(encoding));
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct AcceptEncoding(Vec<Coding>);
 
 impl AcceptEncoding {
-    /// Creates a empty `AcceptEncoding` header instance.
+    /// Creates a empty `AcceptEncoding`.
     ///
     /// The header will not allocate until `Codings` are pushed onto it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use sip::headers::AcceptEncoding;
-    /// let mut encoding = AcceptEncoding::new();
-    /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Appends an new `Coding` at the end of the header.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the new capacity exceeds `isize::MAX` bytes.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use sip::{headers::{AcceptEncoding, accept_encoding::Coding}};
-    /// let mut encoding = AcceptEncoding::new();
-    /// encoding.push(Coding::new("compress", None, None));
-    ///
-    /// assert_eq!(encoding, [Coding::new("compress", None, None)].into());
-    /// ```
+    /// Appends an `Coding` to the back of the header.
+    #[inline]
     pub fn push(&mut self, coding: Coding) {
         self.0.push(coding);
     }
 
-    /// Gets the `Coding` at the specified index.
+    /// Returns a reference to an `Coding` at the specified index.
+    #[inline]
     pub fn get(&self, index: usize) -> Option<&Coding> {
         self.0.get(index)
     }
 
-    /// Returns the number of `Codings` in the header.
+    /// Returns the number of elements in the header.
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -77,7 +58,7 @@ impl AcceptEncoding {
 impl TryFrom<&[u8]> for AcceptEncoding {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept_encoding()
             .map_err(|_| ParseHeaderError)?)
@@ -132,7 +113,19 @@ pub struct Coding {
 
 impl Coding {
     /// Creates a new `Coding` instance.
-    pub fn new(coding: &str, q: Option<Q>, param: Option<Params>) -> Self {
+    pub fn new(coding: &str) -> Self {
+        Self {
+            coding: coding.into(),
+            q: None,
+            param: None,
+        }
+    }
+
+    pub fn from_parts(
+        coding: &str,
+        q: Option<Q>,
+        param: Option<Params>,
+    ) -> Self {
         Self {
             coding: coding.into(),
             q,

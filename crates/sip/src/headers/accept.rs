@@ -7,7 +7,7 @@ use crate::{
 };
 use itertools::Itertools;
 use reader::Reader;
-use std::fmt;
+use std::{fmt, result};
 
 /// The `Accept` SIP header.
 ///
@@ -17,11 +17,10 @@ use std::fmt;
 ///
 /// ```
 /// # use sip::headers::Accept;
-/// # use sip::internal::{Q, MediaType};
 /// let mut accept = Accept::new();
 ///
-/// accept.push(MediaType::new("application", "sdp", None));
-/// accept.push(MediaType::new("message", "sipfrag", None));
+/// accept.push(MediaType::new("application", "sdp"));
+/// accept.push(MediaType::new("message", "sipfrag"));
 ///
 /// assert_eq!("Accept: application/sdp, message/sipfrag".as_bytes().try_into(), Ok(accept));
 /// ```
@@ -34,17 +33,20 @@ impl Accept {
         Self::default()
     }
 
-    /// Appends an new `MediaType` at the end of the header.
+    /// Appends an `MediaType` to the back of the header.
+    #[inline]
     pub fn push(&mut self, mtype: MediaType) {
         self.0.push(mtype);
     }
 
-    /// Gets the `MediaType` at the specified index.
+    /// Returns a reference to an `MediaType` at the specified index.
+    #[inline]
     pub fn get(&self, index: usize) -> Option<&MediaType> {
         self.0.get(index)
     }
 
-    /// Returns the number of `MediaTypes` in the header.
+    /// Returns the number of elements in the header.
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -53,7 +55,7 @@ impl Accept {
 impl<'a> TryFrom<&'a [u8]> for Accept {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &'a [u8]) -> result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept()
             .map_err(|_| ParseHeaderError)?)
@@ -81,7 +83,7 @@ impl SipHeader<'_> for Accept {
             let subtype = parser::parse_token(reader)?;
             let param = parse_header_param!(reader);
 
-            MediaType::new(mtype, subtype, param)
+            MediaType::from_parts(mtype, subtype, param)
         });
 
         Ok(Accept(mtypes))

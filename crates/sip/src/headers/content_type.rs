@@ -41,7 +41,7 @@ impl SipHeader<'_> for ContentType {
         reader.must_read(b'/')?;
         let subtype = parser::parse_token(reader)?;
         let param = parse_header_param!(reader);
-        let media_type = MediaType::new(mtype, subtype, param);
+        let media_type = MediaType::from_parts(mtype, subtype, param);
 
         Ok(ContentType(media_type))
     }

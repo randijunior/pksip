@@ -213,9 +213,7 @@ impl Endpoint {
         notifier: oneshot::Receiver<()>,
     ) {
         tokio::spawn(async move {
-            if let Err(_) = notifier.await {
-                println!("the receiver dropped");
-            }
+            let _ = notifier.await;
             self.tsx_layer.remove(&key)
         });
     }

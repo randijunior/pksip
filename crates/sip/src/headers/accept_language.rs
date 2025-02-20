@@ -21,8 +21,8 @@ use std::{fmt, str};
 /// # use sip::internal::Q;
 /// let mut language = AcceptLanguage::new();
 ///
-/// language.push(Language::new("en".into(), None, None));
-/// language.push(Language::new("fr".into(), Q::new(0,8).into(), None));
+/// language.push(Language::new("en"));
+/// language.push(Language::new("fr"));
 ///
 /// assert_eq!("Accept-Language: en, fr;q=0.8".as_bytes().try_into(), Ok(language));
 /// ```
@@ -36,16 +36,19 @@ impl AcceptLanguage {
     }
 
     /// Appends an new `Language` at the end of the header.
+    #[inline]
     pub fn push(&mut self, lang: Language) {
         self.0.push(lang);
     }
 
-    /// Gets the `Language` at the specified index.
+    /// Returns a reference to an `Language` at the specified index.
+    #[inline]
     pub fn get(&self, index: usize) -> Option<&Language> {
         self.0.get(index)
     }
 
     /// Returns the number of `Languages` in the header.
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -104,8 +107,24 @@ pub struct Language {
 
 impl Language {
     /// Creates a new `Language` instance.
-    pub fn new(language: ArcStr, q: Option<Q>, param: Option<Params>) -> Self {
-        Self { language, q, param }
+    pub fn new(language: &str) -> Self {
+        Self {
+            language: language.into(),
+            q: None,
+            param: None,
+        }
+    }
+    
+    pub fn from_parts(
+        language: &str,
+        q: Option<Q>,
+        param: Option<Params>,
+    ) -> Self {
+        Self {
+            language: language.into(),
+            q,
+            param,
+        }
     }
 }
 
