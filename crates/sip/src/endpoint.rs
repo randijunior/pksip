@@ -2,30 +2,29 @@ use tokio::sync::oneshot::{self};
 
 use crate::message::{SipMethod, StatusLine};
 use crate::service::Request;
-use crate::transaction::{TsxKey, TsxSender};
+use crate::transaction::{TsxKey, TsxMsg, TsxSender};
 use crate::transport::{
     IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
-    OutgoingResponse, Packet, Transport, TransportLayer, CRLF, END,
+    OutgoingResponse, Transport, TransportLayer,
 };
 use crate::{
     headers::{Headers, Via},
     message::{
         HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
     },
-    parser::parse_sip_msg,
     resolver::{Resolver, ServerAddress},
     service::SipService,
     transaction::TransactionLayer,
 };
 use std::{io, net::SocketAddr, ops::Deref, sync::Arc};
 
-type TransportMessage = (Transport, Packet);
+type TransportMessage = (IncomingInfo, SipMessage);
 
 pub struct EndpointBuilder {
     name: String,
     dns_resolver: Resolver,
-    tp_layer: TransportLayer,
-    tsx_layer: TransactionLayer,
+    transport_layer: TransportLayer,
+    transaction_layer: TransactionLayer,
     // Accept, Allow, Supported
     capabilities: Headers,
     services: Vec<Box<dyn SipService>>,
@@ -34,17 +33,17 @@ pub struct EndpointBuilder {
 impl EndpointBuilder {
     pub fn new() -> Self {
         EndpointBuilder {
-            tp_layer: TransportLayer::new(),
+            transport_layer: TransportLayer::new(),
             name: String::new(),
             capabilities: Headers::new(),
             dns_resolver: Resolver::default(),
             services: vec![],
-            tsx_layer: TransactionLayer::default(),
+            transaction_layer: TransactionLayer::default(),
         }
     }
 
     pub fn with_transport(mut self, transport: Transport) -> Self {
-        self.tp_layer.add(transport);
+        self.transport_layer.add(transport);
 
         self
     }
@@ -56,9 +55,10 @@ impl EndpointBuilder {
     }
 
     pub fn build(self) -> Endpoint {
+        // log::info!()
         Endpoint(Arc::new(Inner {
-            tsx_layer: self.tsx_layer,
-            tp_layer: self.tp_layer,
+            transaction_layer: self.transaction_layer,
+            transport_layer: self.transport_layer,
             name: self.name,
             capabilities: self.capabilities,
             dns_resolver: self.dns_resolver,
@@ -67,8 +67,8 @@ impl EndpointBuilder {
     }
 }
 pub struct Inner {
-    tp_layer: TransportLayer,
-    tsx_layer: TransactionLayer,
+    transport_layer: TransportLayer,
+    transaction_layer: TransactionLayer,
     name: String,
     capabilities: Headers,
     dns_resolver: Resolver,
@@ -88,50 +88,36 @@ impl Deref for Endpoint {
 
 impl Endpoint {
     pub async fn run(&self) -> io::Result<()> {
-        let mut rx = self.tp_layer.initialize();
-        while let Some(msg) = rx.recv().await {
-            let endpt = self.clone();
-            tokio::spawn(async move { endpt.on_transport_message(msg).await });
+        self.transport_layer.recv_packet(self).await?;
+        Ok(())
+    }
+
+    pub fn handle_incoming(&self, msg: TransportMessage) {
+        tokio::spawn(self.clone().on_tp_message(msg));
+    }
+
+    async fn on_tp_message(self, msg: TransportMessage) -> io::Result<()> {
+        if let Err(err) = self.process_message(msg).await {
+            log::error!("Error processing message: {:?}", err);
         }
         Ok(())
     }
 
-    async fn on_transport_message(
-        self,
-        msg: TransportMessage,
-    ) -> io::Result<()> {
-        let (transport, packet) = msg;
-        let msg = match packet.payload() {
-            CRLF => {
-                transport.send(END, packet.addr()).await?;
-                return Ok(());
-            }
-            END => {
-                return Ok(());
-            }
-            bytes => match parse_sip_msg(bytes) {
-                Ok(sip) => sip,
-                Err(err) => {
-                    println!("ERROR ON PARSE MSG: {:#?}", err);
-                    return Err(io::Error::other(err.message));
-                }
-            },
-        };
-        let info = IncomingInfo::new(packet, transport);
+    async fn process_message(&self, msg: TransportMessage) -> io::Result<()> {
+        let (info, msg) = msg;
         match msg {
             SipMessage::Request(msg) => {
                 let Ok(req_headers) = (&msg.headers).try_into() else {
                     return Err(io::Error::other("Could not parse headers"));
                 };
                 let req = IncomingRequest::new(msg, info, Some(req_headers));
-                let _ = self.receive_request(req).await;
+                self.receive_request(req).await
             }
             SipMessage::Response(msg) => {
                 let res = IncomingResponse::new(msg, info);
-                let _ = self.receive_response(res).await;
+                self.receive_response(res).await
             }
         }
-        Ok(())
     }
 
     pub async fn new_response(
@@ -185,8 +171,8 @@ impl Endpoint {
             let addresses = self.dns_resolver.resolve(&temp_uri).await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
-            //TODO: the transport tp_layer must create a transport if it cannot find
-            let transport = self.tp_layer.find(addr, protocol).ok_or(
+            //TODO: the transport transport_layer must create a transport if it cannot find
+            let transport = self.transport_layer.find(addr, protocol).ok_or(
                 io::Error::other("Coun'd not find a suitable transport!"),
             )?;
 
@@ -207,17 +193,6 @@ impl Endpoint {
         }
     }
 
-    fn spawn_tsx_drop_notifier(
-        self,
-        key: TsxKey,
-        notifier: oneshot::Receiver<()>,
-    ) {
-        tokio::spawn(async move {
-            let _ = notifier.await;
-            self.tsx_layer.remove(&key)
-        });
-    }
-
     pub async fn create_uas_tsx(
         &self,
         key: &TsxKey,
@@ -231,13 +206,22 @@ impl Endpoint {
             ));
         }
 
-        self.tsx_layer.create_uas_tsx(key, self, request).await
+        self.transaction_layer
+            .create_uas_tsx(key, self, request)
+            .await
     }
 
-    pub async fn receive_request(self, msg: IncomingRequest) -> io::Result<()> {
-        let key = TsxKey::try_from(&msg).unwrap();
+    pub async fn receive_request(
+        &self,
+        msg: IncomingRequest,
+    ) -> io::Result<()> {
         // Check transaction.
-        let Some(mut msg) = self.tsx_layer.handle_request(&key, msg).await?
+        let key = TsxKey::try_from(&msg).unwrap();
+
+        let Some(TsxMsg::UasRequest(mut msg)) = self
+            .transaction_layer
+            .handle_message(&key, msg.into())
+            .await?
         else {
             return Ok(());
         };
@@ -245,10 +229,14 @@ impl Endpoint {
         // Create the server transaction.
         let (tsx, drop_notifier) = self.create_uas_tsx(&key, &mut msg).await?;
 
-        self.clone().spawn_tsx_drop_notifier(key, drop_notifier);
+        let endpoint = self.clone();
+        tokio::spawn(async move {
+            let _ = drop_notifier.await;
+            endpoint.transaction_layer.remove(&key)
+        });
 
         let mut request = Request {
-            endpoint: self.clone(),
+            endpoint: self,
             msg: msg.into(),
             tsx,
         };

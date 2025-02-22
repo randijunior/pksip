@@ -39,7 +39,7 @@ impl SipHeader<'_> for RetryAfter {
         if let Some(&b'(') = reader.peek() {
             reader.next();
             let b = until!(reader, &b')');
-            reader.must_read(b')')?;
+            reader.must_read(&b')')?;
             comment = Some(str::from_utf8(b)?);
         }
         let param = parse_header_param!(reader);

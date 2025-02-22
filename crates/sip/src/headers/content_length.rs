@@ -28,7 +28,7 @@ impl ContentLength {
             ContentLength::NAME
         );
 
-        reader.must_read(b':')?;
+        reader.must_read(&b':')?;
 
         space!(reader);
         ContentLength::parse(&mut reader)

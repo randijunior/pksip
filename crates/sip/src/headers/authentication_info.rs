@@ -76,7 +76,7 @@ impl TryFrom<&[u8]> for AuthenticationInfo {
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_authentication_info()
-            .map_err(|_| ParseHeaderError)?)
+            .map_err(|_| ParseHeaderError(Self::NAME))?)
     }
 }
 

@@ -14,7 +14,7 @@ use std::{fmt, str};
 ///
 /// ```
 /// # use sip::headers::AlertInfo;
-/// let info = AlertInfo::new("http://www.alert.com/sounds/moo.wav", None);
+/// let info = AlertInfo::new("http://www.alert.com/sounds/moo.wav");
 ///
 /// assert_eq!("Alert-Info: <http://www.alert.com/sounds/moo.wav>".as_bytes().try_into(), Ok(info));
 /// ```
@@ -25,7 +25,13 @@ pub struct AlertInfo {
 }
 
 impl AlertInfo {
-    pub fn new(url: &str, params: Option<Params>) -> Self {
+    pub fn new(url: &str) -> Self {
+        Self {
+            url: url.into(),
+            params: None,
+        }
+    }
+    pub fn from_parts(url: &str, params: Option<Params>) -> Self {
         Self {
             url: url.into(),
             params,
@@ -47,9 +53,9 @@ impl SipHeader<'_> for AlertInfo {
     fn parse(reader: &mut Reader) -> Result<Self> {
         space!(reader);
 
-        reader.must_read(b'<')?;
+        reader.must_read(&b'<')?;
         let url = until!(reader, &b'>');
-        reader.must_read(b'>')?;
+        reader.must_read(&b'>')?;
 
         let url = str::from_utf8(url)?;
         let params = parse_header_param!(reader);
@@ -67,7 +73,7 @@ impl TryFrom<&[u8]> for AlertInfo {
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_alert_info()
-            .map_err(|_| ParseHeaderError)?)
+            .map_err(|_| ParseHeaderError(Self::NAME))?)
     }
 }
 

@@ -16,6 +16,16 @@ pub struct Position {
     col: usize,
 }
 
+impl Position {
+    pub fn line(&self) -> usize {
+        self.line
+    }
+
+    pub fn col(&self) -> usize {
+        self.col
+    }
+}
+
 /// Reading byte slice while keep the line and column.
 #[derive(Debug)]
 pub struct Reader<'a> {
@@ -26,7 +36,7 @@ pub struct Reader<'a> {
     /// Total length of the input slice.
     len: usize,
     /// Current position
-    pos: Position,
+    pub pos: Position,
     /// Current index.
     idx: usize,
 }
@@ -43,6 +53,10 @@ impl<'a> Reader<'a> {
             pos: Position { line: 1, col: 1 },
             idx: 0,
         }
+    }
+
+    pub fn pos(&self) -> &Position {
+        &self.pos
     }
 
     /// Returns the current index
@@ -63,7 +77,8 @@ impl<'a> Reader<'a> {
         self.finished
     }
 
-    /// Get next byte without advance.
+    /// Get next byte without advance
+    #[inline]
     pub fn peek(&self) -> Option<&u8> {
         if self.is_eof() {
             return None;
@@ -73,6 +88,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Same as [Reader::peek] but will return an `Result` instead a `Option`.
+    #[inline]
     pub fn lookahead(&self) -> Result<&u8> {
         self.peek()
             .ok_or_else(|| self.error::<&u8>(ErrorKind::Eof).unwrap_err())
@@ -136,14 +152,14 @@ impl<'a> Reader<'a> {
     /// This method will return an error if the byte is not equal to `b`.
     ///
     /// If the slice reached the end, then an error will also be returned.
-    pub fn must_read(&mut self, b: u8) -> Result<()> {
-        let Some(&n) = self.peek() else {
+    pub fn must_read(&mut self, b: &u8) -> Result<()> {
+        let Some(n) = self.peek() else {
             return self.error(ErrorKind::Eof);
         };
         if b != n {
             return self.error(ErrorKind::Char {
-                expected: b,
-                found: n,
+                expected: *b,
+                found: *n,
             });
         }
         self.next();

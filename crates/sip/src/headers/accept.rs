@@ -59,7 +59,7 @@ impl<'a> TryFrom<&'a [u8]> for Accept {
     fn try_from(value: &'a [u8]) -> result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_accept()
-            .map_err(|_| ParseHeaderError)?)
+            .map_err(|_| ParseHeaderError(Self::NAME))?)
     }
 }
 
@@ -80,7 +80,7 @@ impl SipHeader<'_> for Accept {
     fn parse(reader: &mut Reader) -> Result<Accept> {
         let mtypes = hdr_list!(reader => {
             let mtype = parser::parse_token(reader)?;
-            reader.must_read(b'/')?;
+            reader.must_read(&b'/')?;
             let subtype = parser::parse_token(reader)?;
             let param = parse_header_param!(reader);
 

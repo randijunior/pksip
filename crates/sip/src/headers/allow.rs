@@ -16,6 +16,7 @@ use std::fmt;
 /// # use sip::headers::Allow;
 /// # use sip::message::SipMethod;
 /// let mut allow = Allow::new();
+///
 /// allow.push(SipMethod::Invite);
 /// allow.push(SipMethod::Register);
 ///
@@ -68,7 +69,7 @@ impl TryFrom<&[u8]> for Allow {
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_allow()
-            .map_err(|_| ParseHeaderError)?)
+            .map_err(|_| ParseHeaderError(Self::NAME))?)
     }
 }
 

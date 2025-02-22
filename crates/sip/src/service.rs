@@ -16,7 +16,7 @@ pub trait SipService: Sync + Send + 'static {
         Ok(())
     }
 
-    async fn on_response(
+    async fn on_recv_response(
         &self,
         endpt: &Endpoint,
         response: &mut Option<IncomingResponse>,
@@ -25,13 +25,13 @@ pub trait SipService: Sync + Send + 'static {
     }
 }
 
-pub struct Request {
-    pub endpoint: Endpoint,
+pub struct Request<'a> {
+    pub endpoint: &'a Endpoint,
     pub msg: Option<IncomingRequest>,
     pub tsx: TsxSender,
 }
 
-impl Request {
+impl<'a> Request<'a> {
     pub async fn reply(&mut self, st_line: StatusLine) -> io::Result<()> {
         let mut msg = self.msg.take().unwrap();
         let response = self.endpoint.new_response(&mut msg, st_line).await?;

@@ -317,21 +317,21 @@ impl TransactionLayer {
         self.0.lock().unwrap().insert(key, tsx);
     }
 
-    pub async fn handle_request(
+    pub async fn handle_message(
         &self,
         key: &TsxKey,
-        request: IncomingRequest,
-    ) -> io::Result<Option<IncomingRequest>> {
+        message: TsxMsg,
+    ) -> io::Result<Option<TsxMsg>> {
         if let Some(sender) = self.get(key) {
             println!("TSX FOUND!");
             // Check if is retransmission
-            if let Err(_) = sender.send(request.into()).await {
+            if let Err(_) = sender.send(message).await {
                 println!("receiver droped!");
             };
             Ok(None)
         } else {
             println!("TSX NOT FOUND!");
-            Ok(Some(request))
+            Ok(Some(message))
         }
     }
 
@@ -369,21 +369,6 @@ impl TransactionLayer {
         self.insert(key.clone(), sender.clone());
 
         Ok((sender, rx))
-    }
-
-    pub async fn handle_response(
-        &self,
-        key: TsxKey,
-        response: OutgoingResponse,
-    ) -> io::Result<()> {
-        if let Some(tsx) = self.get(&key) {
-            println!("TSX FOUND RESPONSE!");
-            if let Err(_) = tsx.send(response.into()).await {
-                println!("receiver droped!");
-            };
-        }
-
-        Ok(())
     }
 }
 

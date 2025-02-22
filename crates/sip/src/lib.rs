@@ -4,12 +4,12 @@ pub mod headers;
 pub mod internal;
 pub mod message;
 pub mod parser;
+pub mod service;
 pub mod transaction;
 pub mod transport;
 
 pub(crate) mod macros;
 pub(crate) mod resolver;
-pub(crate) mod service;
 
 #[cfg(test)]
 #[macro_use]

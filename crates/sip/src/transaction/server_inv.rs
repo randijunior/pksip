@@ -1,11 +1,5 @@
-use std::{
-    cmp, io,
-    ops::{Deref, DerefMut},
-    sync::atomic::{AtomicUsize, Ordering}
-};
-use async_trait::async_trait;
-use tokio::{
-    pin, sync::oneshot, time::{self, Instant}
+use super::{
+    SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine, T1, T4,
 };
 use crate::{
     endpoint::Endpoint,
@@ -13,13 +7,21 @@ use crate::{
     transaction::T2,
     transport::IncomingRequest,
 };
-use super::{
-    SipTransaction, Transaction, TsxMsg, TsxState, TsxStateMachine, T1, T4,
+use async_trait::async_trait;
+use std::{
+    cmp, io,
+    ops::{Deref, DerefMut},
+    sync::atomic::{AtomicUsize, Ordering},
+};
+use tokio::{
+    pin,
+    sync::oneshot,
+    time::{self, Instant},
 };
 
 pub struct TsxUasInv {
     tsx: Transaction,
-    tx_confirmed_state: Option<oneshot::Sender<()>>
+    tx_confirmed_state: Option<oneshot::Sender<()>>,
 }
 
 impl TsxUasInv {
@@ -106,7 +108,8 @@ impl SipTransaction for TsxUasInv {
                             let sender = self.tx.take();
                             let state = self.state.clone();
                             let retrans_count = self.retransmit_count.clone();
-                            let (tx_confirmed_state, mut rx_confirmed_state) = oneshot::channel();
+                            let (tx_confirmed_state, mut rx_confirmed_state) =
+                                oneshot::channel();
                             self.tx_confirmed_state = Some(tx_confirmed_state);
 
                             tokio::spawn(async move {

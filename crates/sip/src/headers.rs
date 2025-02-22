@@ -142,11 +142,14 @@ pub trait SipHeader<'a>: Sized {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ParseHeaderError;
+pub struct ParseHeaderError(pub(crate) &'static str);
+
+
 
 impl convert::From<SipParserError> for ParseHeaderError {
     fn from(_: SipParserError) -> Self {
-        ParseHeaderError
+        todo!()
+        //ParseHeaderError
     }
 }
 
@@ -384,7 +387,9 @@ impl fmt::Display for Header {
 
 impl Header {
     /// Parses the header value as a string slice using the provided `reader`.
-    pub fn parse_header_value_as_str<'a>(reader: &mut Reader<'a>) -> Result<&'a str> {
+    pub fn parse_header_value_as_str<'a>(
+        reader: &mut Reader<'a>,
+    ) -> Result<&'a str> {
         let str = reader::until_newline!(reader);
 
         Ok(str::from_utf8(str)?)
@@ -406,7 +411,7 @@ impl Header {
         let header_name = parse_token(reader)?;
 
         space!(reader);
-        reader.must_read(b':')?;
+        reader.must_read(&b':')?;
         space!(reader);
 
         match header_name {

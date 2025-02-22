@@ -67,7 +67,7 @@ impl TryFrom<&[u8]> for CallId {
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_call_id()
-            .map_err(|_| ParseHeaderError)?)
+            .map_err(|_| ParseHeaderError(Self::NAME))?)
     }
 }
 

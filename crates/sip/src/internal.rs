@@ -168,7 +168,7 @@ impl MediaType {
                 mtype: mtype.into(),
                 subtype: subtype.into(),
             },
-            param: None
+            param: None,
         }
     }
 

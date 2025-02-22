@@ -12,18 +12,21 @@ pub mod udp;
 
 use arrayvec::ArrayVec;
 use async_trait::async_trait;
+use log::warn;
 
 use std::io::Write;
 use tokio::sync::mpsc;
 use udp::Udp;
 
 use crate::{
+    endpoint::Endpoint,
     filter_map_header, find_map_header,
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
     message::{
         SipMethod, SipRequest, SipResponse, StatusCode, StatusLine,
         TransportProtocol,
     },
+    parser::parse_sip_msg,
 };
 
 pub(crate) const CRLF: &[u8] = b"\r\n";
@@ -144,15 +147,45 @@ impl TransportLayer {
             .cloned()
     }
 
-    pub fn initialize(&self) -> mpsc::Receiver<(Transport, Packet)> {
+    pub async fn recv_packet(&self, endpoint: &Endpoint) -> io::Result<()> {
         let transports = self.transports.lock().unwrap();
-        let (tx, rx) = mpsc::channel(1024);
+        let (tx, mut rx) = mpsc::channel(1024);
 
         for transport in transports.values() {
             transport.init_recv(tx.clone());
         }
 
-        rx
+        while let Some(msg) = rx.recv().await {
+            let (transport, packet) = msg;
+            let msg = match packet.payload() {
+                CRLF => {
+                    transport.send(END, packet.addr()).await?;
+                    continue;
+                }
+                END => {
+                    // do nothing
+                    continue;
+                }
+                bytes => match parse_sip_msg(bytes) {
+                    Ok(sip) => sip,
+                    Err(err) => {
+                        log::warn!(
+                            "Ignoring {} bytes packet from {} {} : {}\n{}-- end of packet.",
+                            packet.payload().len(),
+                            transport.protocol(),
+                            packet.addr(),
+                            err.message,
+                            packet.to_string()
+                        );
+                        continue;
+                    }
+                },
+            };
+            let info = IncomingInfo::new(packet, transport);
+            endpoint.handle_incoming((info, msg));
+        }
+
+        Ok(())
     }
 }
 
@@ -245,6 +278,9 @@ impl Packet {
     }
     pub fn addr(&self) -> SocketAddr {
         self.addr
+    }
+    pub fn to_string(&self) -> String {
+        String::from_utf8_lossy(&self.payload).to_string()
     }
 }
 

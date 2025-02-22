@@ -56,10 +56,10 @@ impl SipHeader<'_> for CallInfo {
     fn parse(reader: &mut Reader) -> Result<Self> {
         let mut purpose: Option<ArcStr> = None;
         // must be an '<'
-        reader.must_read(b'<')?;
+        reader.must_read(&b'<')?;
         let url = until!(reader, &b'>');
         // must be an '>'
-        reader.must_read(b'>')?;
+        reader.must_read(&b'>')?;
         let url = str::from_utf8(url)?;
         let params = parse_header_param!(reader, PURPOSE = purpose);
 
@@ -77,7 +77,7 @@ impl TryFrom<&[u8]> for CallInfo {
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_call_info()
-            .map_err(|_| ParseHeaderError)?)
+            .map_err(|_| ParseHeaderError(Self::NAME))?)
     }
 }
 
