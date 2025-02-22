@@ -3,7 +3,7 @@ use crate::{
     auth::{CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
     headers::SipHeader,
     internal::{ArcStr, Param},
-    macros::{comma_sep, sip_parse_error},
+    macros::{comma_sep, parse_error},
     parser::Result,
 };
 use reader::Reader;
@@ -62,7 +62,7 @@ impl SipHeader<'_> for AuthenticationInfo {
                 RSPAUTH => auth_info.rspauth = value,
                 CNONCE => auth_info.cnonce = value,
                 NC => auth_info.nc = value,
-                _ => sip_parse_error!("Can't parse Authentication-Info")?,
+                _ => parse_error!("Can't parse Authentication-Info")?,
             };
         });
 

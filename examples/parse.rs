@@ -32,8 +32,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_transport(udp)
         .build();
 
-    if let Err(err) = endpoint.run().await {
-        println!("{err}");
-    }
+    endpoint.run().await?;
     Ok(())
 }

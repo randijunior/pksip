@@ -118,9 +118,17 @@ macro_rules! find_map_header {
     };
 }
 
-macro_rules! sip_parse_error {
+macro_rules! parse_error {
     ($message:expr) => {{
         Err(crate::parser::SipParserError::from($message))
+    }};
+    ($message:expr, $reader:expr) => {{
+        Err(crate::parser::SipParserError::from(format!(
+            "{} line {} col {}",
+            $message,
+            $reader.pos.line(),
+            $reader.pos.col()
+        )))
     }};
 }
 
@@ -130,4 +138,4 @@ pub(crate) use hdr_list;
 pub(crate) use parse_header_param;
 pub(crate) use parse_param;
 
-pub(crate) use sip_parse_error;
+pub(crate) use parse_error;

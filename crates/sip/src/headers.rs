@@ -144,8 +144,6 @@ pub trait SipHeader<'a>: Sized {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseHeaderError(pub(crate) &'static str);
 
-
-
 impl convert::From<SipParserError> for ParseHeaderError {
     fn from(_: SipParserError) -> Self {
         todo!()

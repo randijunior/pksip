@@ -27,7 +27,7 @@ use crate::macros::{b_map, parse_param};
 use crate::message::Host;
 use crate::parser::{self, SipParserError, ALPHA_NUM, SIPV2, TOKEN};
 use crate::{
-    macros::sip_parse_error,
+    macros::parse_error,
     message::TransportProtocol,
     message::{HostPort, Params},
     parser::Result,
@@ -171,7 +171,7 @@ impl SipHeader<'_> for Via {
         parser::parse_sip_v2(reader)?;
 
         if reader.next() != Some(&b'/') {
-            return sip_parse_error!("Invalid via Hdr!");
+            return parse_error!("Invalid via Hdr!");
         }
         let b = until!(reader, &b' ');
         let transport = b.into();
@@ -206,7 +206,7 @@ impl SipHeader<'_> for Via {
             if is_valid_port(rport) {
                 Some(rport)
             } else {
-                return sip_parse_error!("Via param rport is invalid!");
+                return parse_error!("Via param rport is invalid!");
             }
         } else {
             None

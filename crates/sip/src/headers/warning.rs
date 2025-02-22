@@ -4,7 +4,7 @@ use reader::{space, until, Reader};
 
 use crate::internal::ArcStr;
 use crate::parser::is_host;
-use crate::{macros::sip_parse_error, parser::Result};
+use crate::{macros::parse_error, parser::Result};
 
 use crate::headers::SipHeader;
 
@@ -35,7 +35,7 @@ impl SipHeader<'_> for Warning {
         let host = unsafe { reader.read_as_str(is_host) };
         space!(reader);
         let Some(&b'"') = reader.peek() else {
-            return sip_parse_error!("invalid warning header!");
+            return parse_error!("invalid warning header!");
         };
         reader.next();
         let text = until!(reader, &b'"');
