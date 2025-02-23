@@ -12,7 +12,6 @@ pub mod udp;
 
 use arrayvec::ArrayVec;
 use async_trait::async_trait;
-use log::warn;
 
 use std::io::Write;
 use tokio::sync::mpsc;
@@ -23,7 +22,7 @@ use crate::{
     filter_map_header, find_map_header,
     headers::{self, CSeq, CallId, Headers, SipHeader, To, Via},
     message::{
-        SipMethod, SipRequest, SipResponse, StatusCode, StatusLine,
+        HostPort, SipMethod, SipRequest, SipResponse, StatusCode,
         TransportProtocol,
     },
     parser::parse_sip_msg,
@@ -153,6 +152,13 @@ impl TransportLayer {
 
         for transport in transports.values() {
             transport.init_recv(tx.clone());
+
+            log::debug!(
+                "SIP {} transport started, listening on {}:{}",
+                transport.protocol(),
+                transport.local_name().host,
+                transport.local_name().port.unwrap()
+            );
         }
 
         while let Some(msg) = rx.recv().await {
@@ -204,6 +210,8 @@ pub trait SipTransport: Sync + Send + 'static {
         (addr.is_ipv4() && our_addr.is_ipv4())
             || (addr.is_ipv6() && our_addr.is_ipv6())
     }
+
+    fn local_name(&self) -> &HostPort;
 
     fn reliable(&self) -> bool;
 

@@ -8,7 +8,8 @@ publish = false
 
 [dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-tracing-subscriber = {version = "0.3", features = ["chrono"]}
+tracing = "0.1.41"
+tracing-subscriber = {version = "0.3", features = ["chrono", "env-filter"]}
 async-trait = "0.1.83"
 
 sip = {path = "../crates/sip"}

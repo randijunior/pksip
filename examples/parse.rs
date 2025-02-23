@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use sip::{
     endpoint::EndpointBuilder,
+    message::{SipMethod, StatusCode},
     service::{Request, SipService},
     transport::udp::Udp,
 };
 use std::error::Error;
 use tokio::io;
-
+use tracing::Level;
 pub struct MyService;
 
 #[async_trait]
@@ -22,7 +23,10 @@ impl SipService for MyService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .with_env_filter("sip=trace")
+        .init();
 
     let svc = MyService;
     let udp = Udp::bind("127.0.0.1:5060").await?;

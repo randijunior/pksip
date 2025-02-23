@@ -1,8 +1,14 @@
 use async_trait::async_trait;
-use std::{io, net::SocketAddr, sync::Arc, time::SystemTime};
+use local_ip_address::local_ip;
+use std::{
+    io,
+    net::SocketAddr,
+    sync::Arc,
+    time::SystemTime,
+};
 use tokio::net::{ToSocketAddrs, UdpSocket};
 
-use crate::message::TransportProtocol;
+use crate::message::{Host, HostPort, TransportProtocol};
 
 use super::{Packet, SipTransport, TpSender, Transport, MAX_PACKET_SIZE};
 
@@ -10,6 +16,7 @@ use super::{Packet, SipTransport, TpSender, Transport, MAX_PACKET_SIZE};
 pub struct Inner {
     pub sock: UdpSocket,
     pub addr: SocketAddr,
+    pub local_name: HostPort,
 }
 
 #[derive(Debug, Clone)]
@@ -40,19 +47,27 @@ impl SipTransport for Udp {
     fn addr(&self) -> SocketAddr {
         self.0.addr
     }
+
+    fn local_name(&self) -> &HostPort {
+        &self.0.local_name
+    }
 }
 
 impl Udp {
     pub async fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Transport> {
         let sock = UdpSocket::bind(addr).await?;
         let addr = sock.local_addr()?;
-        let udp = Arc::new(Inner { sock, addr });
+        let local_name = HostPort {
+            host: Host::IpAddr(local_ip().unwrap_or(addr.ip())),
+            port: Some(addr.port()),
+        };
+        let udp = Arc::new(Inner {
+            sock,
+            addr,
+            local_name,
+        });
 
         Ok(Udp(udp).into())
-    }
-
-    pub async fn default() -> Transport {
-        Self::bind("127.0.0.1:5060").await.unwrap()
     }
 
     async fn recv_from(self, sender: TpSender) -> io::Result<()> {
@@ -108,6 +123,9 @@ pub(crate) mod mock {
 
         fn secure(&self) -> bool {
             false
+        }
+        fn local_name(&self) -> &HostPort {
+            unimplemented!()
         }
     }
 }

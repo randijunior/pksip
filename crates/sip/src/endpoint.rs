@@ -49,13 +49,25 @@ impl EndpointBuilder {
     }
 
     pub fn with_service(mut self, service: impl SipService) -> Self {
+        if self
+            .services
+            .iter()
+            .find(|s| s.name() == service.name())
+            .is_some()
+        {
+            log::warn!("Service with name '{}' already exists", service.name());
+            return self;
+        }
         self.services.push(Box::new(service));
 
         self
     }
 
     pub fn build(self) -> Endpoint {
-        // log::info!()
+        log::info!("Creating endpoint...");
+        for name in self.services.iter() {
+            log::info!("Service {:?} registered", name.name());
+        }
         Endpoint(Arc::new(Inner {
             transaction_layer: self.transaction_layer,
             transport_layer: self.transport_layer,
@@ -93,10 +105,10 @@ impl Endpoint {
     }
 
     pub fn handle_incoming(&self, msg: TransportMessage) {
-        tokio::spawn(self.clone().on_tp_message(msg));
+        tokio::spawn(self.clone().recv_transport_msg(msg));
     }
 
-    async fn on_tp_message(self, msg: TransportMessage) -> io::Result<()> {
+    async fn recv_transport_msg(self, msg: TransportMessage) -> io::Result<()> {
         if let Err(err) = self.process_message(msg).await {
             log::error!("Error processing message: {:?}", err);
         }
