@@ -276,6 +276,15 @@ impl TsxMsg {
         }
     }
 
+    pub fn tsx_key(&self) -> Option<&TsxKey> {
+        match self {
+            TsxMsg::UasRequest(incoming_request) => incoming_request.tsx_key.as_ref(),
+            TsxMsg::UasResponse(outgoing_response) => todo!(),
+            TsxMsg::UacRequest(out_going_request) => todo!(),
+            TsxMsg::UacResponse(incoming_response) => todo!(),
+        }
+    }
+
     pub fn uas_request_mut(&mut self) -> Option<&mut IncomingRequest> {
         if let TsxMsg::UasRequest(req) = self {
             Some(req)
@@ -319,9 +328,9 @@ impl TransactionLayer {
 
     pub async fn handle_message(
         &self,
-        key: &TsxKey,
         message: TsxMsg,
     ) -> io::Result<Option<TsxMsg>> {
+        let key = message.tsx_key().unwrap();
         if let Some(sender) = self.get(key) {
             println!("TSX FOUND!");
             // Check if is retransmission
@@ -330,7 +339,6 @@ impl TransactionLayer {
             };
             Ok(None)
         } else {
-            println!("TSX NOT FOUND!");
             Ok(Some(message))
         }
     }
@@ -349,10 +357,9 @@ impl TransactionLayer {
 
     pub async fn create_uas_tsx(
         &self,
-        key: &TsxKey,
         endpoint: &Endpoint,
         request: &mut IncomingRequest,
-    ) -> io::Result<(TsxSender, oneshot::Receiver<()>)> {
+    ) -> io::Result<oneshot::Receiver<()>> {
         let (sender, receiver) = mpsc::channel(100);
         let (tx, rx) = oneshot::channel();
 
@@ -365,10 +372,10 @@ impl TransactionLayer {
             tsx.tx = Some(tx);
             self.tsx_recv_msg(tsx, receiver);
         };
+        let key = request.tsx_key.as_ref().unwrap();
+        self.insert(key.clone(),sender);
 
-        self.insert(key.clone(), sender.clone());
-
-        Ok((sender, rx))
+        Ok(rx)
     }
 }
 

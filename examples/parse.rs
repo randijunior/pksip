@@ -16,7 +16,10 @@ impl SipService for MyService {
         "MyService"
     }
     async fn on_request(&self, req: &mut Request) -> io::Result<()> {
-        // ...
+        if !req.msg.as_ref().unwrap().is_method(&SipMethod::Ack) {
+            let msg = req.msg.take().unwrap();
+            req.endpoint.respond(msg, StatusCode::NotImplemented.into()).await?;
+        }
         Ok(())
     }
 }
@@ -29,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .init();
 
     let svc = MyService;
-    let udp = Udp::bind("127.0.0.1:5060").await?;
+    let udp = Udp::bind("0.0.0.0:5060").await?;
 
     let endpoint = EndpointBuilder::new()
         .with_service(svc)

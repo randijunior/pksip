@@ -115,6 +115,28 @@ impl Endpoint {
         Ok(())
     }
 
+    fn tsx_respond(
+        &self,
+        msg: IncomingRequest,
+        st_line: StatusLine,
+    ) -> io::Result<()> {
+        todo!()
+    }
+
+    pub async fn respond(
+        &self,
+        mut msg: IncomingRequest,
+        st_line: StatusLine,
+    ) -> io::Result<()> {
+        let response = self.new_response(&mut msg, st_line).await?;
+        let buf = response.into_buffer()?;
+        let addr = msg.info.packet().addr;
+
+        msg.info.transport().send(&buf, addr).await?;
+
+        Ok(())
+    }
+
     async fn process_message(&self, msg: TransportMessage) -> io::Result<()> {
         let (info, msg) = msg;
         match msg {
@@ -122,7 +144,10 @@ impl Endpoint {
                 let Ok(req_headers) = (&msg.headers).try_into() else {
                     return Err(io::Error::other("Could not parse headers"));
                 };
-                let req = IncomingRequest::new(msg, info, Some(req_headers));
+                let mut req =
+                    IncomingRequest::new(msg, info, Some(req_headers));
+                let key = TsxKey::try_from(&req).unwrap();
+                req.tsx_key = Some(key);
                 self.receive_request(req).await
             }
             SipMessage::Response(msg) => {
@@ -207,9 +232,8 @@ impl Endpoint {
 
     pub async fn create_uas_tsx(
         &self,
-        key: &TsxKey,
         request: &mut IncomingRequest,
-    ) -> io::Result<(TsxSender, oneshot::Receiver<()>)> {
+    ) -> io::Result<()> {
         if request.is_method(&SipMethod::Ack)
             || request.is_method(&SipMethod::Cancel)
         {
@@ -218,9 +242,16 @@ impl Endpoint {
             ));
         }
 
-        self.transaction_layer
-            .create_uas_tsx(key, self, request)
-            .await
+        let drop_notifier =
+            self.transaction_layer.create_uas_tsx(self, request).await?;
+        let endpoint = self.clone();
+        let key = request.tsx_key.as_ref().unwrap().clone();
+        tokio::spawn(async move {
+            let _ = drop_notifier.await;
+            endpoint.transaction_layer.remove(&key)
+        });
+
+        Ok(())
     }
 
     pub async fn receive_request(
@@ -228,29 +259,17 @@ impl Endpoint {
         msg: IncomingRequest,
     ) -> io::Result<()> {
         // Check transaction.
-        let key = TsxKey::try_from(&msg).unwrap();
-
-        let Some(TsxMsg::UasRequest(mut msg)) = self
-            .transaction_layer
-            .handle_message(&key, msg.into())
-            .await?
+        let Some(TsxMsg::UasRequest(msg)) =
+            self.transaction_layer.handle_message(msg.into()).await?
         else {
             return Ok(());
         };
 
         // Create the server transaction.
-        let (tsx, drop_notifier) = self.create_uas_tsx(&key, &mut msg).await?;
-
-        let endpoint = self.clone();
-        tokio::spawn(async move {
-            let _ = drop_notifier.await;
-            endpoint.transaction_layer.remove(&key)
-        });
-
+        // self.create_uas_tsx(&mut msg).await?;
         let mut request = Request {
             endpoint: self,
             msg: msg.into(),
-            tsx,
         };
 
         // new_incoming

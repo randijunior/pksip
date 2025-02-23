@@ -28,16 +28,4 @@ pub trait SipService: Sync + Send + 'static {
 pub struct Request<'a> {
     pub endpoint: &'a Endpoint,
     pub msg: Option<IncomingRequest>,
-    pub tsx: TsxSender,
-}
-
-impl<'a> Request<'a> {
-    pub async fn reply(&mut self, st_line: StatusLine) -> io::Result<()> {
-        let mut msg = self.msg.take().unwrap();
-        let response = self.endpoint.new_response(&mut msg, st_line).await?;
-
-        let _res = self.tsx.send(response.into()).await;
-
-        Ok(())
-    }
 }

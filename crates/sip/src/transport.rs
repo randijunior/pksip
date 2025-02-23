@@ -25,7 +25,7 @@ use crate::{
         HostPort, SipMethod, SipRequest, SipResponse, StatusCode,
         TransportProtocol,
     },
-    parser::parse_sip_msg,
+    parser::parse_sip_msg, transaction::TsxKey,
 };
 
 pub(crate) const CRLF: &[u8] = b"\r\n";
@@ -423,6 +423,7 @@ pub struct IncomingRequest {
     pub msg: SipRequest,
     pub req_hdrs: Option<RequestHeaders>,
     pub info: IncomingInfo,
+    pub tsx_key: Option<TsxKey>
 }
 
 impl IncomingRequest {
@@ -435,6 +436,7 @@ impl IncomingRequest {
             msg,
             info,
             req_hdrs,
+            tsx_key: None
         }
     }
 
