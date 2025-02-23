@@ -25,7 +25,8 @@ use crate::{
         HostPort, SipMethod, SipRequest, SipResponse, StatusCode,
         TransportProtocol,
     },
-    parser::parse_sip_msg, transaction::TsxKey,
+    parser::parse_sip_msg,
+    transaction::TsxKey,
 };
 
 pub(crate) const CRLF: &[u8] = b"\r\n";
@@ -162,20 +163,31 @@ impl TransportLayer {
         }
 
         while let Some(msg) = rx.recv().await {
-            let (transport, packet) = msg;
-            let msg = match packet.payload() {
-                CRLF => {
-                    transport.send(END, packet.addr()).await?;
-                    continue;
-                }
-                END => {
-                    // do nothing
-                    continue;
-                }
-                bytes => match parse_sip_msg(bytes) {
-                    Ok(sip) => sip,
-                    Err(err) => {
-                        log::warn!(
+            let endpt = endpoint.clone();
+            tokio::spawn(async move { Self::process(endpt, msg).await });
+        }
+
+        Ok(())
+    }
+
+    async fn process(
+        endpoint: Endpoint,
+        msg: (Transport, Packet),
+    ) -> io::Result<()> {
+        let (transport, packet) = msg;
+        let msg = match packet.payload() {
+            CRLF => {
+                transport.send(END, packet.addr()).await?;
+                return Ok(());
+            }
+            END => {
+                // do nothing
+                return Ok(());
+            }
+            bytes => match parse_sip_msg(bytes) {
+                Ok(sip) => sip,
+                Err(err) => {
+                    log::warn!(
                             "Ignoring {} bytes packet from {} {} : {}\n{}-- end of packet.",
                             packet.payload().len(),
                             transport.protocol(),
@@ -183,13 +195,12 @@ impl TransportLayer {
                             err.message,
                             packet.to_string()
                         );
-                        continue;
-                    }
-                },
-            };
-            let info = IncomingInfo::new(packet, transport);
-            endpoint.handle_incoming((info, msg));
-        }
+                    return Ok(());
+                }
+            },
+        };
+        let info = IncomingInfo::new(packet, transport);
+        endpoint.handle_incoming((info, msg)).await?;
 
         Ok(())
     }
@@ -423,7 +434,7 @@ pub struct IncomingRequest {
     pub msg: SipRequest,
     pub req_hdrs: Option<RequestHeaders>,
     pub info: IncomingInfo,
-    pub tsx_key: Option<TsxKey>
+    pub tsx_key: Option<TsxKey>,
 }
 
 impl IncomingRequest {
@@ -436,7 +447,7 @@ impl IncomingRequest {
             msg,
             info,
             req_hdrs,
-            tsx_key: None
+            tsx_key: None,
         }
     }
 

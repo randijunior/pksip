@@ -104,11 +104,7 @@ impl Endpoint {
         Ok(())
     }
 
-    pub fn handle_incoming(&self, msg: TransportMessage) {
-        tokio::spawn(self.clone().recv_transport_msg(msg));
-    }
-
-    async fn recv_transport_msg(self, msg: TransportMessage) -> io::Result<()> {
+    pub async fn handle_incoming(&self, msg: TransportMessage) -> io::Result<()> {
         if let Err(err) = self.process_message(msg).await {
             log::error!("Error processing message: {:?}", err);
         }
@@ -144,10 +140,7 @@ impl Endpoint {
                 let Ok(req_headers) = (&msg.headers).try_into() else {
                     return Err(io::Error::other("Could not parse headers"));
                 };
-                let mut req =
-                    IncomingRequest::new(msg, info, Some(req_headers));
-                let key = TsxKey::try_from(&req).unwrap();
-                req.tsx_key = Some(key);
+                let req = IncomingRequest::new(msg, info, Some(req_headers));
                 self.receive_request(req).await
             }
             SipMessage::Response(msg) => {
@@ -258,13 +251,6 @@ impl Endpoint {
         &self,
         msg: IncomingRequest,
     ) -> io::Result<()> {
-        // Check transaction.
-        let Some(TsxMsg::UasRequest(msg)) =
-            self.transaction_layer.handle_message(msg.into()).await?
-        else {
-            return Ok(());
-        };
-
         // Create the server transaction.
         // self.create_uas_tsx(&mut msg).await?;
         let mut request = Request {
