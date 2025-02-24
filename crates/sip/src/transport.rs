@@ -163,44 +163,34 @@ impl TransportLayer {
         }
 
         while let Some(msg) = rx.recv().await {
-            let endpt = endpoint.clone();
-            tokio::spawn(async move { Self::process(endpt, msg).await });
-        }
-
-        Ok(())
-    }
-
-    async fn process(
-        endpoint: Endpoint,
-        msg: (Transport, Packet),
-    ) -> io::Result<()> {
-        let (transport, packet) = msg;
-        let msg = match packet.payload() {
-            CRLF => {
-                transport.send(END, packet.addr()).await?;
-                return Ok(());
-            }
-            END => {
-                // do nothing
-                return Ok(());
-            }
-            bytes => match parse_sip_msg(bytes) {
-                Ok(sip) => sip,
-                Err(err) => {
-                    log::warn!(
-                            "Ignoring {} bytes packet from {} {} : {}\n{}-- end of packet.",
-                            packet.payload().len(),
-                            transport.protocol(),
-                            packet.addr(),
-                            err.message,
-                            packet.to_string()
-                        );
-                    return Ok(());
+            let (transport, packet) = msg;
+            let msg = match packet.payload() {
+                CRLF => {
+                    transport.send(END, packet.addr()).await?;
+                    continue;
                 }
-            },
-        };
-        let info = IncomingInfo::new(packet, transport);
-        endpoint.handle_incoming((info, msg)).await?;
+                END => {
+                    // do nothing
+                    continue;
+                }
+                bytes => match parse_sip_msg(bytes) {
+                    Ok(sip) => sip,
+                    Err(err) => {
+                        log::warn!(
+                                "Ignoring {} bytes packet from {} {} : {}\n{}-- end of packet.",
+                                packet.payload().len(),
+                                transport.protocol(),
+                                packet.addr(),
+                                err.message,
+                                packet.to_string()
+                            );
+                        continue;
+                    }
+                },
+            };
+            let info = IncomingInfo::new(packet, transport);
+            endpoint.handle_incoming((info, msg)).await?;
+        }
 
         Ok(())
     }

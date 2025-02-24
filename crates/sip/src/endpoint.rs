@@ -1,8 +1,5 @@
-use tokio::sync::oneshot::{self};
-
 use crate::message::{SipMethod, StatusLine};
 use crate::service::Request;
-use crate::transaction::{TsxKey, TsxMsg, TsxSender};
 use crate::transport::{
     IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
     OutgoingResponse, Transport, TransportLayer,

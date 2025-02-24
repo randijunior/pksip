@@ -72,7 +72,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Returns `true` if all bytes where read
-    #[inline]
+    #[inline(always)]
     pub fn is_eof(&self) -> bool {
         self.finished
     }
@@ -84,7 +84,7 @@ impl<'a> Reader<'a> {
             return None;
         }
 
-        Some(&self.src[self.idx])
+        Some(unsafe { self.src.get_unchecked(self.idx) })
     }
 
     /// Same as [Reader::peek] but will return an `Result` instead a `Option`.
@@ -238,7 +238,7 @@ impl<'a> Reader<'a> {
 
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
-        let byte = &self.src[self.idx];
+        let byte = unsafe { self.src.get_unchecked(self.idx)};
         if byte == &b'\n' {
             self.pos.col = 1;
             self.pos.line += 1;

@@ -2,8 +2,7 @@ use std::io;
 
 use async_trait::async_trait;
 
-use crate::message::StatusLine;
-use crate::transaction::TsxSender;
+
 use crate::transport::{IncomingRequest, IncomingResponse};
 
 use crate::endpoint::Endpoint;

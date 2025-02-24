@@ -29,7 +29,7 @@ impl SipTransport for Udp {
     }
 
     fn init_recv(&self, sender: TpSender) {
-        tokio::spawn(Udp::recv_from(self.clone(), sender));
+        tokio::spawn(Box::pin(Udp::recv_from(self.clone(), sender)));
     }
 
     fn protocol(&self) -> TransportProtocol {

@@ -198,6 +198,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
     };
 
     let mut has_content_type = false;
+    let headers = msg.headers_mut();
 
     macro_rules! parse_header {
         ($header:ident, $reader:ident) => {
@@ -207,7 +208,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
                     $reader
                 );
             };
-            msg.push_header(Header::$header(header));
+            headers.push(Header::$header(header));
         };
     }
 
@@ -407,7 +408,7 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             _ => {
                 let value = Header::parse_header_value_as_str(reader)?;
 
-                msg.push_header(Header::Other {
+                headers.push(Header::Other {
                     name: name.into(),
                     value: value.into(),
                 });
@@ -419,8 +420,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
         reader.read_if(|b| b == &b'\r')?;
         reader.read_if(|b| b == &b'\n')?;
 
-        if reader.is_eof() || reader.cur_is_some_and(is_newline) {
-            break 'headers;
+        match reader.peek() {
+            Some(b) => if matches!(b, &b'\r' | &b'\n') {
+                break 'headers;
+            },
+            None => break 'headers,
         }
     }
 
