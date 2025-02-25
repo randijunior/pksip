@@ -166,7 +166,16 @@ impl<'a> Reader<'a> {
         F: Fn(&u8) -> bool,
     {
         let start = self.idx;
-        while let Ok(Some(_)) = self.read_if(&func) {}
+        loop {
+            let Some(b) = self.peek() else {
+                break;
+            };
+            if func(b) {
+               self.next();
+            } else {
+                break;
+            }
+        }
         let end = self.idx;
 
         Range { start, end }

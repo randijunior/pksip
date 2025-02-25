@@ -10,7 +10,7 @@ use std::{
 
 pub mod udp;
 
-use arrayvec::ArrayVec;
+
 use async_trait::async_trait;
 
 use std::io::Write;
@@ -35,36 +35,61 @@ pub(crate) const MAX_PACKET_SIZE: usize = 4000;
 
 pub(crate) type TpSender = mpsc::Sender<(Transport, Packet)>;
 
-#[derive(Default, Debug)]
-pub struct MsgBuffer(ArrayVec<u8, MAX_PACKET_SIZE>);
+#[derive(Debug)]
+pub struct MsgBuffer {
+    buf: [u8; MAX_PACKET_SIZE],
+    pos: usize,
+}
 
 impl Deref for MsgBuffer {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.buf
     }
 }
 
+
 impl MsgBuffer {
     pub fn new() -> Self {
-        Self(ArrayVec::new())
+        Self {
+            buf: [0; MAX_PACKET_SIZE],
+            pos: 0
+        }
     }
 
     pub fn try_extend_from_slice(
         &mut self,
         data: &[u8],
     ) -> Result<(), io::Error> {
-        self.0
-            .try_extend_from_slice(data)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Buffer full"))
+        let len = data.len();
+        if self.pos + len > MAX_PACKET_SIZE {
+            return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Packet size exceeds MAX_PACKET_SIZE",
+            ));
+        }
+        self.buf[self.pos..self.pos + len].copy_from_slice(data);
+        self.pos += len;
+        Ok(())
+    }
+}
+
+impl Write for MsgBuffer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let remaining = self.len().saturating_sub(self.pos);
+        let len = remaining.min(buf.len());
+
+        if len > 0 {
+            self.buf[self.pos..self.pos + len].copy_from_slice(&buf[..len]);
+            self.pos += len;
+        }
+
+        Ok(len)
     }
 
-    pub fn write<T>(&mut self, data: T) -> Result<(), io::Error>
-    where
-        T: std::fmt::Display,
-    {
-        write!(self.0, "{}", data)
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -398,10 +423,11 @@ impl<'a> OutgoingResponse {
     pub fn into_buffer(&self) -> io::Result<MsgBuffer> {
         let mut buf = MsgBuffer::new();
 
-        buf.write(&self.msg.st_line)?;
-        buf.write(&self.hdrs)?;
-        buf.write(&self.msg.headers)?;
-        buf.write("\r\n")?;
+        write!(buf, "{}", &self.msg.st_line)?;
+        write!(buf, "{}", &self.hdrs)?;
+        write!(buf, "{}", &self.msg.headers)?;
+        write!(buf, "{}","\r\n")?;
+      
         if let Some(body) = &self.msg.body {
             if let Err(_err) = buf.try_extend_from_slice(&*body) {
                 return Err(io::Error::other(

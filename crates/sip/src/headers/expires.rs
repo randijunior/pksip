@@ -10,10 +10,10 @@ use crate::headers::SipHeader;
 ///
 /// Gives the relative time after which the message (or content) expires.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Expires(pub i32);
+pub struct Expires(pub u32);
 
 impl Expires {
-    pub fn new(expires: i32) -> Self {
+    pub fn new(expires: u32) -> Self {
         Self(expires)
     }
 }
@@ -24,7 +24,7 @@ impl<'a> SipHeader<'a> for Expires {
      * Expires     =  "Expires" HCOLON delta-seconds
      */
     fn parse(reader: &mut Reader<'a>) -> Result<Expires> {
-        let expires = reader.read_num()?;
+        let expires = reader.read_u32()?;
 
         Ok(Expires(expires))
     }

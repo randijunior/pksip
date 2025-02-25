@@ -9,7 +9,6 @@ edition = "2021"
 reader.workspace = true
 itertools = "0.13.0"
 async-trait = "0.1.83"
-arrayvec = "0.7.6"
 hickory-resolver = "0.24.1"
 tokio = { version = "1.41.1", features = [
     "net",

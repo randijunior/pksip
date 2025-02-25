@@ -19,9 +19,9 @@ impl SipHeader<'_> for MimeVersion {
      * MIME-Version  =  "MIME-Version" HCOLON 1*DIGIT "." 1*DIGIT
      */
     fn parse(reader: &mut Reader) -> Result<MimeVersion> {
-        let expires = reader.read_number_as_str();
+        let version = reader.read_number_as_str();
 
-        Ok(MimeVersion(expires.into()))
+        Ok(MimeVersion(version.into()))
     }
 }
 

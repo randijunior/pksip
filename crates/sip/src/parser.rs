@@ -439,9 +439,10 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
 }
 
 fn is_sip_version(reader: &Reader) -> bool {
-    reader
-        .peek_n(4)
-        .is_some_and(|peeked| peeked == SIP && &peeked[3] == &b'/')
+    match reader.peek_n(4) {
+        Some(B_SIPV2) => true,
+        _ => false,
+    }
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
