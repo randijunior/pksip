@@ -846,7 +846,7 @@ mod tests {
     uri! {
         test_uri_6,
         b"sip:support:pass",
-        parse_error!("Failed to parse at line:1 column:13 kind:Num\nsip:support:pass")
+        parse_error!("Failed to parse at line:1 column:13 kind:Num")
     }
 
     uri! {

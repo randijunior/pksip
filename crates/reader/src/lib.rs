@@ -84,7 +84,7 @@ impl<'a> Reader<'a> {
             return None;
         }
 
-        Some(unsafe { self.src.get_unchecked(self.idx) })
+        Some(&self.src[self.idx])
     }
 
     /// Same as [Reader::peek] but will return an `Result` instead a `Option`.
@@ -265,7 +265,7 @@ impl<'a> Reader<'a> {
 
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
-        let byte = unsafe { self.src.get_unchecked(self.idx) };
+        let byte = &self.src[self.idx];
         if byte == &b'\n' {
             self.pos.col = 1;
             self.pos.line += 1;
