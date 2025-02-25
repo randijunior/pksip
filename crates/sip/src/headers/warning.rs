@@ -30,7 +30,7 @@ impl SipHeader<'_> for Warning {
      * pseudonym      =  token
      */
     fn parse(reader: &mut Reader) -> Result<Self> {
-        let code = reader.read_num()?;
+        let code = reader.read_u32()?;
         space!(reader);
         let host = unsafe { reader.read_as_str(is_host) };
         space!(reader);

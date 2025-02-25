@@ -1,11 +1,6 @@
 use async_trait::async_trait;
 use local_ip_address::local_ip;
-use std::{
-    io,
-    net::SocketAddr,
-    sync::Arc,
-    time::SystemTime,
-};
+use std::{io, net::SocketAddr, sync::Arc, time::SystemTime};
 use tokio::net::{ToSocketAddrs, UdpSocket};
 
 use crate::message::{Host, HostPort, TransportProtocol};
@@ -29,7 +24,8 @@ impl SipTransport for Udp {
     }
 
     fn init_recv(&self, sender: TpSender) {
-        tokio::spawn(Box::pin(Udp::recv_from(self.clone(), sender)));
+        let udp = Arc::new(self.clone());
+        tokio::spawn(Box::pin(Udp::recv_from(udp, sender)));
     }
 
     fn protocol(&self) -> TransportProtocol {
@@ -70,17 +66,18 @@ impl Udp {
         Ok(Udp(udp).into())
     }
 
-    async fn recv_from(self, sender: TpSender) -> io::Result<()> {
-        let mut buf = [0u8; MAX_PACKET_SIZE];
+    async fn recv_from(udp: Arc<Self>, sender: TpSender) -> io::Result<()> {
+        let mut buf = vec![0u8; MAX_PACKET_SIZE];
         loop {
-            let (len, addr) = self.0.sock.recv_from(&mut buf).await?;
+            let (len, addr) = udp.0.sock.recv_from(&mut buf).await?;
             let buf = &buf[..len];
             let packet = Packet {
                 time: SystemTime::now(),
                 payload: buf.into(),
                 addr,
             };
-            sender.send((self.clone().into(), packet)).await.unwrap();
+            let tp = Transport(udp.clone() as Arc<dyn SipTransport>);
+            sender.send((tp, packet)).await.unwrap();
         }
     }
 }

@@ -34,7 +34,7 @@ impl<'a> SipHeader<'a> for CSeq {
      * CSeq  =  "CSeq" HCOLON 1*DIGIT LWS Method
      */
     fn parse(reader: &mut Reader<'a>) -> Result<CSeq> {
-        let cseq = reader.read_num()?;
+        let cseq = reader.read_u32()?;
 
         space!(reader);
         let b_method = alpha!(reader);

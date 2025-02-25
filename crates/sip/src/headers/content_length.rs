@@ -28,7 +28,7 @@ impl ContentLength {
             ContentLength::NAME
         );
 
-        reader.must_read(&b':')?;
+        reader.next();
 
         space!(reader);
         ContentLength::parse(&mut reader)
@@ -42,7 +42,7 @@ impl<'a> SipHeader<'a> for ContentLength {
      * Content-Length  =  ( "Content-Length" / "l" ) HCOLON 1*DIGIT
      */
     fn parse(reader: &mut Reader<'a>) -> Result<ContentLength> {
-        let l = reader.read_num()?;
+        let l = reader.read_u32()?;
 
         Ok(ContentLength(l))
     }

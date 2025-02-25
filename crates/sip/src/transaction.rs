@@ -278,7 +278,9 @@ impl TsxMsg {
 
     pub fn tsx_key(&self) -> Option<&TsxKey> {
         match self {
-            TsxMsg::UasRequest(incoming_request) => incoming_request.tsx_key.as_ref(),
+            TsxMsg::UasRequest(incoming_request) => {
+                incoming_request.tsx_key.as_ref()
+            }
             TsxMsg::UasResponse(outgoing_response) => todo!(),
             TsxMsg::UacRequest(out_going_request) => todo!(),
             TsxMsg::UacResponse(incoming_response) => todo!(),
@@ -373,7 +375,7 @@ impl TransactionLayer {
             self.tsx_recv_msg(tsx, receiver);
         };
         let key = request.tsx_key.as_ref().unwrap();
-        self.insert(key.clone(),sender);
+        self.insert(key.clone(), sender);
 
         Ok(rx)
     }

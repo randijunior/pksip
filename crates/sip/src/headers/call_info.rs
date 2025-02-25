@@ -56,10 +56,10 @@ impl SipHeader<'_> for CallInfo {
     fn parse(reader: &mut Reader) -> Result<Self> {
         let mut purpose: Option<ArcStr> = None;
         // must be an '<'
-        reader.must_read(&b'<')?;
+        reader.next();
         let url = until!(reader, &b'>');
         // must be an '>'
-        reader.must_read(&b'>')?;
+        reader.next();
         let url = str::from_utf8(url)?;
         let params = parse_header_param!(reader, PURPOSE = purpose);
 

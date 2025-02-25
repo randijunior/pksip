@@ -421,9 +421,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
         reader.read_if(|b| b == &b'\n')?;
 
         match reader.peek() {
-            Some(b) => if matches!(b, &b'\r' | &b'\n') {
-                break 'headers;
-            },
+            Some(b) => {
+                if matches!(b, &b'\r' | &b'\n') {
+                    break 'headers;
+                }
+            }
             None => break 'headers,
         }
     }
@@ -480,7 +482,7 @@ pub(crate) fn parse_user_info<'a>(
         }
         _ => None,
     };
-    reader.must_read(&b'@')?;
+    reader.next();
 
     Ok(Some(UserInfo::new(user, pass)))
 }
@@ -490,7 +492,7 @@ fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
         return Ok(None);
     };
     reader.next();
-    let digits = reader.read_num()?;
+    let digits = reader.read_u16()?;
     if is_valid_port(digits) {
         Ok(Some(digits))
     } else {
@@ -502,11 +504,11 @@ pub(crate) fn parse_host_port<'a>(reader: &mut Reader<'a>) -> Result<HostPort> {
     let host = match reader.peek() {
         Some(&b'[') => {
             // Is a Ipv6 host
-            reader.must_read(&b'[')?;
+            reader.next();
             // the '[' and ']' characters are removed from the host
             let host = until!(reader, &b']');
             let host = str::from_utf8(host)?;
-            reader.must_read(&b']')?;
+            reader.next();
 
             match host.parse() {
                 Ok(addr) => Host::IpAddr(addr),
@@ -533,7 +535,7 @@ pub(crate) fn parse_host_port<'a>(reader: &mut Reader<'a>) -> Result<HostPort> {
 fn parse_header_params_in_sip_uri<'a>(
     reader: &mut Reader<'a>,
 ) -> Result<Params> {
-    reader.must_read(&b'?')?;
+    reader.next();
     let mut params = Params::new();
     loop {
         // take '&'
@@ -553,7 +555,7 @@ pub(crate) fn parse_uri<'a>(
 ) -> Result<Uri> {
     let scheme = parse_scheme(reader)?;
     // take ':'
-    reader.must_read(&b':')?;
+    reader.next();
     let user = parse_user_info(reader)?;
     let host_port = parse_host_port(reader)?;
 
@@ -624,7 +626,7 @@ pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr> {
         &b'"' => {
             reader.next();
             let display = until!(reader, &b'"');
-            reader.must_read(&b'"')?;
+            reader.next();
 
             Some(str::from_utf8(display)?)
         }
@@ -638,10 +640,10 @@ pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr> {
     };
     space!(reader);
     // must be an '<'
-    reader.must_read(&b'<')?;
+    reader.next();
     let uri = parse_uri(reader, true)?;
     // must be an '>'
-    reader.must_read(&b'>')?;
+    reader.next();
 
     Ok(NameAddr {
         display: display.map(|s| s.into()),

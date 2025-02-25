@@ -18,7 +18,7 @@ impl<'a> SipHeader<'a> for MinExpires {
      * Min-Expires  =  "Min-Expires" HCOLON delta-seconds
      */
     fn parse(reader: &mut Reader<'a>) -> Result<Self> {
-        let expires = reader.read_num()?;
+        let expires = reader.read_u32()?;
 
         Ok(MinExpires(expires))
     }

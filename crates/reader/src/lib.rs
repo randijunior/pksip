@@ -121,10 +121,37 @@ impl<'a> Reader<'a> {
         F: Fn(&u8) -> bool,
     {
         let src = self.as_ref();
-        let iter = src.iter().take_while(|&b| func(b));
-        let pos = iter.count();
+        for (i, &b) in src.iter().enumerate() {
+            if !func(&b) {
+                return src.get(i);
+            }
+        }
+        None
+    }
+    /// Read a `u32` number from the slice.
+    ///
+    /// This method reads until an invalid digit is found.
+    pub fn read_u32(&mut self) -> Result<u32> {
+        let bytes = digits!(self);
+        let digits = unsafe { str::from_utf8_unchecked(bytes) };
 
-        src.get(pos)
+        match digits.parse() {
+            Ok(num) => Ok(num),
+            Err(_) => self.error(ErrorKind::Num),
+        }
+    }
+
+    /// Read a `u16` number from the slice.
+    ///
+    /// This method reads until an invalid digit is found.
+    pub fn read_u16(&mut self) -> Result<u16> {
+        let bytes = digits!(self);
+        let digits = unsafe { str::from_utf8_unchecked(bytes) };
+
+        match digits.parse() {
+            Ok(num) => Ok(num),
+            Err(_) => self.error(ErrorKind::Num),
+        }
     }
 
     /// `read_while()` will call the `func` clousure for each element in the slice and advance
@@ -238,7 +265,7 @@ impl<'a> Reader<'a> {
 
     #[inline(always)]
     fn advance(&mut self) -> &'a u8 {
-        let byte = unsafe { self.src.get_unchecked(self.idx)};
+        let byte = unsafe { self.src.get_unchecked(self.idx) };
         if byte == &b'\n' {
             self.pos.col = 1;
             self.pos.line += 1;

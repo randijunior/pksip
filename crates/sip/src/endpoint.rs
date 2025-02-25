@@ -101,7 +101,10 @@ impl Endpoint {
         Ok(())
     }
 
-    pub async fn handle_incoming(&self, msg: TransportMessage) -> io::Result<()> {
+    pub async fn handle_incoming(
+        &self,
+        msg: TransportMessage,
+    ) -> io::Result<()> {
         if let Err(err) = self.process_message(msg).await {
             log::error!("Error processing message: {:?}", err);
         }

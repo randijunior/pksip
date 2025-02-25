@@ -9,7 +9,6 @@ use std::error::Error;
 use tokio::io;
 use tracing::Level;
 
-
 pub struct MyService;
 
 #[async_trait]
@@ -20,7 +19,9 @@ impl SipService for MyService {
     async fn on_request(&self, req: &mut Request) -> io::Result<()> {
         if !req.msg.as_ref().unwrap().is_method(&SipMethod::Ack) {
             let msg = req.msg.take().unwrap();
-            req.endpoint.respond(msg, StatusCode::NotImplemented.into()).await?;
+            req.endpoint
+                .respond(msg, StatusCode::NotImplemented.into())
+                .await?;
         }
         Ok(())
     }

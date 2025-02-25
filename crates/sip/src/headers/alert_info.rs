@@ -53,9 +53,9 @@ impl SipHeader<'_> for AlertInfo {
     fn parse(reader: &mut Reader) -> Result<Self> {
         space!(reader);
 
-        reader.must_read(&b'<')?;
+        reader.next();
         let url = until!(reader, &b'>');
-        reader.must_read(&b'>')?;
+        reader.next();
 
         let url = str::from_utf8(url)?;
         let params = parse_header_param!(reader);

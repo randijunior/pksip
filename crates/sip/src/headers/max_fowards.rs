@@ -27,7 +27,7 @@ impl<'a> SipHeader<'a> for MaxForwards {
      * Max-Forwards  =  "Max-Forwards" HCOLON 1*DIGIT
      */
     fn parse(reader: &mut Reader<'a>) -> Result<MaxForwards> {
-        let fowards = reader.read_num()?;
+        let fowards = reader.read_u32()?;
 
         Ok(MaxForwards(fowards))
     }

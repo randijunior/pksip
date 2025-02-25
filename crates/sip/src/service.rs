@@ -2,7 +2,6 @@ use std::io;
 
 use async_trait::async_trait;
 
-
 use crate::transport::{IncomingRequest, IncomingResponse};
 
 use crate::endpoint::Endpoint;

@@ -7,7 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt", "macros"] }
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3", features = ["chrono", "env-filter"]}
 async-trait = "0.1.83"

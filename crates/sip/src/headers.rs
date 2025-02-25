@@ -409,7 +409,7 @@ impl Header {
         let header_name = parse_token(reader)?;
 
         space!(reader);
-        reader.must_read(&b':')?;
+        reader.next();
         space!(reader);
 
         match header_name {

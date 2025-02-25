@@ -43,9 +43,9 @@ impl SipHeader<'_> for ErrorInfo {
      */
     fn parse(reader: &mut Reader) -> Result<ErrorInfo> {
         let infos = hdr_list!(reader => {
-            reader.must_read(&b'<')?;
+            reader.next();
             let url = until!(reader, &b'>');
-            reader.must_read(&b'>')?;
+            reader.next();
 
             let url = str::from_utf8(url)?;
             let params = parse_header_param!(reader);

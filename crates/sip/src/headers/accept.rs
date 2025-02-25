@@ -80,7 +80,7 @@ impl SipHeader<'_> for Accept {
     fn parse(reader: &mut Reader) -> Result<Accept> {
         let mtypes = hdr_list!(reader => {
             let mtype = parser::parse_token(reader)?;
-            reader.must_read(&b'/')?;
+            reader.next();
             let subtype = parser::parse_token(reader)?;
             let param = parse_header_param!(reader);
 

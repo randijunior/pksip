@@ -38,7 +38,7 @@ impl SipHeader<'_> for ContentType {
      */
     fn parse(reader: &mut Reader) -> Result<ContentType> {
         let mtype = parser::parse_token(reader)?;
-        reader.must_read(&b'/')?;
+        reader.next();
         let subtype = parser::parse_token(reader)?;
         let param = parse_header_param!(reader);
         let media_type = MediaType::from_parts(mtype, subtype, param);
