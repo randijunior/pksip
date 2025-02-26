@@ -172,9 +172,9 @@ impl TransportLayer {
             .cloned()
     }
 
-    pub async fn recv_packet(&self, endpoint: &Endpoint) -> io::Result<()> {
+    pub fn initialize(&self) -> mpsc::Receiver<(Transport, Packet)> {
         let transports = self.transports.lock().unwrap();
-        let (tx, mut rx) = mpsc::channel(1024);
+        let (tx, rx) = mpsc::channel(2024);
 
         for transport in transports.values() {
             transport.init_recv(tx.clone());
@@ -187,6 +187,10 @@ impl TransportLayer {
             );
         }
 
+        rx
+    }
+
+    pub async fn recv_packet(&self, mut rx: mpsc::Receiver<(Transport, Packet)>, endpoint: &Endpoint) -> io::Result<()> {
         while let Some(msg) = rx.recv().await {
             let (transport, packet) = msg;
             let msg = match packet.payload() {
@@ -326,7 +330,7 @@ pub struct OutgoingInfo {
 
 pub struct IncomingInfo {
     packet: Packet,
-    transport: Transport,
+    pub transport: Transport,
 }
 
 impl IncomingInfo {

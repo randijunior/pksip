@@ -1,3 +1,5 @@
+#![deny(clippy::large_futures)]
+
 pub mod auth;
 pub mod endpoint;
 pub mod headers;

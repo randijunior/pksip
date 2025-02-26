@@ -1,4 +1,7 @@
+use tokio::spawn;
+
 use crate::message::{SipMethod, StatusLine};
+use crate::resolver::HostPortInfo;
 use crate::service::Request;
 use crate::transport::{
     IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
@@ -96,18 +99,18 @@ impl Deref for Endpoint {
 }
 
 impl Endpoint {
-    pub async fn run(&self) -> io::Result<()> {
-        self.transport_layer.recv_packet(self).await?;
-        Ok(())
+    pub async fn run(self) -> io::Result<()> {
+        let rx = self.transport_layer.initialize();
+        tokio::spawn(Box::pin(async move {
+            self.transport_layer.recv_packet(rx, &self).await
+        })).await?
     }
 
     pub async fn handle_incoming(
         &self,
         msg: TransportMessage,
     ) -> io::Result<()> {
-        if let Err(err) = self.process_message(msg).await {
-            log::error!("Error processing message: {:?}", err);
-        }
+        tokio::spawn(self.clone().process_message(msg));
         Ok(())
     }
 
@@ -133,7 +136,7 @@ impl Endpoint {
         Ok(())
     }
 
-    async fn process_message(&self, msg: TransportMessage) -> io::Result<()> {
+    async fn process_message(self, msg: TransportMessage) -> io::Result<()> {
         let (info, msg) = msg;
         match msg {
             SipMessage::Request(msg) => {
@@ -193,12 +196,14 @@ impl Endpoint {
             todo!()
         } else if let Some(maddr) = &via.maddr {
             let port = via.sent_by.port.unwrap_or(5060);
-            let temp_uri = UriBuilder::new()
-                .host(HostPort::new(maddr.clone(), Some(port)))
-                .transport_param(transport.protocol())
-                .get();
-            let temp_uri = SipUri::Uri(temp_uri);
-            let addresses = self.dns_resolver.resolve(&temp_uri).await?;
+            let addresses = self
+                .dns_resolver
+                .resolve(HostPortInfo {
+                    host: maddr,
+                    protocol: transport.protocol(),
+                    port,
+                })
+                .await?;
             let ServerAddress { addr, protocol } = addresses[0];
             // Find transport
             //TODO: the transport transport_layer must create a transport if it cannot find
@@ -253,14 +258,15 @@ impl Endpoint {
     ) -> io::Result<()> {
         // Create the server transaction.
         // self.create_uas_tsx(&mut msg).await?;
+        // new_incoming
         let mut request = Request {
             endpoint: self,
             msg: msg.into(),
         };
-
-        // new_incoming
         for service in self.services.iter() {
-            service.on_request(&mut request).await?;
+            if let Err(_err) = service.on_request(&mut request).await {
+                break;
+            }
 
             if request.msg.is_none() {
                 break;
