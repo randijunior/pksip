@@ -509,13 +509,13 @@ pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
         let Some(cseq) = cseq else {
             return parse_error!("Missing required 'CSeq' header");
         };
-        req.req_headers = Some(RequestHeaders {
-            via,
+        req.req_headers = Some(Box::new(RequestHeaders {
+            via: via,
             from,
             to,
             callid,
             cseq,
-        })
+        }))
     }
 
     newline!(reader);
@@ -556,9 +556,7 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
     }
 }
 
-pub(crate) fn parse_user_info(
-    reader: &mut Reader,
-) -> Result<Option<UserInfo>> {
+pub(crate) fn parse_user_info(reader: &mut Reader) -> Result<Option<UserInfo>> {
     let peeked =
         reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
 
@@ -621,9 +619,7 @@ pub(crate) fn parse_host_port(reader: &mut Reader) -> Result<HostPort> {
     Ok(HostPort { host, port })
 }
 
-fn parse_header_params_in_sip_uri(
-    reader: &mut Reader,
-) -> Result<Params> {
+fn parse_header_params_in_sip_uri(reader: &mut Reader) -> Result<Params> {
     reader.next();
     let mut params = Params::new();
     loop {

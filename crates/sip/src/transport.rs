@@ -417,7 +417,7 @@ impl TryFrom<&Headers> for RequestHeaders {
 }
 
 pub struct OutgoingResponse {
-    pub hdrs: RequestHeaders,
+    pub hdrs: Box<RequestHeaders>,
     pub msg: SipResponse,
     pub info: OutgoingInfo,
     pub buf: Option<Arc<MsgBuffer>>,

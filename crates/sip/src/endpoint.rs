@@ -1,8 +1,5 @@
-use tokio::spawn;
-
 use crate::message::{SipMethod, StatusLine};
 use crate::resolver::HostPortInfo;
-use crate::service::Request;
 use crate::transport::{
     IncomingInfo, IncomingRequest, IncomingResponse, OutgoingInfo,
     OutgoingResponse, Transport, TransportLayer,
@@ -10,7 +7,7 @@ use crate::transport::{
 use crate::{
     headers::{Headers, Via},
     message::{
-        HostPort, SipMessage, SipResponse, SipUri, StatusCode, UriBuilder,
+        SipMessage, SipResponse,StatusCode
     },
     resolver::{Resolver, ServerAddress},
     service::SipService,
@@ -49,11 +46,7 @@ impl EndpointBuilder {
     }
 
     pub fn with_service(mut self, service: impl SipService) -> Self {
-        if self
-            .services
-            .iter()
-            .any(|s| s.name() == service.name())
-        {
+        if self.services.iter().any(|s| s.name() == service.name()) {
             log::warn!("Service with name '{}' already exists", service.name());
             return self;
         }
@@ -102,14 +95,31 @@ impl Endpoint {
         let rx = self.transport_layer.initialize();
         tokio::spawn(Box::pin(async move {
             self.transport_layer.recv_packet(rx, &self).await
-        })).await?
+        }))
+        .await?
     }
 
     pub async fn handle_incoming(
         &self,
         msg: TransportMessage,
     ) -> io::Result<()> {
-        tokio::spawn(self.clone().process_message(msg));
+        let (info, msg) = msg;
+        let endpoint = self.clone();
+        match msg {
+            SipMessage::Request(msg) => {
+                let req = IncomingRequest::new(msg, info);
+                tokio::spawn(async move {
+                    endpoint.receive_request(&mut Some(req)).await
+                });
+            }
+            SipMessage::Response(msg) => {
+                let res = IncomingResponse::new(msg, info);
+                tokio::spawn(async move {
+                    endpoint.receive_response(&mut Some(res)).await
+                });
+            }
+        }
+
         Ok(())
     }
 
@@ -135,19 +145,6 @@ impl Endpoint {
         Ok(())
     }
 
-    async fn process_message(self, msg: TransportMessage) -> io::Result<()> {
-        let (info, msg) = msg;
-        match msg {
-            SipMessage::Request(msg) => {
-                let req = IncomingRequest::new(msg, info);
-                self.receive_request(req).await
-            }
-            SipMessage::Response(msg) => {
-                let res = IncomingResponse::new(msg, info);
-                self.receive_response(res).await
-            }
-        }
-    }
 
     pub async fn new_response(
         &self,
@@ -250,21 +247,16 @@ impl Endpoint {
 
     pub async fn receive_request(
         &self,
-        msg: IncomingRequest,
+        msg: &mut Option<IncomingRequest>,
     ) -> io::Result<()> {
         // Create the server transaction.
         // self.create_uas_tsx(&mut msg).await?;
-        // new_incoming
-        let mut request = Request {
-            endpoint: self,
-            msg: msg.into(),
-        };
         for service in self.services.iter() {
-            if let Err(_err) = service.on_request(&mut request).await {
+            if let Err(_err) = service.on_request(self, msg).await {
                 break;
             }
 
-            if request.msg.is_none() {
+            if msg.is_none() {
                 break;
             }
         }
@@ -274,9 +266,17 @@ impl Endpoint {
 
     pub async fn receive_response(
         &self,
-        msg: IncomingResponse,
+        msg: &mut Option<IncomingResponse>
     ) -> io::Result<()> {
-        // propagate!(self, msg, on_response);
+        for service in self.services.iter() {
+            if let Err(_err) = service.on_response(self, msg).await {
+                break;
+            }
+
+            if msg.is_none() {
+                break;
+            }
+        }
 
         Ok(())
     }

@@ -403,13 +403,13 @@ pub(crate) mod mock {
             method: SipMethod::Options,
         };
         let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
-        let hdrs = RequestHeaders {
+        let hdrs = Box::new(RequestHeaders {
             via: vec![],
             from,
             to,
             callid,
             cseq,
-        };
+        });
         let transport = Transport::new(MockUdpTransport);
         let info = OutgoingInfo {
             addr: transport.addr(),
@@ -436,13 +436,13 @@ pub(crate) mod mock {
         };
         let cseq = CSeq { cseq: 1, method: m };
         let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
-        let hdrs = RequestHeaders {
+        let hdrs = Box::new(RequestHeaders {
             via: vec![via],
             from,
             to,
             callid,
             cseq,
-        };
+        });
         let transport = Transport::new(MockUdpTransport);
         let packet = Packet {
             payload: "".as_bytes().into(),

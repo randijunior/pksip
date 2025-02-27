@@ -543,7 +543,7 @@ impl Headers {
         Self(Vec::new())
     }
 
-    pub fn with_capacity(capacity: usize) -> Self { 
+    pub fn with_capacity(capacity: usize) -> Self {
         Self(Vec::with_capacity(capacity))
     }
 

@@ -4,9 +4,12 @@
 
 use std::sync::Arc;
 
-use crate::{headers::{CSeq, CallId, Header, Headers, SipHeader}, transport::RequestHeaders};
+use crate::{
+    headers::Headers,
+    transport::RequestHeaders,
+};
 
-use super::{SipMethod, SipUri, Uri};
+use super::{SipMethod, Uri};
 
 /// Represents an SIP Request-Line.
 #[derive(Debug)]
@@ -19,7 +22,7 @@ pub struct RequestLine {
 pub struct SipRequest {
     pub req_line: RequestLine,
     pub headers: Headers,
-    pub req_headers: Option<RequestHeaders>,
+    pub req_headers: Option<Box<RequestHeaders>>,
     pub body: Option<Arc<[u8]>>,
 }
 
@@ -28,13 +31,13 @@ impl SipRequest {
         req_line: RequestLine,
         headers: Headers,
         body: Option<&[u8]>,
-        req_hdrs: Option<RequestHeaders>
+        req_hdrs: Option<Box<RequestHeaders>>,
     ) -> Self {
         Self {
             body: body.map(|b| b.into()),
             req_line,
             headers,
-            req_headers: req_hdrs
+            req_headers: req_hdrs,
         }
     }
 

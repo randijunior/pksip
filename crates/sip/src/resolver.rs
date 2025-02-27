@@ -10,7 +10,7 @@ pub struct ServerAddress {
 pub struct HostPortInfo<'a> {
     pub host: &'a Host,
     pub port: u16,
-    pub protocol: TransportProtocol
+    pub protocol: TransportProtocol,
 }
 
 pub struct Resolver {
@@ -39,13 +39,17 @@ impl Resolver {
         let port = protocol.get_port();
         log::debug!("CAIU {}!", host_port.as_str());
         let result = match host_port {
-            Host::DomainName(arc_str) =>self.dns_resolver.lookup_ip(arc_str.as_ref() as &str).await.map_err(|err| {
-                io::Error::other(format!("Failed to lookup dns: {}", err))
-            })?,
-            Host::IpAddr(ip_addr) =>  {
+            Host::DomainName(arc_str) => self
+                .dns_resolver
+                .lookup_ip(arc_str.as_ref() as &str)
+                .await
+                .map_err(|err| {
+                    io::Error::other(format!("Failed to lookup dns: {}", err))
+                })?,
+            Host::IpAddr(ip_addr) => {
                 log::debug!("CAIU AQ!");
                 let addr = SocketAddr::new(*ip_addr, port);
-                return Ok(vec![ServerAddress { addr, protocol }])
+                return Ok(vec![ServerAddress { addr, protocol }]);
             }
         };
 

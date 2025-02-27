@@ -10,20 +10,19 @@ use crate::endpoint::Endpoint;
 pub trait SipService: Sync + Send + 'static {
     fn name(&self) -> &str;
 
-    async fn on_request(&self, req: &mut Request) -> io::Result<()> {
+    async fn on_request(
+        &self,
+        endpt: &Endpoint,
+        req: &mut Option<IncomingRequest>
+    ) -> io::Result<()> {
         Ok(())
     }
 
-    async fn on_recv_response(
+    async fn on_response(
         &self,
         endpt: &Endpoint,
         response: &mut Option<IncomingResponse>,
     ) -> io::Result<()> {
         Ok(())
     }
-}
-
-pub struct Request<'a> {
-    pub endpoint: &'a Endpoint,
-    pub msg: Option<IncomingRequest>,
 }

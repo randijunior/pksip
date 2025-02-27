@@ -171,7 +171,7 @@ impl<'a> Reader<'a> {
                 break;
             };
             if func(b) {
-               self.next();
+                self.next();
             } else {
                 break;
             }

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use sip::{
-    endpoint::EndpointBuilder,
+    endpoint::{Endpoint, EndpointBuilder},
     message::{SipMethod, StatusCode},
-    service::{Request, SipService},
-    transport::udp::Udp,
+    service::SipService,
+    transport::{udp::Udp, IncomingRequest},
 };
 use std::error::Error;
 use tokio::io;
@@ -16,10 +16,14 @@ impl SipService for MyService {
     fn name(&self) -> &str {
         "MyService"
     }
-    async fn on_request(&self, req: &mut Request) -> io::Result<()> {
-        if !req.msg.as_ref().unwrap().is_method(&SipMethod::Ack) {
-            let msg = req.msg.take().unwrap();
-            req.endpoint
+    async fn on_request(
+        &self,
+        endpt: &Endpoint,
+        req: &mut Option<IncomingRequest>,
+    ) -> io::Result<()> {
+        if !req.as_ref().unwrap().is_method(&SipMethod::Ack) {
+            let msg = req.take().unwrap();
+            endpt
                 .respond(msg, StatusCode::NotImplemented.into())
                 .await?;
         }
