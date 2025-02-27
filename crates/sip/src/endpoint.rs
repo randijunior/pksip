@@ -140,10 +140,7 @@ impl Endpoint {
         let (info, msg) = msg;
         match msg {
             SipMessage::Request(msg) => {
-                let Ok(req_headers) = (&msg.headers).try_into() else {
-                    return Err(io::Error::other("Could not parse headers"));
-                };
-                let req = IncomingRequest::new(msg, info, Some(req_headers));
+                let req = IncomingRequest::new(msg, info);
                 self.receive_request(req).await
             }
             SipMessage::Response(msg) => {
@@ -158,7 +155,7 @@ impl Endpoint {
         req: &mut IncomingRequest,
         st_line: StatusLine,
     ) -> io::Result<OutgoingResponse> {
-        let mut hdrs = req.req_hdrs.take().unwrap();
+        let mut hdrs = req.msg.req_headers.take().unwrap();
         let topmost_via = &mut hdrs.via[0];
 
         let info = self

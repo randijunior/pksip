@@ -237,7 +237,7 @@ impl TryFrom<&IncomingRequest> for TsxKey {
     type Error = TsxKeyError;
 
     fn try_from(req: &IncomingRequest) -> Result<Self, Self::Error> {
-        let headers = req.req_hdrs.as_ref().unwrap();
+        let headers = req.msg.req_headers.as_ref().unwrap();
         let via = &headers.via[0];
 
         if let Some(branch) = &via.branch {
@@ -452,8 +452,8 @@ pub(crate) mod mock {
 
         let info = IncomingInfo::new(packet, transport);
         let req_line = RequestLine { method: m, uri };
-        let req = SipRequest::new(req_line, Headers::new(), None);
-        let incoming = IncomingRequest::new(req, info, Some(hdrs));
+        let req = SipRequest::new(req_line, Headers::new(), None, Some(hdrs));
+        let incoming = IncomingRequest::new(req, info);
 
         incoming.into()
     }

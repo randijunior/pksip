@@ -74,6 +74,7 @@ use crate::message::SipMessage;
 use crate::message::StatusLine;
 use crate::message::UserInfo;
 use crate::message::{RequestLine, SipRequest, SipResponse};
+use crate::transport::RequestHeaders;
 
 pub(crate) const SIPV2: &'static str = "SIP/2.0";
 pub(crate) const B_SIPV2: &'static [u8] = SIPV2.as_bytes();
@@ -176,6 +177,7 @@ fn read_token_str<'a>(reader: &mut Reader<'a>) -> &'a str {
 /// Parse a buff of bytes into sip message
 pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
     let reader = &mut Reader::new(buff);
+    let mut is_req = false;
 
     let mut msg = if is_sip_version(reader) {
         let Ok(st_line) = parse_status_line(reader) else {
@@ -183,33 +185,40 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
         };
         SipMessage::Response(SipResponse {
             st_line,
-            headers: Headers::new(),
+            headers: Headers::with_capacity(10),
             body: None,
         })
     } else {
         let Ok(req_line) = parse_request_line(reader) else {
             return parse_error!("Error parsing 'Request Line'", reader);
         };
+        is_req = true;
         SipMessage::Request(SipRequest {
             req_line,
-            headers: Headers::new(),
+            headers: Headers::with_capacity(10),
             body: None,
+            req_headers: None,
         })
     };
 
     let mut has_content_type = false;
     let headers = msg.headers_mut();
+    let mut via: Vec<Via> = vec![];
+    let mut from: Option<From> = None;
+    let mut to: Option<To> = None;
+    let mut callid: Option<CallId> = None;
+    let mut cseq: Option<CSeq> = None;
 
     macro_rules! parse_header {
-        ($header:ident, $reader:ident) => {
+        ($header:ident, $reader:ident) => {{
             let Ok(header) = $header::parse($reader) else {
                 return parse_error!(
                     format!("Error parsing '{}' header", $header::NAME),
                     $reader
                 );
             };
-            headers.push(Header::$header(header));
-        };
+            header
+        }};
     }
 
     'headers: loop {
@@ -222,11 +231,13 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
 
         match name {
             ErrorInfo::NAME => {
-                parse_header!(ErrorInfo, reader);
+                let header = parse_header!(ErrorInfo, reader);
+                headers.push(Header::ErrorInfo(header));
             }
 
             Route::NAME => 'route: loop {
-                parse_header!(Route, reader);
+                let header = parse_header!(Route, reader);
+                headers.push(Header::Route(header));
                 let Some(&b',') = reader.peek() else {
                     break 'route;
                 };
@@ -234,7 +245,11 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             },
 
             Via::NAME | Via::SHORT_NAME => 'via: loop {
-                parse_header!(Via, reader);
+                if is_req {
+                    via.push(parse_header!(Via, reader));
+                } else {
+                    headers.push(Header::Via(parse_header!(Via, reader)));
+                }
                 let Some(&b',') = reader.peek() else {
                     break 'via;
                 };
@@ -242,31 +257,50 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             },
 
             MaxForwards::NAME => {
-                parse_header!(MaxForwards, reader);
+                let header = parse_header!(MaxForwards, reader);
+                headers.push(Header::MaxForwards(header));
             }
 
             From::NAME | From::SHORT_NAME => {
-                parse_header!(From, reader);
+                if is_req {
+                    from = Some(parse_header!(From, reader));
+                } else {
+                    headers.push(Header::From(parse_header!(From, reader)));
+                }
             }
 
             To::NAME | To::SHORT_NAME => {
-                parse_header!(To, reader);
+                if is_req {
+                    to = Some(parse_header!(To, reader));
+                } else {
+                    headers.push(Header::To(parse_header!(To, reader)));
+                }
             }
 
             CallId::NAME | CallId::SHORT_NAME => {
-                parse_header!(CallId, reader);
+                if is_req {
+                    callid = Some(parse_header!(CallId, reader));
+                } else {
+                    headers.push(Header::CallId(parse_header!(CallId, reader)));
+                }
             }
 
             CSeq::NAME => {
-                parse_header!(CSeq, reader);
+                if is_req {
+                    cseq = Some(parse_header!(CSeq, reader));
+                } else {
+                    headers.push(Header::CSeq(parse_header!(CSeq, reader)));
+                }
             }
 
             Authorization::NAME => {
-                parse_header!(Authorization, reader);
+                let header = parse_header!(Authorization, reader);
+                headers.push(Header::Authorization(header));
             }
 
             Contact::NAME | Contact::SHORT_NAME => 'contact: loop {
-                parse_header!(Contact, reader);
+                let header = parse_header!(Contact, reader);
+                headers.push(Header::Contact(header));
                 let Some(&b',') = reader.peek() else {
                     break 'contact;
                 };
@@ -274,76 +308,94 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             },
 
             Expires::NAME => {
-                parse_header!(Expires, reader);
+                let header = parse_header!(Expires, reader);
+                headers.push(Header::Expires(header));
             }
 
             InReplyTo::NAME => {
-                parse_header!(InReplyTo, reader);
+                let header = parse_header!(InReplyTo, reader);
+                headers.push(Header::InReplyTo(header));
             }
 
             MimeVersion::NAME => {
-                parse_header!(MimeVersion, reader);
+                let header = parse_header!(MimeVersion, reader);
+                headers.push(Header::MimeVersion(header));
             }
 
             MinExpires::NAME => {
-                parse_header!(MinExpires, reader);
+                let header = parse_header!(MinExpires, reader);
+                headers.push(Header::MinExpires(header));
             }
 
             UserAgent::NAME => {
-                parse_header!(UserAgent, reader);
+                let header = parse_header!(UserAgent, reader);
+                headers.push(Header::UserAgent(header));
             }
 
             Date::NAME => {
-                parse_header!(Date, reader);
+                let header = parse_header!(Date, reader);
+                headers.push(Header::Date(header));
             }
 
             Server::NAME => {
-                parse_header!(Server, reader);
+                let header = parse_header!(Server, reader);
+                headers.push(Header::Server(header));
             }
 
             Subject::NAME | Subject::SHORT_NAME => {
-                parse_header!(Subject, reader);
+                let header = parse_header!(Subject, reader);
+                headers.push(Header::Subject(header));
             }
 
             Priority::NAME => {
-                parse_header!(Priority, reader);
+                let header = parse_header!(Priority, reader);
+                headers.push(Header::Priority(header));
             }
 
             ProxyAuthenticate::NAME => {
-                parse_header!(ProxyAuthenticate, reader);
+                let header = parse_header!(ProxyAuthenticate, reader);
+                headers.push(Header::ProxyAuthenticate(header));
             }
 
             ProxyAuthorization::NAME => {
-                parse_header!(ProxyAuthorization, reader);
+                let header = parse_header!(ProxyAuthorization, reader);
+                headers.push(Header::ProxyAuthorization(header));
             }
 
             ProxyRequire::NAME => {
-                parse_header!(ProxyRequire, reader);
+                let header = parse_header!(ProxyRequire, reader);
+                headers.push(Header::ProxyRequire(header));
             }
 
             ReplyTo::NAME => {
-                parse_header!(ReplyTo, reader);
+                let header = parse_header!(ReplyTo, reader);
+                headers.push(Header::ReplyTo(header));
             }
 
             ContentLength::NAME | ContentLength::SHORT_NAME => {
-                parse_header!(ContentLength, reader);
+                let header = parse_header!(ContentLength, reader);
+                headers.push(Header::ContentLength(header));
             }
 
             ContentEncoding::NAME | ContentEncoding::SHORT_NAME => {
-                parse_header!(ContentEncoding, reader);
+                let header = parse_header!(ContentEncoding, reader);
+                headers.push(Header::ContentEncoding(header));
             }
 
             ContentType::NAME | ContentType::SHORT_NAME => {
-                parse_header!(ContentType, reader);
+                let header = parse_header!(ContentType, reader);
+                headers.push(Header::ContentType(header));
                 has_content_type = true;
             }
 
             ContentDisposition::NAME => {
-                parse_header!(ContentDisposition, reader);
+                let header = parse_header!(ContentDisposition, reader);
+                headers.push(Header::ContentDisposition(header));
             }
 
             RecordRoute::NAME => 'rr: loop {
-                parse_header!(RecordRoute, reader);
+                let header = parse_header!(RecordRoute, reader);
+                headers.push(Header::RecordRoute(header));
                 let Some(&b',') = reader.peek() else {
                     break 'rr;
                 };
@@ -351,58 +403,72 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             },
 
             Require::NAME => {
-                parse_header!(Require, reader);
+                let header = parse_header!(Require, reader);
+                headers.push(Header::Require(header));
             }
 
             RetryAfter::NAME => {
-                parse_header!(RetryAfter, reader);
+                let header = parse_header!(RetryAfter, reader);
+                headers.push(Header::RetryAfter(header));
             }
 
             Organization::NAME => {
-                parse_header!(Organization, reader);
+                let header = parse_header!(Organization, reader);
+                headers.push(Header::Organization(header));
             }
 
             AcceptEncoding::NAME => {
-                parse_header!(AcceptEncoding, reader);
+                let header = parse_header!(AcceptEncoding, reader);
+                headers.push(Header::AcceptEncoding(header));
             }
 
             Accept::NAME => {
-                parse_header!(Accept, reader);
+                let header = parse_header!(Accept, reader);
+                headers.push(Header::Accept(header));
             }
 
             AcceptLanguage::NAME => {
-                parse_header!(AcceptLanguage, reader);
+                let header = parse_header!(AcceptLanguage, reader);
+                headers.push(Header::AcceptLanguage(header));
             }
 
             AlertInfo::NAME => {
-                parse_header!(AlertInfo, reader);
+                let header = parse_header!(AlertInfo, reader);
+                headers.push(Header::AlertInfo(header));
             }
 
             Allow::NAME => {
-                parse_header!(Allow, reader);
+                let header = parse_header!(Allow, reader);
+                headers.push(Header::Allow(header));
             }
 
             AuthenticationInfo::NAME => {
-                parse_header!(AuthenticationInfo, reader);
+                let header = parse_header!(AuthenticationInfo, reader);
+                headers.push(Header::AuthenticationInfo(header));
             }
 
             Supported::NAME | Supported::SHORT_NAME => {
-                parse_header!(Supported, reader);
+                let header = parse_header!(Supported, reader);
+                headers.push(Header::Supported(header));
             }
 
             Timestamp::NAME => {
-                parse_header!(Timestamp, reader);
+                let header = parse_header!(Timestamp, reader);
+                headers.push(Header::Timestamp(header));
             }
             Unsupported::NAME => {
-                parse_header!(Unsupported, reader);
+                let header = parse_header!(Unsupported, reader);
+                headers.push(Header::Unsupported(header));
             }
 
             WWWAuthenticate::NAME => {
-                parse_header!(WWWAuthenticate, reader);
+                let header = parse_header!(WWWAuthenticate, reader);
+                headers.push(Header::WWWAuthenticate(header));
             }
 
             Warning::NAME => {
-                parse_header!(Warning, reader);
+                let header = parse_header!(Warning, reader);
+                headers.push(Header::Warning(header));
             }
 
             _ => {
@@ -428,6 +494,28 @@ pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
             }
             None => break 'headers,
         }
+    }
+
+    if let Some(req) = msg.request_mut() {
+        let Some(from) = from else {
+            return parse_error!("Missing required 'From' header");
+        };
+        let Some(to) = to else {
+            return parse_error!("Missing required 'To' header");
+        };
+        let Some(callid) = callid else {
+            return parse_error!("Missing required 'Call-ID' header");
+        };
+        let Some(cseq) = cseq else {
+            return parse_error!("Missing required 'CSeq' header");
+        };
+        req.req_headers = Some(RequestHeaders {
+            via,
+            from,
+            to,
+            callid,
+            cseq,
+        })
     }
 
     newline!(reader);

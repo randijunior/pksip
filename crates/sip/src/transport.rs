@@ -174,7 +174,7 @@ impl TransportLayer {
 
     pub fn initialize(&self) -> mpsc::Receiver<(Transport, Packet)> {
         let transports = self.transports.lock().unwrap();
-        let (tx, rx) = mpsc::channel(2024);
+        let (tx, rx) = mpsc::channel(100);
 
         for transport in transports.values() {
             transport.init_recv(tx.clone());
@@ -352,6 +352,7 @@ pub struct OutgoingRequest {
     info: OutgoingInfo,
 }
 
+#[derive(Debug)]
 pub struct RequestHeaders {
     pub via: Vec<Via>,
     pub from: headers::From,
@@ -452,7 +453,6 @@ pub struct OutGoingRequest {
 
 pub struct IncomingRequest {
     pub msg: SipRequest,
-    pub req_hdrs: Option<RequestHeaders>,
     pub info: IncomingInfo,
     pub tsx_key: Option<TsxKey>,
 }
@@ -461,12 +461,10 @@ impl IncomingRequest {
     pub fn new(
         msg: SipRequest,
         info: IncomingInfo,
-        req_hdrs: Option<RequestHeaders>,
     ) -> Self {
         Self {
             msg,
             info,
-            req_hdrs,
             tsx_key: None,
         }
     }

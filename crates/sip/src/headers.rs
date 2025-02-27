@@ -543,6 +543,10 @@ impl Headers {
         Self(Vec::new())
     }
 
+    pub fn with_capacity(capacity: usize) -> Self { 
+        Self(Vec::with_capacity(capacity))
+    }
+
     /// Applies function to the headers and return the first no-none result.
     ///
     /// # Examples

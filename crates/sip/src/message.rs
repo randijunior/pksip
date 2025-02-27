@@ -35,6 +35,13 @@ impl SipMessage {
             None
         }
     }
+    pub fn request_mut(&mut self) -> Option<&mut SipRequest> {
+        if let SipMessage::Request(req) = self {
+            Some(req)
+        } else {
+            None
+        }
+    }
     pub fn headers(&self) -> &Headers {
         match self {
             SipMessage::Request(req) => &req.headers,
