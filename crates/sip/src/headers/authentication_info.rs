@@ -56,7 +56,7 @@ impl SipHeader<'_> for AuthenticationInfo {
         comma_sep!(reader => {
             let Param {name, value} = Param::parse(reader)?;
             let value = ArcStr::from_option_str(value);
-            match name.as_ref() {
+            match name {
                 NEXTNONCE => auth_info.nextnonce = value,
                 QOP => auth_info.qop = value,
                 RSPAUTH => auth_info.rspauth = value,

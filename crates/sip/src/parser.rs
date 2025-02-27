@@ -76,8 +76,8 @@ use crate::message::UserInfo;
 use crate::message::{RequestLine, SipRequest, SipResponse};
 use crate::transport::RequestHeaders;
 
-pub(crate) const SIPV2: &'static str = "SIP/2.0";
-pub(crate) const B_SIPV2: &'static [u8] = SIPV2.as_bytes();
+pub(crate) const SIPV2: &str = "SIP/2.0";
+pub(crate) const B_SIPV2: &[u8] = SIPV2.as_bytes();
 
 pub(crate) const ALPHA_NUM: &[u8] = b"abcdefghijklmnopqrstuvwxyz\
                                     ABCDEFGHIJKLMNOPQRSTUVWXYZ\
@@ -149,7 +149,7 @@ pub(crate) fn is_token(b: &u8) -> bool {
 fn parse_uri_param<'a>(reader: &mut Reader<'a>) -> Result<Param<'a>> {
     let Param { name, value } =
         unsafe { Param::parse_unchecked(reader, is_param)? };
-    let value = Some(value.unwrap_or("".into()));
+    let value = Some(value.unwrap_or(""));
 
     Ok(Param { name, value })
 }
@@ -175,7 +175,7 @@ fn read_token_str<'a>(reader: &mut Reader<'a>) -> &'a str {
 }
 
 /// Parse a buff of bytes into sip message
-pub fn parse_sip_msg<'a>(buff: &'a [u8]) -> Result<SipMessage> {
+pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
     let reader = &mut Reader::new(buff);
     let mut is_req = false;
 
@@ -556,8 +556,8 @@ fn parse_scheme(reader: &mut Reader) -> Result<Scheme> {
     }
 }
 
-pub(crate) fn parse_user_info<'a>(
-    reader: &mut Reader<'a>,
+pub(crate) fn parse_user_info(
+    reader: &mut Reader,
 ) -> Result<Option<UserInfo>> {
     let peeked =
         reader.peek_while(|b| b != &b'@' && b != &b'>' && !is_newline(b));
@@ -589,7 +589,7 @@ fn parse_port(reader: &mut Reader) -> Result<Option<u16>> {
     }
 }
 
-pub(crate) fn parse_host_port<'a>(reader: &mut Reader<'a>) -> Result<HostPort> {
+pub(crate) fn parse_host_port(reader: &mut Reader) -> Result<HostPort> {
     let host = match reader.peek() {
         Some(&b'[') => {
             // Is a Ipv6 host
@@ -621,8 +621,8 @@ pub(crate) fn parse_host_port<'a>(reader: &mut Reader<'a>) -> Result<HostPort> {
     Ok(HostPort { host, port })
 }
 
-fn parse_header_params_in_sip_uri<'a>(
-    reader: &mut Reader<'a>,
+fn parse_header_params_in_sip_uri(
+    reader: &mut Reader,
 ) -> Result<Params> {
     reader.next();
     let mut params = Params::new();
@@ -638,8 +638,8 @@ fn parse_header_params_in_sip_uri<'a>(
     Ok(params)
 }
 
-pub(crate) fn parse_uri<'a>(
-    reader: &mut Reader<'a>,
+pub(crate) fn parse_uri(
+    reader: &mut Reader,
     parse_params: bool,
 ) -> Result<Uri> {
     let scheme = parse_scheme(reader)?;
@@ -692,8 +692,8 @@ pub(crate) fn parse_uri<'a>(
     })
 }
 
-pub(crate) fn parse_sip_uri<'a>(
-    reader: &mut Reader<'a>,
+pub(crate) fn parse_sip_uri(
+    reader: &mut Reader,
     parse_params: bool,
 ) -> Result<SipUri> {
     space!(reader);
@@ -709,17 +709,17 @@ pub(crate) fn parse_sip_uri<'a>(
     }
 }
 
-pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr> {
+pub fn parse_name_addr(reader: &mut Reader) -> Result<NameAddr> {
     space!(reader);
-    let display = match reader.lookahead()? {
-        &b'"' => {
+    let display = match *(reader.lookahead()?) {
+        b'"' => {
             reader.next();
             let display = until!(reader, &b'"');
             reader.next();
 
             Some(str::from_utf8(display)?)
         }
-        &b'<' => None,
+        b'<' => None,
         _ => {
             let d = parse_token(reader)?;
             space!(reader);
@@ -740,7 +740,7 @@ pub fn parse_name_addr<'a>(reader: &mut Reader<'a>) -> Result<NameAddr> {
     })
 }
 
-pub fn parse_request_line<'a>(reader: &mut Reader<'a>) -> Result<RequestLine> {
+pub fn parse_request_line(reader: &mut Reader) -> Result<RequestLine> {
     let method = alpha!(reader);
     let method = SipMethod::from(method);
 
@@ -754,7 +754,7 @@ pub fn parse_request_line<'a>(reader: &mut Reader<'a>) -> Result<RequestLine> {
     Ok(RequestLine { method, uri })
 }
 
-pub fn parse_status_line<'a>(reader: &mut Reader<'a>) -> Result<StatusLine> {
+pub fn parse_status_line(reader: &mut Reader) -> Result<StatusLine> {
     parse_sip_v2(reader)?;
 
     space!(reader);

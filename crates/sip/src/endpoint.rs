@@ -52,8 +52,7 @@ impl EndpointBuilder {
         if self
             .services
             .iter()
-            .find(|s| s.name() == service.name())
-            .is_some()
+            .any(|s| s.name() == service.name())
         {
             log::warn!("Service with name '{}' already exists", service.name());
             return self;
@@ -168,7 +167,7 @@ impl Endpoint {
 
         topmost_via.received = Some(req.info.packet().addr().ip());
         if hdrs.to.tag.is_none() && st_line.code > StatusCode::Trying {
-            hdrs.to.tag = topmost_via.branch.as_ref().map(|s| s.clone());
+            hdrs.to.tag = topmost_via.branch.as_ref().cloned();
         }
 
         let msg = SipResponse::new(st_line, Headers::default(), None);

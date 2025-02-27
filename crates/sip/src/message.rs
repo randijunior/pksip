@@ -250,11 +250,7 @@ impl HostPort {
     }
 
     pub fn is_domain(&self) -> bool {
-        if let Host::DomainName(_) = self.host {
-            true
-        } else {
-            false
-        }
+        matches!(self.host, Host::DomainName(_))
     }
     pub fn host_as_str(&self) -> String {
         self.host.as_str()
@@ -876,15 +872,15 @@ impl StatusCode {
     }
 
     pub fn is_provisional(&self) -> bool {
-        match self {
+        matches!(
+            self,
             StatusCode::Trying
-            | StatusCode::Ringing
-            | StatusCode::CallIsBeingForwarded
-            | StatusCode::Queued
-            | StatusCode::SessionProgress
-            | StatusCode::EarlyDialogTerminated => true,
-            _ => false,
-        }
+                | StatusCode::Ringing
+                | StatusCode::CallIsBeingForwarded
+                | StatusCode::Queued
+                | StatusCode::SessionProgress
+                | StatusCode::EarlyDialogTerminated
+        )
     }
 
     pub fn into_u32(self) -> u32 {

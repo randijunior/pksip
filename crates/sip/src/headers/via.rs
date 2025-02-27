@@ -194,9 +194,9 @@ impl SipHeader<'_> for Via {
             RPORT_PARAM = rport_p
         );
         let received = received.and_then(|r| r.parse().ok());
-        let maddr = maddr.and_then(|a| match a.parse() {
-            Ok(addr) => Some(Host::IpAddr(addr)),
-            Err(_) => Some(Host::DomainName(a.into())),
+        let maddr = maddr.map(|a| match a.parse() {
+            Ok(addr) => Host::IpAddr(addr),
+            Err(_) => Host::DomainName(a),
         });
 
         let rport = if let Some(rport) = rport_p

@@ -10,7 +10,6 @@ use std::{
 
 pub mod udp;
 
-
 use async_trait::async_trait;
 
 use std::io::Write;
@@ -48,13 +47,17 @@ impl Deref for MsgBuffer {
         &self.buf
     }
 }
-
+impl Default for MsgBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MsgBuffer {
     pub fn new() -> Self {
         Self {
             buf: [0; MAX_PACKET_SIZE],
-            pos: 0
+            pos: 0,
         }
     }
 
@@ -65,8 +68,8 @@ impl MsgBuffer {
         let len = data.len();
         if self.pos + len > MAX_PACKET_SIZE {
             return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Packet size exceeds MAX_PACKET_SIZE",
+                io::ErrorKind::Other,
+                "Packet size exceeds MAX_PACKET_SIZE",
             ));
         }
         self.buf[self.pos..self.pos + len].copy_from_slice(data);
@@ -190,7 +193,11 @@ impl TransportLayer {
         rx
     }
 
-    pub async fn recv_packet(&self, mut rx: mpsc::Receiver<(Transport, Packet)>, endpoint: &Endpoint) -> io::Result<()> {
+    pub async fn recv_packet(
+        &self,
+        mut rx: mpsc::Receiver<(Transport, Packet)>,
+        endpoint: &Endpoint,
+    ) -> io::Result<()> {
         while let Some(msg) = rx.recv().await {
             let (transport, packet) = msg;
             let msg = match packet.payload() {
@@ -416,7 +423,7 @@ pub struct OutgoingResponse {
     pub buf: Option<Arc<MsgBuffer>>,
 }
 
-impl<'a> OutgoingResponse {
+impl OutgoingResponse {
     pub fn status_code(&self) -> StatusCode {
         self.msg.st_line.code
     }
@@ -431,10 +438,10 @@ impl<'a> OutgoingResponse {
         write!(buf, "{}", &self.msg.st_line)?;
         write!(buf, "{}", &self.hdrs)?;
         write!(buf, "{}", &self.msg.headers)?;
-        write!(buf, "{}","\r\n")?;
-      
+        write!(buf, "\r\n")?;
+
         if let Some(body) = &self.msg.body {
-            if let Err(_err) = buf.try_extend_from_slice(&*body) {
+            if let Err(_err) = buf.try_extend_from_slice(body) {
                 return Err(io::Error::other(
                     "Packet size exceeds MAX_PACKET_SIZE",
                 ));
@@ -458,10 +465,7 @@ pub struct IncomingRequest {
 }
 
 impl IncomingRequest {
-    pub fn new(
-        msg: SipRequest,
-        info: IncomingInfo,
-    ) -> Self {
+    pub fn new(msg: SipRequest, info: IncomingInfo) -> Self {
         Self {
             msg,
             info,

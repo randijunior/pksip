@@ -57,9 +57,9 @@ impl<'a> TryFrom<&'a [u8]> for Accept {
     type Error = ParseHeaderError;
 
     fn try_from(value: &'a [u8]) -> result::Result<Self, Self::Error> {
-        Ok(Header::from_bytes(value)?
+        Header::from_bytes(value)?
             .into_accept()
-            .map_err(|_| ParseHeaderError(Self::NAME))?)
+            .map_err(|_| ParseHeaderError(Self::NAME))
     }
 }
 

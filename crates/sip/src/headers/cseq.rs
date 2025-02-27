@@ -22,7 +22,7 @@ impl fmt::Display for CSeq {
     }
 }
 
-impl<'a> CSeq {
+impl CSeq {
     pub fn new(cseq: u32, method: SipMethod) -> Self {
         Self { cseq, method }
     }

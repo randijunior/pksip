@@ -62,10 +62,10 @@ impl<'a> Param<'a> {
             unsafe { reader.read_as_str(func) }
         };
 
-        return Ok(Param {
-            name: name.into(),
-            value: Some(value.into()),
-        });
+        Ok(Param {
+            name,
+            value: Some(value),
+        })
     }
 
     pub fn parse(reader: &mut Reader<'a>) -> Result<Self> {
@@ -115,7 +115,7 @@ impl FromStr for Q {
     type Err = ParseQError;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.rsplit_once(".") {
+        match s.rsplit_once('.') {
             Some((a, b)) => {
                 let a = a.parse().map_err(|_| ParseQError)?;
                 let b = b.parse().map_err(|_| ParseQError)?;

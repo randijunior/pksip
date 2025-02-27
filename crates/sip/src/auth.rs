@@ -62,7 +62,7 @@ impl Challenge {
                 let Param {name, value} = Param::parse(reader)?;
                 let value = ArcStr::from_option_str(value);
 
-                match name.as_ref() {
+                match name {
                     REALM => realm = value,
                     NONCE => nonce = value,
                     DOMAIN => domain = value,
@@ -89,7 +89,7 @@ impl Challenge {
 
         comma_sep!(reader => {
             let Param {name, value} = Param::parse(reader)?;
-            param.set(name.into(), value.unwrap_or("".into()).into());
+            param.set(name.into(), value.unwrap_or("").into());
 
         });
 
@@ -242,7 +242,7 @@ impl Credential {
                 let Param {name, value} = Param::parse(reader)?;
                 let value = ArcStr::from_option_str(value);
 
-                match name.as_ref() {
+                match name {
                     REALM => realm = value,
                     USERNAME => username = value,
                     NONCE => nonce = value,
@@ -275,7 +275,7 @@ impl Credential {
 
         comma_sep!(reader => {
             let Param {name, value} = Param::parse(reader)?;
-            param.set(name.into(), value.unwrap_or("".into()).into());
+            param.set(name.into(), value.unwrap_or("").into());
 
         });
 

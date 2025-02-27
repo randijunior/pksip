@@ -24,7 +24,7 @@ pub struct CallId(pub ArcStr);
 
 impl From<&str> for CallId {
     fn from(value: &str) -> Self {
-        Self::new(value.into())
+        Self::new(value)
     }
 }
 
@@ -36,7 +36,7 @@ impl CallId {
 
     /// Returns the internal `CallId` identifier.
     pub fn id(&self) -> &str {
-        &*self.0
+        &self.0
     }
 }
 
@@ -65,9 +65,9 @@ impl TryFrom<&[u8]> for CallId {
     type Error = ParseHeaderError;
 
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
-        Ok(Header::from_bytes(value)?
+        Header::from_bytes(value)?
             .into_call_id()
-            .map_err(|_| ParseHeaderError(Self::NAME))?)
+            .map_err(|_| ParseHeaderError(Self::NAME))
     }
 }
 

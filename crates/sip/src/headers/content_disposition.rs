@@ -62,9 +62,9 @@ impl TryFrom<&[u8]> for ContentDisposition {
     type Error = ParseHeaderError;
 
     fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
-        Ok(Header::from_bytes(value)?
+        Header::from_bytes(value)?
             .into_content_disposition()
-            .map_err(|_| ParseHeaderError(Self::NAME))?)
+            .map_err(|_| ParseHeaderError(Self::NAME))
     }
 }
 

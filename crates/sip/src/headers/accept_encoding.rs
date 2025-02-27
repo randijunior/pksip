@@ -59,13 +59,13 @@ impl TryFrom<&[u8]> for AcceptEncoding {
     type Error = ParseHeaderError;
 
     fn try_from(value: &[u8]) -> result::Result<Self, Self::Error> {
-        Ok(Header::from_bytes(value)?
+        Header::from_bytes(value)?
             .into_accept_encoding()
-            .map_err(|_| ParseHeaderError(Self::NAME))?)
+            .map_err(|_| ParseHeaderError(Self::NAME))
     }
 }
 
-impl<'a, const N: usize> From<[Coding; N]> for AcceptEncoding {
+impl<const N: usize> From<[Coding; N]> for AcceptEncoding {
     fn from(value: [Coding; N]) -> Self {
         Self(Vec::from(value))
     }
@@ -81,7 +81,7 @@ impl SipHeader<'_> for AcceptEncoding {
      * content-coding   =  token
      */
     fn parse(reader: &mut Reader) -> Result<Self> {
-        if reader.peek().is_some_and(|b| is_newline(b)) {
+        if reader.peek().is_some_and(is_newline) {
             return Ok(AcceptEncoding::new());
         }
         let codings = hdr_list!(reader => {

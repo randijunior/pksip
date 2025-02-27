@@ -111,7 +111,7 @@ impl Transaction {
         self.send_buf(&buf).await?;
 
         res.buf = Some(buf.into());
-        self.last_response = Some(res.into());
+        self.last_response = Some(res);
         Ok(())
     }
 
@@ -336,7 +336,7 @@ impl TransactionLayer {
         if let Some(sender) = self.get(key) {
             println!("TSX FOUND!");
             // Check if is retransmission
-            if let Err(_) = sender.send(message).await {
+            if (sender.send(message).await).is_err() {
                 println!("receiver droped!");
             };
             Ok(None)
