@@ -115,27 +115,44 @@ const SIPS: &[u8] = b"sips";
 
 #[inline(always)]
 fn is_user(b: &u8) -> bool {
-    USER_SPEC[*b as usize]
+    match b {
+        b'A'..=b'Z' => true,
+        _ => USER_SPEC[*b as usize],
+    }
+    
 }
 
 #[inline(always)]
 fn is_pass(b: &u8) -> bool {
-    PASS_SPEC[*b as usize]
+    match b {
+        b'A'..=b'Z' => true,
+        _ => PASS_SPEC[*b as usize],
+    }
+    
 }
 
 #[inline(always)]
 fn is_param(b: &u8) -> bool {
-    PARAM_SPEC[*b as usize]
+    match b {
+        b'A'..=b'Z' => true,
+        _ => PARAM_SPEC[*b as usize],
+    }
 }
 
 #[inline(always)]
 fn is_hdr(b: &u8) -> bool {
-    HDR_SPEC[*b as usize]
+    match b {
+        b'A'..=b'Z' => true,
+        _ => HDR_SPEC[*b as usize],
+    }
 }
 
 #[inline(always)]
 pub(crate) fn is_host(b: &u8) -> bool {
-    HOST_SPEC[*b as usize]
+    match b {
+        b'A'..=b'Z' => true,
+        _ => HOST_SPEC[*b as usize],
+    }
 }
 
 #[inline(always)]

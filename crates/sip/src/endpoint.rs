@@ -104,19 +104,14 @@ impl Endpoint {
         msg: TransportMessage,
     ) -> io::Result<()> {
         let (info, msg) = msg;
-        let endpoint = self.clone();
         match msg {
             SipMessage::Request(msg) => {
                 let req = IncomingRequest::new(msg, info);
-                tokio::spawn(async move {
-                    endpoint.receive_request(&mut Some(req)).await
-                });
+                self.receive_request(&mut Some(req)).await?
             }
             SipMessage::Response(msg) => {
                 let res = IncomingResponse::new(msg, info);
-                tokio::spawn(async move {
-                    endpoint.receive_response(&mut Some(res)).await
-                });
+                self.receive_response(&mut Some(res)).await?
             }
         }
 
