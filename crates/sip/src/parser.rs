@@ -60,6 +60,7 @@ use crate::message::HostPort;
 use crate::message::Params;
 use crate::message::Scheme;
 use crate::message::SipMethod;
+use crate::message::StartLine;
 use crate::message::TransportProtocol;
 use crate::message::Uri;
 use crate::message::{Host, NameAddr, SipUri, StatusCode};
@@ -119,7 +120,6 @@ fn is_user(b: &u8) -> bool {
         b'A'..=b'Z' => true,
         _ => USER_SPEC[*b as usize],
     }
-    
 }
 
 #[inline(always)]
@@ -128,7 +128,6 @@ fn is_pass(b: &u8) -> bool {
         b'A'..=b'Z' => true,
         _ => PASS_SPEC[*b as usize],
     }
-    
 }
 
 #[inline(always)]
@@ -196,31 +195,21 @@ pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
     let reader = &mut Reader::new(buff);
     let mut is_req = false;
 
-    let mut msg = if is_sip_version(reader) {
+    let start_line = if is_sip_version(reader) {
         let Ok(st_line) = parse_status_line(reader) else {
             return parse_error!("Error parsing 'Status Line'", reader);
         };
-        SipMessage::Response(SipResponse {
-            st_line,
-            headers: Headers::with_capacity(10),
-            body: None,
-        })
+        StartLine::StatusLine(st_line)
     } else {
         let Ok(req_line) = parse_request_line(reader) else {
             return parse_error!("Error parsing 'Request Line'", reader);
         };
         is_req = true;
-        SipMessage::Request(SipRequest {
-            req_line,
-            headers: Headers::with_capacity(10),
-            body: None,
-            req_headers: None,
-        })
+        StartLine::RequestLine(req_line)
     };
 
     let mut has_content_type = false;
-    let headers = msg.headers_mut();
-    let mut via: Vec<Via> = vec![];
+    let mut via: Option<Via> = None;
     let mut from: Option<From> = None;
     let mut to: Option<To> = None;
     let mut callid: Option<CallId> = None;
@@ -237,6 +226,8 @@ pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
             header
         }};
     }
+
+    let mut headers = Headers::with_capacity(10);
 
     'headers: loop {
         let name = parse_token(reader)?;
@@ -262,10 +253,15 @@ pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
             },
 
             Via::NAME | Via::SHORT_NAME => 'via: loop {
+                let hdr = parse_header!(Via, reader);
                 if is_req {
-                    via.push(parse_header!(Via, reader));
+                    if via.is_none() {
+                        via = Some(hdr);
+                    } else {
+                        headers.push(Header::Via(hdr));
+                    }
                 } else {
-                    headers.push(Header::Via(parse_header!(Via, reader)));
+                    headers.push(Header::Via(hdr));
                 }
                 let Some(&b',') = reader.peek() else {
                     break 'via;
@@ -513,27 +509,44 @@ pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
         }
     }
 
-    if let Some(req) = msg.request_mut() {
-        let Some(from) = from else {
-            return parse_error!("Missing required 'From' header");
-        };
-        let Some(to) = to else {
-            return parse_error!("Missing required 'To' header");
-        };
-        let Some(callid) = callid else {
-            return parse_error!("Missing required 'Call-ID' header");
-        };
-        let Some(cseq) = cseq else {
-            return parse_error!("Missing required 'CSeq' header");
-        };
-        req.req_headers = Some(Box::new(RequestHeaders {
-            via: via,
-            from,
-            to,
-            callid,
-            cseq,
-        }))
-    }
+    let mut msg = match start_line {
+        StartLine::RequestLine(req_line) => {
+            let Some(via) = via else {
+                return parse_error!("Missing required 'Via' header");
+            };
+            let Some(from) = from else {
+                return parse_error!("Missing required 'From' header");
+            };
+            let Some(to) = to else {
+                return parse_error!("Missing required 'To' header");
+            };
+            let Some(callid) = callid else {
+                return parse_error!("Missing required 'Call-ID' header");
+            };
+            let Some(cseq) = cseq else {
+                return parse_error!("Missing required 'CSeq' header");
+            };
+            let req_headers = Some(Box::new(RequestHeaders {
+                via,
+                from,
+                to,
+                callid,
+                cseq,
+            }));
+
+            SipMessage::Request(SipRequest {
+                req_line,
+                headers,
+                req_headers,
+                body: None,
+            })
+        }
+        StartLine::StatusLine(st_line) => SipMessage::Response(SipResponse {
+            st_line,
+            headers,
+            body: None,
+        }),
+    };
 
     newline!(reader);
     if has_content_type {
@@ -544,10 +557,7 @@ pub fn parse_sip_msg(buff: &[u8]) -> Result<SipMessage> {
 }
 
 fn is_sip_version(reader: &Reader) -> bool {
-    match reader.peek_n(4) {
-        Some(B_SIPV2) => true,
-        _ => false,
-    }
+    matches!(reader.peek_n(4), Some(B_SIPV2))
 }
 
 pub fn parse_sip_v2(reader: &mut Reader) -> Result<()> {
@@ -643,7 +653,7 @@ fn parse_header_params_in_sip_uri(reader: &mut Reader) -> Result<Params> {
         // take '&'
         reader.next();
         let Param { name, value } = parse_hdr_in_uri(reader)?;
-        let value = value.unwrap_or("".into());
+        let value = value.unwrap_or("");
         params.set(name.into(), value.into());
 
         let Some(b'&') = reader.peek() else { break };
@@ -682,7 +692,11 @@ pub(crate) fn parse_uri(
         LR_PARAM = lr_param,
         MADDR_PARAM = maddr_param
     );
-    let transport_param = transport_param.map(|s| TransportProtocol::from(&*s));
+    let transport_param =
+        transport_param.map(|s| TransportProtocol::from(&s as &str));
+    let ttl_param = ttl_param.map(|ttl| ttl.parse().unwrap());
+    let lr_param = lr_param.is_some();
+    let method_param = method_param.map(|p| SipMethod::from(p.as_bytes()));
 
     let hdr_params = if let Some(&b'?') = reader.peek() {
         Some(parse_header_params_in_sip_uri(reader)?)

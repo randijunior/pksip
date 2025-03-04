@@ -13,7 +13,7 @@ pub trait SipService: Sync + Send + 'static {
     async fn on_request(
         &self,
         endpt: &Endpoint,
-        req: &mut Option<IncomingRequest>
+        req: &mut Option<IncomingRequest>,
     ) -> io::Result<()> {
         Ok(())
     }

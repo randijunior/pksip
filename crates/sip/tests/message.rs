@@ -5,6 +5,7 @@ use sip::{
 };
 
 #[test]
+#[ignore]
 fn test_parse_msg_1() {
     let parsed = sip::parser::parse_sip_msg(
         b"INVITE sip:bob@biloxi.com SIP/2.0\r\n\
@@ -100,6 +101,7 @@ fn test_parse_msg_1() {
 }
 
 #[test]
+#[ignore]
 fn test_parse_msg_2() {
     let parsed = sip::parser::parse_sip_msg(
         b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\

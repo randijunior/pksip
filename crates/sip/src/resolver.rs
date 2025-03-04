@@ -37,7 +37,6 @@ impl Resolver {
             TransportProtocol::UDP
         };
         let port = protocol.get_port();
-        log::debug!("CAIU {}!", host_port.as_str());
         let result = match host_port {
             Host::DomainName(arc_str) => self
                 .dns_resolver

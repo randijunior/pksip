@@ -6,9 +6,7 @@ use crate::transport::{
 };
 use crate::{
     headers::{Headers, Via},
-    message::{
-        SipMessage, SipResponse,StatusCode
-    },
+    message::{SipMessage, SipResponse, StatusCode},
     resolver::{Resolver, ServerAddress},
     service::SipService,
     transaction::TransactionLayer,
@@ -140,14 +138,13 @@ impl Endpoint {
         Ok(())
     }
 
-
     pub async fn new_response(
         &self,
         req: &mut IncomingRequest,
         st_line: StatusLine,
     ) -> io::Result<OutgoingResponse> {
         let mut hdrs = req.msg.req_headers.take().unwrap();
-        let topmost_via = &mut hdrs.via[0];
+        let topmost_via = &mut hdrs.via;
 
         let info = self
             .get_outgoing_info(
@@ -261,7 +258,7 @@ impl Endpoint {
 
     pub async fn receive_response(
         &self,
-        msg: &mut Option<IncomingResponse>
+        msg: &mut Option<IncomingResponse>,
     ) -> io::Result<()> {
         for service in self.services.iter() {
             if let Err(_err) = service.on_response(self, msg).await {

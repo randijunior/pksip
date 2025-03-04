@@ -17,7 +17,6 @@ use std::fmt::Debug;
 use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 
-use crate::headers::{Header, Headers};
 use crate::internal::ArcStr;
 use crate::parser::SipParserError;
 
@@ -25,6 +24,11 @@ use crate::parser::SipParserError;
 pub enum SipMessage {
     Request(SipRequest),
     Response(SipResponse),
+}
+
+pub enum StartLine {
+    RequestLine(RequestLine),
+    StatusLine(StatusLine),
 }
 
 impl SipMessage {
@@ -42,37 +46,12 @@ impl SipMessage {
             None
         }
     }
-    pub fn headers(&self) -> &Headers {
-        match self {
-            SipMessage::Request(req) => &req.headers,
-            SipMessage::Response(res) => &res.headers,
-        }
-    }
-
-    pub fn body(&self) -> &Option<&[u8]> {
-        // match self {
-        //     SipMessage::Request(req) => req.body,
-        //     SipMessage::Response(res) => &res.body,
-        // }
-        todo!()
-    }
-
-    pub fn headers_mut(&mut self) -> &mut Headers {
-        match self {
-            SipMessage::Request(req) => &mut req.headers,
-            SipMessage::Response(res) => &mut res.headers,
-        }
-    }
 
     pub fn set_body(&mut self, body: Option<&[u8]>) {
         match self {
             SipMessage::Request(req) => req.body = body.map(|b| b.into()),
             SipMessage::Response(res) => res.body = body.map(|b| b.into()),
         }
-    }
-
-    pub fn push_header(&mut self, header: Header) {
-        self.headers_mut().push(header);
     }
 }
 
@@ -161,7 +140,7 @@ impl UserInfo {
         }
     }
     pub fn get_user(&self) -> &str {
-        &*self.user
+        &self.user
     }
     pub fn get_pass(&self) -> Option<&str> {
         self.pass.as_deref()
@@ -263,10 +242,10 @@ pub struct Uri {
     pub user: Option<UserInfo>,
     pub host_port: HostPort,
     pub user_param: Option<ArcStr>,
-    pub method_param: Option<ArcStr>,
+    pub method_param: Option<SipMethod>,
     pub transport_param: Option<TransportProtocol>,
-    pub ttl_param: Option<ArcStr>,
-    pub lr_param: Option<ArcStr>,
+    pub ttl_param: Option<u8>,
+    pub lr_param: bool,
     pub maddr_param: Option<ArcStr>,
     pub params: Option<Params>,
     pub hdr_params: Option<Params>,
@@ -304,8 +283,8 @@ impl fmt::Display for Uri {
         if let Some(ttl_param) = &self.ttl_param {
             write!(f, ";ttl={}", ttl_param)?;
         }
-        if let Some(lr_param) = &self.lr_param {
-            write!(f, ";lr={}", lr_param)?;
+        if self.lr_param {
+            write!(f, ";lr")?;
         }
         if let Some(params) = &self.params {
             write!(f, ";{}", params)?;
@@ -365,8 +344,8 @@ impl UriBuilder {
         self
     }
 
-    pub fn method_param(mut self, method_param: &str) -> Self {
-        self.uri.method_param = Some(method_param.into());
+    pub fn method_param(mut self, method_param: SipMethod) -> Self {
+        self.uri.method_param = Some(method_param);
         self
     }
     pub fn transport_param(
@@ -378,11 +357,11 @@ impl UriBuilder {
     }
 
     pub fn ttl_param(mut self, ttl_param: &str) -> Self {
-        self.uri.ttl_param = Some(ttl_param.into());
+        self.uri.ttl_param = Some(ttl_param.parse().unwrap());
         self
     }
-    pub fn lr_param(mut self, lr_param: &str) -> Self {
-        self.uri.lr_param = Some(lr_param.into());
+    pub fn lr_param(mut self, lr_param: bool) -> Self {
+        self.uri.lr_param = lr_param;
         self
     }
 

@@ -361,7 +361,7 @@ pub struct OutgoingRequest {
 
 #[derive(Debug)]
 pub struct RequestHeaders {
-    pub via: Vec<Via>,
+    pub via: Via,
     pub from: headers::From,
     pub to: To,
     pub callid: CallId,
@@ -370,49 +370,13 @@ pub struct RequestHeaders {
 
 impl std::fmt::Display for RequestHeaders {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for via in &self.via {
-            write!(f, "{}: {}\r\n", Via::NAME, via)?;
-        }
+        write!(f, "{}: {}\r\n", Via::NAME, &self.via)?;
         write!(f, "{}: {}\r\n", headers::From::NAME, self.from)?;
         write!(f, "{}: {}\r\n", To::NAME, self.to)?;
         write!(f, "{}: {}\r\n", CallId::NAME, self.callid)?;
         write!(f, "{}: {}\r\n", CSeq::NAME, self.cseq)?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct MissingHeaderError;
-
-impl TryFrom<&Headers> for RequestHeaders {
-    type Error = MissingHeaderError;
-
-    fn try_from(hdrs: &Headers) -> Result<Self, Self::Error> {
-        let via = filter_map_header!(hdrs, Via);
-        let from = find_map_header!(hdrs, From);
-        let to = find_map_header!(hdrs, To);
-        let callid = find_map_header!(hdrs, CallId);
-        let cseq = find_map_header!(hdrs, CSeq);
-
-        let via: Vec<Via> = via.cloned().collect();
-
-        if via.is_empty() {
-            return Err(MissingHeaderError);
-        }
-
-        let from = from.ok_or(MissingHeaderError)?;
-        let to = to.ok_or(MissingHeaderError)?;
-        let callid = callid.ok_or(MissingHeaderError)?;
-        let cseq = cseq.ok_or(MissingHeaderError)?;
-
-        Ok(Self {
-            via,
-            from: from.clone(),
-            to: to.clone(),
-            callid: callid.clone(),
-            cseq: cseq.clone(),
-        })
     }
 }
 

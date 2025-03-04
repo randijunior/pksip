@@ -4,10 +4,7 @@
 
 use std::sync::Arc;
 
-use crate::{
-    headers::Headers,
-    transport::RequestHeaders,
-};
+use crate::{headers::Headers, transport::RequestHeaders};
 
 use super::{SipMethod, Uri};
 
@@ -27,20 +24,6 @@ pub struct SipRequest {
 }
 
 impl SipRequest {
-    pub fn new(
-        req_line: RequestLine,
-        headers: Headers,
-        body: Option<&[u8]>,
-        req_hdrs: Option<Box<RequestHeaders>>,
-    ) -> Self {
-        Self {
-            body: body.map(|b| b.into()),
-            req_line,
-            headers,
-            req_headers: req_hdrs,
-        }
-    }
-
     pub fn method(&self) -> SipMethod {
         self.req_line.method
     }

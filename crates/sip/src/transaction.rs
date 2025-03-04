@@ -233,30 +233,6 @@ pub struct Rfc3261 {
     cseq: u32,
 }
 
-impl TryFrom<&IncomingRequest> for TsxKey {
-    type Error = TsxKeyError;
-
-    fn try_from(req: &IncomingRequest) -> Result<Self, Self::Error> {
-        let headers = req.msg.req_headers.as_ref().unwrap();
-        let via = &headers.via[0];
-
-        if let Some(branch) = &via.branch {
-            // RFC 3261
-            let key = Rfc3261 {
-                branch: branch.clone(),
-                via_sent_by: via.sent_by.clone(),
-                // Ack not use
-                method: Some(req.msg.method()),
-                cseq: headers.cseq.cseq,
-            };
-
-            Ok(TsxKey::Rfc3261(key))
-        } else {
-            todo!("RFC 2543")
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct TsxKeyError;
 
@@ -398,13 +374,14 @@ pub(crate) mod mock {
     pub fn response(c: StatusCode) -> TsxMsg {
         let from = "sip:alice@127.0.0.1:5060".parse().unwrap();
         let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
+        let via = "SIP/2.0/UDP 127.0.0.1:5060".parse().unwrap();
         let cseq = CSeq {
             cseq: 1,
             method: SipMethod::Options,
         };
         let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
         let hdrs = Box::new(RequestHeaders {
-            via: vec![],
+            via,
             from,
             to,
             callid,
@@ -437,7 +414,7 @@ pub(crate) mod mock {
         let cseq = CSeq { cseq: 1, method: m };
         let callid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
         let hdrs = Box::new(RequestHeaders {
-            via: vec![via],
+            via,
             from,
             to,
             callid,
@@ -452,7 +429,12 @@ pub(crate) mod mock {
 
         let info = IncomingInfo::new(packet, transport);
         let req_line = RequestLine { method: m, uri };
-        let req = SipRequest::new(req_line, Headers::new(), None, Some(hdrs));
+        let req = SipRequest {
+            req_line,
+            headers: Headers::default(),
+            req_headers: Some(hdrs),
+            body: None,
+        };
         let incoming = IncomingRequest::new(req, info);
 
         incoming.into()
