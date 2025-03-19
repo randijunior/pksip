@@ -70,7 +70,9 @@ impl SipHeader<'_> for AlertInfo {
 impl TryFrom<&[u8]> for AlertInfo {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Header::from_bytes(value)?
             .into_alert_info()
             .map_err(|_| ParseHeaderError(Self::NAME))

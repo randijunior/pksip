@@ -43,7 +43,10 @@ impl Resolver {
                 .lookup_ip(arc_str.as_ref() as &str)
                 .await
                 .map_err(|err| {
-                    io::Error::other(format!("Failed to lookup dns: {}", err))
+                    io::Error::other(format!(
+                        "Failed to lookup dns: {}",
+                        err
+                    ))
                 })?,
             Host::IpAddr(ip_addr) => {
                 log::debug!("CAIU AQ!");

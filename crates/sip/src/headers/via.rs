@@ -261,7 +261,8 @@ mod tests {
 
         assert_eq!(via.received, Some("192.0.2.4".parse().unwrap()));
 
-        let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
+        let src =
+            b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
         let mut reader = Reader::new(src);
         let via = Via::parse(&mut reader);
@@ -271,12 +272,17 @@ mod tests {
         assert_eq!(
             via.sent_by,
             HostPort {
-                host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))),
+                host: Host::IpAddr(IpAddr::V4(Ipv4Addr::new(
+                    192, 0, 2, 1
+                ))),
                 port: Some(5060)
             }
         );
 
-        assert_eq!(via.received, Some("192.0.2.207".parse().unwrap()));
+        assert_eq!(
+            via.received,
+            Some("192.0.2.207".parse().unwrap())
+        );
         assert_eq!(via.branch, Some("z9hG4bK77asjd".into()));
     }
 }

@@ -73,7 +73,9 @@ impl SipHeader<'_> for AuthenticationInfo {
 impl TryFrom<&[u8]> for AuthenticationInfo {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Ok(Header::from_bytes(value)?
             .into_authentication_info()
             .map_err(|_| ParseHeaderError(Self::NAME))?)
@@ -110,7 +112,8 @@ mod tests {
     fn test_parse() {
         let src = b"nextnonce=\"47364c23432d2e131a5fb210812c\"\r\n";
         let mut reader = Reader::new(src);
-        let auth_info = AuthenticationInfo::parse(&mut reader).unwrap();
+        let auth_info =
+            AuthenticationInfo::parse(&mut reader).unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(
@@ -123,7 +126,8 @@ mod tests {
         qop=\"auth\", \
         rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
         let mut reader = Reader::new(src);
-        let auth_info = AuthenticationInfo::parse(&mut reader).unwrap();
+        let auth_info =
+            AuthenticationInfo::parse(&mut reader).unwrap();
 
         assert_eq!(reader.as_ref(), b"\r\n");
         assert_eq!(

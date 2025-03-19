@@ -81,11 +81,15 @@ impl SipHeader<'_> for Contact {
         let uri = parser::parse_sip_uri(reader, false)?;
         let mut q = None;
         let mut expires = None;
-        let param =
-            parse_header_param!(reader, Q_PARAM = q, EXPIRES_PARAM = expires);
+        let param = parse_header_param!(
+            reader,
+            Q_PARAM = q,
+            EXPIRES_PARAM = expires
+        );
 
         let q = q.map(|q| q.parse()).transpose()?;
-        let expires = expires.and_then(|expires| expires.parse().ok());
+        let expires =
+            expires.and_then(|expires| expires.parse().ok());
 
         Ok(Contact::Uri {
             uri,
@@ -99,7 +103,9 @@ impl SipHeader<'_> for Contact {
 impl TryFrom<&[u8]> for Contact {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Header::from_bytes(value)?
             .into_contact()
             .map_err(|_| ParseHeaderError(Self::NAME))
@@ -181,7 +187,10 @@ mod tests {
             )
         });
 
-        assert_eq!(reader.as_ref(), b":watson@bell-telephone.com> ;q=0.1\r\n");
+        assert_eq!(
+            reader.as_ref(),
+            b":watson@bell-telephone.com> ;q=0.1\r\n"
+        );
 
         let src = b"sip:caller@u1.example.com\r\n";
         let mut reader = Reader::new(src);

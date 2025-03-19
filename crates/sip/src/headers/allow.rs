@@ -1,6 +1,7 @@
 use super::{Header, ParseHeaderError};
 use crate::{
-    headers::SipHeader, macros::hdr_list, message::SipMethod, parser::Result,
+    headers::SipHeader, macros::hdr_list, message::SipMethod,
+    parser::Result,
 };
 use itertools::Itertools;
 use reader::{alpha, Reader};
@@ -66,7 +67,9 @@ impl<'a> SipHeader<'a> for Allow {
 impl TryFrom<&[u8]> for Allow {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Header::from_bytes(value)?
             .into_allow()
             .map_err(|_| ParseHeaderError(Self::NAME))

@@ -33,7 +33,9 @@ pub struct Param<'a> {
 impl<'a> TryFrom<&'a str> for Param<'a> {
     type Error = SipParserError;
 
-    fn try_from(s: &'a str) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        s: &'a str,
+    ) -> std::result::Result<Self, Self::Error> {
         Self::parse(&mut Reader::new(s.as_bytes()))
     }
 }

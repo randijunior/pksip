@@ -56,7 +56,9 @@ impl AcceptLanguage {
 impl TryFrom<&[u8]> for AcceptLanguage {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Header::from_bytes(value)?
             .into_accept_language()
             .map_err(|_| ParseHeaderError(Self::NAME))
@@ -149,7 +151,8 @@ mod tests {
     fn test_parse() {
         let src = b"en\r\n";
         let mut reader = Reader::new(src);
-        let accept_language = AcceptLanguage::parse(&mut reader).unwrap();
+        let accept_language =
+            AcceptLanguage::parse(&mut reader).unwrap();
 
         assert!(accept_language.len() == 1);
         assert_eq!(reader.as_ref(), b"\r\n");
@@ -160,7 +163,8 @@ mod tests {
 
         let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
         let mut reader = Reader::new(src);
-        let accept_language = AcceptLanguage::parse(&mut reader).unwrap();
+        let accept_language =
+            AcceptLanguage::parse(&mut reader).unwrap();
 
         assert!(accept_language.len() == 3);
         assert_eq!(reader.as_ref(), b"\r\n");
@@ -179,7 +183,8 @@ mod tests {
 
         let src = b"*\r\n";
         let mut reader = Reader::new(src);
-        let accept_language = AcceptLanguage::parse(&mut reader).unwrap();
+        let accept_language =
+            AcceptLanguage::parse(&mut reader).unwrap();
 
         assert!(accept_language.len() == 1);
         assert_eq!(reader.as_ref(), b"\r\n");

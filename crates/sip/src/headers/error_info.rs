@@ -77,6 +77,9 @@ mod tests {
         assert_eq!(reader.as_ref(), b"\r\n");
 
         let err = err_info.0.get(0).unwrap();
-        assert_eq!(err.url, "sip:not-in-service-recording@atlanta.com".into());
+        assert_eq!(
+            err.url,
+            "sip:not-in-service-recording@atlanta.com".into()
+        );
     }
 }

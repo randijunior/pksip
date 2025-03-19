@@ -5,7 +5,9 @@ use tokio::net::{ToSocketAddrs, UdpSocket};
 
 use crate::message::{Host, HostPort, TransportProtocol};
 
-use super::{Packet, SipTransport, TpSender, Transport, MAX_PACKET_SIZE};
+use super::{
+    Packet, SipTransport, TpSender, Transport, MAX_PACKET_SIZE,
+};
 
 #[derive(Debug)]
 pub struct Inner {
@@ -19,7 +21,11 @@ pub struct Udp(Arc<Inner>);
 
 #[async_trait]
 impl SipTransport for Udp {
-    async fn send(&self, buf: &[u8], addr: SocketAddr) -> io::Result<usize> {
+    async fn send(
+        &self,
+        buf: &[u8],
+        addr: &SocketAddr,
+    ) -> io::Result<usize> {
         self.0.sock.send_to(buf, addr).await
     }
 
@@ -50,7 +56,9 @@ impl SipTransport for Udp {
 }
 
 impl Udp {
-    pub async fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<Transport> {
+    pub async fn bind<A: ToSocketAddrs>(
+        addr: A,
+    ) -> io::Result<Transport> {
         let sock = UdpSocket::bind(addr).await?;
         let addr = sock.local_addr()?;
         let local_name = HostPort {
@@ -66,7 +74,10 @@ impl Udp {
         Ok(Udp(udp).into())
     }
 
-    async fn recv_from(udp: Arc<Self>, sender: TpSender) -> io::Result<()> {
+    async fn recv_from(
+        udp: Arc<Self>,
+        sender: TpSender,
+    ) -> io::Result<()> {
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
         loop {
             let (len, addr) = udp.0.sock.recv_from(&mut buf).await?;
@@ -97,7 +108,7 @@ pub(crate) mod mock {
         async fn send(
             &self,
             buf: &[u8],
-            _addr: SocketAddr,
+            _addr: &SocketAddr,
         ) -> io::Result<usize> {
             Ok(buf.len())
         }

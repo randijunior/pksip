@@ -36,7 +36,8 @@ impl SipHeader<'_> for ContentEncoding {
      *                      content-coding *(COMMA content-coding)
      */
     fn parse(reader: &mut Reader) -> Result<ContentEncoding> {
-        let codings = hdr_list!(reader => parser::parse_token(reader)?.into());
+        let codings =
+            hdr_list!(reader => parser::parse_token(reader)?.into());
 
         Ok(ContentEncoding(codings))
     }

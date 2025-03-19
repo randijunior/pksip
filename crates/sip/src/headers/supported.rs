@@ -24,7 +24,8 @@ impl SipHeader<'_> for Supported {
      *               [option-tag *(COMMA option-tag)]
      */
     fn parse(reader: &mut Reader) -> Result<Self> {
-        let tags = hdr_list!(reader => parser::parse_token(reader)?.into());
+        let tags =
+            hdr_list!(reader => parser::parse_token(reader)?.into());
 
         Ok(Supported(tags))
     }

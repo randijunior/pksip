@@ -11,7 +11,7 @@ pub trait SipService: Sync + Send + 'static {
     fn name(&self) -> &str;
 
     async fn on_request(
-        &self,
+        &mut self,
         endpt: &Endpoint,
         req: &mut Option<IncomingRequest>,
     ) -> io::Result<()> {
@@ -19,7 +19,7 @@ pub trait SipService: Sync + Send + 'static {
     }
 
     async fn on_response(
-        &self,
+        &mut self,
         endpt: &Endpoint,
         response: &mut Option<IncomingResponse>,
     ) -> io::Result<()> {

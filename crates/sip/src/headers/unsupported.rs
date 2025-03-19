@@ -21,7 +21,8 @@ impl SipHeader<'_> for Unsupported {
      * Unsupported  =  "Unsupported" HCOLON option-tag *(COMMA option-tag)
      */
     fn parse(reader: &mut Reader) -> Result<Self> {
-        let tags = hdr_list!(reader => parser::parse_token(reader)?.into());
+        let tags =
+            hdr_list!(reader => parser::parse_token(reader)?.into());
 
         Ok(Unsupported(tags))
     }

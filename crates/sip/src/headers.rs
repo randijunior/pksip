@@ -388,9 +388,9 @@ impl Header {
     pub fn parse_header_value_as_str<'a>(
         reader: &mut Reader<'a>,
     ) -> Result<&'a str> {
-        let str = reader::until_newline!(reader);
+        let bytes = reader::until_newline!(reader);
 
-        Ok(str::from_utf8(str)?)
+        Ok(str::from_utf8(bytes)?)
     }
 
     /// Parses a SIP `Header` from a byte slice.
@@ -413,45 +413,65 @@ impl Header {
         space!(reader);
 
         match header_name {
-            Accept::NAME => Ok(Header::Accept(Accept::parse(reader)?)),
-            AcceptEncoding::NAME => {
-                Ok(Header::AcceptEncoding(AcceptEncoding::parse(reader)?))
+            Accept::NAME => {
+                Ok(Header::Accept(Accept::parse(reader)?))
             }
-            AcceptLanguage::NAME => {
-                Ok(Header::AcceptLanguage(AcceptLanguage::parse(reader)?))
+            AcceptEncoding::NAME => Ok(Header::AcceptEncoding(
+                AcceptEncoding::parse(reader)?,
+            )),
+            AcceptLanguage::NAME => Ok(Header::AcceptLanguage(
+                AcceptLanguage::parse(reader)?,
+            )),
+            AlertInfo::NAME => {
+                Ok(Header::AlertInfo(AlertInfo::parse(reader)?))
             }
-            AlertInfo::NAME => Ok(Header::AlertInfo(AlertInfo::parse(reader)?)),
             Allow::NAME => Ok(Header::Allow(Allow::parse(reader)?)),
-            AuthenticationInfo::NAME => Ok(Header::AuthenticationInfo(
-                AuthenticationInfo::parse(reader)?,
+            AuthenticationInfo::NAME => {
+                Ok(Header::AuthenticationInfo(
+                    AuthenticationInfo::parse(reader)?,
+                ))
+            }
+            Authorization::NAME => Ok(Header::Authorization(
+                Authorization::parse(reader)?,
             )),
-            Authorization::NAME => {
-                Ok(Header::Authorization(Authorization::parse(reader)?))
+            CallId::NAME => {
+                Ok(Header::CallId(CallId::parse(reader)?))
             }
-            CallId::NAME => Ok(Header::CallId(CallId::parse(reader)?)),
-            CallInfo::NAME => Ok(Header::CallInfo(CallInfo::parse(reader)?)),
-            Contact::NAME => Ok(Header::Contact(Contact::parse(reader)?)),
-            ContentDisposition::NAME => Ok(Header::ContentDisposition(
-                ContentDisposition::parse(reader)?,
+            CallInfo::NAME => {
+                Ok(Header::CallInfo(CallInfo::parse(reader)?))
+            }
+            Contact::NAME => {
+                Ok(Header::Contact(Contact::parse(reader)?))
+            }
+            ContentDisposition::NAME => {
+                Ok(Header::ContentDisposition(
+                    ContentDisposition::parse(reader)?,
+                ))
+            }
+            ContentEncoding::NAME => Ok(Header::ContentEncoding(
+                ContentEncoding::parse(reader)?,
             )),
-            ContentEncoding::NAME => {
-                Ok(Header::ContentEncoding(ContentEncoding::parse(reader)?))
-            }
-            ContentLanguage::NAME => {
-                Ok(Header::ContentLanguage(ContentLanguage::parse(reader)?))
-            }
-            ContentLength::NAME => {
-                Ok(Header::ContentLength(ContentLength::parse(reader)?))
-            }
+            ContentLanguage::NAME => Ok(Header::ContentLanguage(
+                ContentLanguage::parse(reader)?,
+            )),
+            ContentLength::NAME => Ok(Header::ContentLength(
+                ContentLength::parse(reader)?,
+            )),
             ContentType::NAME => {
                 Ok(Header::ContentType(ContentType::parse(reader)?))
             }
             CSeq::NAME => Ok(Header::CSeq(CSeq::parse(reader)?)),
             Date::NAME => Ok(Header::Date(Date::parse(reader)?)),
-            ErrorInfo::NAME => Ok(Header::ErrorInfo(ErrorInfo::parse(reader)?)),
-            Expires::NAME => Ok(Header::Expires(Expires::parse(reader)?)),
+            ErrorInfo::NAME => {
+                Ok(Header::ErrorInfo(ErrorInfo::parse(reader)?))
+            }
+            Expires::NAME => {
+                Ok(Header::Expires(Expires::parse(reader)?))
+            }
             From::NAME => Ok(Header::From(From::parse(reader)?)),
-            InReplyTo::NAME => Ok(Header::InReplyTo(InReplyTo::parse(reader)?)),
+            InReplyTo::NAME => {
+                Ok(Header::InReplyTo(InReplyTo::parse(reader)?))
+            }
             MaxForwards::NAME => {
                 Ok(Header::MaxForwards(MaxForwards::parse(reader)?))
             }
@@ -464,13 +484,17 @@ impl Header {
             Organization::NAME => {
                 Ok(Header::Organization(Organization::parse(reader)?))
             }
-            Priority::NAME => Ok(Header::Priority(Priority::parse(reader)?)),
-            ProxyAuthenticate::NAME => {
-                Ok(Header::ProxyAuthenticate(ProxyAuthenticate::parse(reader)?))
+            Priority::NAME => {
+                Ok(Header::Priority(Priority::parse(reader)?))
             }
-            ProxyAuthorization::NAME => Ok(Header::ProxyAuthorization(
-                ProxyAuthorization::parse(reader)?,
+            ProxyAuthenticate::NAME => Ok(Header::ProxyAuthenticate(
+                ProxyAuthenticate::parse(reader)?,
             )),
+            ProxyAuthorization::NAME => {
+                Ok(Header::ProxyAuthorization(
+                    ProxyAuthorization::parse(reader)?,
+                ))
+            }
             ProxyRequire::NAME => {
                 Ok(Header::ProxyRequire(ProxyRequire::parse(reader)?))
             }
@@ -481,25 +505,42 @@ impl Header {
             RecordRoute::NAME => {
                 Ok(Header::RecordRoute(RecordRoute::parse(reader)?))
             }
-            ReplyTo::NAME => Ok(Header::ReplyTo(ReplyTo::parse(reader)?)),
-            Require::NAME => Ok(Header::Require(Require::parse(reader)?)),
-            Server::NAME => Ok(Header::Server(Server::parse(reader)?)),
-            Subject::NAME => Ok(Header::Subject(Subject::parse(reader)?)),
-            Supported::NAME => Ok(Header::Supported(Supported::parse(reader)?)),
-            Timestamp::NAME => Ok(Header::Timestamp(Timestamp::parse(reader)?)),
+            ReplyTo::NAME => {
+                Ok(Header::ReplyTo(ReplyTo::parse(reader)?))
+            }
+            Require::NAME => {
+                Ok(Header::Require(Require::parse(reader)?))
+            }
+            Server::NAME => {
+                Ok(Header::Server(Server::parse(reader)?))
+            }
+            Subject::NAME => {
+                Ok(Header::Subject(Subject::parse(reader)?))
+            }
+            Supported::NAME => {
+                Ok(Header::Supported(Supported::parse(reader)?))
+            }
+            Timestamp::NAME => {
+                Ok(Header::Timestamp(Timestamp::parse(reader)?))
+            }
             To::NAME => Ok(Header::To(To::parse(reader)?)),
             Unsupported::NAME => {
                 Ok(Header::Unsupported(Unsupported::parse(reader)?))
             }
-            UserAgent::NAME => Ok(Header::UserAgent(UserAgent::parse(reader)?)),
-            Via::NAME => Ok(Header::Via(Via::parse(reader)?)),
-            Warning::NAME => Ok(Header::Warning(Warning::parse(reader)?)),
-            WWWAuthenticate::NAME => {
-                Ok(Header::WWWAuthenticate(WWWAuthenticate::parse(reader)?))
+            UserAgent::NAME => {
+                Ok(Header::UserAgent(UserAgent::parse(reader)?))
             }
+            Via::NAME => Ok(Header::Via(Via::parse(reader)?)),
+            Warning::NAME => {
+                Ok(Header::Warning(Warning::parse(reader)?))
+            }
+            WWWAuthenticate::NAME => Ok(Header::WWWAuthenticate(
+                WWWAuthenticate::parse(reader)?,
+            )),
             _ => Ok(Header::Other {
                 name: header_name.into(),
-                value: Self::parse_header_value_as_str(reader)?.into(),
+                value: Self::parse_header_value_as_str(reader)?
+                    .into(),
             }),
         }
     }
@@ -623,7 +664,10 @@ impl Headers {
     /// assert_eq!(iter.next(), Some(&Header::Expires(Expires::new(10))));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn filter<F>(&self, f: F) -> Filter<impl Iterator<Item = &Header>, F>
+    pub fn filter<F>(
+        &self,
+        f: F,
+    ) -> Filter<impl Iterator<Item = &Header>, F>
     where
         F: FnMut(&&Header) -> bool,
     {

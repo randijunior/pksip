@@ -1,186 +1,311 @@
+use async_trait::async_trait;
+use tsx_key::TsxKey;
+
 use crate::{
     endpoint::Endpoint,
-    headers::CallId,
-    internal::ArcStr,
-    message::{HostPort, SipMethod, StatusCode},
+    message::{SipMethod, StatusCode},
     transport::{
-        IncomingRequest, IncomingResponse, MsgBuffer, OutGoingRequest,
+        IncomingMessage, IncomingRequest, MsgBuffer, OutgoingMessage,
         OutgoingResponse, Transport,
     },
 };
-use async_trait::async_trait;
-use server_inv::TsxUasInv;
-use server_non_inv::TsxUas;
+
 use std::{
     collections::HashMap,
-    io,
+    io, mem,
     net::SocketAddr,
+    ops::Deref,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::Duration,
 };
-use tokio::sync::{
-    mpsc::{self},
-    oneshot,
-};
 
-pub mod client_non_inv;
-pub mod server_inv;
-pub mod server_non_inv;
+pub mod server;
+pub mod tsx_key;
 
-type TsxReceiver = mpsc::Receiver<TsxMsg>;
-pub type TsxSender = mpsc::Sender<TsxMsg>;
-
+/// An estimate of the round-trip time (RTT).
 const T1: Duration = Duration::from_millis(500);
+/// Maximum retransmission interval for non-INVITE requests and INVITE responses.
 const T2: Duration = Duration::from_secs(4);
+/// Maximum duration that a message can remain in the network.
 const T4: Duration = Duration::from_secs(5);
 
 #[async_trait]
 pub trait SipTransaction: Sync + Send + 'static {
-    async fn recv_msg(&mut self, msg: TsxMsg) -> io::Result<()>;
+    async fn recv_msg(
+        &mut self,
+        msg: IncomingMessage,
+    ) -> io::Result<()>;
+
+    async fn send_msg(
+        &mut self,
+        msg: OutgoingMessage,
+    ) -> io::Result<()>;
+
+    fn terminate(&mut self);
 }
 
-pub struct Transaction {
-    state: TsxStateMachine,
-    addr: SocketAddr,
+/// Represents the inner state of a SIP transaction.
+pub struct Inner {
+    role: Role,
+    endpoint: Endpoint,
+    method: SipMethod,
+    key: TsxKey,
     transport: Transport,
-    last_response: Option<OutgoingResponse>,
-    tx: Option<oneshot::Sender<()>>,
-    retransmit_count: Arc<AtomicUsize>,
+    addr: SocketAddr,
+    state: Mutex<State>,
+    status_code: Mutex<Option<StatusCode>>,
+    retransmit_count: AtomicUsize,
+    last_msg: Mutex<Option<OutgoingResponse>>,
 }
+
+#[derive(Clone)]
+/// Represents a SIP transaction.
+///
+/// A SIP transaction consists of a set of messages exchanged between a client (`UAC`) and
+/// a server (`UAS`) to complete a certain action, such as establishing or terminating a call.
+pub struct Transaction(Arc<Inner>);
 
 impl Transaction {
-    pub fn set_tsx_timers(&mut self) {
-        todo!()
-    }
-    pub fn retransmission_count(&self) -> u32 {
-        self.retransmit_count.load(Ordering::SeqCst) as u32
-    }
-    async fn retransmit(&mut self) -> io::Result<()> {
-        if let Some(msg) = self.last_response.as_ref() {
-            let buf = msg.buf.as_ref().unwrap();
-            self.send_buf(buf).await?;
-            self.retransmit_count.fetch_add(1, Ordering::SeqCst);
-        }
-        Ok(())
+    fn builder() -> TransactionBuilder {
+        Default::default()
     }
 
-    pub fn last_response(&self) -> &Option<OutgoingResponse> {
-        &self.last_response
-    }
-
-    pub fn last_response_code(&self) -> Option<StatusCode> {
-        self.last_response.as_ref().map(|msg| msg.status_code())
-    }
-
-    fn do_terminate(&mut self, time: Duration) {
-        let tx = self.tx.take();
-        if self.reliable() {
-            self.state.terminated();
-            if let Some(tx) = tx {
-                tx.send(()).unwrap();
-            }
-            return;
-        }
-        let state = self.state.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(time).await;
-            state.terminated();
-            if let Some(tx) = tx {
-                tx.send(()).unwrap();
-            }
-        });
-    }
-
-    fn reliable(&self) -> bool {
+    #[inline]
+    /// Checks if the transport is reliable.
+    pub fn reliable(&self) -> bool {
         self.transport.reliable()
     }
 
-    fn get_state(&self) -> TsxState {
-        self.state.get_state()
+    #[inline]
+    /// Retrieves the current state of the transaction.
+    pub fn get_state(&self) -> State {
+        *self.state.lock().expect("Lock failed")
     }
 
-    async fn send(&mut self, mut res: OutgoingResponse) -> io::Result<()> {
-        if let Some(buf) = res.buf {
-            self.send_buf(&buf).await?;
-            return Ok(());
+    #[inline]
+    /// Gets the count of retransmissions.
+    pub fn retransmission_count(&self) -> u32 {
+        self.retransmit_count.load(Ordering::SeqCst) as u32
+    }
+
+    #[inline]
+    pub fn increment_retransmission_count(&self) -> u32 {
+        self.retransmit_count.fetch_add(1, Ordering::SeqCst) as u32
+    }
+
+    #[inline]
+    /// Retrieves the last status code sent.
+    pub fn last_status_code(&self) -> Option<StatusCode> {
+        *self.status_code.lock().expect("Lock failed")
+    }
+
+    fn on_terminated(&self) {
+        self.set_state(State::Terminated);
+        self.endpoint.transaction.remove(&self.key);
+    }
+
+    fn set_state(&self, state: State) {
+        let old = {
+            let mut guard = self.state.lock().expect("Lock failed");
+            mem::replace(&mut *guard, state)
+        };
+        log::trace!("State changed from {old:?} to {state:?}");
+    }
+
+    #[inline]
+    fn set_last_status_code(&self, code: StatusCode) {
+        let mut guard = self.status_code.lock().expect("Lock failed");
+        *guard = Some(code);
+    }
+
+    fn set_last_msg(&self, msg: OutgoingResponse) {
+        let mut guard = self.last_msg.lock().expect("Lock failed");
+        *guard = Some(msg);
+    }
+
+    fn get_last_msg_buf(&self) -> Option<Arc<MsgBuffer>> {
+        self.last_msg
+            .lock()
+            .expect("Lock failed")
+            .as_ref()
+            .map(|msg| msg.buf.clone().unwrap())
+    }
+
+    async fn retransmit(&self) -> io::Result<()> {
+        let retransmited = {
+            if let Some(msg) = self.get_last_msg_buf() {
+                self.transport.send(&msg, &self.addr).await?;
+                true
+            } else {
+                false
+            }
+        };
+        if retransmited {
+            self.increment_retransmission_count();
         }
-        let buf = res.into_buffer()?;
-        self.send_buf(&buf).await?;
-
-        res.buf = Some(buf.into());
-        self.last_response = Some(res);
         Ok(())
     }
 
-    pub async fn send_buf(&self, buf: &MsgBuffer) -> io::Result<()> {
-        let sended = self.transport.send(buf, self.addr).await?;
-
-        println!("Sended: {sended} bytes");
+    async fn send(
+        &self,
+        mut msg: OutgoingResponse,
+    ) -> io::Result<()> {
+        log::trace!(
+            "Sending Response msg {} {} to {}",
+            msg.status_code().into_u32(),
+            msg.rphrase(),
+            msg.hdrs.cseq.method,
+        );
+        if msg.buf.is_none() {
+            let buf = msg.into_buffer()?;
+            msg.buf = Some(buf.into());
+        }
+        self.transport.send_msg(&self.addr, &msg).await?;
+        let code = msg.status_code();
+        self.set_last_msg(msg);
+        self.set_last_status_code(code);
         Ok(())
     }
 }
 
-const BRANCH_RFC3261: &str = "z9hG4bK";
+impl Deref for Transaction {
+    type Target = Inner;
 
-#[derive(Clone)]
-pub struct TsxStateMachine(Arc<Mutex<TsxState>>);
-
-impl TsxStateMachine {
-    pub fn new(state: TsxState) -> Self {
-        Self(Arc::new(Mutex::new(state)))
-    }
-    pub fn set_state(&self, new_state: TsxState) {
-        let mut state = self.0.lock().unwrap();
-        *state = new_state;
-    }
-
-    pub fn terminated(&self) {
-        self.set_state(TsxState::Terminated);
-    }
-
-    pub fn trying(&self) {
-        self.set_state(TsxState::Trying);
-    }
-
-    pub fn proceeding(&self) {
-        self.set_state(TsxState::Proceeding);
-    }
-
-    pub fn completed(&self) {
-        self.set_state(TsxState::Completed);
-    }
-
-    pub fn confirmed(&self) {
-        self.set_state(TsxState::Confirmed);
-    }
-
-    pub fn get_state(&self) -> TsxState {
-        *self.0.lock().unwrap()
-    }
-
-    pub fn is_proceeding(&self) -> bool {
-        self.get_state().is_proceeding()
-    }
-    pub fn is_trying(&self) -> bool {
-        self.get_state().is_trying()
-    }
-
-    pub fn is_completed(&self) -> bool {
-        self.get_state().is_completed()
-    }
-    pub fn is_terminated(&self) -> bool {
-        self.get_state().is_terminated()
-    }
-    pub fn is_confirmed(&self) -> bool {
-        self.get_state().is_confirmed()
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TsxState {
+impl From<(&IncomingRequest, &Endpoint)> for Transaction {
+    fn from(
+        (request, endpoint): (&IncomingRequest, &Endpoint),
+    ) -> Self {
+        let key = TsxKey::create(&request);
+        let mut builder = Transaction::builder();
+
+        builder.key(key.clone());
+        builder.role(Role::UAS);
+        builder.endpoint(endpoint.clone());
+        builder.method(request.msg.cseq().unwrap().method);
+        builder.transport(request.transport().clone());
+        builder.addr(request.info.packet().addr);
+        builder.state(State::default());
+
+        let tsx = builder.build();
+        endpoint.transaction.insert(key, tsx.clone());
+
+        tsx
+    }
+}
+
+#[derive(Default)]
+pub struct TransactionBuilder {
+    role: Option<Role>,
+    endpoint: Option<Endpoint>,
+    method: Option<SipMethod>,
+    key: Option<TsxKey>,
+    transport: Option<Transport>,
+    addr: Option<SocketAddr>,
+    state: Option<Mutex<State>>,
+    status_code: Option<Mutex<Option<StatusCode>>>,
+    last_msg: Option<Mutex<Option<OutgoingResponse>>>,
+    retransmit_count: Option<AtomicUsize>,
+}
+
+impl TransactionBuilder {
+    pub fn role(&mut self, role: Role) -> &mut Self {
+        self.role = Some(role);
+        self
+    }
+    pub fn endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.endpoint = Some(endpoint);
+        self
+    }
+
+    pub fn method(&mut self, method: SipMethod) -> &mut Self {
+        self.method = Some(method);
+        self
+    }
+
+    pub fn key(&mut self, key: TsxKey) -> &mut Self {
+        self.key = Some(key);
+        self
+    }
+
+    pub fn transport(&mut self, transport: Transport) -> &mut Self {
+        self.transport = Some(transport);
+        self
+    }
+
+    pub fn addr(&mut self, addr: SocketAddr) -> &mut Self {
+        self.addr = Some(addr);
+        self
+    }
+
+    pub fn state(&mut self, state: State) -> &mut Self {
+        self.state = Some(Mutex::new(state));
+        self
+    }
+
+    pub fn status_code(
+        &mut self,
+        status_code: Option<StatusCode>,
+    ) -> &mut Self {
+        self.status_code = Some(Mutex::new(status_code));
+        self
+    }
+
+    pub fn last_msg(
+        &mut self,
+        last_msg: Option<OutgoingResponse>,
+    ) -> &mut Self {
+        self.last_msg = Some(Mutex::new(last_msg));
+        self
+    }
+
+    pub fn retransmit_count(
+        &mut self,
+        retransmit_count: usize,
+    ) -> &mut Self {
+        self.retransmit_count =
+            Some(AtomicUsize::new(retransmit_count));
+        self
+    }
+
+    pub fn build(self) -> Transaction {
+        let inner = Inner {
+            role: self.role.expect("Role is required"),
+            endpoint: self.endpoint.expect("Endpoint is required"),
+            method: self.method.expect("Method is required"),
+            key: self.key.expect("Key is required"),
+            transport: self.transport.expect("Transport is required"),
+            addr: self.addr.expect("Address is required"),
+            state: self.state.expect("State is required"),
+            status_code: self.status_code.unwrap_or_default(),
+            last_msg: self.last_msg.unwrap_or_default(),
+            retransmit_count: self
+                .retransmit_count
+                .unwrap_or_default(),
+        };
+        Transaction(Arc::new(inner))
+    }
+}
+
+/// The possible roles of a SIP transaction.
+pub enum Role {
+    /// (User Agent Client): The entity that initiates the request.
+    UAC,
+    /// (User Agent Server): The entity that responds to the request.
+    UAS,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Defines the possible states of a SIP transaction.
+pub enum State {
+    #[default]
     Trying,
     Proceeding,
     Completed,
@@ -188,193 +313,66 @@ pub enum TsxState {
     Terminated,
 }
 
-impl TsxState {
-    pub fn is_proceeding(&self) -> bool {
-        *self == TsxState::Proceeding
-    }
-    pub fn is_trying(&self) -> bool {
-        *self == TsxState::Trying
-    }
-
-    pub fn is_completed(&self) -> bool {
-        *self == TsxState::Completed
-    }
-
-    pub fn is_terminated(&self) -> bool {
-        *self == TsxState::Terminated
-    }
-
-    pub fn is_confirmed(&self) -> bool {
-        *self == TsxState::Confirmed
-    }
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum TsxKey {
-    Rfc2543(Rfc2543),
-    Rfc3261(Rfc3261),
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Rfc2543 {
-    pub cseq: u32,
-    pub from_tag: Option<ArcStr>,
-    pub to_tag: Option<ArcStr>,
-    pub call_id: CallId,
-    pub via_host_port: HostPort,
-    pub method: Option<SipMethod>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Rfc3261 {
-    branch: ArcStr,
-    via_sent_by: HostPort,
-    method: Option<SipMethod>,
-    cseq: u32,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct TsxKeyError;
-
-pub enum TsxMsg {
-    UasRequest(IncomingRequest),
-    UasResponse(OutgoingResponse),
-    UacRequest(OutGoingRequest),
-    UacResponse(IncomingResponse),
-}
-
-impl TsxMsg {
-    pub fn uas_request(&self) -> Option<&IncomingRequest> {
-        if let TsxMsg::UasRequest(req) = self {
-            Some(req)
-        } else {
-            None
-        }
-    }
-
-    pub fn tsx_key(&self) -> Option<&TsxKey> {
-        match self {
-            TsxMsg::UasRequest(incoming_request) => {
-                incoming_request.tsx_key.as_ref()
-            }
-            TsxMsg::UasResponse(outgoing_response) => todo!(),
-            TsxMsg::UacRequest(out_going_request) => todo!(),
-            TsxMsg::UacResponse(incoming_response) => todo!(),
-        }
-    }
-
-    pub fn uas_request_mut(&mut self) -> Option<&mut IncomingRequest> {
-        if let TsxMsg::UasRequest(req) = self {
-            Some(req)
-        } else {
-            None
-        }
-    }
-}
-
-impl From<IncomingRequest> for TsxMsg {
-    fn from(value: IncomingRequest) -> Self {
-        TsxMsg::UasRequest(value)
-    }
-}
-
-impl From<OutgoingResponse> for TsxMsg {
-    fn from(value: OutgoingResponse) -> Self {
-        TsxMsg::UasResponse(value)
-    }
-}
-
 #[derive(Default)]
-pub struct TransactionLayer(Mutex<HashMap<TsxKey, TsxSender>>);
+pub struct TransactionLayer {
+    map: Mutex<HashMap<TsxKey, Transaction>>,
+}
 
 impl TransactionLayer {
-    pub fn new() -> Self {
-        Self(Mutex::new(HashMap::new()))
+    #[inline]
+    pub fn remove(&self, key: &TsxKey) -> Option<Transaction> {
+        let mut map = self.map.lock().expect("Lock failed");
+        map.remove(key)
     }
 
-    pub fn remove(&self, key: &TsxKey) -> Option<TsxSender> {
-        self.0.lock().unwrap().remove(key)
+    #[inline]
+    fn get(&self, key: &TsxKey) -> Option<Transaction> {
+        let map = self.map.lock().expect("Lock failed");
+        map.get(key).cloned()
     }
 
-    pub fn get(&self, key: &TsxKey) -> Option<TsxSender> {
-        self.0.lock().unwrap().get(key).cloned()
+    #[inline]
+    pub fn insert(&self, key: TsxKey, tsx: Transaction) {
+        let mut map = self.map.lock().expect("Lock failed");
+        map.insert(key, tsx);
     }
 
-    pub fn insert(&self, key: TsxKey, tsx: TsxSender) {
-        self.0.lock().unwrap().insert(key, tsx);
+    /// Find a transaction with the specified key.
+    pub fn find_tsx(&self, key: &TsxKey) -> Option<Transaction> {
+        self.get(key)
     }
 
-    pub async fn handle_message(
+    pub async fn handle_request(
         &self,
-        message: TsxMsg,
-    ) -> io::Result<Option<TsxMsg>> {
-        let key = message.tsx_key().unwrap();
-        if let Some(sender) = self.get(key) {
-            println!("TSX FOUND!");
-            // Check if is retransmission
-            if (sender.send(message).await).is_err() {
-                println!("receiver droped!");
-            };
-            Ok(None)
-        } else {
-            Ok(Some(message))
-        }
-    }
-
-    pub(crate) fn tsx_recv_msg(
-        &self,
-        mut tsx: impl SipTransaction,
-        mut rx: TsxReceiver,
-    ) {
-        tokio::spawn(async move {
-            while let Some(msg) = rx.recv().await {
-                tsx.recv_msg(msg).await.unwrap()
-            }
-        });
-    }
-
-    pub async fn create_uas_tsx(
-        &self,
-        endpoint: &Endpoint,
-        request: &mut IncomingRequest,
-    ) -> io::Result<oneshot::Receiver<()>> {
-        let (sender, receiver) = mpsc::channel(100);
-        let (tx, rx) = oneshot::channel();
-
-        if request.is_method(&SipMethod::Invite) {
-            let mut tsx = TsxUasInv::new(request, endpoint).await?;
-            tsx.tx = Some(tx);
-            self.tsx_recv_msg(tsx, receiver);
-        } else {
-            let mut tsx = TsxUas::new(request);
-            tsx.tx = Some(tx);
-            self.tsx_recv_msg(tsx, receiver);
-        };
-        let key = request.tsx_key.as_ref().unwrap();
-        self.insert(key.clone(), sender);
-
-        Ok(rx)
+        message: IncomingRequest,
+    ) -> io::Result<Option<IncomingRequest>> {
+        todo!()
     }
 }
 
 #[cfg(test)]
 pub(crate) mod mock {
+    use super::*;
+
     use std::time::SystemTime;
 
     use crate::{
-        headers::{CSeq, Headers},
-        message::{RequestLine, SipRequest, SipResponse, SipUri},
+        headers::{CSeq, CallId, Headers},
+        message::{
+            RequestLine, SipRequest, SipResponse, SipUri, StatusCode,
+        },
         transport::{
-            udp::mock::MockUdpTransport, IncomingInfo, OutgoingInfo, Packet,
-            RequestHeaders,
+            udp::mock::MockUdpTransport, IncomingInfo, OutgoingInfo,
+            Packet, RequestHeaders,
         },
     };
 
-    use super::*;
-    pub fn response(c: StatusCode) -> TsxMsg {
+    pub fn response(c: StatusCode) -> OutgoingMessage {
         let from = "sip:alice@127.0.0.1:5060".parse().unwrap();
         let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
-        let via = "SIP/2.0/UDP 127.0.0.1:5060".parse().unwrap();
+        let via = "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200"
+            .parse()
+            .unwrap();
         let cseq = CSeq {
             cseq: 1,
             method: SipMethod::Options,
@@ -403,11 +401,13 @@ pub(crate) mod mock {
         response.into()
     }
 
-    pub fn request(m: SipMethod) -> TsxMsg {
+    pub fn request(m: SipMethod) -> IncomingMessage {
         let target = "sip:bob@127.0.0.1:5060".parse().unwrap();
         let from = "sip:alice@127.0.0.1:5060".parse().unwrap();
         let to = "sip:bob@127.0.0.1:5060".parse().unwrap();
-        let via = "SIP/2.0/UDP 127.0.0.1:5060".parse().unwrap();
+        let via = "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200"
+            .parse()
+            .unwrap();
         let SipUri::Uri(uri) = target else {
             unreachable!()
         };

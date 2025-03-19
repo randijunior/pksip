@@ -61,7 +61,9 @@ impl SipHeader<'_> for ContentDisposition {
 impl TryFrom<&[u8]> for ContentDisposition {
     type Error = ParseHeaderError;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        value: &[u8],
+    ) -> std::result::Result<Self, Self::Error> {
         Header::from_bytes(value)?
             .into_content_disposition()
             .map_err(|_| ParseHeaderError(Self::NAME))
@@ -102,7 +104,8 @@ mod tests {
             Some("optional")
         );
 
-        let src = b"attachment; filename=smime.p7s;handling=required\r\n";
+        let src =
+            b"attachment; filename=smime.p7s;handling=required\r\n";
         let mut reader = Reader::new(src);
         let disp = ContentDisposition::parse(&mut reader);
         let disp = disp.unwrap();

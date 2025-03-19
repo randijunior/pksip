@@ -32,9 +32,15 @@ fn test_parse_msg_1() {
     let mut iter = req.headers.iter();
 
     assert_eq!(req.req_line.method, SipMethod::Invite);
-    assert_eq!(req.req_line.uri.user.as_ref().unwrap().get_user(), "bob");
+    assert_eq!(
+        req.req_line.uri.user.as_ref().unwrap().get_user(),
+        "bob"
+    );
     assert_eq!(req.req_line.uri.host_port.is_domain(), true);
-    assert_eq!(req.req_line.uri.host_port.host_as_str(), "biloxi.com");
+    assert_eq!(
+        req.req_line.uri.host_port.host_as_str(),
+        "biloxi.com"
+    );
 
     assert_matches!(
         iter.next(),
