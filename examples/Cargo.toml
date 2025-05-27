@@ -9,17 +9,18 @@ publish = false
 [dependencies]
 tokio = { version = "1", features = ["rt", "macros", "tracing"] }
 tracing = "0.1.41"
-tracing-subscriber = {version = "0.3", features = ["env-filter"]}
+tracing-subscriber = {version = "0.3", features = ["env-filter", "chrono"]}
 async-trait = "0.1.83"
-sip = {path = "../crates/sip"}
+pksip = {path = "../pksip"}
+chrono = "0.4"
 
 [dependencies.console-subscriber]
-version = "0.2"
+version = "0.4.1"
 features = ["env-filter"]
 
 [[example]]
-name = "parse"
-path = "parse.rs"
+name = "stateless_uas"
+path = "stateless_uas.rs"
 
 [[example]]
 name = "uas_options"

@@ -1,58 +1,60 @@
 use async_trait::async_trait;
-use sip::{
-    endpoint::{Endpoint, EndpointBuilder},
-    message::{SipMethod, StatusCode},
+use pksip::{
+    endpoint::{Builder, Endpoint},
+    message::{Method, REASON_NOT_IMPLEMENTED, REASON_OK},
     service::SipService,
-    transaction::SipTransaction,
-    transport::{udp::Udp, IncomingRequest},
+    transaction::TransactionLayer,
+    transport::IncomingRequest,
+    Result,
 };
 use std::error::Error;
-use tokio::io;
+use tracing::Level;
+
 
 pub struct MyService;
-
-const CODE: StatusCode = StatusCode::Ok;
 
 #[async_trait]
 impl SipService for MyService {
     fn name(&self) -> &str {
         "SipUAS"
     }
-    async fn on_request(
-        &mut self,
-        endpoint: &Endpoint,
-        req: &mut Option<IncomingRequest>,
-    ) -> io::Result<()> {
-        let is_options = {
-            let req = req.as_ref().unwrap();
-            req.is_method(&SipMethod::Options)
-        };
-        if is_options {
-            let req = req.take().unwrap();
-            let mut tsx = endpoint.create_uas_tsx(&req);
-            let response =
-                endpoint.new_response(req, CODE.into()).await?;
-            tsx.send_msg(response.into()).await?;
+    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut IncomingRequest) -> Result<bool> {
+        match request.method() {
+            Method::Options => {
+                let tsx = endpoint.new_uas_tsx(request);
+                let mut response = endpoint.new_response(request, 200, REASON_OK);
+                tsx.respond(&mut response).await?;
+
+                Ok(true)
+            }
+            &method if method != Method::Ack => {
+                endpoint.respond(request, 501, REASON_NOT_IMPLEMENTED).await?;
+
+                Ok(true)
+            }
+            _ => Ok(false),
         }
-        Ok(())
     }
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // tracing_subscriber::fmt()
-    //     .with_max_level(Level::DEBUG)
-    //     .with_env_filter("sip=trace")
-    //     .init();
-    console_subscriber::init();
+async fn main() -> std::result::Result<(), Box<dyn Error>> {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::TRACE)
+        .with_env_filter("pksip=trace")
+        // .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(String::from("%H:%M:%S%.3f")))
+        .with_timer(tracing_subscriber::fmt::time::SystemTime)
+        .init();
 
     let svc = MyService;
-    let udp = Udp::bind("0.0.0.0:8080").await?;
+    let addr = "127.0.0.1:0".parse()?;
 
-    let endpoint = EndpointBuilder::new()
+    let endpoint = Builder::new()
         .with_service(svc)
-        .with_transport(udp)
-        .build();
+        .with_transaction_layer(TransactionLayer::default())
+        .with_udp(addr)
+        .build()
+        .await;
 
     endpoint.run().await?;
     Ok(())
