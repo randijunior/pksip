@@ -48,8 +48,8 @@ impl std::convert::From<Utf8Error> for SipParserError {
     }
 }
 
-impl std::convert::From<util::Error> for SipParserError {
-    fn from(err: util::Error) -> Self {
+impl std::convert::From<pksip_util::Error> for SipParserError {
+    fn from(err: pksip_util::Error) -> Self {
         SipParserError {
             message: format!(
                 "Failed to parse at line:{} column:{} kind:{:?}",
@@ -65,8 +65,8 @@ impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::Tr
     }
 }
 
-impl std::convert::From<util::Error> for Error {
-    fn from(err: util::Error) -> Self {
+impl std::convert::From<pksip_util::Error> for Error {
+    fn from(err: pksip_util::Error) -> Self {
         todo!()
     }
 }

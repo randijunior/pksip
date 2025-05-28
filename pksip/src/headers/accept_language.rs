@@ -8,7 +8,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{fmt, str};
-use util::util::is_alphabetic;
+use pksip_util::util::is_alphabetic;
 
 /// The `Accept-Language` SIP header.
 ///

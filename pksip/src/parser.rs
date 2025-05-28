@@ -5,7 +5,7 @@
 
 use std::str::{self};
 
-use util::{
+use pksip_util::{
     util::{is_newline, is_valid_port, not_comma_or_newline},
     Position, Scanner,
 };
@@ -439,17 +439,17 @@ impl<'buf> ParseCtx<'buf> {
 
     #[inline]
     pub(crate) fn until_new_line(&mut self) -> &'buf [u8] {
-        self.scanner.read_while(|b| !util::util::is_newline(b))
+        self.scanner.read_while(|b| !pksip_util::util::is_newline(b))
     }
 
     #[inline]
     pub(crate) fn take_ws(&mut self) {
-        self.scanner.read_while(util::util::is_space);
+        self.scanner.read_while(pksip_util::util::is_space);
     }
 
     #[inline]
     pub(crate) fn take_new_line(&mut self) {
-        self.scanner.read_while(util::util::is_newline);
+        self.scanner.read_while(pksip_util::util::is_newline);
     }
 
     // SIP version
@@ -460,7 +460,7 @@ impl<'buf> ParseCtx<'buf> {
     #[inline]
     // Read alphanumeric.
     pub(crate) fn alpha(&mut self) -> &'buf [u8] {
-        self.scanner.read_while(util::util::is_alphabetic)
+        self.scanner.read_while(pksip_util::util::is_alphabetic)
     }
 
     // SIP Request-Line.
@@ -484,12 +484,12 @@ impl<'buf> ParseCtx<'buf> {
         self.parse_sip_v2()?;
 
         self.take_ws();
-        let digits = self.scanner.read_while(util::util::is_digit);
+        let digits = self.scanner.read_while(pksip_util::util::is_digit);
         self.take_ws();
 
         let code = digits.into();
 
-        let reason_byte = self.scanner.read_while(|b| !util::util::is_newline(b));
+        let reason_byte = self.scanner.read_while(|b| !pksip_util::util::is_newline(b));
         let reason = str::from_utf8(reason_byte)?;
 
         self.take_new_line();

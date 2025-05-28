@@ -1,10 +1,10 @@
 [workspace]
-members = [ "pksip","util", "examples"]
+members = [ "pksip","pksip-util", "examples"]
 resolver = "1"
 
 [workspace.dependencies]
 sip = {path = "pksip"}
-util = { path = "util" }
+pksip-util = { path = "pksip-util" }
 
 [workspace.package]
 edition = "2021"

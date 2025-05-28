@@ -1,4 +1,4 @@
-use util::util::is_valid_port;
+use pksip_util::util::is_valid_port;
 
 use crate::headers::SipHeaderParse;
 use crate::macros::parse_param;

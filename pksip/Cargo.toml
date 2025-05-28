@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-util.workspace = true
+pksip-util.workspace = true
 itertools = "0.13.0"
 async-trait = "0.1.83"
 hickory-resolver = "0.24.1"
