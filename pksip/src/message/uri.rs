@@ -13,7 +13,7 @@ use crate::{
     parser::ParseCtx,
 };
 
-use super::{Method, Params, TransportKind};
+use super::{Params, SipMethod, TransportKind};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 /// A SIP URI.
@@ -48,6 +48,19 @@ impl std::fmt::Display for SipUri<'_> {
 }
 
 impl<'a> SipUri<'a> {
+    /// Create a `SipUri` with a static string.
+    pub fn from_static(s: &'static str) -> Result<Self> {
+        let mut p = ParseCtx::new(s.as_bytes());
+
+        p.parse_sip_uri(true)
+    }
+    /// Convert
+    pub fn into_owned(self) -> SipUri<'static> {
+        match self {
+            SipUri::Uri(uri) => SipUri::Uri(uri.into_owned()),
+            SipUri::NameAddr(name_addr) => SipUri::NameAddr(name_addr.into_owned()),
+        }
+    }
     /// Returns a reference to the [`Uri`] if this is a [`SipUri::Uri`] variant.
     pub fn uri(&self) -> Option<&Uri> {
         if let SipUri::Uri(uri) = self {
@@ -98,7 +111,7 @@ impl<'a> SipUri<'a> {
         }
     }
     /// Returns the user parameter of the uri.
-    pub fn user_param(&self) -> &Option<&'a str> {
+    pub fn user_param(&self) -> &Option<Cow<'a, str>> {
         match self {
             SipUri::Uri(uri) => &uri.user_param,
             SipUri::NameAddr(name_addr) => &name_addr.uri.user_param,
@@ -106,7 +119,7 @@ impl<'a> SipUri<'a> {
     }
 
     /// Returns the method parameter of the uri.
-    pub fn method_param(&self) -> &Option<Method> {
+    pub fn method_param(&self) -> &Option<SipMethod> {
         match self {
             SipUri::Uri(uri) => &uri.method_param,
             SipUri::NameAddr(name_addr) => &name_addr.uri.method_param,
@@ -130,7 +143,7 @@ impl<'a> SipUri<'a> {
     }
 
     /// Returns the maddr parameter of the uri.
-    pub fn maddr_param(&self) -> &Option<&'a str> {
+    pub fn maddr_param(&self) -> &Option<Cow<'a, str>> {
         match self {
             SipUri::Uri(uri) => &uri.maddr_param,
             SipUri::NameAddr(name_addr) => &name_addr.uri.maddr_param,
@@ -179,10 +192,10 @@ pub struct Uri<'a> {
     pub host_port: HostPort,
 
     /// Optional user param.
-    pub user_param: Option<&'a str>,
+    pub user_param: Option<Cow<'a, str>>,
 
     /// Optional method param.
-    pub method_param: Option<Method>,
+    pub method_param: Option<SipMethod>,
 
     /// Optional transport param.
     pub transport_param: Option<TransportKind>,
@@ -194,7 +207,7 @@ pub struct Uri<'a> {
     pub lr_param: bool,
 
     /// Optional maddr param.
-    pub maddr_param: Option<&'a str>,
+    pub maddr_param: Option<Cow<'a, str>>,
 
     /// Other parameters.
     pub params: Option<Params<'a>>,
@@ -213,7 +226,7 @@ impl std::fmt::Display for Uri<'_> {
 
         if let Some(user) = &self.user {
             write!(f, "{}", user.user)?;
-            if let Some(pass) = user.pass {
+            if let Some(pass) = &user.pass {
                 write!(f, ":{}", pass)?;
             }
             write!(f, "@")?;
@@ -243,7 +256,7 @@ impl std::fmt::Display for Uri<'_> {
         }
         if let Some(hdr_params) = &self.hdr_params {
             let formater = Itertools::format_with(hdr_params.iter(), "&", |it, f| {
-                f(&format_args!("{}={}", it.name, it.value.unwrap_or("")))
+                f(&format_args!("{}={}", it.name, it.value.as_ref().map_or("", |v| &v)))
             });
             write!(f, "?{}", formater)?;
         }
@@ -252,7 +265,33 @@ impl std::fmt::Display for Uri<'_> {
     }
 }
 
+
 impl<'a> Uri<'a> {
+    /// Convert
+    pub fn into_owned(self) -> Uri<'static> {
+        Uri {
+            scheme: self.scheme,
+            user: self.user.map(|user| UriUser {
+                user: Cow::Owned(user.user.into_owned()),
+                pass: user.pass.map(|pass| Cow::Owned(pass.into_owned())),
+            }),
+            host_port: HostPort {
+                host: match self.host_port.host {
+                    Host::DomainName(domain) => Host::DomainName(domain.clone()),
+                    Host::IpAddr(ip_addr) => Host::IpAddr(ip_addr),
+                },
+                port: self.host_port.port,
+            },
+            user_param: self.user_param.map(|param| Cow::Owned(param.into_owned())),
+            method_param: self.method_param,
+            transport_param: self.transport_param,
+            ttl_param: self.ttl_param,
+            lr_param: self.lr_param,
+            maddr_param: self.maddr_param.map(|param| Cow::Owned(param.into_owned())),
+            params: self.params.map(|params| params.into_owned()),
+            hdr_params: self.hdr_params.map(|hdr_params| hdr_params.into_owned()),
+        }
+    }
     /// Creates an `Uri` instance witthout parameters.
     pub fn without_params(scheme: Scheme, user: Option<UriUser<'a>>, host_port: HostPort) -> Self {
         Uri {
@@ -306,12 +345,12 @@ impl<'a> UriBuilder<'a> {
 
     /// Sets the user parameter of the uri.
     pub fn user_param(mut self, param: &'a str) -> Self {
-        self.uri.user_param = Some(param);
+        self.uri.user_param = Some(param.into());
         self
     }
 
     /// Sets the method parameter of the uri.
-    pub fn method_param(mut self, param: Method) -> Self {
+    pub fn method_param(mut self, param: SipMethod) -> Self {
         self.uri.method_param = Some(param);
         self
     }
@@ -336,7 +375,7 @@ impl<'a> UriBuilder<'a> {
 
     /// Sets the maddr parameter of the uri.
     pub fn maddr_param(mut self, param: &'a str) -> Self {
-        self.uri.maddr_param = Some(param);
+        self.uri.maddr_param = Some(param.into());
         self
     }
 
@@ -350,14 +389,14 @@ impl<'a> UriBuilder<'a> {
     pub fn param(mut self, name: &'a str, value: &'a str) -> Self {
         if let Some(params) = &mut self.uri.params {
             params.push(super::Param {
-                name,
-                value: value.into(),
+                name: name.into(),
+                value: Some(value.into()),
             });
         } else {
             let mut params = Params::new();
             params.push(super::Param {
-                name,
-                value: value.into(),
+                name: name.into(),
+                value: Some(value.into()),
             });
             self.uri.params = Some(params);
         }
@@ -368,14 +407,14 @@ impl<'a> UriBuilder<'a> {
     pub fn header_param(mut self, name: &'a str, value: &'a str) -> Self {
         if let Some(hdr_params) = &mut self.uri.hdr_params {
             hdr_params.push(super::Param {
-                name,
-                value: value.into(),
+                name: name.into(),
+                value: Some(value.into()),
             });
         } else {
             let mut hdr_params = Params::new();
             hdr_params.push(super::Param {
-                name,
-                value: value.into(),
+                name: name.into(),
+                value: Some(value.into()),
             });
             self.uri.hdr_params = Some(hdr_params);
         }
@@ -395,7 +434,7 @@ impl<'a> UriBuilder<'a> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NameAddr<'a> {
     /// The optional display part.
-    pub display: Option<&'a str>,
+    pub display: Option<Cow<'a, str>>,
     /// The uri of the `name-addr`.
     pub uri: Uri<'a>,
 }
@@ -410,6 +449,13 @@ impl<'a> NameAddr<'a> {
         let mut p = ParseCtx::new(s.as_bytes());
 
         p.parse_name_addr()
+    }
+    /// Convert
+    pub fn into_owned(self) -> NameAddr<'static> {
+        NameAddr {
+            display: self.display.map(|d| Cow::Owned(d.into_owned())),
+            uri: self.uri.into_owned(),
+        }
     }
 }
 
@@ -428,10 +474,10 @@ impl std::fmt::Display for NameAddr<'_> {
 /// Represents the user information component of a URI.
 pub struct UriUser<'a> {
     /// The username part of the URI.
-    pub user: &'a str,
+    pub user: Cow<'a, str>,
 
     /// The optional password associated with the user.
-    pub pass: Option<&'a str>,
+    pub pass: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]

@@ -35,6 +35,8 @@ bytes = "1"
 
 [dev-dependencies]
 assert_matches = "1.5"
-bytes = "1"
+criterion = "0.5"
 
-
+[[bench]]
+name = "parse"
+harness = false

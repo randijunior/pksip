@@ -12,10 +12,10 @@ use std::fmt;
 /// # use pksip::headers::Authorization;
 /// # use pksip::message::auth::{Credential, DigestCredential};
 /// let auth = Authorization(Credential::Digest(DigestCredential {
-///     username: Some("Alice"),
-///     realm: Some("atlanta.com"),
-///     nonce: Some("84a4cc6f3082121f32b42a2187831a9e"),
-///     response: Some("7587245234b3434cc3412213e5f113a5432"),
+///     username: Some("Alice".into()),
+///     realm: Some("atlanta.com".into()),
+///     nonce: Some("84a4cc6f3082121f32b42a2187831a9e".into()),
+///     response: Some("7587245234b3434cc3412213e5f113a5432".into()),
 ///     ..Default::default()
 /// }));
 ///

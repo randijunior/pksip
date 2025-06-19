@@ -12,11 +12,12 @@ use crate::transport::udp::UdpStartup;
 use crate::transport::{
     self, IncomingRequest, IncomingResponse, OutgoingAddr, OutgoingResponse, Transport, TransportLayer,
 };
-use crate::{find_map_header, SipService};
+use crate::SipService;
 
 use crate::{headers::Headers, transaction::TransactionLayer, Result};
 
 use std::net::{IpAddr, SocketAddr};
+use std::time::Duration;
 use std::{io, sync::Arc};
 
 struct Inner {
@@ -63,6 +64,13 @@ impl Endpoint {
         Builder::default()
     }
 
+    /// Run with timeout
+    pub async fn run_with_timeout(self, timeout: Duration) -> Result<()> {
+        let _ = tokio::time::timeout(timeout, self.receive_message()).await;
+
+        Ok(())
+    }
+
     /// Runs the endpoint by processing messages from transport layer.
     ///
     /// This method spawns a new Tokio task that will run indefinitely,
@@ -76,7 +84,7 @@ impl Endpoint {
     }
 
     async fn receive_message(self) -> Result<()> {
-        self.0.transport.receive_packet(&self).await
+        self.0.transport.handle_events(&self).await
     }
 
     /// Get the endpoint name.
@@ -97,8 +105,8 @@ impl Endpoint {
     ///
     /// This method initializes an [`TsxUasInv`] instance, which represents
     /// the server transaction for handling an incoming `INVITE` request.
-    pub fn new_uas_inv_tsx(&self, request: &mut IncomingRequest) -> TsxUasInv {
-        TsxUasInv::new(self, request)
+    pub async fn new_uas_inv_tsx(&self, request: &mut IncomingRequest<'_>) -> Result<TsxUasInv> {
+        TsxUasInv::try_new(self, request).await
     }
 
     /// Respond statelessly an request.
@@ -143,32 +151,40 @@ impl Endpoint {
     ///
     /// This method generates a response message with the specified status code
     /// and reason phrase. It also sets the necessary headers from request,
-    /// including Call-ID, From, To, CSeq, and Via headers.
+    /// including `Call-ID`, `From`, `To`, `CSeq`, and `Via` headers.
     pub fn new_response<'a>(&self, req: &'a IncomingRequest<'a>, code: i32, reason: &'a str) -> OutgoingResponse<'a> {
         // Copy the necessary headers from the request.
         let mut headers = Headers::with_capacity(7);
+        let msg_headers = &req.msg.headers;
 
         // `Via` header.
         let topmost_via = req.req_headers.via.clone();
-        let via = req.msg.headers.filter(|h| matches!(h, Header::Via(_))).skip(1);
+        let via = msg_headers.filter(|h| matches!(h, Header::Via(_))).skip(1);
         headers.push(Header::Via(topmost_via));
         headers.extend(via.cloned());
 
         // `Record-Route` header.
-        let rr = req.msg.headers.filter(|h| matches!(h, Header::RecordRoute(_)));
+        let rr = msg_headers.filter(|h| matches!(h, Header::RecordRoute(_)));
         headers.extend(rr.cloned());
 
         // `Call-ID` header.
-        headers.push(Header::CallId(req.req_headers.call_id));
+        headers.push(Header::CallId(req.req_headers.call_id.clone()));
 
         // `From` header.
-        let from = find_map_header!(req.msg.headers, From).cloned();
+        let from = msg_headers
+            .find_map(|h| if let Header::From(from) = h { Some(from) } else { None })
+            .cloned();
+
         if let Some(from) = from {
             headers.push(Header::From(from));
         }
 
         // `To` header.
-        let to = find_map_header!(req.msg.headers, To);
+        let to = msg_headers.iter().find_map(|h| match h {
+            Header::To(e) => Some(e),
+            _ => None,
+        });
+
         if let Some(to) = to {
             let mut to = to.clone();
             // 8.2.6.2 Headers and Tags
@@ -182,9 +198,13 @@ impl Endpoint {
         }
 
         // `CSeq` header.
-        let cseq = find_map_header!(req.msg.headers, CSeq).cloned();
+        let cseq = msg_headers.iter().find_map(|h| match h {
+            Header::CSeq(e) => Some(e),
+            _ => None,
+        });
+
         if let Some(cseq) = cseq {
-            headers.push(Header::CSeq(cseq));
+            headers.push(Header::CSeq(*cseq));
         }
 
         let addr = self.get_outbound_addr(&req.req_headers.via, &req.transport);
@@ -213,7 +233,6 @@ impl Endpoint {
             response.reason()
         );
         let encoded_buf = response.encode()?;
-        let encoded_slice = encoded_buf.as_slice();
 
         match response.addr {
             OutgoingAddr::HostPort {
@@ -230,11 +249,11 @@ impl Endpoint {
                     io::ErrorKind::NotFound,
                     format!("Transport not found for {}:{} {}", ip, port, protocol),
                 ))?;
-                transport.send(encoded_slice, &addr).await?;
+                transport.send(&encoded_buf, &addr).await?;
                 Ok(())
             }
             OutgoingAddr::Addr { addr, ref transport } => {
-                transport.send(encoded_slice, &addr).await?;
+                transport.send(&encoded_buf, &addr).await?;
                 Ok(())
             }
         }
@@ -277,7 +296,7 @@ impl Endpoint {
                 transport: transport.clone(),
             }
         } else {
-            let ip = via.received().unwrap();
+            let ip = via.received().expect("Missing received parameter on 'Via' header");
             let port = via.sent_by().port.unwrap_or(5060);
             let addr = SocketAddr::new(ip, port);
 
@@ -294,6 +313,16 @@ impl Endpoint {
             msg.msg.status_line.code.into_i32(),
             msg.msg.status_line.reason
         );
+
+        let handled_by_transaction_layer = match self.0.transaction {
+            Some(ref tsx_layer) => tsx_layer.handle_response(msg).await?,
+            None => false,
+        };
+
+        if handled_by_transaction_layer {
+            return Ok(());
+        }
+        
         let mut handled = false;
         for service in self.0.services.iter() {
             handled = service.on_incoming_response(self, msg).await?;
@@ -318,13 +347,12 @@ impl Endpoint {
     pub(crate) async fn process_request(&self, msg: &mut IncomingRequest<'_>) -> Result<()> {
         log::debug!("<= Request {} from /{}", msg.method(), msg.addr());
 
-        let handled_by_transaction = match self.0.transaction {
+        let handled_by_transaction_layer = match self.0.transaction {
             Some(ref tsx_layer) => tsx_layer.handle_request(msg).await?,
             None => false,
         };
 
-        if handled_by_transaction {
-            log::debug!("HANDLED BY TRANSACTION");
+        if handled_by_transaction_layer {
             return Ok(());
         }
 

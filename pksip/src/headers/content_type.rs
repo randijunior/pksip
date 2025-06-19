@@ -29,6 +29,16 @@ use crate::MediaType;
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> ContentType<'a> {
+    /// Creates a new `Content-Type` with sdp as `MediaType`
+    pub fn new_sdp() -> Self {
+        Self(MediaType {
+            mimetype: crate::MimeType {
+                mtype: "application".into(),
+                subtype: "sdp".into(),
+            },
+            param: None,
+        })
+    }
     /// Creates a new `ContentType`.
     pub fn new(m: MediaType<'a>) -> Self {
         Self(m)

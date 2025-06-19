@@ -11,8 +11,6 @@ use std::fmt::Debug;
 
 pub mod auth;
 
-pub(crate) mod buffer;
-
 mod code;
 mod method;
 mod params;
@@ -30,7 +28,6 @@ pub use uri::*;
 ///
 /// This enum can contain either an [`Request`] or an [`Response`], see their
 /// respective documentation for more details.
-/// ```
 #[derive(PartialEq)]
 pub enum SipMsg<'a> {
     /// An SIP Request.
@@ -140,8 +137,29 @@ pub struct Request<'a> {
 
 impl<'a> Request<'a> {
     /// Returns the SIP method of the request.
-    pub fn method(&self) -> &Method {
+    pub fn method(&self) -> &SipMethod {
         &self.req_line.method
+    }
+
+    /// Convert
+    pub fn into_owned(self) -> Request<'static> {
+        todo!();
+        /*
+        Request {
+            req_line: RequestLine {
+                method: self.req_line.method,
+                uri: self.req_line.uri.into_owned(),
+            },
+            headers: self.headers.into_owned(),
+            body: self.body.map(|b| Box::leak(b.to_vec().into_boxed_slice())),
+        }
+        */
+    }
+}
+
+impl std::fmt::Display for RequestLine<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {SIPV2}\r\n", self.method, self.uri)
     }
 }
 
@@ -152,7 +170,7 @@ impl<'a> Request<'a> {
 #[derive(Debug, PartialEq)]
 pub struct RequestLine<'a> {
     /// The SIP method associated with the request (e.g., INVITE, BYE).
-    pub method: Method,
+    pub method: SipMethod,
 
     /// The Request-URI indicating the target of the request.
     pub uri: Uri<'a>,
@@ -183,8 +201,8 @@ impl<'a> Response<'a> {
     }
 
     /// Returns the message response code.
-    pub fn code(&self) -> i32 {
-        self.status_line.code.into_i32()
+    pub fn code(&self) -> StatusCode {
+        self.status_line.code
     }
 
     /// Returns the reason.

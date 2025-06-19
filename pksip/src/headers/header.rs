@@ -14,7 +14,6 @@ use crate::headers::{
 ///
 /// This enum contain the SIP headers, as defined in `RFC3261`, see their
 /// respective documentation for more details.
-/// ```
 #[derive(Debug, PartialEq, Eq, EnumAsInner, Clone)]
 pub enum Header<'a> {
     /// `Accept` Header

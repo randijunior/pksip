@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 /// A parameter.
 ///
@@ -13,15 +13,15 @@ use std::fmt;
 /// let param: Param = "param=value".try_into().unwrap();
 ///
 /// assert_eq!(param.name, "param");
-/// assert_eq!(param.value, Some("value"));
+/// assert_eq!(param.value, Some("value".into()));
 /// ```
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Param<'a> {
     /// The parameter name.
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
 
     /// The parameter optional value
-    pub value: Option<&'a str>,
+    pub value: Option<Cow<'a, str>>,
 }
 
 impl<'a> TryFrom<&'a str> for Param<'a> {
@@ -58,8 +58,8 @@ impl<'p> Params<'p> {
     pub fn get(&self, name: &'p str) -> Option<Option<&str>> {
         self.0
             .iter()
-            .find(|&&Param { name: p_name, .. }| p_name == name)
-            .map(|&Param { value, .. }| value)
+            .find(|Param { name: p_name, .. }| p_name == name)
+            .map(|Param { value, .. }| value.as_deref())
     }
 
     /// Returns an iterator over the parameters.
@@ -76,12 +76,24 @@ impl<'p> Params<'p> {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+    /// Convert
+    pub fn into_owned(self) -> Params<'static> {
+        Params(
+            self.0
+                .into_iter()
+                .map(|param| Param {
+                    name: Cow::Owned(param.name.into_owned()),
+                    value: param.value.map(|v| Cow::Owned(v.into_owned())),
+                })
+                .collect(),
+        )
+    }
 }
 
 impl fmt::Display for Params<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for Param { name, value } in &self.0 {
-            write!(f, "{}={}", name, value.unwrap_or(""))?;
+            write!(f, "{}={}", name, value.as_ref().map_or("", |v| &v))?;
         }
         Ok(())
     }
@@ -92,8 +104,8 @@ impl<'a, const N: usize> From<[(&'a str, &'a str); N]> for Params<'a> {
         Self(
             params
                 .map(|(name, value)| Param {
-                    name,
-                    value: value.into(),
+                    name: name.into(),
+                    value: Some(value.into()),
                 })
                 .to_vec(),
         )

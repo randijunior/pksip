@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc, time::SystemTime};
 
 use tokio::net::{ToSocketAddrs, UdpSocket};
 
-use crate::{error::Result, message::TransportKind};
+use crate::{error::Result, message::TransportKind, transport::TransportPacket};
 
 use super::{Packet, Payload, SipTransport, Transport, TransportEvent, TransportStartup, TransportTx};
 
@@ -32,7 +32,7 @@ impl UdpTransport {
     }
 
     async fn recv_from(udp: Arc<Self>, sender: TransportTx) -> Result<()> {
-        let udp_tp = Transport { inner: udp.clone() };
+        let udp_tp = Transport(udp.clone());
         // Buffer to recv packet.
         let mut buf = vec![0u8; 4000];
 
@@ -49,7 +49,10 @@ impl UdpTransport {
 
             // Create Packet.
             let packet = Packet { payload, addr, time };
-            let msg = (udp_tp.clone(), packet);
+            let msg = TransportPacket  {
+                transport: udp_tp.clone(),
+                packet
+            };
 
             // Send.
             sender.send(TransportEvent::PacketReceived(msg)).await?;
@@ -176,8 +179,8 @@ mod tests {
         tokio::spawn(UdpTransport::recv_from(Arc::new(udp.clone()), tx));
 
         client.send_to(MSG_TEST, udp.addr()).await.unwrap();
-        
-        let TransportEvent::PacketReceived((_, packet)) = rx.recv().await.unwrap() else {
+
+        let TransportEvent::PacketReceived(TransportPacket { packet, .. }) = rx.recv().await.unwrap() else {
             unreachable!();
         };
 

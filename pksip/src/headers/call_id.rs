@@ -1,7 +1,10 @@
 use super::SipHeaderParse;
 use crate::{error::Result, parser::ParseCtx};
 use core::fmt;
-use std::str::{self};
+use std::{
+    borrow::Cow,
+    str::{self},
+};
 
 /// The `Call-ID` SIP header.
 ///
@@ -19,9 +22,9 @@ use std::str::{self};
 ///     cid.to_string()
 /// );
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[repr(transparent)]
-pub struct CallId<'a>(&'a str);
+pub struct CallId<'a>(Cow<'a, str>);
 
 impl<'a> From<&'a str> for CallId<'a> {
     fn from(value: &'a str) -> Self {
@@ -30,15 +33,19 @@ impl<'a> From<&'a str> for CallId<'a> {
 }
 
 impl<'a> CallId<'a> {
+    /// Convert
+    pub fn into_owned(self) -> CallId<'static> {
+        CallId(Cow::Owned(self.0.into_owned()))
+    }
     /// Creates a new `CallId` instance with the given
     /// identifier.
     pub fn new(id: &'a str) -> Self {
-        Self(id)
+        Self(id.into())
     }
 
     /// Returns the internal `CallId` identifier.
     pub fn id(&self) -> &str {
-        self.0
+        &self.0
     }
 }
 
@@ -51,7 +58,7 @@ impl<'a> SipHeaderParse<'a> for CallId<'a> {
     fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
         let id = parser.parse_header_value_as_str()?;
 
-        Ok(CallId(id))
+        Ok(CallId(id.into()))
     }
 }
 

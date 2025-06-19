@@ -142,7 +142,7 @@ pub trait SipHeaderParse<'a>: Sized {
     /// Parses this header from a raw byte slice.
     ///
     /// This is a convenience method that creates a [`ParseCtx`] and delegates to
-    /// [`parse`].
+    /// [`parse`](SipHeaderParse::parse).
     fn from_bytes(src: &'a [u8]) -> Result<Self> {
         Self::parse(&mut ParseCtx::new(src))
     }
@@ -483,10 +483,10 @@ mod tests {
         let clen = ContentLength::new(10);
         let cid = CallId::new("bs9ki9iqbee8k5kal8mpqb");
 
-        headers.push(Header::CallId(cid));
+        headers.push(Header::CallId(cid.clone()));
         headers.push(Header::ContentLength(clen));
 
-        assert_eq!(headers.get(0), Some(&Header::CallId(cid)));
+        assert_eq!(headers.get(0), Some(&Header::CallId(cid.into())));
         assert_eq!(headers.get(1), Some(&Header::ContentLength(clen)));
 
         assert!(headers.get(2).is_none());

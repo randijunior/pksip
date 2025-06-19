@@ -3,7 +3,10 @@
 //!
 //! This module contains functions for sip parsing.
 
-use std::str::{self};
+use std::{
+    borrow::Cow,
+    str::{self},
+};
 
 use pksip_util::{
     util::{is_newline, is_valid_port, not_comma_or_newline},
@@ -16,7 +19,7 @@ use crate::{
     macros::{b_map, comma_sep, parse_error, parse_header, parse_param},
     message::{
         auth::{Challenge, Credential, DigestChallenge, DigestCredential},
-        Host, HostPort, Method, NameAddr, Param, Params, Request, RequestLine, Response, Scheme, SipMsg, SipUri,
+        Host, HostPort, NameAddr, Param, Params, Request, RequestLine, Response, Scheme, SipMethod, SipMsg, SipUri,
         StatusLine, Uri, UriUser,
     },
 };
@@ -119,7 +122,7 @@ fn parse_uri_param<'a>(parser: &mut ParseCtx<'a>) -> Result<Param<'a>> {
     let mut param = unsafe { parser.parse_param_unchecked(is_param)? };
 
     if param.name == LR_PARAM && param.value.is_none() {
-        param.value = Some("");
+        param.value = Some("".into());
     }
 
     Ok(param)
@@ -134,6 +137,13 @@ pub struct ParseCtx<'buf> {
 }
 
 impl<'buf> ParseCtx<'buf> {
+    /// Create an new `ParseCtx` from the given slice.
+    pub fn new(buf: &'buf [u8]) -> Self {
+        Self {
+            scanner: Scanner::new(buf),
+        }
+    }
+
     /// Parse a buffer of bytes into a `SipMsg`.
     ///
     /// # Example
@@ -149,7 +159,7 @@ impl<'buf> ParseCtx<'buf> {
     /// let result = parser.parse_sip_msg().unwrap();
     ///
     /// let response = result.response().unwrap();
-    /// assert_eq!(response.code(), 200);
+    /// assert_eq!(response.code().into_i32(), 200);
     /// assert_eq!(response.reason(), "OK");
     /// assert_eq!(response.headers.len(), 1);
     /// assert_eq!(response.headers[0], Header::ContentLength(ContentLength::new(0)));
@@ -417,13 +427,6 @@ impl<'buf> ParseCtx<'buf> {
         Ok(msg)
     }
 
-    /// Create an new `ParseCtx` from the given slice.
-    pub fn new(buf: &'buf [u8]) -> Self {
-        Self {
-            scanner: Scanner::new(buf),
-        }
-    }
-
     pub(crate) fn parse_error<T, S>(&self, msg: S) -> Result<T>
     where
         S: AsRef<str>,
@@ -454,7 +457,7 @@ impl<'buf> ParseCtx<'buf> {
 
     // SIP version
     pub(crate) fn parse_sip_v2(&mut self) -> Result<()> {
-        Ok(self.scanner.tag(B_SIPV2)?)
+        Ok(self.scanner.matches_slice(B_SIPV2)?)
     }
 
     #[inline]
@@ -466,7 +469,7 @@ impl<'buf> ParseCtx<'buf> {
     // SIP Request-Line.
     pub(crate) fn parse_request_line(&mut self) -> Result<RequestLine<'buf>> {
         let method_byte = self.alpha();
-        let method = Method::from(method_byte);
+        let method = SipMethod::from(method_byte);
 
         self.take_ws();
         let uri = self.parse_uri(true)?;
@@ -498,16 +501,22 @@ impl<'buf> ParseCtx<'buf> {
     }
 
     fn parse_scheme(&mut self) -> Result<Scheme> {
-        let scheme = self.scanner.read_while(|b| b != b':');
+        let (scheme_b, colon) = self.scanner.peek_while(is_token);
 
-        // Take ":".
-        self.advance();
+        let Some(b':') = colon else {
+            return self.parse_error("Missing ':' in uri");
+        };
 
-        match scheme {
-            SIP => Ok(Scheme::Sip),
-            SIPS => Ok(Scheme::Sips),
-            scheme => self.parse_error(format!("Unsupported URI scheme: {}", String::from_utf8_lossy(scheme))),
-        }
+        let scheme = match scheme_b {
+            SIP => Scheme::Sip,
+            SIPS => Scheme::Sips,
+            scheme => return self.parse_error(format!("Unsupported URI scheme: {}", String::from_utf8_lossy(scheme))),
+        };
+
+        // Take the scheme and the character ":".
+        self.scanner.bump_n(scheme_b.len() + 1);
+
+        Ok(scheme)
     }
 
     fn exists_user_part_in_uri(&self) -> bool {
@@ -528,9 +537,9 @@ impl<'buf> ParseCtx<'buf> {
         }
 
         // We have user part in uri.
-        let user = self.read_user_str();
+        let user = self.read_user_str().into();
         let pass = if let Some(b':') = self.scanner.consume_if(|b| b == b':') {
-            Some(self.read_pass_str())
+            Some(self.read_pass_str().into())
         } else {
             None
         };
@@ -616,10 +625,12 @@ impl<'buf> ParseCtx<'buf> {
             MADDR_PARAM = maddr_param
         );
 
-        let transport_param = transport_param.map(|s| s.into());
+        let transport_param = transport_param.map(|s| s.as_ref().into());
         let ttl_param = ttl_param.map(|ttl| ttl.parse().unwrap());
         let lr_param = lr_param.is_some();
         let method_param = method_param.map(|p| p.as_bytes().into());
+        let user_param = user_param.map(|u| u.into());
+        let maddr_param = maddr_param.map(|m| m.into());
 
         let hdr_params = if let Some(b'?') = self.scanner.consume_if(|b| b == b'?') {
             // The uri has header parameters.
@@ -676,8 +687,15 @@ impl<'buf> ParseCtx<'buf> {
             }))
         } else {
             // Is an request line, e.g, "OPTIONS sip:localhost SIP/2.0".
-            let Ok(req_line) = self.parse_request_line() else {
-                return self.parse_error("Error parsing 'Request Line'");
+            // let Ok(req_line) = self.parse_request_line() else {
+            //     return self.parse_error("Error parsing 'Request Line'");
+            // };
+            let req_line = match self.parse_request_line() {
+                Ok(req_line) => req_line,
+                Err(err) => {
+                    println!("{:#?}", err);
+                    return self.parse_error("Error parsing 'Request Line'");
+                }
             };
             let headers = Headers::with_capacity(probable_number_of_headers);
 
@@ -751,8 +769,8 @@ impl<'buf> ParseCtx<'buf> {
     }
 
     #[inline]
-    pub(crate) fn pos(&self) -> &Position {
-        self.scanner.pos()
+    pub(crate) fn position(&self) -> &Position {
+        self.scanner.position()
     }
 
     #[inline]
@@ -807,7 +825,10 @@ impl<'buf> ParseCtx<'buf> {
             return self.parse_error("Expected '>' in NameAddr!");
         };
 
-        Ok(NameAddr { display, uri })
+        Ok(NameAddr {
+            display: display.map(Cow::Borrowed),
+            uri,
+        })
     }
 
     #[inline]
@@ -844,7 +865,10 @@ impl<'buf> ParseCtx<'buf> {
         let name = unsafe { self.scanner.read_as_str(&func) };
 
         let Some(b'=') = self.scanner.peek() else {
-            return Ok(Param { name, value: None });
+            return Ok(Param {
+                name: name.into(),
+                value: None,
+            });
         };
 
         self.advance();
@@ -860,8 +884,8 @@ impl<'buf> ParseCtx<'buf> {
         };
 
         Ok(Param {
-            name,
-            value: Some(value),
+            name: name.into(),
+            value: Some(value.into()),
         })
     }
 
@@ -897,7 +921,7 @@ impl<'buf> ParseCtx<'buf> {
         });
 
         Ok(Challenge::Other {
-            scheme,
+            scheme: scheme.into(),
             param: params,
         })
     }
@@ -908,7 +932,7 @@ impl<'buf> ParseCtx<'buf> {
         comma_sep!(self => {
             let Param {name, value} = self.parse_param()?;
 
-            match name {
+            match name.as_ref() {
                 REALM => digest.realm = value,
                 NONCE => digest.nonce = value,
                 DOMAIN => digest.domain = value,
@@ -930,7 +954,7 @@ impl<'buf> ParseCtx<'buf> {
 
         comma_sep!(self => {
             let Param { name, value } = self.parse_param()?;
-            match name {
+            match name.as_ref() {
                 REALM => digest.realm = value,
                 USERNAME => digest.username = value,
                 NONCE => digest.nonce = value,
@@ -955,13 +979,16 @@ impl<'buf> ParseCtx<'buf> {
             let mut p = self.parse_param()?;
 
             if p.value.is_none() {
-                p.value = Some("");
+                p.value = Some("".into());
             }
 
             param.push(p);
         });
 
-        Ok(Credential::Other { scheme, param })
+        Ok(Credential::Other {
+            scheme: scheme.into(),
+            param,
+        })
     }
 
     #[inline]
@@ -974,6 +1001,8 @@ impl<'buf> ParseCtx<'buf> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use super::*;
 
     #[test]
@@ -1023,7 +1052,7 @@ mod tests {
         let parsed = parser.parse_sip_uri(true).unwrap();
 
         assert_eq!(parsed.user().unwrap().user, "bob");
-        assert_eq!(parsed.user().unwrap().pass, Some("pass"));
+        assert_eq!(parsed.user().unwrap().pass, Some(Cow::Borrowed("pass")));
         assert_eq!(parsed.host_port().host_as_str(), "biloxi.com");
         assert_eq!(parsed.host_port().port, None);
     }
@@ -1036,7 +1065,7 @@ mod tests {
         let parsed = parser.parse_sip_uri(true).unwrap();
 
         assert_eq!(parsed.user().unwrap().user, "bob");
-        assert_eq!(parsed.user().unwrap().pass, Some("pass"));
+        assert_eq!(parsed.user().unwrap().pass, Some(Cow::Borrowed("pass")));
         assert!(parsed.host_port().is_ip_addr());
         assert_eq!(parsed.host_port().host_as_str(), "192.0.2.201");
         assert_eq!(parsed.host_port().port, None);
@@ -1078,7 +1107,7 @@ mod tests {
 
         assert_eq!(parsed.scheme(), Scheme::Sip);
         assert_eq!(parsed.user().unwrap().user, "bob");
-        assert_eq!(parsed.user().unwrap().pass, Some("pass"));
+        assert_eq!(parsed.user().unwrap().pass, Some("pass".into()));
         assert_eq!(parsed.host_port().host_as_str(), "biloxi.com");
         assert_eq!(parsed.host_port().port, Some(5060));
     }
@@ -1328,12 +1357,11 @@ mod tests {
         );
         assert_eq!(parsed.port, Some(5060));
     }
-
     #[test]
-    fn test_parse_sip_message_1() {
+    fn test_parse_request_without_body() {
         let raw_msg = concat!(
             "INVITE sip:bob@example.com SIP/2.0\r\n",
-            "Via: SIP/2.0/UDP testhost\r\n",
+            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
             "Max-Forwards: 70\r\n",
             "To: Bob <sip:bob@example.com>\r\n",
             "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
@@ -1341,29 +1369,33 @@ mod tests {
             "CSeq: 314159 INVITE\r\n",
             "Content-Length: 0\r\n\r\n"
         );
-        let parser = &mut ParseCtx::new(raw_msg.as_bytes());
-        let msg = parser.parse_sip_msg().unwrap();
 
-        assert_eq!(msg.headers().len(), 7);
+        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+        let sip_msg = parser.parse_sip_msg().unwrap();
+        let request = sip_msg.request().unwrap();
 
-        let mut iter = msg.headers().iter();
+        let expected_uri = Uri::from_static("sip:bob@example.com").unwrap();
+        let expected_headers = crate::headers![
+            Header::Via(Via::new_udp(
+                "pc33.atlanta.com".parse().unwrap(),
+                Some("z9hG4bK776asdhds")
+            )),
+            Header::MaxForwards(MaxForwards::new(70)),
+            Header::To(To::from_str("Bob <sip:bob@example.com>").unwrap()),
+            Header::From(From::from_str("Alice <sip:alice@example.com>;tag=1928301774").unwrap()),
+            Header::CallId(CallId::new("a84b4c76e66710")),
+            Header::CSeq(CSeq::new(314159, SipMethod::Invite)),
+            Header::ContentLength(ContentLength::default()),
+        ];
 
-        assert_eq!(iter.next().unwrap().to_string(), "Via: SIP/2.0/UDP testhost");
-        assert_eq!(iter.next().unwrap().to_string(), "Max-Forwards: 70");
-        assert_eq!(iter.next().unwrap().to_string(), "To: Bob <sip:bob@example.com>");
-        assert_eq!(
-            iter.next().unwrap().to_string(),
-            "From: Alice <sip:alice@example.com>;tag=1928301774"
-        );
-        assert_eq!(iter.next().unwrap().to_string(), "Call-ID: a84b4c76e66710");
-        assert_eq!(iter.next().unwrap().to_string(), "CSeq: 314159 INVITE");
-        assert_eq!(iter.next().unwrap().to_string(), "Content-Length: 0");
-
-        assert!(msg.body().is_none());
+        assert_eq!(request.method(), &SipMethod::Invite);
+        assert_eq!(request.req_line.uri, expected_uri);
+        assert_eq!(request.headers, expected_headers);
+        assert_eq!(request.body, None);
     }
 
     #[test]
-    fn test_parse_sip_message_2() {
+    fn test_parse_request_with_body() {
         let raw_msg = concat!(
             "INVITE sip:bob@biloxi.com SIP/2.0\r\n",
             "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
@@ -1374,57 +1406,92 @@ mod tests {
             "CSeq: 314159 INVITE\r\n",
             "Contact: <sip:alice@pc33.atlanta.com>\r\n",
             "Content-Type: application/sdp\r\n",
-            "Content-Length: 142\r\n",
+            "Content-Length: 4\r\n",
             "\r\n",
-            "v=0\r\n",
-            "o=alice 2890844526 2890844526 IN IP4 pc33.atlanta.com\r\n",
-            "s=Session SDP\r\n",
-            "c=IN IP4 pc33.atlanta.com\r\n",
-            "t=0 0\r\n",
-            "m=audio 49170 RTP/AVP 0\r\n",
-            "a=rtpmap:0 PCMU/8000\r\n"
+            "Test\r\n",
         );
-        let parser = &mut ParseCtx::new(raw_msg.as_bytes());
+
+        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+        let sip_msg = parser.parse_sip_msg().unwrap();
+        let request = sip_msg.request().unwrap();
+
+        let expected_uri = Uri::from_static("sip:bob@biloxi.com").unwrap();
+        let expected_headers = crate::headers![
+            Header::Via(Via::new_udp(
+                "pc33.atlanta.com".parse().unwrap(),
+                Some("z9hG4bK776asdhds")
+            )),
+            Header::MaxForwards(MaxForwards::new(70)),
+            Header::To(To::from_str("Bob <sip:bob@biloxi.com>").unwrap()),
+            Header::From(From::from_str("Alice <sip:alice@atlanta.com>;tag=1928301774").unwrap()),
+            Header::CallId(CallId::new("a84b4c76e66710@pc33.atlanta.com")),
+            Header::CSeq(CSeq::new(314159, SipMethod::Invite)),
+            Header::Contact(Contact::from_str("<sip:alice@pc33.atlanta.com>").unwrap()),
+            Header::ContentType(ContentType::new_sdp()),
+            Header::ContentLength(ContentLength::new(4)),
+        ];
+
+        assert_eq!(request.method(), &SipMethod::Invite);
+        assert_eq!(request.req_line.uri, expected_uri);
+        assert_eq!(request.headers, expected_headers);
+        assert_eq!(request.body, Some("Test\r\n".as_bytes()));
+    }
+
+    #[test]
+    fn test_parse_response_without_body() {
+        let raw_msg = concat!(
+            "SIP/2.0 200 OK\r\n",
+            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
+            "Max-Forwards: 70\r\n",
+            "To: Bob <sip:bob@example.com>\r\n",
+            "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
+            "Call-ID: a84b4c76e66710\r\n",
+            "CSeq: 314159 INVITE\r\n",
+            "Content-Length: 0\r\n\r\n"
+        );
+
+        let mut parser = ParseCtx::new(raw_msg.as_bytes());
         let msg = parser.parse_sip_msg().unwrap();
-        let msg = msg.request().unwrap();
+        let msg = msg.response().unwrap();
 
-        assert!(msg.method() == &Method::Invite);
+        let expected_headers = crate::headers![
+            Header::Via(Via::new_udp(
+                "pc33.atlanta.com".parse().unwrap(),
+                Some("z9hG4bK776asdhds")
+            )),
+            Header::MaxForwards(MaxForwards::new(70)),
+            Header::To(To::from_str("Bob <sip:bob@example.com>").unwrap()),
+            Header::From(From::from_str("Alice <sip:alice@example.com>;tag=1928301774").unwrap()),
+            Header::CallId(CallId::new("a84b4c76e66710")),
+            Header::CSeq(CSeq::new(314159, SipMethod::Invite)),
+            Header::ContentLength(ContentLength::default()),
+        ];
 
-        assert_eq!(msg.headers.len(), 9);
-        let mut iter = msg.headers.iter();
-        assert_eq!(
-            iter.next().unwrap().to_string(),
-            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds"
+        assert_eq!(msg.code().into_i32(), 200);
+        assert_eq!(msg.reason(), "OK");
+        assert_eq!(msg.headers, expected_headers);
+        assert_eq!(msg.body, None);
+    }
+
+    #[test]
+    fn test_parse_request_with_invalid_uri() {
+        let raw_msg = concat!(
+            "INVITE bob@biloxi.com SIP/2.0\r\n",
+            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
+            "Max-Forwards: 70\r\n",
+            "To: Bob <sip:bob@biloxi.com>\r\n",
+            "From: Alice <sip:alice@atlanta.com>;tag=1928301774\r\n",
+            "Call-ID: a84b4c76e66710@pc33.atlanta.com\r\n",
+            "CSeq: 314159 INVITE\r\n",
+            "Contact: <sip:alice@pc33.atlanta.com>\r\n",
+            "Content-Type: application/sdp\r\n",
+            "Content-Length: 4\r\n",
+            "\r\n",
+            "Test\r\n",
         );
-        assert_eq!(iter.next().unwrap().to_string(), "Max-Forwards: 70");
-        assert_eq!(iter.next().unwrap().to_string(), "To: Bob <sip:bob@biloxi.com>");
-        assert_eq!(
-            iter.next().unwrap().to_string(),
-            "From: Alice <sip:alice@atlanta.com>;tag=1928301774"
-        );
-        assert_eq!(
-            iter.next().unwrap().to_string(),
-            "Call-ID: a84b4c76e66710@pc33.atlanta.com"
-        );
-        assert_eq!(iter.next().unwrap().to_string(), "CSeq: 314159 INVITE");
-        assert_eq!(
-            iter.next().unwrap().to_string(),
-            "Contact: <sip:alice@pc33.atlanta.com>"
-        );
-        assert_eq!(iter.next().unwrap().to_string(), "Content-Type: application/sdp");
-        assert_eq!(iter.next().unwrap().to_string(), "Content-Length: 142");
-        assert_eq!(
-            msg.body.unwrap(),
-            concat!(
-                "v=0\r\n",
-                "o=alice 2890844526 2890844526 IN IP4 pc33.atlanta.com\r\n",
-                "s=Session SDP\r\n",
-                "c=IN IP4 pc33.atlanta.com\r\n",
-                "t=0 0\r\n",
-                "m=audio 49170 RTP/AVP 0\r\n",
-                "a=rtpmap:0 PCMU/8000\r\n"
-            )
-            .as_bytes()
-        );
+
+        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+
+        assert!(parser.parse_sip_msg().is_err());
     }
 }

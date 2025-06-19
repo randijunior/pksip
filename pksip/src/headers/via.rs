@@ -4,6 +4,7 @@ use crate::headers::SipHeaderParse;
 use crate::macros::parse_param;
 use crate::message::Host;
 use crate::parser::{self, ParseCtx, SIPV2};
+
 use crate::{
     error::Result,
     macros::parse_error,
@@ -11,9 +12,9 @@ use crate::{
     message::{HostPort, Params},
 };
 use core::fmt;
+use std::borrow::Cow;
 use std::net::IpAddr;
 use std::str::{self};
-use std::sync::Arc;
 
 const MADDR_PARAM: &str = "maddr";
 const BRANCH_PARAM: &str = "branch";
@@ -44,13 +45,29 @@ const RECEIVED_PARAM: &str = "received";
 pub struct Via<'a> {
     transport: TransportKind,
     sent_by: HostPort,
-    ttl: Option<&'a str>,
+    ttl: Option<u8>,
     maddr: Option<Host>,
     received: Option<IpAddr>,
-    branch: Option<&'a str>,
+    branch: Option<Cow<'a, str>>,
     rport: Option<u16>,
-    comment: Option<&'a str>,
-    params: Option<Params<'a>>,
+    comment: Option<Cow<'a, str>>,
+    // params: Option<Params<'a>>,
+}
+
+impl<'a> Via<'a> {
+    /// Convert
+    pub fn into_owned(self) -> Via<'static> {
+        Via {
+            transport: self.transport,
+            sent_by: self.sent_by,
+            ttl: self.ttl,
+            maddr: self.maddr,
+            received: self.received,
+            branch: self.branch.map(|c| Cow::Owned(c.into_owned())),
+            rport: self.rport,
+            comment: self.comment.map(|c| Cow::Owned(c.into_owned())),
+        }
+    }
 }
 
 impl<'a> Via<'a> {
@@ -66,10 +83,10 @@ impl<'a> Via<'a> {
             ttl: None,
             maddr: None,
             received: None,
-            branch,
+            branch: branch.map(|b| b.into()),
             rport: None,
             comment: None,
-            params: None,
+            // params: None,
         }
     }
     /// Set the `received` parameter.
@@ -99,7 +116,7 @@ impl<'a> Via<'a> {
 
     /// Returns the branch parameter.
     pub fn branch(&self) -> Option<&str> {
-        self.branch
+        self.branch.as_deref()
     }
 
     /// Returns the sent_by field.
@@ -132,9 +149,9 @@ impl fmt::Display for Via<'_> {
         if let Some(branch) = &self.branch {
             write!(f, ";branch={branch}")?;
         }
-        if let Some(params) = &self.params {
-            write!(f, ";{params}")?;
-        }
+        // if let Some(params) = &self.params {
+        //     write!(f, ";{params}")?;
+        // }
         if let Some(comment) = &self.comment {
             write!(f, " ({comment})")?;
         }
@@ -195,6 +212,8 @@ impl<'a> SipHeaderParse<'a> for Via<'a> {
             Ok(addr) => Host::IpAddr(addr),
             Err(_) => Host::DomainName(a.into()),
         });
+        let ttl = ttl.map(|ttl| ttl.parse().unwrap());
+        let branch = branch.map(|b| b.into());
 
         let rport = if let Some(rport) = rport_p
             .filter(|rport| !rport.is_empty())
@@ -213,7 +232,7 @@ impl<'a> SipHeaderParse<'a> for Via<'a> {
             parser.advance();
             let comment = parser.read_until_byte(b')');
             parser.advance();
-            Some(str::from_utf8(comment)?)
+            Some(str::from_utf8(comment)?.into())
         } else {
             None
         };
@@ -221,7 +240,7 @@ impl<'a> SipHeaderParse<'a> for Via<'a> {
         Ok(Via {
             transport,
             sent_by,
-            params,
+            // params,
             comment,
             ttl,
             maddr,

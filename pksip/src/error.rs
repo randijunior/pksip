@@ -77,6 +77,12 @@ impl std::convert::From<Utf8Error> for Error {
     }
 }
 
+impl From<std::fmt::Error> for Error {
+    fn from(value: std::fmt::Error) -> Self {
+        Self::FmtError(value)
+    }
+}
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -98,6 +104,9 @@ pub enum Error {
 
     #[error("Invalid Web Socket Version")]
     InvalidWebSocketVersion,
+
+    #[error("Fmt Error")]
+    FmtError(std::fmt::Error),
 
     #[error("The Sec-WebSocket-Protocol is invalid")]
     InvalidSecWebSocketProtocol,

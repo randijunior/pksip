@@ -1,6 +1,6 @@
 //! SIP Auth types
 //!
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 use crate::message::Params;
 
@@ -8,25 +8,25 @@ use crate::message::Params;
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct DigestChallenge<'a> {
     /// The realm of the digest authentication.
-    pub realm: Option<&'a str>,
+    pub realm: Option<Cow<'a, str>>,
 
     /// The domain of the digest authentication.
-    pub domain: Option<&'a str>,
+    pub domain: Option<Cow<'a, str>>,
 
     /// The nonce of the digest authentication.
-    pub nonce: Option<&'a str>,
+    pub nonce: Option<Cow<'a, str>>,
 
     /// The opaque value of the digest authentication.
-    pub opaque: Option<&'a str>,
+    pub opaque: Option<Cow<'a, str>>,
 
     /// Indicates whether the previous request was stale.
-    pub stale: Option<&'a str>,
+    pub stale: Option<Cow<'a, str>>,
 
     /// The algorithm used in the digest authentication.
-    pub algorithm: Option<&'a str>,
+    pub algorithm: Option<Cow<'a, str>>,
 
     /// The quality of protection (qop) value.
-    pub qop: Option<&'a str>,
+    pub qop: Option<Cow<'a, str>>,
 }
 
 /// This enum represents an authentication challenge mechanism
@@ -38,7 +38,7 @@ pub enum Challenge<'a> {
     /// Any other authentication scheme not specifically handled.
     Other {
         /// The name of the authentication scheme.
-        scheme: &'a str,
+        scheme: Cow<'a, str>,
 
         /// The parameters associated with the scheme.
         param: Params<'a>,
@@ -92,34 +92,34 @@ impl fmt::Display for Challenge<'_> {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DigestCredential<'a> {
     /// The realm value that defines the protection space.
-    pub realm: Option<&'a str>,
+    pub realm: Option<Cow<'a, str>>,
 
     /// The username associated with the credential.
-    pub username: Option<&'a str>,
+    pub username: Option<Cow<'a, str>>,
 
     /// The nonce value provided by the server.
-    pub nonce: Option<&'a str>,
+    pub nonce: Option<Cow<'a, str>>,
 
     /// The URI of the requested resource.
-    pub uri: Option<&'a str>,
+    pub uri: Option<Cow<'a, str>>,
 
     /// The response hash calculated from the credential data.
-    pub response: Option<&'a str>,
+    pub response: Option<Cow<'a, str>>,
 
     /// The algorithm used to hash the credentials (e.g., "MD5").
-    pub algorithm: Option<&'a str>,
+    pub algorithm: Option<Cow<'a, str>>,
 
     /// The client nonce value (cnonce) used to prevent replay attacks.
-    pub cnonce: Option<&'a str>,
+    pub cnonce: Option<Cow<'a, str>>,
 
     /// The opaque value provided by the server, to be returned unchanged.
-    pub opaque: Option<&'a str>,
+    pub opaque: Option<Cow<'a, str>>,
 
     /// The quality of protection (qop) applied to the message.
-    pub qop: Option<&'a str>,
+    pub qop: Option<Cow<'a, str>>,
 
     /// The nonce count (nc), indicating the number of requests made with the same nonce.
-    pub nc: Option<&'a str>,
+    pub nc: Option<Cow<'a, str>>,
 }
 
 /// This type represent a credential containing the
@@ -132,7 +132,7 @@ pub enum Credential<'a> {
     /// Other scheme not specified.
     Other {
         /// The name of the authentication scheme.
-        scheme: &'a str,
+        scheme: Cow<'a, str>,
 
         /// The parameters associated with the scheme.
         param: Params<'a>,

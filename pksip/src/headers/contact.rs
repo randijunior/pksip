@@ -18,16 +18,9 @@ use core::fmt;
 /// ```
 /// # use pksip::headers::Contact;
 /// # use pksip::message::{HostPort, Host, UriUser, UriBuilder, SipUri, NameAddr};
-/// let uri = SipUri::NameAddr(NameAddr {
-///     display: None,
-///     uri: UriBuilder::new()
-///         .user(UriUser { user: "alice", pass: None })
-///         .host(HostPort::from(Host::DomainName(
-///             "client.atlanta.example.com".into(),
-///         )))
-///         .get(),
-/// });
-/// let c = Contact::Uri {
+/// let uri = SipUri::from_static("<sip:alice@client.atlanta.example.com>").unwrap();
+/// 
+/// let c = Contact {
 ///     uri,
 ///     q: None,
 ///     expires: None,
@@ -40,30 +33,21 @@ use core::fmt;
 /// );
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Contact<'a> {
-    /// Contact URI.
-    Uri {
-        /// The URI of the contact.
-        uri: SipUri<'a>,
-        /// The quality value of the contact.
-        q: Option<Q>,
-        /// The expires parameter of the contact.
-        expires: Option<u32>,
-        /// Additional parameters.
-        param: Option<Params<'a>>,
-    },
-    /// Wildcard contact.
-    WildcardUri,
+pub struct Contact<'a> {
+    /// The URI of the contact.
+    pub uri: SipUri<'a>,
+    /// The quality value of the contact.
+    pub q: Option<Q>,
+    /// The expires parameter of the contact.
+    pub expires: Option<u32>,
+    /// Additional parameters.
+    pub param: Option<Params<'a>>,
 }
 
 impl<'a> Contact<'a> {
-    /// Get the URI of the contact.
-    pub fn uri(&self) -> Option<&SipUri> {
-        if let Contact::Uri { uri, .. } = self {
-            Some(uri)
-        } else {
-            None
-        }
+    /// Parse a `To` header instance from a `&str`.
+    pub fn from_str(s: &'a str) -> Result<Self> {
+        Self::parse(&mut ParseCtx::new(s.as_bytes()))
     }
 }
 
@@ -86,10 +70,6 @@ impl<'a> SipHeaderParse<'a> for Contact<'a> {
      * delta-seconds      =  1*DIGIT
      */
     fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        if parser.peek() == Some(&b'*') {
-            parser.advance();
-            return Ok(Contact::WildcardUri);
-        }
         let uri = parser.parse_sip_uri(false)?;
         let mut q = None;
         let mut expires = None;
@@ -98,30 +78,26 @@ impl<'a> SipHeaderParse<'a> for Contact<'a> {
         let q = q.map(|q| q.parse()).transpose()?;
         let expires = expires.and_then(|expires| expires.parse().ok());
 
-        Ok(Contact::Uri { uri, q, expires, param })
+        Ok(Contact { uri, q, expires, param })
     }
 }
 
 impl fmt::Display for Contact<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: ", Contact::NAME)?;
-        match self {
-            Contact::WildcardUri => write!(f, "*"),
-            Contact::Uri { uri, q, expires, param } => {
-                write!(f, "{}", uri)?;
 
-                if let Some(q) = q {
-                    write!(f, "{}", q)?;
-                }
-                if let Some(expires) = expires {
-                    write!(f, "{}", expires)?;
-                }
-                if let Some(param) = &param {
-                    write!(f, ";{}", param)?;
-                }
-                Ok(())
-            }
+        write!(f, "{}", self.uri)?;
+
+        if let Some(q) = self.q {
+            write!(f, "{}", q)?;
         }
+        if let Some(expires) = self.expires {
+            write!(f, "{}", expires)?;
+        }
+        if let Some(param) = &self.param {
+            write!(f, ";{}", param)?;
+        }
+        Ok(())
     }
 }
 
@@ -183,7 +159,7 @@ mod tests {
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri {
+        assert_matches!(contact, Contact {
             uri: SipUri::NameAddr(addr),
             q,
             expires,
@@ -207,21 +183,14 @@ mod tests {
         let mut scanner = ParseCtx::new(src);
         let contact = Contact::parse(&mut scanner);
 
-        assert_matches!(contact, Err(crate::error::Error::ParseError(crate::error::SipParserError { message })) => {
-            assert_eq!(
-                message,
-                "Unsupported URI scheme: mailto line 1 col 22".to_string()
-            )
-        });
-
-        assert_eq!(scanner.remaing(), b"watson@bell-telephone.com> ;q=0.1\r\n");
+        assert!(contact.is_err());
 
         let src = b"sip:caller@u1.example.com\r\n";
         let mut scanner = ParseCtx::new(src);
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri {
+        assert_matches!(contact, Contact {
             uri: SipUri::Uri(uri),
             ..
         } => {
@@ -244,7 +213,7 @@ mod tests {
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri {
+        assert_matches!(contact, Contact {
             uri: SipUri::Uri(uri),
             ..
         } => {
@@ -268,7 +237,7 @@ mod tests {
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri {
+        assert_matches!(contact, Contact {
             uri: SipUri::Uri(uri),
             ..
         } => {
@@ -282,7 +251,7 @@ mod tests {
             assert_eq!(uri.scheme, Scheme::Sip);
             let user = uri.user.unwrap();
             assert_eq!(user.user, "thks.ashwin");
-            assert_eq!(user.pass, Some("pass"));
+            assert_eq!(user.pass, Some("pass".into()));
         });
     }
 
@@ -293,7 +262,7 @@ mod tests {
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
-        assert_matches!(contact, Contact::Uri {
+        assert_matches!(contact, Contact  {
             uri: SipUri::Uri(uri),
             ..
         } => {

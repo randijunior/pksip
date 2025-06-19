@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    message::{HostPort, Method},
+    headers::Header,
+    message::{HostPort, SipMethod},
     transport::{IncomingRequest, OutgoingRequest},
 };
 
@@ -14,22 +15,41 @@ pub enum TsxKey {
 }
 
 impl TsxKey {
-
-    pub fn create_client_with(method: &Method, branch: &str) -> Self {
+    pub fn create_client_with(method: &SipMethod, branch: &str) -> Self {
         TsxKey::Rfc3261(Rfc3261::Client(ClientTsxKey {
             branch: branch.into(),
             method: Some(*method),
         }))
     }
     pub fn create_client(request: &OutgoingRequest) -> Self {
-        let branch = request.req_headers.via.branch();
+        let via = request
+            .msg
+            .headers
+            .iter()
+            .filter_map(|header| match header {
+                Header::Via(via_hdr) => Some(via_hdr),
+                _ => None,
+            })
+            .next()
+            .unwrap();
 
-        match branch {
+        let cseq = request
+            .msg
+            .headers
+            .iter()
+            .filter_map(|header| match header {
+                Header::CSeq(cseq) => Some(cseq),
+                _ => None,
+            })
+            .next()
+            .unwrap();
+
+        match via.branch() {
             Some(branch) => {
                 // Valid branch for RFC 3261
                 TsxKey::Rfc3261(Rfc3261::Client(ClientTsxKey {
                     branch: branch.into(),
-                    method: Some(*request.req_headers.cseq.method()),
+                    method: Some(*cseq.method()),
                 }))
             }
             _ => {
@@ -55,11 +75,11 @@ impl TsxKey {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Rfc2543 {
     pub cseq: u32,
-    pub from_tag: Option<Box<str>>,
-    pub to_tag: Option<Box<str>>,
-    pub call_id: Box<str>,
+    pub from_tag: Option<Arc<str>>,
+    pub to_tag: Option<Arc<str>>,
+    pub call_id: Arc<str>,
     pub via_host_port: HostPort,
-    pub method: Option<Method>,
+    pub method: Option<SipMethod>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -70,13 +90,13 @@ pub enum Rfc3261 {
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ClientTsxKey {
-    branch: Box<str>,
-    method: Option<Method>,
+    branch: Arc<str>,
+    method: Option<SipMethod>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ServerTsxKey {
-    branch: Box<str>,
+    branch: Arc<str>,
     via_sent_by: HostPort,
-    method: Option<Method>,
+    method: Option<SipMethod>,
 }

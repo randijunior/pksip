@@ -9,7 +9,10 @@ use crate::{
 use crate::headers::SipHeaderParse;
 
 use core::fmt;
-use std::str::{self};
+use std::{
+    borrow::Cow,
+    str::{self},
+};
 
 /// The `From` SIP header.
 ///
@@ -22,7 +25,7 @@ use std::str::{self};
 /// let uri = SipUri::NameAddr(NameAddr {
 ///     display: None,
 ///     uri: UriBuilder::new()
-///         .user(UriUser { user: "alice", pass: None })
+///         .user(UriUser { user: "alice".into(), pass: None })
 ///         .host(HostPort::from(Host::DomainName(
 ///             "client.atlanta.example.com".into(),
 ///         )))
@@ -40,11 +43,15 @@ use std::str::{self};
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct From<'f> {
     uri: SipUri<'f>,
-    tag: Option<&'f str>,
+    tag: Option<Cow<'f, str>>,
     params: Option<Params<'f>>,
 }
 
 impl<'f> From<'f> {
+    /// Parse a `From` header instance from a `&str`.
+    pub fn from_str(s: &'f str) -> Result<Self> {
+        Self::parse(&mut ParseCtx::new(s.as_bytes()))
+    }
     /// Create a new `From` instance.
     pub fn new(uri: SipUri<'f>) -> Self {
         Self {
@@ -58,8 +65,17 @@ impl<'f> From<'f> {
         &self.uri
     }
     /// Returns the tag parameter.
-    pub fn tag(&self) -> Option<&'f str> {
-        self.tag
+    pub fn tag(&self) -> &Option<Cow<'f, str>> {
+        &self.tag
+    }
+
+    /// Convert
+    pub fn into_owned(self) -> From<'static> {
+        From {
+            uri: self.uri.into_owned(),
+            tag: self.tag.map(|t| Cow::Owned(t.into_owned())),
+            params: self.params.map(|p| p.into_owned()),
+        }
     }
 }
 

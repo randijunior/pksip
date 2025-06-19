@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use pksip::{
     endpoint::Endpoint,
-    message::{Method, REASON_NOT_IMPLEMENTED},
+    message::{SipMethod, REASON_NOT_IMPLEMENTED},
     transport::IncomingRequest,
     Result, SipService,
 };
@@ -17,7 +17,7 @@ impl SipService for MyService {
         "MyService"
     }
     async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut IncomingRequest) -> Result<bool> {
-        if !request.is_method(&Method::Ack) {
+        if !matches!(request.method(), SipMethod::Ack) {
             endpoint.respond(request, 501, REASON_NOT_IMPLEMENTED).await?;
         }
         Ok(true)

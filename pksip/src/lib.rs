@@ -10,6 +10,7 @@ pub mod service;
 pub mod transaction;
 pub mod transport;
 
+
 pub(crate) mod error;
 pub(crate) mod macros;
 
@@ -24,12 +25,15 @@ pub use service::SipService;
 extern crate assert_matches;
 
 use std::{
+    borrow::Cow,
     fmt,
     net::SocketAddr,
     str::{self, FromStr},
+    sync::Arc,
 };
 
 use crate::{error::SipParserError, message::Params};
+
 
 /// Represents a quality value (q-value) used in SIP
 /// headers.
@@ -99,8 +103,8 @@ impl fmt::Display for Q {
 /// content format.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MimeType<'a> {
-    pub mtype: &'a str,
-    pub subtype: &'a str,
+    pub mtype: Cow<'a, str>,
+    pub subtype: Cow<'a, str>,
 }
 
 /// The `media-type` that appears in `Accept` and
@@ -126,7 +130,10 @@ impl<'a> MediaType<'a> {
     /// Constructs a `MediaType` from a type and a subtype.
     pub fn new(mtype: &'a str, subtype: &'a str) -> Self {
         Self {
-            mimetype: MimeType { mtype, subtype },
+            mimetype: MimeType {
+                mtype: mtype.into(),
+                subtype: subtype.into(),
+            },
             param: None,
         }
     }
@@ -148,7 +155,10 @@ impl<'a> MediaType<'a> {
     /// parameters.
     pub fn from_parts(mtype: &'a str, subtype: &'a str, param: Option<Params<'a>>) -> Self {
         Self {
-            mimetype: MimeType { mtype, subtype },
+            mimetype: MimeType {
+                mtype: mtype.into(),
+                subtype: subtype.into(),
+            },
             param,
         }
     }

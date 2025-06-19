@@ -52,8 +52,8 @@ pub const REASON_FORBIDDEN: &str = "Forbidden";
 /// Reason phrase for the `Not Found` status code (404).
 pub const REASON_NOT_FOUND: &str = "Not Found";
 
-/// Reason phrase for the `Method Not Allowed` status code (405).
-pub const REASON_METHOD_NOT_ALLOWED: &str = "Method Not Allowed";
+/// Reason phrase for the `SipMethod Not Allowed` status code (405).
+pub const REASON_METHOD_NOT_ALLOWED: &str = "SipMethod Not Allowed";
 
 /// Reason phrase for the `Not Acceptable` status code (406).
 pub const REASON_NOT_ACCEPTABLE: &str = "Not Acceptable";
@@ -202,7 +202,7 @@ pub enum StatusCode {
     Forbidden = 403,
     /// `Not Found` status code.
     NotFound = 404,
-    /// `Method Not Allowed` status code.
+    /// `SipMethod Not Allowed` status code.
     MethodNotAllowed = 405,
     /// `Not Acceptable` status code.
     NotAcceptable = 406,

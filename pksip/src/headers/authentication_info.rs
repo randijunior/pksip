@@ -5,7 +5,7 @@ use crate::{
     message::Param,
     parser::{ParseCtx, CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
 };
-use std::{fmt, str};
+use std::{borrow::Cow, fmt, str};
 
 /// The `Authentication-Info` SIP header.
 ///
@@ -25,17 +25,17 @@ use std::{fmt, str};
 /// ```
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct AuthenticationInfo<'a> {
-    nextnonce: Option<&'a str>,
-    qop: Option<&'a str>,
-    rspauth: Option<&'a str>,
-    cnonce: Option<&'a str>,
-    nc: Option<&'a str>,
+    nextnonce: Option<Cow<'a, str>>,
+    qop: Option<Cow<'a, str>>,
+    rspauth: Option<Cow<'a, str>>,
+    cnonce: Option<Cow<'a, str>>,
+    nc: Option<Cow<'a, str>>,
 }
 
 impl<'a> AuthenticationInfo<'a> {
     /// Sets the `nextnonce` field.
     pub fn set_nextnonce(&mut self, nextnonce: Option<&'a str>) {
-        self.nextnonce = nextnonce;
+        self.nextnonce = nextnonce.map(Cow::Borrowed);
     }
 }
 
@@ -57,7 +57,7 @@ impl<'a> SipHeaderParse<'a> for AuthenticationInfo<'a> {
 
         comma_sep!(parser => {
             let Param {name, value} = parser.parse_param()?;
-            match name {
+            match name.as_ref() {
                 NEXTNONCE => auth_info.nextnonce = value,
                 QOP => auth_info.qop = value,
                 RSPAUTH => auth_info.rspauth = value,

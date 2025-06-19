@@ -1,4 +1,4 @@
-use crate::{error::Result, headers::SipHeaderParse, macros::hdr_list, message::Method, parser::ParseCtx};
+use crate::{error::Result, headers::SipHeaderParse, macros::hdr_list, message::SipMethod, parser::ParseCtx};
 use itertools::Itertools;
 use std::fmt;
 
@@ -10,16 +10,16 @@ use std::fmt;
 ///
 /// ```
 /// # use pksip::headers::Allow;
-/// # use pksip::message::Method;
+/// # use pksip::message::SipMethod;
 /// let mut allow = Allow::new();
 ///
-/// allow.push(Method::Invite);
-/// allow.push(Method::Register);
+/// allow.push(SipMethod::Invite);
+/// allow.push(SipMethod::Register);
 ///
 /// assert_eq!("Allow: INVITE, REGISTER", allow.to_string());
 /// ```
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Allow(Vec<Method>);
+pub struct Allow(Vec<SipMethod>);
 
 impl Allow {
     /// Creates a empty `Allow` header.
@@ -27,13 +27,13 @@ impl Allow {
         Self(Vec::new())
     }
 
-    /// Appends an new `Method`.
-    pub fn push(&mut self, method: Method) {
+    /// Appends an new `SipMethod`.
+    pub fn push(&mut self, method: SipMethod) {
         self.0.push(method);
     }
 
-    /// Gets the `Method` at the specified index.
-    pub fn get(&self, index: usize) -> Option<&Method> {
+    /// Gets the `SipMethod` at the specified index.
+    pub fn get(&self, index: usize) -> Option<&SipMethod> {
         self.0.get(index)
     }
 
@@ -46,13 +46,13 @@ impl Allow {
 impl<'a> SipHeaderParse<'a> for Allow {
     const NAME: &'static str = "Allow";
     /*
-     * Allow  =  "Allow" HCOLON [Method *(COMMA Method)]
+     * Allow  =  "Allow" HCOLON [SipMethod *(COMMA SipMethod)]
      */
     fn parse(parser: &mut ParseCtx) -> Result<Self> {
         let allow = hdr_list!(parser => {
             let b_method = parser.alpha();
 
-            Method::from(b_method)
+            SipMethod::from(b_method)
         });
 
         Ok(Allow(allow))
@@ -77,11 +77,11 @@ mod tests {
 
         assert_eq!(scanner.remaing(), b"\r\n");
 
-        assert_eq!(allow.get(0), Some(&Method::Invite));
-        assert_eq!(allow.get(1), Some(&Method::Ack));
-        assert_eq!(allow.get(2), Some(&Method::Options));
-        assert_eq!(allow.get(3), Some(&Method::Cancel));
-        assert_eq!(allow.get(4), Some(&Method::Bye));
+        assert_eq!(allow.get(0), Some(&SipMethod::Invite));
+        assert_eq!(allow.get(1), Some(&SipMethod::Ack));
+        assert_eq!(allow.get(2), Some(&SipMethod::Options));
+        assert_eq!(allow.get(3), Some(&SipMethod::Cancel));
+        assert_eq!(allow.get(4), Some(&SipMethod::Bye));
         assert_eq!(allow.get(5), None);
     }
 }

@@ -10,7 +10,7 @@ use super::{
 use crate::{
     error::{Error, Result},
     message::TransportKind,
-    transport::TransportEvent,
+    transport::{TransportEvent, TransportPacket},
     Endpoint,
 };
 use local_ip_address::local_ip;
@@ -140,9 +140,7 @@ impl TcpServer {
         });
 
         // Register the new transport.
-        sender
-            .send(TransportEvent::TransportCreated(transport.clone()))
-            .await?;
+        sender.send(TransportEvent::TransportCreated(transport.clone())).await?;
 
         let reader = TcpStreamRead {
             reader,
@@ -175,7 +173,10 @@ impl TcpServer {
                     let time = SystemTime::now();
                     let packet = Packet { payload, addr, time };
                     let transport = transport.clone();
-                    let msg = (transport, packet);
+                    let msg = TransportPacket  {
+                        transport,
+                        packet
+                    };
 
                     // Send.
                     sender.send(TransportEvent::PacketReceived(msg)).await?;
@@ -255,6 +256,8 @@ impl TransportStartup for TcpStartup {
 mod tests {
     use tokio::net::TcpSocket;
 
+    use crate::transport::TransportPacket;
+
     use super::*;
 
     const MSG_TEST: &[u8] = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
@@ -287,7 +290,7 @@ mod tests {
         client.write_all(MSG_TEST).await.unwrap();
         client.flush().await.unwrap();
 
-        let TransportEvent::PacketReceived((_, packet)) = rx.recv().await.unwrap() else {
+        let TransportEvent::PacketReceived(TransportPacket { packet, .. }) = rx.recv().await.unwrap() else {
             unreachable!();
         };
 

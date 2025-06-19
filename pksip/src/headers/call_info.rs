@@ -1,6 +1,6 @@
 use super::SipHeaderParse;
 use crate::{error::Result, macros::parse_header_param, message::Params, parser::ParseCtx};
-use std::{fmt, str};
+use std::{borrow::Cow, fmt, str};
 
 const PURPOSE: &str = "purpose";
 
@@ -23,7 +23,7 @@ const PURPOSE: &str = "purpose";
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CallInfo<'a> {
     url: &'a str,
-    purpose: Option<&'a str>,
+    purpose: Option<Cow<'a, str>>,
     params: Option<Params<'a>>,
 }
 
@@ -39,7 +39,11 @@ impl<'a> CallInfo<'a> {
 
     /// Creates a new `CallInfo` header with the given url, params and purpose.
     pub fn from_parts(url: &'a str, purpose: Option<&'a str>, params: Option<Params<'a>>) -> Self {
-        Self { url, purpose, params }
+        Self {
+            url,
+            purpose: purpose.map(Cow::Borrowed),
+            params,
+        }
     }
     /// Set the url for this header.
     pub fn set_url(&mut self, url: &'a str) {
@@ -56,7 +60,7 @@ impl<'a> SipHeaderParse<'a> for CallInfo<'a> {
      *		        generic-param
      */
     fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let mut purpose: Option<&'a str> = None;
+        let mut purpose: Option<Cow<'a, str>> = None;
         // must be an '<'
         parser.advance();
         let url = parser.read_until_byte(b'>');

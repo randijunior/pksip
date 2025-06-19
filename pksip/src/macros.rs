@@ -93,30 +93,15 @@ macro_rules! comma_sep {
 }
 
 #[macro_export]
-macro_rules! filter_map_header {
-    ($hdrs:expr, $header:ident) => {
-        $hdrs.filter_map(|hdr| {
-            if let $crate::headers::Header::$header(v) = hdr {
-                Some(v)
-            } else {
-                None
-            }
-        })
-    };
+macro_rules! headers {
+    () => (
+        $crate::headers::Headers::new()
+    );
+    ($($x:expr),+ $(,)?) => (
+        $crate::headers::Headers::from(vec![$($x),+])
+    );
 }
 
-#[macro_export]
-macro_rules! find_map_header {
-    ($hdrs:expr, $header:ident) => {
-        $hdrs.find_map(|hdr| {
-            if let $crate::headers::Header::$header(v) = hdr {
-                Some(v)
-            } else {
-                None
-            }
-        })
-    };
-}
 
 macro_rules! parse_error {
     ($message:expr) => {{
@@ -129,8 +114,8 @@ macro_rules! parse_error {
             format!(
                 "{} line {} col {}",
                 $message,
-                $scanner.pos().line(),
-                $scanner.pos().col()
+                $scanner.position().line(),
+                $scanner.position().col()
             ),
         )))
     }};
@@ -151,5 +136,6 @@ pub(crate) use hdr_list;
 pub(crate) use parse_header;
 pub(crate) use parse_header_param;
 pub(crate) use parse_param;
+pub(crate) use headers;
 
 pub(crate) use parse_error;

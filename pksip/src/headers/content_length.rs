@@ -57,6 +57,12 @@ impl fmt::Display for ContentLength {
     }
 }
 
+impl Default for ContentLength {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

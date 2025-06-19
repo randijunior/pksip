@@ -10,6 +10,7 @@ use std::{
     time::SystemTime,
 };
 
+use bytes::{Bytes, BytesMut};
 use tokio::sync::mpsc;
 use udp::UdpTransport;
 
@@ -17,9 +18,9 @@ use crate::{
     endpoint::Endpoint,
     error::{Error, Result},
     headers::{CSeq, CallId, ContentLength, From as FromHdr, Header, Headers, SipHeaderParse, To, Via},
-    message::{buffer::Buffer, HostPort, Method, Request, Response, SipMsg, StatusCode, TransportKind},
+    message::{HostPort, Request, Response, SipMethod, SipMsg, StatusCode, TransportKind},
     parser::ParseCtx,
-    transaction::{client::TsxUac, client_inv::TsxUacInv, key::TsxKey, ClientTsx, ServerTsx},
+    transaction::{key::TsxKey, server::TsxUas, server_inv::TsxUasInv, ClientTsx, ServerTsx},
 };
 
 pub mod tcp;
@@ -28,20 +29,6 @@ pub mod ws;
 
 mod decoder;
 
-pub(crate) enum TransportEvent {
-    /// A packet was received from the transport layer.
-    PacketReceived(TransportPacket),
-
-    /// A new transport was created.
-    TransportCreated(Transport),
-
-    /// A transport was closed.
-    TransportClosed(TransportKey),
-
-    FactoryCreated(Box<dyn Factory>),
-}
-
-type TransportPacket = (Transport, Packet);
 
 type TransportTx = mpsc::Sender<TransportEvent>;
 type TransportRx = mpsc::Receiver<TransportEvent>;
@@ -81,6 +68,24 @@ pub trait SipTransport: Sync + Send + 'static {
     fn key(&self) -> TransportKey {
         TransportKey::new(self.addr(), self.tp_kind())
     }
+}
+
+pub(crate) enum TransportEvent {
+    /// A packet was received from the transport layer.
+    PacketReceived(TransportPacket),
+
+    /// A new transport was created.
+    TransportCreated(Transport),
+
+    /// A transport was closed.
+    TransportClosed(TransportKey),
+
+    FactoryCreated(Box<dyn Factory>),
+}
+
+pub(crate) struct TransportPacket {
+    transport: Transport,
+    packet: Packet
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -124,8 +129,7 @@ pub(crate) struct Payload(bytes::Bytes);
 impl Payload {
     /// Creates a new `Payload`.
     #[inline]
-    pub fn new(bytes: bytes::Bytes) -> Self
-    {
+    pub fn new(bytes: bytes::Bytes) -> Self {
         Payload(bytes)
     }
 
@@ -133,7 +137,6 @@ impl Payload {
         &self.0
     }
 }
-
 
 #[derive(Clone)]
 /// This type represents a SIP packet.
@@ -175,34 +178,37 @@ pub struct OutgoingResponse<'a> {
     pub addr: OutgoingAddr,
 
     /// The message raw buffer.
-    pub buf: Option<Buffer>,
+    pub buf: Option<Bytes>,
 }
-
+use bytes::BufMut;
 impl<'a> OutgoingResponse<'a> {
     /// Encode this message to a buffer.
-    pub fn encode(&self) -> Result<Buffer> {
+    pub fn encode(&self) -> Result<Bytes> {
         let estimated_message_size = if self.msg.body.is_none() { 800 } else { 1500 };
-        let mut buf = Buffer::with_capacity(estimated_message_size);
+        let buf = BytesMut::with_capacity(estimated_message_size);
+
+        let mut buf_writer = buf.writer();
 
         // Status Line.
-        write!(buf, "{}", &self.msg.status_line)?;
+        write!(buf_writer, "{}", &self.msg.status_line)?;
 
         // Headers.
         for h in self.msg.headers.iter() {
-            write!(buf, "{h}\r\n")?;
+            write!(buf_writer, "{h}\r\n")?;
         }
 
         // Body.
-        if let Some(body) = &self.msg.body {
+        if let Some(body) = self.msg.body {
             //TODO: write Content-Length
-            write!(buf, "\r\n")?;
-            buf.extend_from_slice(body);
+            write!(buf_writer, "\r\n")?;
+            buf_writer.write_all(body)?;
         } else {
-            write!(buf, "{}: 0\r\n", ContentLength::NAME)?;
-            write!(buf, "\r\n")?;
+            write!(buf_writer, "{}: 0\r\n", ContentLength::NAME)?;
+            write!(buf_writer, "\r\n")?;
         }
+        let out_buffer = buf_writer.into_inner().freeze();
 
-        Ok(buf)
+        Ok(out_buffer)
     }
 
     /// Returns the message status code.
@@ -240,26 +246,42 @@ pub struct OutgoingRequest<'a> {
     pub addr: SocketAddr,
 
     /// The message raw buffer.
-    pub buf: Option<Arc<Buffer>>,
+    pub buf: Option<Bytes>,
 
     pub(crate) transport: Transport,
-
-    pub(crate) tsx: Option<ClientTsx>,
-
-    pub(crate) req_headers: RequestHeaders<'a>,
 }
 
 impl OutgoingRequest<'_> {
-    pub(crate) fn set_tsx(&mut self, tsx: TsxUac) {
-        self.tsx = Some(ClientTsx::NonInvite(tsx));
-    }
+    /// Encode this message to a buffer.
+    pub fn encode(&self) -> Result<Bytes> {
+        let estimated_message_size = if self.msg.body.is_none() { 800 } else { 1500 };
 
-    pub(crate) fn set_inv_tsx(&mut self, tsx: TsxUacInv) {
-        self.tsx = Some(ClientTsx::Invite(tsx));
+        let buf = BytesMut::with_capacity(estimated_message_size);
+
+        let mut buf_writer = buf.writer();
+
+        // Status Line.
+        write!(buf_writer, "{}", &self.msg.req_line)?;
+
+        // Headers.
+        for h in self.msg.headers.iter() {
+            write!(buf_writer, "{h}\r\n")?;
+        }
+
+        // Body.
+        if let Some(body) = self.msg.body {
+            //TODO: write Content-Length
+            write!(buf_writer, "\r\n")?;
+            buf_writer.write_all(body)?;
+        } else {
+            write!(buf_writer, "{}: 0\r\n", ContentLength::NAME)?;
+            write!(buf_writer, "\r\n")?;
+        }
+        let out_buffer = buf_writer.into_inner().freeze();
+
+        Ok(out_buffer)
     }
 }
-
-
 
 pub(crate) struct RequestHeaders<'a> {
     // The topmost Via header as found in the message.
@@ -270,6 +292,19 @@ pub(crate) struct RequestHeaders<'a> {
 
     // The Call-ID header found in the message.
     pub call_id: CallId<'a>,
+
+    pub from: crate::headers::From<'a>,
+}
+
+impl RequestHeaders<'_> {
+    pub fn into_owned(self) -> RequestHeaders<'static> {
+        RequestHeaders {
+            via: self.via.into_owned(),
+            cseq: self.cseq,
+            call_id: self.call_id.into_owned(),
+            from: self.from.into_owned(),
+        }
+    }
 }
 
 /// This type represents an received SIP request.
@@ -285,18 +320,26 @@ pub struct IncomingRequest<'a> {
 }
 
 impl<'a> IncomingRequest<'a> {
+    pub(crate) fn set_tsx_inv(&mut self, tsx: TsxUasInv) {
+        self.tsx = Some(ServerTsx::Invite(tsx));
+    }
+    pub(crate) fn set_tsx(&mut self, tsx: TsxUas) {
+        self.tsx = Some(ServerTsx::NonInvite(tsx));
+    }
+
     /// Returns the transaction key for this request(if any).
     pub fn tsx_key(&self) -> Option<&TsxKey> {
         self.tsx.as_ref().map(|tsx| tsx.key())
     }
 
-    /// Returns `true` if the message method matches the given `Method`.
-    pub fn is_method(&self, method: &Method) -> bool {
+    /// Returns `true` if the message method matches the given `SipMethod`.
+    #[inline(always)]
+    pub fn is_method(&self, method: &SipMethod) -> bool {
         self.msg.method() == method
     }
 
     /// Returns the message method.
-    pub fn method(&self) -> &Method {
+    pub fn method(&self) -> &SipMethod {
         self.msg.method()
     }
 
@@ -313,11 +356,15 @@ pub struct IncomingResponse<'a> {
     pub(crate) transport: Transport,
 
     pub(crate) packet: Packet,
+
+    pub(crate) tsx: Option<ClientTsx>,
+
+    pub(crate) req_headers: RequestHeaders<'a>,
 }
 
 impl IncomingResponse<'_> {
-    pub fn is_final(&self) -> bool {
-        self.msg.status_line.code.is_final()
+    pub fn headers(&self) -> &Headers {
+        &self.msg.headers
     }
 }
 
@@ -395,7 +442,7 @@ impl TransportLayer {
             .cloned()
     }
 
-    pub(crate) async fn receive_packet(&self, endpoint: &Endpoint) -> Result<()> {
+    pub(crate) async fn handle_events(&self, endpoint: &Endpoint) -> Result<()> {
         let mut rx = self.transport_rx.lock().expect("Lock failed").take().unwrap();
 
         // Loop to receive packets from the transports.
@@ -420,7 +467,7 @@ impl TransportLayer {
     }
 
     async fn on_received_packet(pkt: TransportPacket, endpoint: Endpoint) -> Result<()> {
-        let (transport, packet) = pkt;
+        let TransportPacket { packet, transport }= pkt;
         let payload = packet.payload.clone();
         let bytes = payload.buf();
 
@@ -464,23 +511,23 @@ impl TransportLayer {
         };
 
         let mut cseq: Option<CSeq> = None;
-        let mut exists_from = false;
+        let mut from: Option<crate::headers::From> = None;
         let mut call_id: Option<CallId> = None;
         let mut exists_to = false;
 
         for header in msg.headers().iter() {
             match header {
-                Header::From(_) => exists_from = true,
+                Header::From(f) => from = Some(f.clone()),
                 Header::To(_) => exists_to = true,
-                Header::CallId(c) => call_id = Some(*c),
+                Header::CallId(c) => call_id = Some(c.clone()),
                 Header::CSeq(c) => cseq = Some(*c),
                 _ => (),
             }
         }
 
-        if !exists_from {
+        let Some(from) = from else {
             return Err(Error::MissingRequiredHeader(FromHdr::NAME));
-        }
+        };
 
         if !exists_to {
             return Err(Error::MissingRequiredHeader(To::NAME));
@@ -493,13 +540,18 @@ impl TransportLayer {
         let Some(cseq) = cseq else {
             return Err(Error::MissingRequiredHeader(CSeq::NAME));
         };
-
         // 4. Server Behavior(https://datatracker.ietf.org/doc/html/rfc3581#section-4)
         // The server MUST insert a "received" parameter containing
         // the source IP address that the request came from even if
         // it is identical to the value of the "sent-by" component.
         via.set_received(packet.addr.ip());
 
+        let req_headers = RequestHeaders {
+            via,
+            cseq,
+            call_id,
+            from,
+        };
         match msg {
             SipMsg::Request(msg) => {
                 let mut request = IncomingRequest {
@@ -507,12 +559,18 @@ impl TransportLayer {
                     transport,
                     packet,
                     tsx: None,
-                    req_headers: RequestHeaders { via, cseq, call_id },
+                    req_headers,
                 };
                 endpoint.process_request(&mut request).await?;
             }
             SipMsg::Response(msg) => {
-                let mut response = IncomingResponse { msg, transport, packet };
+                let mut response = IncomingResponse {
+                    msg,
+                    transport,
+                    packet,
+                    tsx: None,
+                    req_headers
+                };
                 endpoint.process_response(&mut response).await?;
             }
         };
@@ -529,16 +587,12 @@ pub(crate) trait TransportStartup {
 
 #[derive(Clone)]
 /// This type represents a concret SIP transport implementation.
-pub struct Transport {
-    inner: Arc<dyn SipTransport>,
-}
+pub struct Transport(Arc<dyn SipTransport>);
 
 impl Transport {
     /// Creates a new `Transport` instance with the given transport implementation.
     pub fn new(transport: impl SipTransport) -> Self {
-        Self {
-            inner: Arc::new(transport),
-        }
+        Self(Arc::new(transport))
     }
 }
 
@@ -550,7 +604,7 @@ impl PartialOrd for Transport {
 
 impl Ord for Transport {
     fn cmp(&self, other: &Self) -> Ordering {
-        Arc::strong_count(&self.inner).cmp(&Arc::strong_count(&other.inner))
+        Arc::strong_count(&self.0).cmp(&Arc::strong_count(&other.0))
     }
 }
 
@@ -566,13 +620,13 @@ impl Deref for Transport {
     type Target = dyn SipTransport;
 
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
+        self.0.as_ref()
     }
 }
 
 impl From<UdpTransport> for Transport {
     fn from(value: UdpTransport) -> Self {
-        Self { inner: Arc::new(value) }
+        Self(Arc::new(value))
     }
 }
 

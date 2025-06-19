@@ -9,6 +9,7 @@ use crate::{
 use crate::headers::SipHeaderParse;
 
 use std::{
+    borrow::Cow,
     fmt,
     str::{self},
 };
@@ -24,7 +25,7 @@ use std::{
 /// let uri = SipUri::NameAddr(NameAddr {
 ///     display: None,
 ///     uri: UriBuilder::new()
-///         .user(UriUser { user: "alice", pass: None })
+///         .user(UriUser { user: "alice".into(), pass: None })
 ///         .host(HostPort::from(Host::DomainName(
 ///             "client.atlanta.example.com".into(),
 ///         )))
@@ -41,11 +42,16 @@ use std::{
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct To<'a> {
     uri: SipUri<'a>,
-    tag: Option<&'a str>,
+    tag: Option<Cow<'a, str>>,
     params: Option<Params<'a>>,
 }
 
 impl<'a> To<'a> {
+    /// Parse a `To` header instance from a `&str`.
+    pub fn from_str(s: &'a str) -> Result<Self> {
+        Self::parse(&mut ParseCtx::new(s.as_bytes()))
+    }
+    
     /// Create a new `To` instance.
     pub fn new(uri: SipUri<'a>) -> Self {
         Self {
@@ -60,13 +66,13 @@ impl<'a> To<'a> {
         &self.uri
     }
     /// Returns the tag parameter.
-    pub fn tag(&self) -> Option<&'a str> {
-        self.tag
+    pub fn tag(&self) -> &Option<Cow<'a, str>> {
+        &self.tag
     }
 
     /// Set the tag parameter.
     pub fn set_tag(&mut self, tag: Option<&'a str>) {
-        self.tag = tag;
+        self.tag = tag.map(Cow::Borrowed);
     }
 }
 

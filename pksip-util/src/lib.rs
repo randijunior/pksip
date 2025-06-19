@@ -51,14 +51,8 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn pos(&self) -> &Position {
+    pub fn position(&self) -> &Position {
         &self.pos
-    }
-
-    /// Returns the current index
-    #[inline]
-    pub fn index(&self) -> usize {
-        self.idx
     }
 
     /// Returns `true` if all bytes where read
@@ -71,6 +65,13 @@ impl<'a> Scanner<'a> {
     #[inline]
     pub fn peek(&self) -> Option<&u8> {
         self.src.get(self.idx)
+    }
+
+    /// Moves to the next character n times
+    pub fn bump_n(&mut self, n: usize) {
+        for _ in 0..n {
+            self.next();
+        }
     }
 
     /// Same as [Scanner::peek] but will return an `Result`
@@ -144,18 +145,32 @@ impl<'a> Scanner<'a> {
         &src[start..self.idx]
     }
 
-    pub fn tag(&mut self, tag: &[u8]) -> Result<()> {
-        let start_index = self.index();
-        let tag_len = tag.len();
+    pub fn peek_while<F>(&self, func: F) -> (&'a [u8], Option<u8>)
+    where
+        F: Fn(u8) -> bool,
+    {
+        let start = self.idx;
+        let src = &self.src[start..];
+
+        let n = src.iter().position(|&b| !func(b)).unwrap_or(src.len());
+        let next_byte = src.get(n).copied();
+
+        (&src[..n], next_byte)
+    }
+
+    /// Checks whether the current characters match the specified slice.
+    pub fn matches_slice(&mut self, slice: &[u8]) -> Result<()> {
+        let start_index = self.idx;
+        let slice_len = slice.len();
 
         let position = self
-            .zip(tag.iter())
+            .zip(slice.iter())
             .position(|(expected, &current)| expected != current);
 
         match position {
             // Invalid.
             Some(_) => self.error(ErrorKind::Tag),
-            None if self.idx - start_index >= tag_len => Ok(()),
+            None if self.idx - start_index >= slice_len => Ok(()),
             // Incomplete.
             None => self.error(ErrorKind::Tag),
         }

@@ -10,7 +10,7 @@ use std::time::SystemTime;
 
 use super::{Direction, SipTransport, Transport, TransportTx};
 use crate::message::TransportKind;
-use crate::transport::{ws, Packet, Payload, TransportEvent};
+use crate::transport::{ws, Packet, Payload, TransportEvent, TransportPacket};
 use crate::{error::Result, Endpoint};
 use futures_util::stream::SplitSink;
 use futures_util::{future, StreamExt, TryStreamExt};
@@ -145,7 +145,10 @@ impl WebSocketServer {
 
             let time = SystemTime::now();
             let packet = Packet { payload, addr, time };
-            let msg = (transport.clone(), packet);
+            let msg = TransportPacket  {
+                transport: transport.clone(),
+                packet
+            };
 
             // Send.
             if sender.send(TransportEvent::PacketReceived(msg)).await.is_err() {

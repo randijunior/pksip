@@ -19,7 +19,7 @@ const SIP_PUBLISH: &[u8] = b"PUBLISH";
 /// An SIP Method.
 ///
 /// This enum declares SIP methods as described by RFC3261.
-pub enum Method {
+pub enum SipMethod {
     /// SIP INVITE Method.
     Invite,
     /// SIP ACK Method.
@@ -52,69 +52,69 @@ pub enum Method {
     Unknown,
 }
 
-impl Method {
+impl SipMethod {
     /// Returns the byte representation of a method.
     pub fn as_bytes(&self) -> &'static [u8] {
         match self {
-            Method::Invite => SIP_INVITE,
-            Method::Ack => SIP_ACK,
-            Method::Bye => SIP_BYE,
-            Method::Cancel => SIP_CANCEL,
-            Method::Register => SIP_REGISTER,
-            Method::Options => SIP_OPTIONS,
-            Method::Info => SIP_INFO,
-            Method::Notify => SIP_NOTIFY,
-            Method::Subscribe => SIP_SUBSCRIBE,
-            Method::Update => SIP_UPDATE,
-            Method::Refer => SIP_REFER,
-            Method::Prack => SIP_PRACK,
-            Method::Message => SIP_MESSAGE,
-            Method::Publish => SIP_PUBLISH,
-            Method::Unknown => b"UNKNOWN-Method",
+            SipMethod::Invite => SIP_INVITE,
+            SipMethod::Ack => SIP_ACK,
+            SipMethod::Bye => SIP_BYE,
+            SipMethod::Cancel => SIP_CANCEL,
+            SipMethod::Register => SIP_REGISTER,
+            SipMethod::Options => SIP_OPTIONS,
+            SipMethod::Info => SIP_INFO,
+            SipMethod::Notify => SIP_NOTIFY,
+            SipMethod::Subscribe => SIP_SUBSCRIBE,
+            SipMethod::Update => SIP_UPDATE,
+            SipMethod::Refer => SIP_REFER,
+            SipMethod::Prack => SIP_PRACK,
+            SipMethod::Message => SIP_MESSAGE,
+            SipMethod::Publish => SIP_PUBLISH,
+            SipMethod::Unknown => b"UNKNOWN-SipMethod",
         }
     }
 }
 
-impl From<&[u8]> for Method {
+impl From<&[u8]> for SipMethod {
     fn from(value: &[u8]) -> Self {
         match value {
-            SIP_INVITE => Method::Invite,
-            SIP_CANCEL => Method::Cancel,
-            SIP_ACK => Method::Ack,
-            SIP_BYE => Method::Bye,
-            SIP_REGISTER => Method::Register,
-            SIP_OPTIONS => Method::Options,
-            SIP_INFO => Method::Info,
-            SIP_NOTIFY => Method::Notify,
-            SIP_SUBSCRIBE => Method::Subscribe,
-            SIP_UPDATE => Method::Update,
-            SIP_REFER => Method::Refer,
-            SIP_PRACK => Method::Prack,
-            SIP_MESSAGE => Method::Message,
-            SIP_PUBLISH => Method::Publish,
-            _ => Method::Unknown,
+            SIP_INVITE => SipMethod::Invite,
+            SIP_CANCEL => SipMethod::Cancel,
+            SIP_ACK => SipMethod::Ack,
+            SIP_BYE => SipMethod::Bye,
+            SIP_REGISTER => SipMethod::Register,
+            SIP_OPTIONS => SipMethod::Options,
+            SIP_INFO => SipMethod::Info,
+            SIP_NOTIFY => SipMethod::Notify,
+            SIP_SUBSCRIBE => SipMethod::Subscribe,
+            SIP_UPDATE => SipMethod::Update,
+            SIP_REFER => SipMethod::Refer,
+            SIP_PRACK => SipMethod::Prack,
+            SIP_MESSAGE => SipMethod::Message,
+            SIP_PUBLISH => SipMethod::Publish,
+            _ => SipMethod::Unknown,
         }
     }
 }
 
-impl fmt::Display for Method {
+impl fmt::Display for SipMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Method::Invite => write!(f, "INVITE"),
-            Method::Ack => write!(f, "ACK"),
-            Method::Bye => write!(f, "BYE"),
-            Method::Cancel => write!(f, "CANCEL"),
-            Method::Register => write!(f, "REGISTER"),
-            Method::Options => write!(f, "OPTIONS"),
-            Method::Info => write!(f, "INFO"),
-            Method::Notify => write!(f, "NOTIFY"),
-            Method::Subscribe => write!(f, "SUBSCRIBE"),
-            Method::Update => write!(f, "UPDATE"),
-            Method::Refer => write!(f, "REFER"),
-            Method::Prack => write!(f, "PRACK"),
-            Method::Message => write!(f, "MESSAGE"),
-            Method::Publish => write!(f, "PUBLISH"),
-            Method::Unknown => write!(f, "UNKNOWN-Method"),
+            SipMethod::Invite => write!(f, "INVITE"),
+            SipMethod::Ack => write!(f, "ACK"),
+            SipMethod::Bye => write!(f, "BYE"),
+            SipMethod::Cancel => write!(f, "CANCEL"),
+            SipMethod::Register => write!(f, "REGISTER"),
+            SipMethod::Options => write!(f, "OPTIONS"),
+            SipMethod::Info => write!(f, "INFO"),
+            SipMethod::Notify => write!(f, "NOTIFY"),
+            SipMethod::Subscribe => write!(f, "SUBSCRIBE"),
+            SipMethod::Update => write!(f, "UPDATE"),
+            SipMethod::Refer => write!(f, "REFER"),
+            SipMethod::Prack => write!(f, "PRACK"),
+            SipMethod::Message => write!(f, "MESSAGE"),
+            SipMethod::Publish => write!(f, "PUBLISH"),
+            SipMethod::Unknown => write!(f, "UNKNOWN-SipMethod"),
         }
     }
 }

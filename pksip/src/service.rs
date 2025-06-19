@@ -19,4 +19,6 @@ pub trait SipService: Sync + Send + 'static {
     async fn on_incoming_response(&self, endpoint: &Endpoint, response: &mut IncomingResponse) -> Result<bool> {
         Ok(false)
     }
+
+    // async fn on_transaction_error(&self)
 }
