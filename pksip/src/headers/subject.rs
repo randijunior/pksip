@@ -1,7 +1,7 @@
 use std::{fmt, str};
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -19,8 +19,8 @@ impl<'a> SipHeaderParse<'a> for Subject<'a> {
     /*
      * Subject  =  ( "Subject" / "s" ) HCOLON [TEXT-UTF8-TRIM]
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let subject = parser.parse_header_value_as_str()?;
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let subject = parser.parse_header_str()?;
 
         Ok(Subject(subject))
     }
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Need more boxes\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let subject = Subject::parse(&mut scanner);
         let subject = subject.unwrap();
 
@@ -47,7 +47,7 @@ mod tests {
         assert_eq!(subject.0, "Need more boxes");
 
         let src = b"Tech Support\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let subject = Subject::parse(&mut scanner);
         let subject = subject.unwrap();
 

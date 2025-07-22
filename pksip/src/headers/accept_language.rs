@@ -3,7 +3,7 @@ use crate::{
     headers::{SipHeaderParse, Q_PARAM},
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::ParseCtx,
+    parser::Parser,
     Q,
 };
 use itertools::Itertools;
@@ -70,7 +70,7 @@ impl<'a> SipHeaderParse<'a> for AcceptLanguage<'a> {
      * language         =  language-range *(SEMI accept-param)
      * language-range   =  ( ( 1*8ALPHA *( "-" 1*8ALPHA ) ) / "*" )
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let languages = hdr_list!(parser => {
             let language = unsafe { parser.read_as_str(is_lang) };
             let mut q_param = None;
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"en\r\n";
-        let mut parser = ParseCtx::new(src);
+        let mut parser = Parser::new(src);
         let accept_language = AcceptLanguage::parse(&mut parser).unwrap();
 
         assert!(accept_language.len() == 1);
@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(lang.q, None);
 
         let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
-        let mut parser = ParseCtx::new(src);
+        let mut parser = Parser::new(src);
         let accept_language = AcceptLanguage::parse(&mut parser).unwrap();
 
         assert!(accept_language.len() == 3);
@@ -164,7 +164,7 @@ mod tests {
         assert_eq!(lang.q, Some(Q(0, 7)));
 
         let src = b"*\r\n";
-        let mut parser = ParseCtx::new(src);
+        let mut parser = Parser::new(src);
         let accept_language = AcceptLanguage::parse(&mut parser).unwrap();
 
         assert!(accept_language.len() == 1);

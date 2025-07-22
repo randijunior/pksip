@@ -9,22 +9,16 @@ use crate::message::Params;
 pub struct DigestChallenge<'a> {
     /// The realm of the digest authentication.
     pub realm: Option<Cow<'a, str>>,
-
     /// The domain of the digest authentication.
     pub domain: Option<Cow<'a, str>>,
-
     /// The nonce of the digest authentication.
     pub nonce: Option<Cow<'a, str>>,
-
     /// The opaque value of the digest authentication.
     pub opaque: Option<Cow<'a, str>>,
-
     /// Indicates whether the previous request was stale.
     pub stale: Option<Cow<'a, str>>,
-
     /// The algorithm used in the digest authentication.
     pub algorithm: Option<Cow<'a, str>>,
-
     /// The quality of protection (qop) value.
     pub qop: Option<Cow<'a, str>>,
 }
@@ -93,31 +87,22 @@ impl fmt::Display for Challenge<'_> {
 pub struct DigestCredential<'a> {
     /// The realm value that defines the protection space.
     pub realm: Option<Cow<'a, str>>,
-
     /// The username associated with the credential.
     pub username: Option<Cow<'a, str>>,
-
     /// The nonce value provided by the server.
     pub nonce: Option<Cow<'a, str>>,
-
     /// The URI of the requested resource.
     pub uri: Option<Cow<'a, str>>,
-
     /// The response hash calculated from the credential data.
     pub response: Option<Cow<'a, str>>,
-
     /// The algorithm used to hash the credentials (e.g., "MD5").
     pub algorithm: Option<Cow<'a, str>>,
-
     /// The client nonce value (cnonce) used to prevent replay attacks.
     pub cnonce: Option<Cow<'a, str>>,
-
     /// The opaque value provided by the server, to be returned unchanged.
     pub opaque: Option<Cow<'a, str>>,
-
     /// The quality of protection (qop) applied to the message.
     pub qop: Option<Cow<'a, str>>,
-
     /// The nonce count (nc), indicating the number of requests made with the same nonce.
     pub nc: Option<Cow<'a, str>>,
 }

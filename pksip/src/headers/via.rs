@@ -3,12 +3,12 @@ use pksip_util::util::is_valid_port;
 use crate::headers::SipHeaderParse;
 use crate::macros::parse_param;
 use crate::message::Host;
-use crate::parser::{self, ParseCtx, SIPV2};
+use crate::parser::{self, Parser, SIPV2};
 
 use crate::{
     error::Result,
     macros::parse_error,
-    message::TransportKind,
+    message::TransportProtocol,
     message::{HostPort, Params},
 };
 use core::fmt;
@@ -43,7 +43,7 @@ const RECEIVED_PARAM: &str = "received";
 /// ```
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Via<'a> {
-    transport: TransportKind,
+    transport: TransportProtocol,
     sent_by: HostPort,
     ttl: Option<u8>,
     maddr: Option<Host>,
@@ -78,7 +78,7 @@ impl<'a> Via<'a> {
     /// * `branch` - Optional branch parameter to identify the transaction.
     pub fn new_udp(sent_by: HostPort, branch: Option<&'a str>) -> Self {
         Self {
-            transport: TransportKind::Udp,
+            transport: TransportProtocol::Udp,
             sent_by,
             ttl: None,
             maddr: None,
@@ -100,7 +100,7 @@ impl<'a> Via<'a> {
     }
 
     /// Returns the `transport`.
-    pub fn transport(&self) -> TransportKind {
+    pub fn transport(&self) -> TransportProtocol {
         self.transport
     }
 
@@ -183,14 +183,14 @@ impl<'a> SipHeaderParse<'a> for Via<'a> {
      * sent-by           =  host [ COLON port ]
      * ttl               =  1*3DIGIT ; 0 to 255
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         //@TODO: handle LWS
         parser.parse_sip_v2()?;
 
         let b = parser.read_until_byte(b' ');
         let transport = b.into();
 
-        parser.take_ws();
+        parser.ws();
 
         let sent_by = parser.parse_host_port()?;
         let mut branch = None;
@@ -262,11 +262,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"SIP/2.0/UDP bobspc.biloxi.com:5060;received=192.0.2.4\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let via = Via::parse(&mut scanner);
         let via = via.unwrap();
 
-        assert_eq!(via.transport, TransportKind::Udp);
+        assert_eq!(via.transport, TransportProtocol::Udp);
         assert_eq!(
             via.sent_by,
             HostPort {
@@ -279,11 +279,11 @@ mod tests {
 
         let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let via = Via::parse(&mut scanner);
         let via = via.unwrap();
 
-        assert_eq!(via.transport, TransportKind::Udp);
+        assert_eq!(via.transport, TransportProtocol::Udp);
         assert_eq!(
             via.sent_by,
             HostPort {

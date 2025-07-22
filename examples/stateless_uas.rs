@@ -16,11 +16,12 @@ impl SipService for MyService {
     fn name(&self) -> &str {
         "MyService"
     }
-    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut IncomingRequest) -> Result<bool> {
+    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut Option<IncomingRequest>) -> Result<()> {
+        let request = request.take().unwrap();
         if !matches!(request.method(), SipMethod::Ack) {
-            endpoint.respond(request, 501, REASON_NOT_IMPLEMENTED).await?;
+            endpoint.respond(&request, 501, REASON_NOT_IMPLEMENTED).await?;
         }
-        Ok(true)
+        Ok(())
     }
 }
 

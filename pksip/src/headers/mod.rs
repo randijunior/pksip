@@ -104,7 +104,7 @@ use std::{
     str::{self},
 };
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::error::Result;
 
@@ -136,15 +136,15 @@ pub trait SipHeaderParse<'a>: Sized {
         name.eq_ignore_ascii_case(Self::NAME.as_bytes()) || name.eq_ignore_ascii_case(Self::SHORT_NAME.as_bytes())
     }
 
-    /// Parses this header's value from the given `ParseCtx`.
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self>;
+    /// Parses this header's value from the given `Parser`.
+    fn parse(parser: &mut Parser<'a>) -> Result<Self>;
 
     /// Parses this header from a raw byte slice.
     ///
-    /// This is a convenience method that creates a [`ParseCtx`] and delegates to
+    /// This is a convenience method that creates a [`Parser`] and delegates to
     /// [`parse`](SipHeaderParse::parse).
     fn from_bytes(src: &'a [u8]) -> Result<Self> {
-        Self::parse(&mut ParseCtx::new(src))
+        Self::parse(&mut Parser::new(src))
     }
 }
 
@@ -188,32 +188,6 @@ impl<'hdr> Headers<'hdr> {
         Self(Vec::with_capacity(capacity))
     }
 
-    /// Applies function to the headers and return the first
-    /// no-none result.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use pksip::headers::Headers;
-    /// # use pksip::headers::Header;
-    /// # use pksip::headers::Expires;
-    /// let mut headers = Headers::new();
-    /// headers.push(Header::Expires(Expires::new(10)));
-    ///
-    /// let expires = headers.find_map(|h| if let Header::Expires(expires) = h {
-    ///        Some(expires)
-    ///    } else {
-    ///        None
-    ///    });
-    ///
-    /// assert!(expires.is_some());
-    #[inline]
-    pub fn find_map<'b, T: 'hdr, F>(&'b self, f: F) -> Option<&'hdr T>
-    where
-        F: Fn(&'b Header) -> Option<&'hdr T>,
-    {
-        self.0.iter().find_map(f)
-    }
 
     /// Extends the headers collection with the contents of an
     /// another.
@@ -250,81 +224,6 @@ impl<'hdr> Headers<'hdr> {
     #[inline]
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, Header<'hdr>> {
         self.0.iter_mut()
-    }
-
-    /// Creates an iterator that both filters and maps an
-    /// header.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use pksip::headers::Headers;
-    /// # use pksip::headers::Header;
-    /// # use pksip::headers::Expires;
-    /// let mut headers = Headers::new();
-    /// headers.push(Header::Expires(Expires::new(10)));
-    ///
-    /// let mut iter = headers.iter().filter_map(|h| match h {
-    ///     Header::Expires(e) => Some(e),
-    ///     _ => None,
-    /// });
-    ///
-    /// assert_eq!(iter.next(), Some(&Expires::new(10)));
-    /// assert_eq!(iter.next(), None);
-    /// ```
-    #[inline]
-    pub fn filter_map<T: 'hdr, F>(&'hdr self, f: F) -> FilterMap<impl Iterator<Item = &'hdr Header<'hdr>>, F>
-    where
-        F: FnMut(&'hdr Header) -> Option<&'hdr T>,
-    {
-        self.0.iter().filter_map(f)
-    }
-
-    /// Creates an iterator which uses a closure to
-    /// determine if an header should be yielded.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use pksip::headers::Headers;
-    /// # use pksip::headers::Header;
-    /// # use pksip::headers::Expires;
-    /// let mut headers = Headers::new();
-    /// headers.push(Header::Expires(Expires::new(10)));
-    ///
-    /// let mut iter = headers.iter().filter(|h| matches!(h, Header::Expires(_)));
-    ///
-    /// assert_eq!(iter.next(), Some(&Header::Expires(Expires::new(10))));
-    /// assert_eq!(iter.next(), None);
-    /// ```
-    #[inline]
-    pub fn filter<F>(&self, f: F) -> Filter<impl Iterator<Item = &Header>, F>
-    where
-        F: FnMut(&&Header) -> bool,
-    {
-        self.0.iter().filter(f)
-    }
-
-    /// Searches for an header that satisfies a predicate.
-    /// # Examples
-    ///
-    /// ```
-    /// # use pksip::headers::Headers;
-    /// # use pksip::headers::Header;
-    /// # use pksip::headers::Expires;
-    /// let mut headers = Headers::new();
-    /// headers.push(Header::Expires(Expires::new(10)));
-    ///
-    /// let header = headers.iter().find(|h| matches!(h, Header::Expires(_)));
-    ///
-    /// assert_eq!(header, Some(&Header::Expires(Expires::new(10))));
-    /// ```
-    #[inline]
-    pub fn find<F>(&self, f: F) -> Option<&Header>
-    where
-        F: FnMut(&&Header) -> bool,
-    {
-        self.0.iter().find(f)
     }
 
     /// Moves all the elements of `other` into `self`,
@@ -536,53 +435,12 @@ mod tests {
     }
 
     #[test]
-    fn test_filters_headers_by_variant() {
-        let mut headers = Headers::new();
-
-        headers.push(Header::Expires(Expires::new(10)));
-        headers.push(Header::ContentLength(ContentLength::new(20)));
-
-        let filtered: Vec<_> = headers.filter(|h| matches!(h, Header::Expires(_))).collect();
-
-        assert_eq!(filtered.len(), 1);
-        assert!(matches!(filtered[0], Header::Expires(_)));
-    }
-
-    #[test]
-    fn test_maps_headers_with_filter_map_to_inner_type() {
-        let mut headers = Headers::new();
-        let expires = Expires::new(10);
-        headers.push(Header::Expires(expires));
-
-        let mut iter = headers.filter_map(|h| match h {
-            Header::Expires(e) => Some(e),
-            _ => None,
-        });
-
-        assert_eq!(iter.next(), Some(&expires));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
     fn test_checks_if_headers_is_empty_correctly() {
         let mut headers = Headers::new();
         assert!(headers.is_empty());
 
         headers.push(Header::Expires(Expires::new(10)));
         assert!(!headers.is_empty());
-    }
-
-    #[test]
-    fn test_finds_and_maps_first_matching_header() {
-        let expires = Expires::new(3600);
-        let headers = Headers::from([Header::ContentLength(ContentLength::new(100)), Header::Expires(expires)]);
-
-        let result = headers.find_map(|h| match h {
-            Header::Expires(e) => Some(e),
-            _ => None,
-        });
-
-        assert_eq!(result, Some(&expires));
     }
 
     #[test]

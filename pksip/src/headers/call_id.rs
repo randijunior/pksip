@@ -1,5 +1,5 @@
 use super::SipHeaderParse;
-use crate::{error::Result, parser::ParseCtx};
+use crate::{error::Result, parser::Parser};
 use core::fmt;
 use std::{
     borrow::Cow,
@@ -55,8 +55,8 @@ impl<'a> SipHeaderParse<'a> for CallId<'a> {
     /*
      * Call-ID  =  ( "Call-ID" / "i" ) HCOLON callid
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let id = parser.parse_header_value_as_str()?;
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let id = parser.parse_header_str()?;
 
         Ok(CallId(id.into()))
     }
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"bs9ki9iqbee8k5kal8mpqb\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let cid = CallId::parse(&mut scanner).unwrap();
 
         assert_eq!(cid.id(), "bs9ki9iqbee8k5kal8mpqb");

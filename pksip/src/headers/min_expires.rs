@@ -1,6 +1,6 @@
 use std::{fmt, str};
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::error::Result;
 
@@ -59,7 +59,7 @@ impl<'a> SipHeaderParse<'a> for MinExpires {
     /*
      * Min-Expires  =  "Min-Expires" HCOLON delta-seconds
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let expires = parser.parse_u32()?;
 
         Ok(MinExpires(expires))
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"60";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let mime_version = MinExpires::parse(&mut scanner).unwrap();
 
         assert_eq!(mime_version.0, 60);

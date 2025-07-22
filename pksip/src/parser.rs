@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-//! SIP ParseCtx
+//! SIP Parser
 //!
 //! This module contains functions for sip parsing.
 
@@ -9,7 +9,7 @@ use std::{
 };
 
 use pksip_util::{
-    util::{is_newline, is_valid_port, not_comma_or_newline},
+    util::{is_alphabetic, is_digit, is_newline, is_space, is_valid_port, not_comma_or_newline},
     Position, Scanner,
 };
 
@@ -25,8 +25,13 @@ use crate::{
 };
 
 pub(crate) const SIPV2: &str = "SIP/2.0";
-const B_SIPV2: &[u8] = SIPV2.as_bytes();
+pub(crate) const CNONCE: &str = "cnonce";
+pub(crate) const QOP: &str = "qop";
+pub(crate) const NC: &str = "nc";
+pub(crate) const NEXTNONCE: &str = "nextnonce";
+pub(crate) const RSPAUTH: &str = "rspauth";
 
+const B_SIPV2: &[u8] = SIPV2.as_bytes();
 const USER_PARAM: &str = "user";
 const METHOD_PARAM: &str = "method";
 const TRANSPORT_PARAM: &str = "transport";
@@ -35,13 +40,6 @@ const LR_PARAM: &str = "lr";
 const MADDR_PARAM: &str = "maddr";
 const SIP: &[u8] = b"sip";
 const SIPS: &[u8] = b"sips";
-
-pub(crate) const CNONCE: &str = "cnonce";
-pub(crate) const QOP: &str = "qop";
-pub(crate) const NC: &str = "nc";
-pub(crate) const NEXTNONCE: &str = "nextnonce";
-pub(crate) const RSPAUTH: &str = "rspauth";
-
 const DIGEST: &str = "Digest";
 const REALM: &str = "realm";
 const USERNAME: &str = "username";
@@ -52,7 +50,6 @@ const ALGORITHM: &str = "algorithm";
 const OPAQUE: &str = "opaque";
 const DOMAIN: &str = "domain";
 const STALE: &str = "stale";
-
 const ALPHA_NUM: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const UNRESERVED: &[u8] = b"-_.!~*'()%";
 const ESCAPED: &[u8] = b"%";
@@ -76,68 +73,16 @@ b_map!(TOKEN_MAP => ALPHA_NUM, TOKEN);
 // For reading via parameter.
 b_map!(VIA_PARAM_MAP => b"[:]", ALPHA_NUM, TOKEN);
 
-#[inline(always)]
-fn is_user(b: u8) -> bool {
-    USER_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_pass(b: u8) -> bool {
-    PASS_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_param(b: u8) -> bool {
-    PARAM_MAP[b as usize]
-}
-
-#[inline(always)]
-fn is_hdr_uri(b: u8) -> bool {
-    HDR_MAP[b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_host(b: u8) -> bool {
-    HOST_MAP[b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_token(b: u8) -> bool {
-    TOKEN_MAP[b as usize]
-}
-
-#[inline(always)]
-pub(crate) fn is_via_param(b: u8) -> bool {
-    VIA_PARAM_MAP[b as usize]
-}
-
-#[inline]
-pub(crate) fn parse_via_param<'a>(parser: &mut ParseCtx<'a>) -> Result<Param<'a>> {
-    // SAFETY: `is_via_param` only accepts ASCII bytes, which are always
-    // valid UTF-8.
-    unsafe { parser.parse_param_unchecked(is_via_param) }
-}
-
-fn parse_uri_param<'a>(parser: &mut ParseCtx<'a>) -> Result<Param<'a>> {
-    let mut param = unsafe { parser.parse_param_unchecked(is_param)? };
-
-    if param.name == LR_PARAM && param.value.is_none() {
-        param.value = Some("".into());
-    }
-
-    Ok(param)
-}
-
-/// A context for parsing SIP messages.
+/// A type for parsing SIP messages.
 ///
 /// This struct provides methods for parsing various components of SIP messages,
 /// such as headers, URIs, and start lines.
-pub struct ParseCtx<'buf> {
+pub struct Parser<'buf> {
     scanner: Scanner<'buf>,
 }
 
-impl<'buf> ParseCtx<'buf> {
-    /// Create an new `ParseCtx` from the given slice.
+impl<'buf> Parser<'buf> {
+    /// Create an new `Parser` from the given slice.
     pub fn new(buf: &'buf [u8]) -> Self {
         Self {
             scanner: Scanner::new(buf),
@@ -151,18 +96,17 @@ impl<'buf> ParseCtx<'buf> {
     /// This example parses a simple SIP response message and asserts its contents:
     ///
     /// ```rust
-    /// use pksip::parser::ParseCtx;
+    /// use pksip::parser::Parser;
     /// use pksip::headers::{Header, ContentLength};
     ///
     /// let buf = b"SIP/2.0 200 OK\r\nContent-Length: 0\r\n\r\n";
-    /// let parser = &mut ParseCtx::new(buf);
+    /// let parser = &mut Parser::new(buf);
     /// let result = parser.parse_sip_msg().unwrap();
-    ///
     /// let response = result.response().unwrap();
     /// assert_eq!(response.code().into_i32(), 200);
     /// assert_eq!(response.reason(), "OK");
     /// assert_eq!(response.headers.len(), 1);
-    /// assert_eq!(response.headers[0], Header::ContentLength(ContentLength::new(0)));
+    /// assert_eq!(response.headers[0], Header::ContentLength(0.into()));
     /// ```
     pub fn parse_sip_msg(&mut self) -> Result<SipMsg> {
         // Parse the start line of the SIP message and initialize the
@@ -172,17 +116,18 @@ impl<'buf> ParseCtx<'buf> {
 
         // Parse headers.
         let headers = msg.headers_mut();
+
         'headers: loop {
             // Get name.
             let name = self.parse_token()?;
 
-            self.take_ws();
+            self.ws();
 
             let Some(b':') = self.advance() else {
                 return self.parse_error("Missing ':' after header name");
             };
 
-            self.take_ws();
+            self.ws();
 
             match name {
                 ErrorInfo::NAME => {
@@ -396,7 +341,7 @@ impl<'buf> ParseCtx<'buf> {
 
                 _ => {
                     // The header is not defined in rfc 3261.
-                    let value = self.parse_header_value_as_str()?;
+                    let value = self.parse_header_str()?;
 
                     headers.push(Header::Other(OtherHeader { name, value }));
                 }
@@ -415,10 +360,10 @@ impl<'buf> ParseCtx<'buf> {
             }
         }
 
-        self.take_ws();
+        self.ws();
 
         if has_content_type {
-            self.take_new_line();
+            self.new_line();
 
             let rem = self.scanner.remaing();
             msg.set_body(Some(rem));
@@ -434,50 +379,48 @@ impl<'buf> ParseCtx<'buf> {
         parse_error!(msg.as_ref(), self.scanner)
     }
 
-    pub(crate) fn parse_header_value_as_str(&mut self) -> Result<&'buf str> {
-        let bytes = self.until_new_line();
+    pub(crate) fn parse_header_str(&mut self) -> Result<&'buf str> {
+        let bytes = self.scanner.read_while(|b| !is_newline(b));
 
         Ok(str::from_utf8(bytes)?)
     }
 
+    // Read whitespace characters.
     #[inline]
-    pub(crate) fn until_new_line(&mut self) -> &'buf [u8] {
-        self.scanner.read_while(|b| !pksip_util::util::is_newline(b))
+    pub(crate) fn ws(&mut self) {
+        self.scanner.read_while(is_space);
     }
 
+    // Read newline characters.
     #[inline]
-    pub(crate) fn take_ws(&mut self) {
-        self.scanner.read_while(pksip_util::util::is_space);
+    pub(crate) fn new_line(&mut self) {
+        self.scanner.read_while(is_newline);
     }
 
+    // Read alphabetic.
     #[inline]
-    pub(crate) fn take_new_line(&mut self) {
-        self.scanner.read_while(pksip_util::util::is_newline);
+    pub(crate) fn alphabetic(&mut self) -> &'buf [u8] {
+        self.scanner.read_while(is_alphabetic)
     }
 
     // SIP version
+    #[inline]
     pub(crate) fn parse_sip_v2(&mut self) -> Result<()> {
         Ok(self.scanner.matches_slice(B_SIPV2)?)
     }
 
-    #[inline]
-    // Read alphanumeric.
-    pub(crate) fn alpha(&mut self) -> &'buf [u8] {
-        self.scanner.read_while(pksip_util::util::is_alphabetic)
-    }
-
     // SIP Request-Line.
     pub(crate) fn parse_request_line(&mut self) -> Result<RequestLine<'buf>> {
-        let method_byte = self.alpha();
+        let method_byte = self.alphabetic();
         let method = SipMethod::from(method_byte);
 
-        self.take_ws();
+        self.ws();
         let uri = self.parse_uri(true)?;
-        self.take_ws();
+        self.ws();
 
         self.parse_sip_v2()?;
 
-        self.take_new_line();
+        self.new_line();
 
         Ok(RequestLine { method, uri })
     }
@@ -486,16 +429,16 @@ impl<'buf> ParseCtx<'buf> {
     pub(crate) fn parse_status_line(&mut self) -> Result<StatusLine<'buf>> {
         self.parse_sip_v2()?;
 
-        self.take_ws();
-        let digits = self.scanner.read_while(pksip_util::util::is_digit);
-        self.take_ws();
+        self.ws();
+        let digits = self.scanner.read_while(is_digit);
+        self.ws();
 
         let code = digits.into();
 
-        let reason_byte = self.scanner.read_while(|b| !pksip_util::util::is_newline(b));
+        let reason_byte = self.scanner.read_while(|b| !is_newline(b));
         let reason = str::from_utf8(reason_byte)?;
 
-        self.take_new_line();
+        self.new_line();
 
         Ok(StatusLine::new(code, reason))
     }
@@ -687,15 +630,8 @@ impl<'buf> ParseCtx<'buf> {
             }))
         } else {
             // Is an request line, e.g, "OPTIONS sip:localhost SIP/2.0".
-            // let Ok(req_line) = self.parse_request_line() else {
-            //     return self.parse_error("Error parsing 'Request Line'");
-            // };
-            let req_line = match self.parse_request_line() {
-                Ok(req_line) => req_line,
-                Err(err) => {
-                    println!("{:#?}", err);
-                    return self.parse_error("Error parsing 'Request Line'");
-                }
+            let Ok(req_line) = self.parse_request_line() else {
+                return self.parse_error("Error parsing 'Request Line'");
             };
             let headers = Headers::with_capacity(probable_number_of_headers);
 
@@ -718,7 +654,7 @@ impl<'buf> ParseCtx<'buf> {
             b'<' => Ok(None), // no display name
             _ => {
                 let name = self.parse_token()?;
-                self.take_ws();
+                self.ws();
                 Ok(Some(name))
             }
         }
@@ -739,7 +675,7 @@ impl<'buf> ParseCtx<'buf> {
 
     // Parse SIP Uri.
     pub(crate) fn parse_sip_uri(&mut self, parse_params: bool) -> Result<SipUri<'buf>> {
-        self.take_ws();
+        self.ws();
 
         match self.scanner.peek_n(3) {
             Some(SIP) | Some(SIPS) => {
@@ -809,9 +745,9 @@ impl<'buf> ParseCtx<'buf> {
     }
 
     pub(crate) fn parse_name_addr(&mut self) -> Result<NameAddr<'buf>> {
-        self.take_ws();
+        self.ws();
         let display = self.parse_display_name()?;
-        self.take_ws();
+        self.ws();
 
         // must be an '<'
         let Some(b'<') = self.scanner.next() else {
@@ -860,7 +796,7 @@ impl<'buf> ParseCtx<'buf> {
     where
         F: Fn(u8) -> bool,
     {
-        self.take_ws();
+        self.ws();
 
         let name = unsafe { self.scanner.read_as_str(&func) };
 
@@ -999,6 +935,60 @@ impl<'buf> ParseCtx<'buf> {
     }
 }
 
+#[inline(always)]
+fn is_user(b: u8) -> bool {
+    USER_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_pass(b: u8) -> bool {
+    PASS_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_param(b: u8) -> bool {
+    PARAM_MAP[b as usize]
+}
+
+#[inline(always)]
+fn is_hdr_uri(b: u8) -> bool {
+    HDR_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_host(b: u8) -> bool {
+    HOST_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_token(b: u8) -> bool {
+    TOKEN_MAP[b as usize]
+}
+
+#[inline(always)]
+pub(crate) fn is_via_param(b: u8) -> bool {
+    VIA_PARAM_MAP[b as usize]
+}
+
+#[inline]
+pub(crate) fn parse_via_param<'a>(parser: &mut Parser<'a>) -> Result<Param<'a>> {
+    // SAFETY: `is_via_param` only accepts ASCII bytes, which are always
+    // valid UTF-8.
+    unsafe { parser.parse_param_unchecked(is_via_param) }
+}
+
+fn parse_uri_param<'a>(parser: &mut Parser<'a>) -> Result<Param<'a>> {
+    // SAFETY: `is_param` only accepts ASCII bytes, which are always
+    // valid UTF-8.
+    let mut param = unsafe { parser.parse_param_unchecked(is_param)? };
+
+    if param.name == LR_PARAM && param.value.is_none() {
+        param.value = Some("".into());
+    }
+
+    Ok(param)
+}
+
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
@@ -1008,7 +998,7 @@ mod tests {
     #[test]
     fn test_uri_1() {
         let src = "sip:bob@biloxi.com";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1021,7 +1011,7 @@ mod tests {
     #[test]
     fn test_uri_2() {
         let src = "sip:bob@192.0.2.201";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1034,7 +1024,7 @@ mod tests {
     #[test]
     fn test_uri_3() {
         let src = "sip:bob@[2620:0:2ef0:7070:250:60ff:fe03:32b7]";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1047,7 +1037,7 @@ mod tests {
     #[test]
     fn test_uri_4() {
         let src = "sip:bob:pass@biloxi.com";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1060,7 +1050,7 @@ mod tests {
     #[test]
     fn test_uri_5() {
         let src = "sip:bob:pass@192.0.2.201";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1074,7 +1064,7 @@ mod tests {
     #[test]
     fn test_uri_6() {
         let src = "sip:biloxi.com";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1087,7 +1077,7 @@ mod tests {
     #[test]
     fn test_uri_7() {
         let src = "sip:bob@biloxi.com:5060";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1101,7 +1091,7 @@ mod tests {
     #[test]
     fn test_uri_8() {
         let src = "sip:bob:pass@biloxi.com:5060";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1115,7 +1105,7 @@ mod tests {
     #[test]
     fn test_uri_9() {
         let src = "sip:bob@biloxi.com;foo=bar";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1130,7 +1120,7 @@ mod tests {
     #[test]
     fn test_uri_10() {
         let src = "sip:bob@biloxi.com:5060;foo=bar";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1145,7 +1135,7 @@ mod tests {
     #[test]
     fn test_uri_11() {
         let src = "sip:bob@biloxi.com:5060;foo";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1160,7 +1150,7 @@ mod tests {
     #[test]
     fn test_uri_12() {
         let src = "sip:bob@biloxi.com:5060;foo;baz=bar";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1176,7 +1166,7 @@ mod tests {
     #[test]
     fn test_uri_13() {
         let src = "sip:bob@biloxi.com:5060;baz=bar;foo";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1192,7 +1182,7 @@ mod tests {
     #[test]
     fn test_uri_14() {
         let src = "sip:bob@biloxi.com:5060;baz=bar;foo;a=b";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1209,7 +1199,7 @@ mod tests {
     #[test]
     fn test_uri_15() {
         let src = "sip:bob@biloxi.com?foo=bar";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1224,7 +1214,7 @@ mod tests {
     #[test]
     fn test_uri_16() {
         let src = "sip:bob@biloxi.com?foo";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1239,7 +1229,7 @@ mod tests {
     #[test]
     fn test_uri_17() {
         let src = "sip:bob@biloxi.com:5060?foo=bar";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1254,7 +1244,7 @@ mod tests {
     #[test]
     fn test_uri_18() {
         let src = "sip:bob@biloxi.com:5060?baz=bar&foo=&a=b";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1271,7 +1261,7 @@ mod tests {
     #[test]
     fn test_uri_19() {
         let src = "sip:bob@biloxi.com:5060?foo=bar&baz";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1287,7 +1277,7 @@ mod tests {
     #[test]
     fn test_uri_20() {
         let src = "sip:bob@biloxi.com;foo?foo=bar";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_sip_uri(true).unwrap();
 
@@ -1303,7 +1293,7 @@ mod tests {
     #[test]
     fn test_host_port_1() {
         let src = "example.com";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_host_port().unwrap();
 
@@ -1314,7 +1304,7 @@ mod tests {
     #[test]
     fn test_host_port_2() {
         let src = "192.0.2.201";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_host_port().unwrap();
 
@@ -1325,7 +1315,7 @@ mod tests {
     #[test]
     fn test_host_port_3() {
         let src = "example.com:5060";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_host_port().unwrap();
 
@@ -1336,7 +1326,7 @@ mod tests {
     #[test]
     fn test_host_port_4() {
         let src = "192.0.2.201:5060";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_host_port().unwrap();
 
@@ -1347,7 +1337,7 @@ mod tests {
     #[test]
     fn test_host_port_5() {
         let src = "[2620:0:2ef0:7070:250:60ff:fe03:32b7]:5060";
-        let parser = &mut ParseCtx::new(src.as_bytes());
+        let parser = &mut Parser::new(src.as_bytes());
 
         let parsed = parser.parse_host_port().unwrap();
 
@@ -1370,7 +1360,7 @@ mod tests {
             "Content-Length: 0\r\n\r\n"
         );
 
-        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+        let mut parser = Parser::new(raw_msg.as_bytes());
         let sip_msg = parser.parse_sip_msg().unwrap();
         let request = sip_msg.request().unwrap();
 
@@ -1411,7 +1401,7 @@ mod tests {
             "Test\r\n",
         );
 
-        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+        let mut parser = Parser::new(raw_msg.as_bytes());
         let sip_msg = parser.parse_sip_msg().unwrap();
         let request = sip_msg.request().unwrap();
 
@@ -1450,7 +1440,7 @@ mod tests {
             "Content-Length: 0\r\n\r\n"
         );
 
-        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+        let mut parser = Parser::new(raw_msg.as_bytes());
         let msg = parser.parse_sip_msg().unwrap();
         let msg = msg.response().unwrap();
 
@@ -1490,7 +1480,7 @@ mod tests {
             "Test\r\n",
         );
 
-        let mut parser = ParseCtx::new(raw_msg.as_bytes());
+        let mut parser = Parser::new(raw_msg.as_bytes());
 
         assert!(parser.parse_sip_msg().is_err());
     }

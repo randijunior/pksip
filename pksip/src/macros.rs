@@ -19,14 +19,14 @@ macro_rules! parse_header_param {
     ($scanner:ident) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::ParseCtx::parse_param,
+            $crate::parser::Parser::parse_param,
         )
     );
 
     ($scanner:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::ParseCtx::parse_param,
+            $crate::parser::Parser::parse_param,
             $($name = $var),*
         )
     );
@@ -38,7 +38,7 @@ macro_rules! parse_param {
         $func:expr,
         $($name:ident = $var:expr),*
     ) =>  {{
-        $scanner.take_ws();
+        $scanner.ws();
         match $scanner.peek() {
             Some(b';') => {
                 let mut params = $crate::message::Params::new();
@@ -49,12 +49,12 @@ macro_rules! parse_param {
                         $(
                             if param.name == $name {
                                 $var = param.value;
-                                $scanner.take_ws();
+                                $scanner.ws();
                                 continue;
                             }
                         )*
                         params.push(param);
-                        $scanner.take_ws();
+                        $scanner.ws();
                     }
                     if params.is_empty() {
                         None
@@ -81,12 +81,12 @@ macro_rules! hdr_list {
 
 macro_rules! comma_sep {
     ($scanner:ident => $body:expr) => {{
-        $scanner.take_ws();
+        $scanner.ws();
         $body
 
         while let Some(b',') = $scanner.peek() {
             $scanner.advance();
-            $scanner.take_ws();
+            $scanner.ws();
             $body
         }
     }};
@@ -101,7 +101,6 @@ macro_rules! headers {
         $crate::headers::Headers::from(vec![$($x),+])
     );
 }
-
 
 macro_rules! parse_error {
     ($message:expr) => {{
@@ -133,9 +132,9 @@ macro_rules! parse_header {
 pub(crate) use b_map;
 pub(crate) use comma_sep;
 pub(crate) use hdr_list;
+pub(crate) use headers;
 pub(crate) use parse_header;
 pub(crate) use parse_header_param;
 pub(crate) use parse_param;
-pub(crate) use headers;
 
 pub(crate) use parse_error;

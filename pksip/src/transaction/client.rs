@@ -18,19 +18,19 @@ use crate::{
     Endpoint, Result,
 };
 
-use super::{SipTransaction, Transaction};
+use super::{Transaction, TransactionInner};
 
 type TxCompleted = Arc<Mutex<Option<oneshot::Sender<()>>>>;
 type RxCompleted = oneshot::Receiver<()>;
 
 /// Represents a Client Non INVITE transaction.
 #[derive(Clone)]
-pub struct TsxUac {
-    transaction: Transaction,
+pub struct ClientTransaction {
+    transaction: TransactionInner,
     tx_completed: TxCompleted,
 }
 
-impl TsxUac {
+impl ClientTransaction {
     pub(crate) async fn send(mut request: OutgoingRequest<'_>, endpoint: &Endpoint) -> Result<Self> {
         let tsx_layer = endpoint.get_tsx_layer();
         let method = request.msg.method();
@@ -41,12 +41,12 @@ impl TsxUac {
             method
         );
 
-        let transaction = Transaction::create_uac(&request, endpoint);
+        let transaction = TransactionInner::create_uac(&request, endpoint);
         let (tx, rx) = oneshot::channel();
 
         let tx_completed = Arc::new(Mutex::new(Some(tx)));
 
-        let uac = TsxUac {
+        let uac = ClientTransaction {
             transaction,
             tx_completed,
         };
@@ -113,7 +113,7 @@ impl TsxUac {
     }
 
     pub(crate) async fn receive(&self, response: &IncomingResponse<'_>) -> Result<bool> {
-        let code = response.msg.code();
+        let code = response.response.code();
         self.set_last_status_code(code);
 
         match self.get_state() {
@@ -129,12 +129,12 @@ impl TsxUac {
                 }
                 self.terminate();
             }
-            State::Completed =>  {
+            State::Completed => {
                 self.retransmit().await?;
 
-                return Ok(true)
-            },
-            _=> ()
+                return Ok(true);
+            }
+            _ => (),
         }
 
         Ok(false)
@@ -142,7 +142,7 @@ impl TsxUac {
 }
 
 #[async_trait::async_trait]
-impl SipTransaction for TsxUac {
+impl Transaction for ClientTransaction {
     fn terminate(&self) {
         if self.reliable() {
             self.on_terminated();
@@ -153,14 +153,14 @@ impl SipTransaction for TsxUac {
     }
 }
 
-impl DerefMut for TsxUac {
+impl DerefMut for ClientTransaction {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.transaction
     }
 }
 
-impl Deref for TsxUac {
-    type Target = Transaction;
+impl Deref for ClientTransaction {
+    type Target = TransactionInner;
 
     fn deref(&self) -> &Self::Target {
         &self.transaction
@@ -181,7 +181,7 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Options);
 
-        let uac = TsxUac::send(request, &endpoint).await.unwrap();
+        let uac = ClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac.get_state(), State::Trying);
     }
@@ -191,12 +191,12 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Options);
 
-        let uac = TsxUac::send(request, &endpoint).await.unwrap();
+        let uac = ClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac.get_state(), State::Trying);
 
         // Wait for the timer to fire
-        time::sleep(TsxUac::T1 * 64 + Duration::from_millis(1)).await;
+        time::sleep(ClientTransaction::T1 * 64 + Duration::from_millis(1)).await;
 
         assert_eq!(uac.get_state(), State::Terminated);
     }
@@ -207,13 +207,13 @@ mod tests {
         let request = mock::outgoing_request(SipMethod::Options);
         let response = mock::incoming_response(StatusCode::Ok);
 
-        let uac = TsxUac::send(request, &endpoint).await.unwrap();
+        let uac = ClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac.get_state(), State::Trying);
 
         uac.receive(&response).await.unwrap();
         // Wait for the timer to fire
-        time::sleep(TsxUac::T4 + Duration::from_millis(1)).await;
+        time::sleep(ClientTransaction::T4 + Duration::from_millis(1)).await;
 
         assert_eq!(uac.get_state(), State::Terminated);
     }
@@ -223,7 +223,7 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Options);
 
-        let uac = TsxUac::send(request, &endpoint).await.unwrap();
+        let uac = ClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert!(uac.retrans_count() == 0);
 
@@ -257,7 +257,7 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Options);
 
-        let uac = TsxUac::send(request, &endpoint).await.unwrap();
+        let uac = ClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac.get_state(), State::Trying);
 
@@ -273,7 +273,7 @@ mod tests {
         let request = mock::outgoing_request(SipMethod::Options);
         let response = mock::incoming_response(StatusCode::Ok);
 
-        let uac = TsxUac::send(request, &endpoint).await.unwrap();
+        let uac = ClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac.get_state(), State::Trying);
 

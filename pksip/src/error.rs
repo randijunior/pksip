@@ -85,6 +85,8 @@ impl From<std::fmt::Error> for Error {
 
 use thiserror::Error;
 
+use crate::transaction::key::TsxKey;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]

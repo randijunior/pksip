@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 use crate::headers::SipHeaderParse;
@@ -27,7 +27,7 @@ impl<'a> SipHeaderParse<'a> for ReplyTo<'a> {
      *                  *( SEMI rplyto-param )
      * rplyto-param  =  generic-param
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let uri = parser.parse_sip_uri(false)?;
         let param = parse_header_param!(parser);
 
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let reply_to = ReplyTo::parse(&mut scanner);
         let reply_to = reply_to.unwrap();
 

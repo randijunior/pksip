@@ -3,7 +3,7 @@ use crate::{
     headers::SipHeaderParse,
     macros::{comma_sep, parse_error},
     message::Param,
-    parser::{ParseCtx, CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
+    parser::{Parser, CNONCE, NC, NEXTNONCE, QOP, RSPAUTH},
 };
 use std::{borrow::Cow, fmt, str};
 
@@ -52,7 +52,7 @@ impl<'a> SipHeaderParse<'a> for AuthenticationInfo<'a> {
      * response-digest      =  LDQUOT *LHEX RDQUOT
      *
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let mut auth_info = AuthenticationInfo::default();
 
         comma_sep!(parser => {
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"nextnonce=\"47364c23432d2e131a5fb210812c\"\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");
@@ -112,7 +112,7 @@ mod tests {
         cnonce=\"0a4f113b\", nc=00000001, \
         qop=\"auth\", \
         rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");

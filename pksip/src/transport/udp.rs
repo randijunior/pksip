@@ -5,9 +5,9 @@ use std::{net::SocketAddr, sync::Arc, time::SystemTime};
 
 use tokio::net::{ToSocketAddrs, UdpSocket};
 
-use crate::{error::Result, message::TransportKind, transport::TransportPacket};
+use crate::{error::Result, message::TransportProtocol};
 
-use super::{Packet, Payload, SipTransport, Transport, TransportEvent, TransportStartup, TransportTx};
+use super::{Packet, Payload, Transport, TransportEvent, TransportStartup, TransportTx};
 
 #[derive(Debug)]
 struct Inner {
@@ -32,7 +32,7 @@ impl UdpTransport {
     }
 
     async fn recv_from(udp: Arc<Self>, sender: TransportTx) -> Result<()> {
-        let udp_tp = Transport(udp.clone());
+        let udp_tp = udp.clone();
         // Buffer to recv packet.
         let mut buf = vec![0u8; 4000];
 
@@ -49,25 +49,22 @@ impl UdpTransport {
 
             // Create Packet.
             let packet = Packet { payload, addr, time };
-            let msg = TransportPacket  {
-                transport: udp_tp.clone(),
-                packet
-            };
+            let transport = udp_tp.clone();
 
             // Send.
-            sender.send(TransportEvent::PacketReceived(msg)).await?;
+            sender.send(TransportEvent::Packet { transport, packet }).await?;
         }
     }
 }
 
 #[async_trait::async_trait]
-impl SipTransport for UdpTransport {
+impl Transport for UdpTransport {
     async fn send(&self, buf: &[u8], addr: &SocketAddr) -> Result<usize> {
         Ok(self.0.sock.send_to(buf, addr).await?)
     }
 
-    fn tp_kind(&self) -> TransportKind {
-        TransportKind::Udp
+    fn tp_kind(&self) -> TransportProtocol {
+        TransportProtocol::Udp
     }
 
     fn reliable(&self) -> bool {
@@ -104,14 +101,14 @@ impl TransportStartup for UdpStartup {
 
         log::debug!(
             "SIP {} transport started, listening on {}",
-            crate::message::TransportKind::Udp,
+            crate::message::TransportProtocol::Udp,
             udp.local_name()
         );
 
         let arc_udp = Arc::new(udp.clone());
-        let transport = Transport::new(udp);
+        let transport = Arc::new(udp) as Arc<dyn Transport>;
 
-        sender.send(TransportEvent::TransportCreated(transport)).await?;
+        sender.send(TransportEvent::Created(transport)).await?;
 
         tokio::spawn(Box::pin(UdpTransport::recv_from(arc_udp, sender)));
 
@@ -126,13 +123,13 @@ pub(crate) mod mock {
     pub struct MockUdpTransport;
 
     #[async_trait::async_trait]
-    impl SipTransport for MockUdpTransport {
+    impl Transport for MockUdpTransport {
         async fn send(&self, buf: &[u8], _addr: &SocketAddr) -> Result<usize> {
             Ok(buf.len())
         }
 
-        fn tp_kind(&self) -> TransportKind {
-            TransportKind::Udp
+        fn tp_kind(&self) -> TransportProtocol {
+            TransportProtocol::Udp
         }
 
         fn addr(&self) -> SocketAddr {
@@ -180,7 +177,7 @@ mod tests {
 
         client.send_to(MSG_TEST, udp.addr()).await.unwrap();
 
-        let TransportEvent::PacketReceived(TransportPacket { packet, .. }) = rx.recv().await.unwrap() else {
+        let TransportEvent::Packet { transport: _, packet } = rx.recv().await.unwrap() else {
             unreachable!();
         };
 

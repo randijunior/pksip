@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{error::Result, headers::SipHeaderParse, message::auth::Credential, parser::ParseCtx};
+use crate::{error::Result, headers::SipHeaderParse, message::auth::Credential, parser::Parser};
 
 /// The `Proxy-Authorization` SIP header.
 ///
@@ -14,7 +14,7 @@ impl<'a> SipHeaderParse<'a> for ProxyAuthorization<'a> {
     /*
      * Proxy-Authorization  =  "Proxy-Authorization" HCOLON credentials
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let credential = parser.parse_auth_credential()?;
 
         Ok(ProxyAuthorization(credential))
@@ -38,7 +38,7 @@ mod tests {
         let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"c60f3082ee1212b402a21831ae\", \
         response=\"245f23415f11432b3434341c022\"\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let proxy_auth = ProxyAuthorization::parse(&mut scanner).unwrap();
 
         assert_matches!(proxy_auth.0, Credential::Digest (DigestCredential { realm, username, nonce, response, .. }) => {

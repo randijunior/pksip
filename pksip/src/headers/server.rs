@@ -1,7 +1,7 @@
 use std::{fmt, str};
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -30,8 +30,8 @@ impl<'a> SipHeaderParse<'a> for Server<'a> {
      * product          =  token [SLASH product-version]
      * product-version  =  token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let server = parser.parse_header_value_as_str()?;
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let server = parser.parse_header_str()?;
 
         Ok(Server(server))
     }
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"HomeServer v2\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let server = Server::parse(&mut scanner);
         let server = server.unwrap();
 

@@ -1,165 +1,113 @@
 /// Reason phrase for the `Trying` status code (100).
 pub const REASON_TRYING: &str = "Trying";
-
 /// Reason phrase for the `Ringing` status code (180).
 pub const REASON_RINGING: &str = "Ringing";
-
 /// Reason phrase for the `Call Is Being Forwarded` status code (181).
 pub const REASON_CALL_IS_BEING_FORWARDED: &str = "Call Is Being Forwarded";
-
 /// Reason phrase for the `Queued` status code (182).
 pub const REASON_QUEUED: &str = "Queued";
-
 /// Reason phrase for the `Session Progress` status code (183).
 pub const REASON_SESSION_PROGRESS: &str = "Session Progress";
-
 /// Reason phrase for the `OK` status code (200).
 pub const REASON_OK: &str = "OK";
-
 /// Reason phrase for the `Accepted` status code (202).
 pub const REASON_ACCEPTED: &str = "Accepted";
-
 /// Reason phrase for the `No Notification` status code (204).
 pub const REASON_NO_NOTIFICATION: &str = "No Notification";
-
 /// Reason phrase for the `Multiple Choices` status code (300).
 pub const REASON_MULTIPLE_CHOICES: &str = "Multiple Choices";
-
 /// Reason phrase for the `Moved Permanently` status code (301).
 pub const REASON_MOVED_PERMANENTLY: &str = "Moved Permanently";
-
 /// Reason phrase for the `Moved Temporarily` status code (302).
 pub const REASON_MOVED_TEMPORARILY: &str = "Moved Temporarily";
-
 /// Reason phrase for the `Use Proxy` status code (305).
 pub const REASON_USE_PROXY: &str = "Use Proxy";
-
 /// Reason phrase for the `Alternative Service` status code (380).
 pub const REASON_ALTERNATIVE_SERVICE: &str = "Alternative Service";
-
 /// Reason phrase for the `Bad Request` status code (400).
 pub const REASON_BAD_REQUEST: &str = "Bad Request";
-
 /// Reason phrase for the `Unauthorized` status code (401).
 pub const REASON_UNAUTHORIZED: &str = "Unauthorized";
-
 /// Reason phrase for the `Payment Required` status code (402).
 pub const REASON_PAYMENT_REQUIRED: &str = "Payment Required";
-
 /// Reason phrase for the `Forbidden` status code (403).
 pub const REASON_FORBIDDEN: &str = "Forbidden";
-
 /// Reason phrase for the `Not Found` status code (404).
 pub const REASON_NOT_FOUND: &str = "Not Found";
-
-/// Reason phrase for the `SipMethod Not Allowed` status code (405).
-pub const REASON_METHOD_NOT_ALLOWED: &str = "SipMethod Not Allowed";
-
+/// Reason phrase for the `Method Not Allowed` status code (405).
+pub const REASON_METHOD_NOT_ALLOWED: &str = "Method Not Allowed";
 /// Reason phrase for the `Not Acceptable` status code (406).
 pub const REASON_NOT_ACCEPTABLE: &str = "Not Acceptable";
-
 /// Reason phrase for the `Proxy Authentication Required` status code (407).
 pub const REASON_PROXY_AUTHENTICATION_REQUIRED: &str = "Proxy Authentication Required";
-
 /// Reason phrase for the `Request Timeout` status code (408).
 pub const REASON_REQUEST_TIMEOUT: &str = "Request Timeout";
-
 /// Reason phrase for the `Gone` status code (410).
 pub const REASON_GONE: &str = "Gone";
-
 /// Reason phrase for the `Request Entity Too Large` status code (413).
 pub const REASON_REQUEST_ENTITY_TOO_LARGE: &str = "Request Entity Too Large";
-
 /// Reason phrase for the `Request-URI Too Long` status code (414).
 pub const REASON_REQUEST_URI_TOO_LONG: &str = "Request-URI Too Long";
-
 /// Reason phrase for the `Unsupported Media Type` status code (415).
 pub const REASON_UNSUPPORTED_MEDIA_TYPE: &str = "Unsupported Media Type";
-
 /// Reason phrase for the `Unsupported URI Scheme` status code (416).
 pub const REASON_UNSUPPORTED_URI_SCHEME: &str = "Unsupported URI Scheme";
-
 /// Reason phrase for the `Bad Extension` status code (420).
 pub const REASON_BAD_EXTENSION: &str = "Bad Extension";
-
 /// Reason phrase for the `Extension Required` status code (421).
 pub const REASON_EXTENSION_REQUIRED: &str = "Extension Required";
-
 /// Reason phrase for the `Interval Too Brief` status code (423).
 pub const REASON_INTERVAL_TOO_BRIEF: &str = "Interval Too Brief";
-
 /// Reason phrase for the `Temporarily Unavailable` status code (480).
 pub const REASON_TEMPORARILY_UNAVAILABLE: &str = "Temporarily Unavailable";
-
 /// Reason phrase for the `Call/Transaction Does Not Exist` status code (481).
 pub const REASON_CALL_OR_TRANSACTION_DOES_NOT_EXIST: &str = "Call/Transaction Does Not Exist";
-
 /// Reason phrase for the `Loop Detected` status code (482).
 pub const REASON_LOOP_DETECTED: &str = "Loop Detected";
-
 /// Reason phrase for the `Too Many Hops` status code (483).
 pub const REASON_TOO_MANY_HOPS: &str = "Too Many Hops";
-
 /// Reason phrase for the `Address Incomplete` status code (484).
 pub const REASON_ADDRESS_INCOMPLETE: &str = "Address Incomplete";
-
 /// Reason phrase for the `Ambiguous` status code (485).
 pub const REASON_AMBIGUOUS: &str = "Ambiguous";
-
 /// Reason phrase for the `Busy Here` status code (486).
 pub const REASON_BUSY_HERE: &str = "Busy Here";
-
 /// Reason phrase for the `Request Terminated` status code (487).
 pub const REASON_REQUEST_TERMINATED: &str = "Request Terminated";
-
 /// Reason phrase for the `Not Acceptable Here` status code (488).
 pub const REASON_NOT_ACCEPTABLE_HERE: &str = "Not Acceptable Here";
-
 /// Reason phrase for the `Request Pending` status code (491).
 pub const REASON_REQUEST_PENDING: &str = "Request Pending";
-
 /// Reason phrase for the `Undecipherable` status code (493).
 pub const REASON_UNDECIPHERABLE: &str = "Undecipherable";
-
 /// Reason phrase for the `Server Internal Error` status code (500).
 pub const REASON_SERVER_INTERNAL_ERROR: &str = "Server Internal Error";
-
 /// Reason phrase for the `Not Implemented` status code (501).
 pub const REASON_NOT_IMPLEMENTED: &str = "Not Implemented";
-
 /// Reason phrase for the `Bad Gateway` status code (502).
 pub const REASON_BAD_GATEWAY: &str = "Bad Gateway";
-
 /// Reason phrase for the `Service Unavailable` status code (503).
 pub const REASON_SERVICE_UNAVAILABLE: &str = "Service Unavailable";
-
 /// Reason phrase for the `Server Time-out` status code (504).
 pub const REASON_SERVER_TIMEOUT: &str = "Server Time-out";
-
 /// Reason phrase for the `Version Not Supported` status code (505).
 pub const REASON_VERSION_NOT_SUPPORTED: &str = "Version Not Supported";
-
 /// Reason phrase for the `Message Too Large` status code (513).
 pub const REASON_MESSAGE_TOO_LARGE: &str = "Message Too Large";
-
 /// Reason phrase for the `Busy Everywhere` status code (600).
 pub const REASON_BUSY_EVERYWHERE: &str = "Busy Everywhere";
-
 /// Reason phrase for the `Decline` status code (603).
 pub const REASON_DECLINE: &str = "Decline";
-
 /// Reason phrase for the `Does Not Exist Anywhere` status code (604).
 pub const REASON_DOES_NOT_EXIST_ANYWHERE: &str = "Does Not Exist Anywhere";
-
 /// Reason phrase for the `Not Acceptable` status code (606).
 pub const REASON_NOT_ACCEPTABLE_ANYWHERE: &str = REASON_NOT_ACCEPTABLE;
-
 /// Reason phrase for the `Rejected` status code (608).
 pub const REASON_REJECTED: &str = "Rejected";
 
+/// An SIP status code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 #[repr(i32)]
-/// An SIP status code.
 pub enum StatusCode {
     /// `Trying` status code.
     Trying = 100,

@@ -1,3 +1,6 @@
+//! Service module.
+//! 
+
 use crate::{
     transport::{IncomingRequest, IncomingResponse},
     Endpoint, Result,
@@ -11,13 +14,13 @@ pub trait SipService: Sync + Send + 'static {
     fn name(&self) -> &str;
 
     /// Called when an inbound SIP request is received.
-    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut IncomingRequest) -> Result<bool> {
-        Ok(false)
+    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut Option<IncomingRequest>) -> Result<()> {
+        Ok(())
     }
 
     /// Called when an inbound SIP response is received.
-    async fn on_incoming_response(&self, endpoint: &Endpoint, response: &mut IncomingResponse) -> Result<bool> {
-        Ok(false)
+    async fn on_incoming_response(&self, endpoint: &Endpoint, response: &mut Option<IncomingResponse>) -> Result<()> {
+        Ok(())
     }
 
     // async fn on_transaction_error(&self)

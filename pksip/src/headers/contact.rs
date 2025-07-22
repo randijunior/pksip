@@ -3,7 +3,7 @@ use crate::{
     headers::{SipHeaderParse, EXPIRES_PARAM, Q_PARAM},
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::ParseCtx,
+    parser::Parser,
     Q,
 };
 use core::fmt;
@@ -19,7 +19,7 @@ use core::fmt;
 /// # use pksip::headers::Contact;
 /// # use pksip::message::{HostPort, Host, UriUser, UriBuilder, SipUri, NameAddr};
 /// let uri = SipUri::from_static("<sip:alice@client.atlanta.example.com>").unwrap();
-/// 
+///
 /// let c = Contact {
 ///     uri,
 ///     q: None,
@@ -47,7 +47,17 @@ pub struct Contact<'a> {
 impl<'a> Contact<'a> {
     /// Parse a `To` header instance from a `&str`.
     pub fn from_str(s: &'a str) -> Result<Self> {
-        Self::parse(&mut ParseCtx::new(s.as_bytes()))
+        Self::parse(&mut Parser::new(s.as_bytes()))
+    }
+
+    /// Convert the `Contact` header into an owned version.
+    pub fn into_owned(self) -> Contact<'static> {
+        Contact {
+            uri: self.uri.into_owned(),
+            q: self.q,
+            expires: self.expires,
+            param: self.param.map(|p| p.into_owned()),
+        }
     }
 }
 
@@ -69,7 +79,7 @@ impl<'a> SipHeaderParse<'a> for Contact<'a> {
      * contact-extension  =  generic-param
      * delta-seconds      =  1*DIGIT
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let uri = parser.parse_sip_uri(false)?;
         let mut q = None;
         let mut expires = None;
@@ -155,7 +165,7 @@ mod tests {
     fn test_parse() {
         let src = b"\"Mr. Watson\" <sip:watson@worcester.bell-telephone.com> \
         ;q=0.7; expires=3600\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
@@ -180,13 +190,13 @@ mod tests {
         });
 
         let src = b"\"Mr. Watson\" <mailto:watson@bell-telephone.com> ;q=0.1\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let contact = Contact::parse(&mut scanner);
 
         assert!(contact.is_err());
 
         let src = b"sip:caller@u1.example.com\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
@@ -209,7 +219,7 @@ mod tests {
     #[test]
     fn test_parse_ipv6_host() {
         let src = b"sips:[2620:0:2ef0:7070:250:60ff:fe03:32b7]";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
@@ -233,7 +243,7 @@ mod tests {
     #[test]
     fn test_parse_pass() {
         let src = b"sip:thks.ashwin:pass@212.123.1.213\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 
@@ -258,7 +268,7 @@ mod tests {
     #[test]
     fn test_parse_host_port() {
         let src = b"sip:192.168.1.1:5060";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let contact = Contact::parse(&mut scanner);
         let contact = contact.unwrap();
 

@@ -4,19 +4,19 @@ use crate::{
     endpoint::Endpoint,
     error::Result,
     message::SipMethod,
-    transaction::{SipTransaction, State, Transaction},
+    transaction::{Transaction, State, TransactionInner},
     transport::{IncomingRequest, OutgoingResponse},
 };
 use std::ops::{Deref, DerefMut};
 
 /// Represents a Server Non INVITE transaction.
 #[derive(Clone)]
-pub struct TsxUas {
-    transaction: Transaction,
+pub struct ServerTransaction {
+    transaction: TransactionInner,
 }
 
-impl TsxUas {
-    pub(crate) fn new(endpoint: &Endpoint, request: &mut IncomingRequest) -> TsxUas {
+impl ServerTransaction {
+    pub(crate) fn new(endpoint: &Endpoint, request: &mut IncomingRequest) -> ServerTransaction {
         let method = request.method();
 
         assert!(
@@ -26,9 +26,9 @@ impl TsxUas {
         );
 
         let tsx_layer = endpoint.get_tsx_layer();
-        let transaction = Transaction::create_uas(request, endpoint);
+        let transaction = TransactionInner::create_uas(request, endpoint);
 
-        let uas = TsxUas { transaction };
+        let uas = ServerTransaction { transaction };
 
         tsx_layer.add_server_tsx_to_map(uas.clone());
         request.set_tsx(uas.clone());
@@ -55,7 +55,7 @@ impl TsxUas {
 }
 
 #[async_trait]
-impl SipTransaction for TsxUas {
+impl Transaction for ServerTransaction {
     fn terminate(&self) {
         if self.reliable() {
             self.on_terminated();
@@ -65,14 +65,14 @@ impl SipTransaction for TsxUas {
     }
 }
 
-impl DerefMut for TsxUas {
+impl DerefMut for ServerTransaction {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.transaction
     }
 }
 
-impl Deref for TsxUas {
-    type Target = Transaction;
+impl Deref for ServerTransaction {
+    type Target = TransactionInner;
 
     fn deref(&self) -> &Self::Target {
         &self.transaction
@@ -93,7 +93,7 @@ mod tests {
     async fn test_receives_100_trying() {
         let mut request = mock::request(SipMethod::Options);
         let endpoint = mock::default_endpoint().await;
-        let tsx = TsxUas::new(&endpoint, &mut request);
+        let tsx = ServerTransaction::new(&endpoint, &mut request);
         let response = &mut mock::response(StatusCode::Trying);
 
         tsx.respond(response).await.unwrap();
@@ -106,7 +106,7 @@ mod tests {
     async fn test_receives_200_ok() {
         let mut request = mock::request(SipMethod::Options);
         let endpoint = mock::default_endpoint().await;
-        let tsx = TsxUas::new(&endpoint, &mut request);
+        let tsx = ServerTransaction::new(&endpoint, &mut request);
         let response = &mut mock::response(StatusCode::Ok);
 
         tsx.respond(response).await.unwrap();
@@ -119,7 +119,7 @@ mod tests {
     async fn test_proceeding() {
         let mut request = mock::request(SipMethod::Options);
         let endpoint = mock::default_endpoint().await;
-        let tsx = TsxUas::new(&endpoint, &mut request);
+        let tsx = ServerTransaction::new(&endpoint, &mut request);
         let response = &mut mock::response(StatusCode::Trying);
 
         tsx.respond(response).await.unwrap();
@@ -132,12 +132,12 @@ mod tests {
     async fn test_terminated_timer_j() {
         let mut request = mock::request(SipMethod::Options);
         let endpoint = mock::default_endpoint().await;
-        let tsx = TsxUas::new(&endpoint, &mut request);
+        let tsx = ServerTransaction::new(&endpoint, &mut request);
         let response = &mut mock::response(StatusCode::Ok);
 
         tsx.respond(response).await.unwrap();
 
-        time::sleep(TsxUas::T1 * 64 + Duration::from_millis(1)).await;
+        time::sleep(ServerTransaction::T1 * 64 + Duration::from_millis(1)).await;
 
         assert!(tsx.last_status_code().unwrap().into_i32() == 200);
         assert!(tsx.get_state() == State::Terminated);

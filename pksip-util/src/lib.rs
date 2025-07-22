@@ -28,13 +28,13 @@ impl Position {
 /// Reading byte slice while keep the line and column.
 #[derive(Debug)]
 pub struct Scanner<'a> {
-    /// The input bytes slice to be read.
+    // The input bytes slice to be read.
     src: &'a [u8],
-    /// Current position
-    pos: Position,
-    /// Current index.
+    // Current position
+    position: Position,
+    // Current index.
     idx: usize,
-
+    // The length of the slice.
     len: usize,
 }
 
@@ -45,14 +45,14 @@ impl<'a> Scanner<'a> {
     pub const fn new(src: &'a [u8]) -> Self {
         Scanner {
             src,
-            pos: Position { line: 1, col: 1 },
+            position: Position { line: 1, col: 1 },
             idx: 0,
             len: src.len(),
         }
     }
 
     pub fn position(&self) -> &Position {
-        &self.pos
+        &self.position
     }
 
     /// Returns `true` if all bytes where read
@@ -276,10 +276,10 @@ impl<'a> Scanner<'a> {
     #[inline(always)]
     fn bump(&mut self, byte: u8) {
         if byte == b'\n' {
-            self.pos.col = 1;
-            self.pos.line += 1;
+            self.position.col = 1;
+            self.position.line += 1;
         } else {
-            self.pos.col += 1;
+            self.position.col += 1;
         }
         self.idx += 1;
     }
@@ -299,8 +299,8 @@ impl<'a> Scanner<'a> {
     fn error<T>(&self, kind: ErrorKind) -> Result<T> {
         Err(Error {
             kind,
-            line: self.pos.line,
-            col: self.pos.col,
+            line: self.position.line,
+            col: self.position.col,
         })
     }
 }

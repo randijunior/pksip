@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::error::Result;
 use crate::macros::hdr_list;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -22,7 +22,7 @@ impl<'a> SipHeaderParse<'a> for ProxyRequire<'a> {
      *                   *(COMMA option-tag)
      * option-tag     =  token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let tags = hdr_list!(parser => parser.parse_token()?);
 
         Ok(ProxyRequire(tags))
@@ -42,7 +42,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"foo, bar\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let proxy_require = ProxyRequire::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");

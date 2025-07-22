@@ -2,19 +2,19 @@
 //! SIP Transaction Layer.
 
 use bytes::Bytes;
-use client::TsxUac;
-use futures_util::future::{Either, Pending};
+use client::ClientTransaction;
+
+use inv_server::InvServerTransaction;
 use key::TsxKey;
-use server::TsxUas;
-use server_inv::TsxUasInv;
+use server::ServerTransaction;
 
 use crate::{
     endpoint::Endpoint,
     error::Result,
-    headers::Header,
     message::{SipMethod, StatusCode},
-    transaction::client_inv::TsxUacInv,
-    transport::{IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, Transport},
+    transaction::inv_client::InvClientTransaction,
+    transport::{IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, ToBytes, Transport},
+    ua::Dialog,
 };
 
 use std::{
@@ -29,17 +29,17 @@ use std::{
 };
 
 pub(crate) mod client;
-pub(crate) mod client_inv;
+pub(crate) mod inv_client;
+pub(crate) mod inv_server;
 pub(crate) mod key;
 pub(crate) mod server;
-pub(crate) mod server_inv;
 
 type LastMsg = tokio::sync::RwLock<Option<Bytes>>;
 type LastStatusCode = RwLock<Option<StatusCode>>;
 
 #[async_trait::async_trait]
 /// A trait for managing the behavior of a SIP transaction.
-pub trait SipTransaction: Sync + Send + 'static {
+pub trait Transaction: Sync + Send + 'static {
     /// Estimated round‑trip time (RTT) for message exchanges.
     ///
     /// This value is used as the baseline when computing retransmission intervals.
@@ -67,7 +67,7 @@ struct Inner {
     /// The key used to identify the transaction.
     key: TsxKey,
     /// The transport layer used for communication.
-    transport: Transport,
+    transport: Arc<dyn Transport>,
     /// The address of the remote endpoint.
     addr: SocketAddr,
     /// The current state of the transaction.
@@ -79,6 +79,8 @@ struct Inner {
     /// The last message sent or received in the
     /// transaction.
     last_msg: LastMsg,
+
+    dialog: RwLock<Option<Dialog>>,
 }
 
 #[derive(Clone)]
@@ -87,9 +89,13 @@ struct Inner {
 /// A SIP Transaction consists of a set of messages exchanged
 /// between a client (`UAC`) and a server (`UAS`) to complete
 /// a certain action, such as establishing or terminating a call.
-pub struct Transaction(Arc<Inner>);
+pub struct TransactionInner(Arc<Inner>);
 
-impl Transaction {
+impl TransactionInner {
+    pub(crate) fn set_dialog(&self, dialog: Dialog) {
+        let mut guard = self.0.dialog.write().expect("Lock failed");
+        *guard = Some(dialog);
+    }
     fn builder() -> Builder {
         Default::default()
     }
@@ -111,7 +117,7 @@ impl Transaction {
         tsx
     }
 
-    pub(crate) fn transport(&self) -> &Transport {
+    pub(crate) fn transport(&self) -> &Arc<dyn Transport> {
         &self.0.transport
     }
 
@@ -124,7 +130,7 @@ impl Transaction {
     }
 
     pub(crate) fn create_uas_inv(request: &IncomingRequest, endpoint: &Endpoint) -> Self {
-        Self::new_tsx_uas(request, endpoint, State::Proceeding)
+        Self::new_tsx_uas(request, endpoint, State::Initial)
     }
 
     pub(crate) fn create_uac(request: &OutgoingRequest, endpoint: &Endpoint) -> Self {
@@ -260,7 +266,7 @@ impl Transaction {
 
     async fn tsx_send_request(&self, msg: &mut OutgoingRequest<'_>) -> Result<()> {
         log::debug!("<= Request {} to /{}", msg.msg.req_line.method, msg.addr);
-        let buf = msg.buf.take().unwrap_or(msg.encode()?);
+        let buf = msg.buf.take().unwrap_or(msg.to_bytes()?);
         self.0.transport.send(&buf, &self.0.addr).await?;
         self.set_last_msg(buf).await;
         Ok(())
@@ -269,7 +275,7 @@ impl Transaction {
     async fn tsx_send_response(&self, msg: &mut OutgoingResponse<'_>) -> Result<()> {
         let code = msg.status_code();
         log::debug!("=> Response {} {}", code.into_i32(), msg.reason());
-        let buf = msg.buf.take().unwrap_or(msg.encode()?);
+        let buf = msg.buf.take().unwrap_or(msg.to_bytes()?);
 
         self.0.transport.send(&buf, &self.0.addr).await?;
         self.set_last_status_code(code);
@@ -294,12 +300,13 @@ pub struct Builder {
     role: Option<Role>,
     endpoint: Option<Endpoint>,
     key: Option<TsxKey>,
-    transport: Option<Transport>,
+    transport: Option<Arc<dyn Transport>>,
     addr: Option<SocketAddr>,
     state: Option<Mutex<State>>,
     status_code: Option<LastStatusCode>,
     last_msg: Option<LastMsg>,
     retransmit_count: Option<AtomicUsize>,
+    dialog: Option<RwLock<Option<Dialog>>>,
 }
 
 impl Builder {
@@ -322,7 +329,7 @@ impl Builder {
     }
 
     /// Sets the transport associated with the transaction.
-    pub fn transport(&mut self, transport: Transport) -> &mut Self {
+    pub fn transport(&mut self, transport: Arc<dyn Transport>) -> &mut Self {
         self.transport = Some(transport);
         self
     }
@@ -352,20 +359,21 @@ impl Builder {
     }
 
     /// Finalize the builder into a `Transaction`.
-    pub fn build(self) -> Transaction {
+    pub fn build(self) -> TransactionInner {
         let inner = Inner {
             role: self.role.expect("Role is required"),
             endpoint: self.endpoint.expect("Endpoint is required"),
             key: self.key.expect("Key is required"),
-            transport: self.transport.expect("Transport is required"),
+            transport: self.transport.expect("Arc<dyn Transport> is required"),
             addr: self.addr.expect("Address is required"),
             state: self.state.expect("State is required"),
             status_code: self.status_code.unwrap_or_default(),
             last_msg: self.last_msg.unwrap_or_default(),
             retransmit_count: self.retransmit_count.unwrap_or_default(),
+            dialog: self.dialog.unwrap_or_default(),
         };
 
-        Transaction(Arc::new(inner))
+        TransactionInner(Arc::new(inner))
     }
 }
 
@@ -404,21 +412,19 @@ pub enum State {
 /// An Server Transaction, either Invite or NonInvite.
 pub enum ServerTsx {
     /// An NonInvite Server Transaction.
-    NonInvite(TsxUas),
+    NonInvite(ServerTransaction),
     /// An Invite Server Transaction.
-    Invite(TsxUasInv),
-}
-
-#[derive(Clone)]
-/// An Client Transaction, either Invite or NonInvite.
-pub enum ClientTsx {
-    /// An NonInvite Client Transaction.
-    NonInvite(client::TsxUac),
-    /// An Invite Client Transaction.
-    Invite(client_inv::TsxUacInv),
+    Invite(InvServerTransaction),
 }
 
 impl ServerTsx {
+    /// Attach a dialog to the transaction.
+    pub fn set_dialog(&self, dialog: Dialog) {
+        match self {
+            ServerTsx::NonInvite(uas) => uas.set_dialog(dialog),
+            ServerTsx::Invite(uas_inv) => uas_inv.set_dialog(dialog),
+        }
+    }
     /// Retrieves the last status code sent by transaction.
     pub fn last_status_code(&self) -> Option<StatusCode> {
         match self {
@@ -464,6 +470,27 @@ impl ServerTsx {
     }
 }
 
+impl From<ServerTransaction> for ServerTsx {
+    fn from(tsx: ServerTransaction) -> Self {
+        ServerTsx::NonInvite(tsx)
+    }
+}
+
+impl From<InvServerTransaction> for ServerTsx {
+    fn from(tsx: InvServerTransaction) -> Self {
+        ServerTsx::Invite(tsx)
+    }
+}
+
+#[derive(Clone)]
+/// An Client Transaction, either Invite or NonInvite.
+pub enum ClientTsx {
+    /// An NonInvite Client Transaction.
+    NonInvite(client::ClientTransaction),
+    /// An Invite Client Transaction.
+    Invite(inv_client::InvClientTransaction),
+}
+
 #[derive(Default)]
 /// Represents the transaction layer of the SIP protocol.
 ///
@@ -490,7 +517,7 @@ impl TransactionLayer {
     }
 
     #[inline]
-    pub(crate) fn add_server_tsx_to_map(&self, tsx: TsxUas) {
+    pub(crate) fn add_server_tsx_to_map(&self, tsx: ServerTransaction) {
         let key = tsx.0.key.clone();
         let mut map = self.server_transactions.lock().expect("Lock failed");
 
@@ -498,7 +525,7 @@ impl TransactionLayer {
     }
 
     #[inline]
-    pub(crate) fn add_client_tsx_to_map(&self, tsx: TsxUac) {
+    pub(crate) fn add_client_tsx_to_map(&self, tsx: ClientTransaction) {
         let key = tsx.key().clone();
         let mut map = self.client_transactions.lock().expect("Lock failed");
 
@@ -506,7 +533,7 @@ impl TransactionLayer {
     }
 
     #[inline]
-    pub(crate) fn add_client_inv_tsx_to_map(&self, tsx: TsxUacInv) {
+    pub(crate) fn add_client_inv_tsx_to_map(&self, tsx: InvClientTransaction) {
         let key = tsx.key().clone();
         let mut map = self.client_transactions.lock().expect("Lock failed");
 
@@ -514,7 +541,7 @@ impl TransactionLayer {
     }
 
     #[inline]
-    pub(crate) fn add_server_tsx_inv_to_map(&self, tsx: TsxUasInv) {
+    pub(crate) fn add_server_tsx_inv_to_map(&self, tsx: InvServerTransaction) {
         let key = tsx.0.key.clone();
         let mut map = self.server_transactions.lock().expect("Lock failed");
 
@@ -530,8 +557,8 @@ impl TransactionLayer {
     }
 
     pub(crate) async fn handle_response(&self, response: &IncomingResponse<'_>) -> Result<bool> {
-        let cseq_method = response.req_headers.cseq.method();
-        let via_branch = response.req_headers.via.branch().unwrap();
+        let cseq_method = response.request_headers.cseq.method();
+        let via_branch = response.request_headers.via.branch().unwrap();
 
         let key = TsxKey::create_client_with(cseq_method, via_branch);
         let client_tsx = {
@@ -566,6 +593,7 @@ impl TransactionLayer {
 #[cfg(test)]
 pub(crate) mod mock {
     use super::*;
+    use crate::headers::Header;
 
     use std::time::SystemTime;
 
@@ -578,8 +606,10 @@ pub(crate) mod mock {
     pub fn response<'a>(c: StatusCode) -> OutgoingResponse<'a> {
         let from = crate::headers::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
         let to = crate::headers::To::from_bytes("sip:bob@127.0.0.1:5060".as_bytes()).unwrap();
-        let via =
-            crate::headers::Via::from_bytes("SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes()).unwrap();
+        let via = crate::headers::Via::from_bytes(
+            "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes(),
+        )
+        .unwrap();
 
         let cseq = crate::headers::Header::CSeq(CSeq::new(1, SipMethod::Options));
         let callid = crate::headers::Header::CallId(CallId::new("bs9ki9iqbee8k5kal8mpqb"));
@@ -591,31 +621,38 @@ pub(crate) mod mock {
         headers.push(callid);
         headers.push(cseq);
 
-        let transport = Transport::new(MockUdpTransport);
+        let transport = Arc::new(MockUdpTransport);
         let addr = OutgoingAddr::Addr {
             addr: transport.addr(),
             transport,
         };
-        let mut msg = Response::new(crate::message::StatusLine {
+        let mut response = Response::new(crate::message::StatusLine {
             code: c,
             reason: c.reason().into(),
         });
 
-        msg.headers = headers;
+        response.headers = headers;
 
-        OutgoingResponse { msg, addr, buf: None }
+        OutgoingResponse {
+            response,
+            addr,
+            buf: None,
+        }
     }
 
     pub fn request<'a>(m: SipMethod) -> IncomingRequest<'a> {
         let from = crate::headers::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
-        let p = &mut crate::parser::ParseCtx::new("sip:bob@127.0.0.1:5060".as_bytes());
+        let to = crate::headers::To::from_bytes("sip:bob@127.0.0.1:5060".as_bytes()).unwrap();
+        let p = &mut crate::parser::Parser::new("sip:bob@127.0.0.1:5060".as_bytes());
         let target = p.parse_sip_uri(false).unwrap();
-        let via =
-            crate::headers::Via::from_bytes("SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes()).unwrap();
+        let via = crate::headers::Via::from_bytes(
+            "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes(),
+        )
+        .unwrap();
         let SipUri::Uri(uri) = target else { unreachable!() };
         let cseq = CSeq::new(1, m);
         let call_id = CallId::new("bs9ki9iqbee8k5kal8mpqb");
-        let transport = Transport::new(MockUdpTransport);
+        let transport = Arc::new(MockUdpTransport);
         let packet = Packet {
             payload: Payload::new(bytes::Bytes::new()),
             addr: transport.addr(),
@@ -629,11 +666,12 @@ pub(crate) mod mock {
             body: None,
         };
         let incoming = IncomingRequest {
-            msg: req,
+            request: req,
             transport,
             packet,
-            tsx: None,
-            req_headers: RequestHeaders {
+            transaction: None,
+            request_headers: RequestHeaders {
+                to,
                 cseq,
                 via,
                 call_id,
@@ -646,14 +684,16 @@ pub(crate) mod mock {
 
     pub fn outgoing_request<'o>(m: SipMethod) -> OutgoingRequest<'o> {
         let from = crate::headers::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
-        let p = &mut crate::parser::ParseCtx::new("sip:bob@127.0.0.1:5060".as_bytes());
+        let p = &mut crate::parser::Parser::new("sip:bob@127.0.0.1:5060".as_bytes());
         let target = p.parse_sip_uri(false).unwrap();
-        let via =
-            crate::headers::Via::from_bytes("SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes()).unwrap();
+        let via = crate::headers::Via::from_bytes(
+            "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes(),
+        )
+        .unwrap();
         let SipUri::Uri(uri) = target else { unreachable!() };
         let cseq = CSeq::new(1, m);
         let call_id = CallId::new("bs9ki9iqbee8k5kal8mpqb");
-        let transport = Transport::new(MockUdpTransport);
+        let transport = Arc::new(MockUdpTransport);
 
         let mut headers = Headers::with_capacity(4);
 
@@ -682,8 +722,10 @@ pub(crate) mod mock {
     pub fn incoming_response<'r>(c: StatusCode) -> IncomingResponse<'r> {
         let from = crate::headers::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
         let to = crate::headers::To::from_bytes("sip:bob@127.0.0.1:5060".as_bytes()).unwrap();
-        let via =
-            crate::headers::Via::from_bytes("SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes()).unwrap();
+        let via = crate::headers::Via::from_bytes(
+            "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes(),
+        )
+        .unwrap();
 
         let cseq = CSeq::new(1, SipMethod::Options);
         let call_id = CallId::new("bs9ki9iqbee8k5kal8mpqb");
@@ -695,24 +737,30 @@ pub(crate) mod mock {
         headers.push(crate::headers::Header::CallId(call_id.clone()));
         headers.push(crate::headers::Header::CSeq(cseq));
 
-        let transport = Transport::new(MockUdpTransport);
+        let transport = Arc::new(MockUdpTransport);
         let addr = transport.addr();
-        let mut msg = Response::new(crate::message::StatusLine {
+        let mut response = Response::new(crate::message::StatusLine {
             code: c,
             reason: c.reason().into(),
         });
-        msg.headers = headers;
+        response.headers = headers;
 
         IncomingResponse {
-            msg,
+            response,
             transport,
             packet: Packet {
                 payload: Payload::new(bytes::Bytes::new()),
                 addr: addr,
                 time: SystemTime::now(),
             },
-            tsx: None,
-            req_headers: RequestHeaders { via, cseq, call_id, from }
+            transaction: None,
+            request_headers: RequestHeaders {
+                to,
+                via,
+                cseq,
+                call_id,
+                from,
+            },
         }
     }
 
@@ -768,7 +816,7 @@ mod tests {
             .build()
             .await;
 
-        endpoint.new_uas_inv_tsx(&mut req).await.unwrap();
+        endpoint.new_uas_inv_tsx(&mut req);
 
         let transactions = endpoint.get_tsx_layer();
         let key = req.tsx_key().unwrap().clone();

@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use pksip::{
-    endpoint::{Builder, Endpoint},
+    endpoint::{Builder, Endpoint, service::SipService},
     message::{SipMethod, REASON_NOT_IMPLEMENTED, REASON_OK},
-    service::SipService,
     transaction::TransactionLayer,
     transport::IncomingRequest,
     Result,
@@ -17,22 +16,21 @@ impl SipService for MyService {
     fn name(&self) -> &str {
         "SipUAS"
     }
-    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut IncomingRequest) -> Result<bool> {
+    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut Option<IncomingRequest>) -> Result<()> {
+        let mut request = request.take().unwrap();
         match request.method() {
             SipMethod::Options => {
-                let tsx = endpoint.new_uas_tsx(request);
-                let mut response = endpoint.new_response(request, 200, REASON_OK);
+                let tsx = endpoint.new_uas_tsx(&mut request);
+                let mut response = endpoint.new_response(&request, 200, REASON_OK);
                 tsx.respond(&mut response).await?;
-
-                Ok(true)
             }
             &method if method != SipMethod::Ack => {
-                endpoint.respond(request, 501, REASON_NOT_IMPLEMENTED).await?;
-
-                Ok(true)
+                endpoint.respond(&request, 501, REASON_NOT_IMPLEMENTED).await?;
             }
-            _ => Ok(false),
-        }
+            _ => (),
+        };
+
+        Ok(())
     }
 }
 

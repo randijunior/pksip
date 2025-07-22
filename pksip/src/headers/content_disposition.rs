@@ -1,5 +1,5 @@
 use super::SipHeaderParse;
-use crate::{error::Result, macros::parse_header_param, message::Params, parser::ParseCtx};
+use crate::{error::Result, macros::parse_header_param, message::Params, parser::Parser};
 use core::fmt;
 
 /// The `Content-Disposition` SIP header.
@@ -45,7 +45,7 @@ impl<'a> SipHeaderParse<'a> for ContentDisposition<'a> {
      * other-handling        =  token
      * disp-extension-token  =  token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let _type = parser.parse_token()?;
         let params = parse_header_param!(parser);
 
@@ -72,20 +72,20 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"session\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
 
         let src = b"session;handling=optional\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
         assert_eq!(disp.params.unwrap().get("handling").unwrap(), Some("optional"));
 
         let src = b"attachment; filename=smime.p7s;handling=required\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "attachment");

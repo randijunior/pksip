@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use pksip::parser::ParseCtx;
+use pksip::parser::Parser;
 
 fn bench_parse_sip_msg(c: &mut Criterion) {
     let buf = b"INVITE sip:bob@biloxi.example.com SIP/2.0\r\n
@@ -22,7 +22,7 @@ User-Agent: X-Lite release 1104o stamp 56125\r\n\r\n";
 
     c.bench_function("parse_sip_msg invite with sdp", |b| {
         b.iter(|| {
-            let mut parser = ParseCtx::new(black_box(buf));
+            let mut parser = Parser::new(black_box(buf));
             let _ = parser.parse_sip_msg().unwrap();
         });
     });

@@ -6,7 +6,7 @@ use itertools::Itertools;
 use crate::error::Result;
 
 use crate::macros::hdr_list;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -53,7 +53,7 @@ impl<'a> SipHeaderParse<'a> for ContentEncoding<'a> {
      * Content-Encoding  =  ( "Content-Encoding" / "e" ) HCOLON
      *                      content-coding *(COMMA content-coding)
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let codings = hdr_list!(parser => parser.parse_token()?);
 
         Ok(ContentEncoding(codings))
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"gzip\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let encoding = ContentEncoding::parse(&mut scanner);
         let encoding = encoding.unwrap();
 
@@ -88,7 +88,7 @@ mod tests {
         assert_eq!(encoding.get(0), Some("gzip"));
 
         let src = b"gzip, deflate\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let encoding = ContentEncoding::parse(&mut scanner);
         let encoding = encoding.unwrap();
 

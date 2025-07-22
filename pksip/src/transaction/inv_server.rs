@@ -1,8 +1,8 @@
 use crate::{
     endpoint::Endpoint,
     error::Result,
-    message::{SipMethod, REASON_TRYING},
-    transaction::{SipTransaction, State, Transaction},
+    message::SipMethod,
+    transaction::{Transaction, State, TransactionInner},
     transport::{IncomingRequest, OutgoingResponse},
 };
 use async_trait::async_trait;
@@ -23,15 +23,15 @@ type RxConfirmed = oneshot::Receiver<()>;
 
 /// Represents a Server INVITE transaction.
 #[derive(Clone)]
-pub struct TsxUasInv {
-    transaction: Transaction,
+pub struct InvServerTransaction {
+    transaction: TransactionInner,
     pub(super) tx_confirmed: TxConfirmed,
 }
 
-impl TsxUasInv {
-    pub(crate) async fn try_new(endpoint: &Endpoint, request: &mut IncomingRequest<'_>) -> Result<Self> {
+impl InvServerTransaction {
+    pub(crate) fn new(endpoint: &Endpoint, request: &mut IncomingRequest<'_>) -> Self {
         let tsx_layer = endpoint.get_tsx_layer();
-        let method = request.msg.method();
+        let method = request.method();
 
         assert!(
             matches!(method, SipMethod::Invite),
@@ -39,10 +39,10 @@ impl TsxUasInv {
             method
         );
 
-        let transaction = Transaction::create_uas_inv(request, endpoint);
+        let transaction = TransactionInner::create_uas_inv(request, endpoint);
         let tx_confirmed = Default::default();
 
-        let uas_inv = TsxUasInv {
+        let uas_inv = InvServerTransaction {
             transaction,
             tx_confirmed,
         };
@@ -50,12 +50,9 @@ impl TsxUasInv {
         tsx_layer.add_server_tsx_inv_to_map(uas_inv.clone());
         request.set_tsx_inv(uas_inv.clone());
 
-        // Generate a 100 (Trying) response.
-        let response = endpoint.new_response(request, 100, REASON_TRYING);
-        endpoint.send_response(&response).await?;
-
-        Ok(uas_inv)
+        uas_inv
     }
+    
 
     pub async fn respond(&self, response: &mut OutgoingResponse<'_>) -> Result<()> {
         self.tsx_send_response(response).await?;
@@ -63,6 +60,9 @@ impl TsxUasInv {
         let code = response.status_code().into_i32();
 
         match code {
+            100..=199 => {
+                self.change_state_to(State::Proceeding);
+            }
             200..=299 => {
                 self.on_terminated();
             }
@@ -74,7 +74,6 @@ impl TsxUasInv {
                 self.tx_confirmed.lock().expect("Lock failed").replace(tx);
                 self.initiate_retransmission(rx);
             }
-            // Ignore probably provisional status code.
             _ => (),
         };
 
@@ -129,7 +128,7 @@ impl TsxUasInv {
 //The TU passes any number of provisional responses to the
 // server transaction.
 #[async_trait]
-impl SipTransaction for TsxUasInv {
+impl Transaction for InvServerTransaction {
     fn terminate(&self) {
         if self.reliable() {
             self.on_terminated();
@@ -139,8 +138,8 @@ impl SipTransaction for TsxUasInv {
     }
 }
 
-impl Deref for TsxUasInv {
-    type Target = Transaction;
+impl Deref for InvServerTransaction {
+    type Target = TransactionInner;
 
     fn deref(&self) -> &Self::Target {
         &self.transaction
@@ -163,9 +162,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_100_trying() {
         let (endpoint, mut request) = tsx_uas_params().await;
-        let tsx = TsxUasInv::try_new(&endpoint, &mut request)
-            .await
-            .expect("should not fail");
+        let tsx = InvServerTransaction::new(&endpoint, &mut request);
         let response = &mut mock::response(StatusCode::Trying);
 
         tsx.respond(response).await.unwrap();
@@ -177,9 +174,7 @@ mod tests {
     #[tokio::test]
     async fn test_receives_180_ringing() {
         let (endpoint, mut request) = tsx_uas_params().await;
-        let tsx = TsxUasInv::try_new(&endpoint, &mut request)
-            .await
-            .expect("should not fail");
+        let tsx = InvServerTransaction::new(&endpoint, &mut request);
         let response = &mut mock::response(StatusCode::Trying);
 
         tsx.respond(response).await.unwrap();
@@ -196,32 +191,28 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn test_invite_timer_g_retransmission() {
         let (endpoint, mut request) = tsx_uas_params().await;
-        let tsx = TsxUasInv::try_new(&endpoint, &mut request)
-            .await
-            .expect("should not fail");
+        let tsx = InvServerTransaction::new(&endpoint, &mut request);
 
         let response = &mut mock::response(StatusCode::BusyHere);
         tsx.respond(response).await.unwrap();
 
-        time::sleep(TsxUasInv::T1 + Duration::from_millis(1)).await;
+        time::sleep(InvServerTransaction::T1 + Duration::from_millis(1)).await;
         assert!(tsx.retrans_count() == 1);
 
-        time::sleep(TsxUasInv::T1 * 2 + Duration::from_millis(1)).await;
+        time::sleep(InvServerTransaction::T1 * 2 + Duration::from_millis(1)).await;
         assert!(tsx.retrans_count() == 2);
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_timer_h_expiration() {
         let (endpoint, mut request) = tsx_uas_params().await;
-        let tsx = TsxUasInv::try_new(&endpoint, &mut request)
-            .await
-            .expect("should not fail");
+        let tsx = InvServerTransaction::new(&endpoint, &mut request);
 
         let response = &mut mock::response(StatusCode::BusyHere);
 
         tsx.respond(response).await.unwrap();
 
-        time::sleep(TsxUasInv::T1 * 64 + Duration::from_millis(1)).await;
+        time::sleep(InvServerTransaction::T1 * 64 + Duration::from_millis(1)).await;
         assert!(tsx.get_state() == State::Terminated);
     }
 }

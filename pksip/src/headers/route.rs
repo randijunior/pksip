@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::{NameAddr, Params},
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 use crate::headers::SipHeaderParse;
@@ -26,7 +26,7 @@ impl<'a> SipHeaderParse<'a> for Route<'a> {
      * Route        =  "Route" HCOLON route-param *(COMMA route-param)
      * route-param  =  name-addr *( SEMI rr-param )
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let addr = parser.parse_name_addr()?;
         let param = parse_header_param!(parser);
         Ok(Route { addr, param })
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let r = Route::parse(&mut scanner);
         let r = r.unwrap();
 
@@ -70,7 +70,7 @@ mod tests {
         assert!(r.addr.uri.lr_param);
 
         let src = b"<sip:server10.biloxi.com;lr>;foo=bar\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let r = Route::parse(&mut scanner);
         let r = r.unwrap();
 

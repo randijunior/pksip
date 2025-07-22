@@ -1,7 +1,7 @@
 use std::{fmt, str};
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -20,7 +20,7 @@ impl<'a> SipHeaderParse<'a> for Priority<'a> {
      *                    / "non-urgent" / other-priority
      * other-priority  =  token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let priority = parser.parse_token()?;
 
         Ok(Priority(priority))
@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"emergency\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let priority = Priority::parse(&mut scanner).unwrap();
 
         assert_eq!(priority.0, "emergency");

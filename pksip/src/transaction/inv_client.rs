@@ -12,31 +12,34 @@ use tokio::{
 };
 
 use crate::{
-    headers::{CSeq, Header, Headers},
+    headers::{self, CSeq, Header, Headers},
     message::{Request, RequestLine, SipMethod, Uri},
-    transaction::{SipTransaction, State},
+    transaction::{Transaction, State},
     transport::{IncomingResponse, OutgoingRequest, RequestHeaders},
     Endpoint, Result,
 };
 
-use super::Transaction;
+use super::TransactionInner;
 
 struct OriginalRequest {
     uri: Uri<'static>,
-    headers: RequestHeaders<'static>,
+    via: headers::Via<'static>,
+    from: headers::From<'static>,
+    cseq: CSeq,
+    call_id: headers::CallId<'static>,
 }
 
 /// Represents a Client INVITE transaction.
 #[derive(Clone)]
-pub struct TsxUacInv {
-    transaction: Transaction,
+pub struct InvClientTransaction {
+    transaction: TransactionInner,
     request: Arc<OriginalRequest>,
 }
 
 const TIMER_D: Duration = Duration::from_secs(32);
 
-impl TsxUacInv {
-    pub async fn send(mut request: OutgoingRequest<'_>, endpoint: &Endpoint) -> Result<TsxUacInv> {
+impl InvClientTransaction {
+    pub async fn send(mut request: OutgoingRequest<'_>, endpoint: &Endpoint) -> Result<InvClientTransaction> {
         let tsx_layer = endpoint.get_tsx_layer();
         let method = request.msg.method();
 
@@ -46,7 +49,7 @@ impl TsxUacInv {
             method
         );
 
-        let transaction = Transaction::create_uac_inv(&request, endpoint);
+        let transaction = TransactionInner::create_uac_inv(&request, endpoint);
         transaction.tsx_send_request(&mut request).await?;
 
         let mut via = None;
@@ -69,16 +72,16 @@ impl TsxUacInv {
         let call_id = call_id.unwrap().clone().into_owned();
         let from = from.unwrap().clone().into_owned();
 
-        let headers = RequestHeaders {
+        let uri = request.msg.req_line.uri.into_owned();
+
+        let request = Arc::new(OriginalRequest {
+            uri,
             via,
             cseq,
             call_id,
             from,
-        };
-        let uri = request.msg.req_line.uri.into_owned();
-
-        let request = Arc::new(OriginalRequest { uri, headers });
-        let uac_inv = TsxUacInv { transaction, request };
+        });
+        let uac_inv = InvClientTransaction { transaction, request };
 
         tsx_layer.add_client_inv_tsx_to_map(uac_inv.clone());
 
@@ -122,7 +125,7 @@ impl TsxUacInv {
     }
 
     pub(crate) async fn receive(&self, response: &IncomingResponse<'_>) -> Result<bool> {
-        let code = response.msg.code();
+        let code = response.response.code();
         self.set_last_status_code(code);
 
         match self.get_state() {
@@ -134,21 +137,20 @@ impl TsxUacInv {
                 let mut ack = self.create_ack(response);
 
                 self.tsx_send_request(&mut ack).await?;
-
                 self.terminate();
             }
             State::Calling | State::Proceeding if code.is_final() => {
                 self.on_terminated();
             }
             State::Completed => {
-                // 17.1.1.2 INVITE Client Transaction
+                // 17.1.1.2 INVITE Client TransactionInner
                 // Any retransmissions of the final response that are received while in
                 // the "Completed" state MUST cause the ACK to be re-passed to the
                 // transport layer for retransmission, but the newly received response
                 // MUST NOT be passed up to the TU.
                 self.retransmit().await?;
 
-                return Ok(true)
+                return Ok(true);
             }
             _ => (),
         }
@@ -156,7 +158,7 @@ impl TsxUacInv {
     }
 
     fn create_ack<'a>(&self, response: &'a IncomingResponse<'a>) -> OutgoingRequest<'a> {
-        let mut iter = response.headers().iter().filter_map(|header| match header {
+        let mut iter = response.response.headers.iter().filter_map(|header| match header {
             Header::To(to_hdr) => Some(to_hdr),
             _ => None,
         });
@@ -164,10 +166,10 @@ impl TsxUacInv {
         let to = iter.next().unwrap();
         let cseq = CSeq {
             method: SipMethod::Ack,
-            ..self.request.headers.cseq
+            ..self.request.cseq
         };
 
-        let headers = &self.request.headers;
+        let headers = &self.request;
         let mut ack_hdrs = Headers::with_capacity(5);
 
         let via = headers.via.clone();
@@ -198,7 +200,7 @@ impl TsxUacInv {
 }
 
 #[async_trait::async_trait]
-impl SipTransaction for TsxUacInv {
+impl Transaction for InvClientTransaction {
     fn terminate(&self) {
         if self.reliable() {
             self.on_terminated();
@@ -209,14 +211,14 @@ impl SipTransaction for TsxUacInv {
     }
 }
 
-impl DerefMut for TsxUacInv {
+impl DerefMut for InvClientTransaction {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.transaction
     }
 }
 
-impl Deref for TsxUacInv {
-    type Target = Transaction;
+impl Deref for InvClientTransaction {
+    type Target = TransactionInner;
 
     fn deref(&self) -> &Self::Target {
         &self.transaction
@@ -237,7 +239,7 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Invite);
 
-        let uac_inv = TsxUacInv::send(request, &endpoint).await.unwrap();
+        let uac_inv = InvClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac_inv.get_state(), State::Calling);
     }
@@ -248,7 +250,7 @@ mod tests {
         let request = mock::outgoing_request(SipMethod::Invite);
         let response = mock::incoming_response(StatusCode::Trying);
 
-        let uac_inv = TsxUacInv::send(request, &endpoint).await.unwrap();
+        let uac_inv = InvClientTransaction::send(request, &endpoint).await.unwrap();
 
         uac_inv.receive(&response).await.unwrap();
 
@@ -261,7 +263,7 @@ mod tests {
         let request = mock::outgoing_request(SipMethod::Invite);
         let response = mock::incoming_response(StatusCode::BusyHere);
 
-        let uac_inv = TsxUacInv::send(request, &endpoint).await.unwrap();
+        let uac_inv = InvClientTransaction::send(request, &endpoint).await.unwrap();
 
         uac_inv.receive(&response).await.unwrap();
 
@@ -274,7 +276,7 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Invite);
 
-        let uac_inv = TsxUacInv::send(request, &endpoint).await.unwrap();
+        let uac_inv = InvClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert!(uac_inv.retrans_count() == 0);
         assert_eq!(uac_inv.get_state(), State::Calling);
@@ -303,11 +305,11 @@ mod tests {
         let endpoint = mock::default_endpoint().await;
         let request = mock::outgoing_request(SipMethod::Invite);
 
-        let uac_inv = TsxUacInv::send(request, &endpoint).await.unwrap();
+        let uac_inv = InvClientTransaction::send(request, &endpoint).await.unwrap();
 
         assert_eq!(uac_inv.get_state(), State::Calling);
 
-        time::sleep(TsxUacInv::T1 * 64  + Duration::from_millis(1)).await;
+        time::sleep(InvClientTransaction::T1 * 64 + Duration::from_millis(1)).await;
 
         assert!(uac_inv.get_state() == State::Terminated);
     }
@@ -318,13 +320,13 @@ mod tests {
         let request = mock::outgoing_request(SipMethod::Invite);
         let response = mock::incoming_response(StatusCode::BusyHere);
 
-        let uac_inv = TsxUacInv::send(request, &endpoint).await.unwrap();
+        let uac_inv = InvClientTransaction::send(request, &endpoint).await.unwrap();
 
         uac_inv.receive(&response).await.unwrap();
 
         assert_eq!(uac_inv.get_state(), State::Completed);
 
-        time::sleep(TIMER_D  + Duration::from_millis(1)).await;
+        time::sleep(TIMER_D + Duration::from_millis(1)).await;
 
         assert!(uac_inv.get_state() == State::Terminated);
     }

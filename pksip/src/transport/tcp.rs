@@ -1,16 +1,17 @@
+//! SIP TCP Arc<dyn Transport> Implementation.
 // Temporarily allow unused imports and dead code warnings.
 #![allow(unused_imports)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![warn(missing_docs)]
 
 use super::{
-    decoder::StreamingDecoder, Direction, Factory, Packet, SipTransport, Transport, TransportKey, TransportStartup,
-    TransportTx,
+    decoder::StreamingDecoder, Direction, Factory, Packet, Transport, TransportKey, TransportStartup, TransportTx,
 };
 use crate::{
     error::{Error, Result},
-    message::TransportKind,
-    transport::{TransportEvent, TransportPacket},
+    message::TransportProtocol,
+    transport::TransportEvent,
     Endpoint,
 };
 use local_ip_address::local_ip;
@@ -37,12 +38,12 @@ pub struct TcpTransport {
     /// The tcp writer.
     write: TcpWrite,
 
-    /// Transport direction.
+    /// Arc<dyn Transport> direction.
     dir: Direction,
 }
 
 #[async_trait::async_trait]
-impl SipTransport for TcpTransport {
+impl Transport for TcpTransport {
     async fn send(&self, buf: &[u8], _: &SocketAddr) -> Result<usize> {
         let mut writer = self.write.lock().await;
 
@@ -52,8 +53,8 @@ impl SipTransport for TcpTransport {
         Ok(buf.len())
     }
 
-    fn tp_kind(&self) -> TransportKind {
-        TransportKind::Tcp
+    fn tp_kind(&self) -> TransportProtocol {
+        TransportProtocol::Tcp
     }
 
     fn addr(&self) -> SocketAddr {
@@ -86,7 +87,7 @@ pub struct TcpServer {
 struct TcpStreamRead {
     reader: TcpRead,
     addr: SocketAddr,
-    transport: Transport,
+    transport: Arc<dyn Transport>,
     sender: TransportTx,
 }
 
@@ -132,7 +133,7 @@ impl TcpServer {
         let write = Arc::new(Mutex::new(write));
 
         // Create TCP transport for the new socket.
-        let transport = Transport::new(TcpTransport {
+        let transport = Arc::new(TcpTransport {
             addr: local_addr,
             remote_addr: addr,
             write,
@@ -140,7 +141,7 @@ impl TcpServer {
         });
 
         // Register the new transport.
-        sender.send(TransportEvent::TransportCreated(transport.clone())).await?;
+        sender.send(TransportEvent::Created(transport.clone())).await?;
 
         let reader = TcpStreamRead {
             reader,
@@ -173,19 +174,15 @@ impl TcpServer {
                     let time = SystemTime::now();
                     let packet = Packet { payload, addr, time };
                     let transport = transport.clone();
-                    let msg = TransportPacket  {
-                        transport,
-                        packet
-                    };
 
                     // Send.
-                    sender.send(TransportEvent::PacketReceived(msg)).await?;
+                    sender.send(TransportEvent::Packet { transport, packet }).await?;
                 }
                 Some(Err(err)) => {
                     return Err(Error::Io(err));
                 }
                 None => {
-                    sender.send(TransportEvent::TransportClosed(key)).await?;
+                    sender.send(TransportEvent::Closed(key)).await?;
                 }
             };
         }
@@ -198,7 +195,7 @@ pub struct TcpFactory;
 
 #[async_trait::async_trait]
 impl Factory for TcpFactory {
-    async fn create(&self, addr: SocketAddr) -> Result<Transport> {
+    async fn create(&self, addr: SocketAddr) -> Result<Arc<dyn Transport>> {
         // TODO: Keep-Alive timer.
         let stream = TcpStream::connect(addr).await?;
         let addr = stream.local_addr()?;
@@ -208,7 +205,7 @@ impl Factory for TcpFactory {
 
         let write = Arc::new(Mutex::new(write));
 
-        Ok(Transport::new(TcpTransport {
+        Ok(Arc::new(TcpTransport {
             addr,
             remote_addr,
             write,
@@ -216,8 +213,8 @@ impl Factory for TcpFactory {
         }))
     }
 
-    fn transport_kind(&self) -> TransportKind {
-        TransportKind::Tcp
+    fn protocol(&self) -> TransportProtocol {
+        TransportProtocol::Tcp
     }
 }
 
@@ -238,13 +235,13 @@ impl TransportStartup for TcpStartup {
 
         log::debug!(
             "SIP {} transport ready for incoming connections at {}",
-            TransportKind::Tcp,
+            TransportProtocol::Tcp,
             tcp_server.local_name
         );
 
         let factory = Box::new(TcpFactory);
 
-        sender.send(TransportEvent::FactoryCreated(factory)).await?;
+        sender.send(TransportEvent::Factory(factory)).await?;
 
         tokio::spawn(tcp_server.handle_incoming(sender));
 
@@ -255,8 +252,6 @@ impl TransportStartup for TcpStartup {
 #[cfg(test)]
 mod tests {
     use tokio::net::TcpSocket;
-
-    use crate::transport::TransportPacket;
 
     use super::*;
 
@@ -285,12 +280,12 @@ mod tests {
 
         let mut client = socket.connect(server_addr).await.unwrap();
 
-        assert!(matches!(rx.recv().await.unwrap(), TransportEvent::TransportCreated(_)));
+        assert!(matches!(rx.recv().await.unwrap(), TransportEvent::Created(_)));
 
         client.write_all(MSG_TEST).await.unwrap();
         client.flush().await.unwrap();
 
-        let TransportEvent::PacketReceived(TransportPacket { packet, .. }) = rx.recv().await.unwrap() else {
+        let TransportEvent::Packet { transport, packet } = rx.recv().await.unwrap() else {
             unreachable!();
         };
 

@@ -6,7 +6,7 @@ use crate::{
     error::Result,
     headers::{call_id::CallId, SipHeaderParse},
     macros::hdr_list,
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 /// The `In-Reply-To` SIP header.
@@ -21,7 +21,7 @@ impl<'a> SipHeaderParse<'a> for InReplyTo<'a> {
     /*
      * In-Reply-To  =  "In-Reply-To" HCOLON callid *(COMMA callid)
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let ids = hdr_list!(parser => {
             let id = parser.not_comma_or_newline();
             let id = str::from_utf8(id)?;
@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"70710@saturn.bell-tel.com, 17320@saturn.bell-tel.com\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let in_reply_to = InReplyTo::parse(&mut scanner).unwrap();
         assert_eq!(scanner.remaing(), b"\r\n");
 

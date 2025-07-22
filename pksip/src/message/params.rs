@@ -28,7 +28,7 @@ impl<'a> TryFrom<&'a str> for Param<'a> {
     type Error = crate::error::Error;
 
     fn try_from(s: &'a str) -> std::result::Result<Self, Self::Error> {
-        let mut ctx = crate::parser::ParseCtx::new(s.as_bytes());
+        let mut ctx = crate::parser::Parser::new(s.as_bytes());
 
         ctx.parse_param()
     }

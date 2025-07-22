@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::{NameAddr, Params},
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 use crate::headers::SipHeaderParse;
@@ -15,8 +15,10 @@ use crate::headers::SipHeaderParse;
 /// routing and session control.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RecordRoute<'a> {
-    addr: NameAddr<'a>,
-    param: Option<Params<'a>>,
+    /// The address of the record route.
+    pub addr: NameAddr<'a>,
+    /// Optional parameters associated with the record route.
+    pub params: Option<Params<'a>>,
 }
 
 impl<'a> SipHeaderParse<'a> for RecordRoute<'a> {
@@ -26,17 +28,17 @@ impl<'a> SipHeaderParse<'a> for RecordRoute<'a> {
      * rec-route     =  name-addr *( SEMI rr-param )
      * rr-param      =  generic-param
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let addr = parser.parse_name_addr()?;
-        let param = parse_header_param!(parser);
-        Ok(RecordRoute { addr, param })
+        let params = parse_header_param!(parser);
+        Ok(RecordRoute { addr, params })
     }
 }
 
 impl fmt::Display for RecordRoute<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", RecordRoute::NAME, self.addr)?;
-        if let Some(param) = &self.param {
+        if let Some(param) = &self.params {
             write!(f, ";{}", param)?;
         }
 
@@ -54,7 +56,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:server10.biloxi.com;lr>\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let rr = RecordRoute::parse(&mut scanner);
         let rr = rr.unwrap();
 
@@ -70,7 +72,7 @@ mod tests {
         assert!(rr.addr.uri.lr_param);
 
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>;foo=bar\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let rr = RecordRoute::parse(&mut scanner);
         let rr = rr.unwrap();
 
@@ -83,6 +85,6 @@ mod tests {
                 port: None
             }
         );
-        assert_eq!(rr.param.unwrap().get("foo").unwrap(), Some("bar"));
+        assert_eq!(rr.params.unwrap().get("foo").unwrap(), Some("bar"));
     }
 }

@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::headers::accept_language::is_lang;
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 use crate::{error::Result, macros::hdr_list};
 
 use crate::headers::SipHeaderParse;
@@ -36,7 +36,7 @@ impl<'a> SipHeaderParse<'a> for ContentLanguage<'a> {
      * primary-tag       =  1*8ALPHA
      * subtag            =  1*8ALPHA
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let languages = hdr_list!(parser => unsafe {
             parser.read_as_str(is_lang)
         });
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"fr\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let lang = ContentLanguage::parse(&mut scanner);
         let lang = lang.unwrap();
 
@@ -72,7 +72,7 @@ mod tests {
         assert_eq!(lang.0.get(0), Some(&"fr".into()));
 
         let src = b"fr, en\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let lang = ContentLanguage::parse(&mut scanner);
         let lang = lang.unwrap();
 

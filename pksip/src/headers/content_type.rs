@@ -1,7 +1,7 @@
 use core::fmt;
 use std::str;
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 use crate::{error::Result, headers::SipHeaderParse};
 
 use crate::MediaType;
@@ -69,7 +69,7 @@ impl<'a> SipHeaderParse<'a> for ContentType<'a> {
      * m-attribute      =  token
      * m-value          =  token / quoted-string
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let media_type = MediaType::parse(parser)?;
 
         Ok(ContentType(media_type))
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"application/sdp\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let c_type = ContentType::parse(&mut scanner);
         let c_type = c_type.unwrap();
 
@@ -98,7 +98,7 @@ mod tests {
         assert_eq!(c_type.0.mimetype.subtype, "sdp");
 
         let src = b"text/html; charset=ISO-8859-4\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let c_type = ContentType::parse(&mut scanner);
         let c_type = c_type.unwrap();
 

@@ -3,7 +3,7 @@ use crate::{
     headers::{SipHeaderParse, Q_PARAM},
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::ParseCtx,
+    parser::Parser,
     Q,
 };
 use itertools::Itertools;
@@ -75,7 +75,7 @@ impl<'a> SipHeaderParse<'a> for AcceptEncoding<'a> {
      * codings          =  content-coding / "*"
      * content-coding   =  token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         if parser.is_next_newline() {
             return Ok(AcceptEncoding::new());
         }
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"compress, gzip\r\n";
-        let mut parser = ParseCtx::new(src);
+        let mut parser = Parser::new(src);
         let accept_encoding = AcceptEncoding::parse(&mut parser);
         let accept_encoding = accept_encoding.unwrap();
 
@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(coding.coding, "gzip");
         assert_eq!(coding.q, None);
 
-        let mut parser = ParseCtx::new(b"*\r\n");
+        let mut parser = Parser::new(b"*\r\n");
         let accept_encoding = AcceptEncoding::parse(&mut parser);
         let accept_encoding = accept_encoding.unwrap();
 
@@ -170,7 +170,7 @@ mod tests {
         assert_eq!(coding.q, None);
 
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
-        let mut parser = ParseCtx::new(src);
+        let mut parser = Parser::new(src);
         let accept_encoding = AcceptEncoding::parse(&mut parser);
         let accept_encoding = accept_encoding.unwrap();
 

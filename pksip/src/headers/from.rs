@@ -3,7 +3,7 @@ use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 use crate::headers::SipHeaderParse;
@@ -50,7 +50,7 @@ pub struct From<'f> {
 impl<'f> From<'f> {
     /// Parse a `From` header instance from a `&str`.
     pub fn from_str(s: &'f str) -> Result<Self> {
-        Self::parse(&mut ParseCtx::new(s.as_bytes()))
+        Self::parse(&mut Parser::new(s.as_bytes()))
     }
     /// Create a new `From` instance.
     pub fn new(uri: SipUri<'f>) -> Self {
@@ -89,7 +89,7 @@ impl<'a> SipHeaderParse<'a> for From<'a> {
      * from-param  =  tag-param / generic-param
      * tag-param   =  "tag" EQUAL token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let uri = parser.parse_sip_uri(false)?;
         let mut tag = None;
         let params = parse_header_param!(parser, TAG_PARAM = tag);
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"\"A. G. Bell\" <sip:agb@bell-telephone.com> ;tag=a48s\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
@@ -179,7 +179,7 @@ mod tests {
         });
 
         let src = b"sip:+12125551212@server.phone2net.com;tag=887s\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
@@ -200,7 +200,7 @@ mod tests {
         });
 
         let src = b"Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {

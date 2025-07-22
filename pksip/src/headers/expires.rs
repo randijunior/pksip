@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::error::Result;
 use crate::headers::SipHeaderParse;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 /// The `Expires` SIP header.
 ///
@@ -40,7 +40,7 @@ impl<'a> SipHeaderParse<'a> for Expires {
     /*
      * Expires     =  "Expires" HCOLON delta-seconds
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Expires> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Expires> {
         let expires = parser.parse_u32()?;
 
         Ok(Expires(expires))
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"5\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let expires = Expires::parse(&mut scanner).unwrap();
         assert_eq!(scanner.remaing(), b"\r\n");
         assert_eq!(expires.0, 5);

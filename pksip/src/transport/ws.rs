@@ -1,3 +1,4 @@
+//! SIP WebSocket Arc<dyn Transport> Implementation.
 // Temporarily allow unused imports and dead code warnings.
 #![allow(unused_imports)]
 #![allow(dead_code)]
@@ -8,9 +9,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use super::{Direction, SipTransport, Transport, TransportTx};
-use crate::message::TransportKind;
-use crate::transport::{ws, Packet, Payload, TransportEvent, TransportPacket};
+use super::{Direction, Transport, TransportTx};
+use crate::message::TransportProtocol;
+use crate::transport::{ws, Packet, Payload, TransportEvent};
 use crate::{error::Result, Endpoint};
 use futures_util::stream::SplitSink;
 use futures_util::{future, StreamExt, TryStreamExt};
@@ -48,7 +49,7 @@ pub struct WebSocketTransport {
 }
 
 #[async_trait::async_trait]
-impl SipTransport for WebSocketTransport {
+impl Transport for WebSocketTransport {
     async fn send(&self, buf: &[u8], _: &SocketAddr) -> Result<usize> {
         // Convert the buffer into a WebSocket message
         let message = Message::Binary(buf.to_vec().into());
@@ -64,8 +65,8 @@ impl SipTransport for WebSocketTransport {
         Ok(buf.len())
     }
 
-    fn tp_kind(&self) -> TransportKind {
-        TransportKind::Ws
+    fn tp_kind(&self) -> TransportProtocol {
+        TransportProtocol::Ws
     }
 
     fn addr(&self) -> SocketAddr {
@@ -116,14 +117,14 @@ impl WebSocketServer {
 
         let write = Arc::new(Mutex::new(ws_sender));
         // Create WS transport for the new socket.
-        let transport = Transport::new(WebSocketTransport {
+        let transport = Arc::new(WebSocketTransport {
             dir: Direction::Incoming,
             addr,
             remote_addr: addr,
             write,
         });
 
-        let _ = sender.send(TransportEvent::TransportCreated(transport.clone())).await;
+        let _ = sender.send(TransportEvent::Created(transport.clone())).await;
 
         let mut filtered_msgs = ws_receiver.try_filter(|msg| {
             // Filter out unwanted messages.
@@ -145,13 +146,10 @@ impl WebSocketServer {
 
             let time = SystemTime::now();
             let packet = Packet { payload, addr, time };
-            let msg = TransportPacket  {
-                transport: transport.clone(),
-                packet
-            };
+            let transport = transport.clone();
 
             // Send.
-            if sender.send(TransportEvent::PacketReceived(msg)).await.is_err() {
+            if sender.send(TransportEvent::Packet { transport, packet }).await.is_err() {
                 break;
             }
         }

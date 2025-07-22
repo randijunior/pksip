@@ -1,4 +1,4 @@
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 use crate::{error::Result, message::SipMethod};
 
 use crate::headers::SipHeaderParse;
@@ -58,11 +58,11 @@ impl<'a> SipHeaderParse<'a> for CSeq {
     /*
      * CSeq  =  "CSeq" HCOLON 1*DIGIT LWS SipMethod
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<CSeq> {
+    fn parse(parser: &mut Parser<'a>) -> Result<CSeq> {
         let cseq = parser.parse_u32()?;
 
-        parser.take_ws();
-        let b_method = parser.alpha();
+        parser.ws();
+        let b_method = parser.alphabetic();
         let method = SipMethod::from(b_method);
 
         Ok(CSeq { cseq, method })
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"4711 INVITE\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let c_length = CSeq::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");

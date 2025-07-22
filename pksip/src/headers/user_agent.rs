@@ -1,7 +1,7 @@
 use std::{fmt, str};
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -19,8 +19,8 @@ impl<'a> SipHeaderParse<'a> for UserAgent<'a> {
     /*
      * User-Agent  =  "User-Agent" HCOLON server-val *(LWS server-val)
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let agent = parser.parse_header_value_as_str()?;
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let agent = parser.parse_header_str()?;
 
         Ok(UserAgent(agent))
     }
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Softphone Beta1.5\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let ua = UserAgent::parse(&mut scanner);
         let ua = ua.unwrap();
 

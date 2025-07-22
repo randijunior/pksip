@@ -14,13 +14,13 @@ pub mod auth;
 mod code;
 mod method;
 mod params;
-mod transport;
+mod protocol;
 mod uri;
 
 pub use code::*;
 pub use method::*;
 pub use params::*;
-pub use transport::*;
+pub use protocol::*;
 pub use uri::*;
 
 #[derive(Debug)]
@@ -127,10 +127,8 @@ impl<'a> SipMsg<'a> {
 pub struct Request<'a> {
     /// The Request-Line of the SIP message.
     pub req_line: RequestLine<'a>,
-
     /// All headers present in the SIP message.
     pub headers: Headers<'a>,
-
     /// The body of the SIP message, if present.
     pub body: Option<&'a [u8]>,
 }
@@ -171,7 +169,6 @@ impl std::fmt::Display for RequestLine<'_> {
 pub struct RequestLine<'a> {
     /// The SIP method associated with the request (e.g., INVITE, BYE).
     pub method: SipMethod,
-
     /// The Request-URI indicating the target of the request.
     pub uri: Uri<'a>,
 }
@@ -181,10 +178,8 @@ pub struct RequestLine<'a> {
 pub struct Response<'a> {
     /// The Status-Line of the SIP message.
     pub status_line: StatusLine<'a>,
-
     /// All headers present in the SIP message.
     pub headers: Headers<'a>,
-
     /// The body of the SIP message, if present.
     pub body: Option<&'a [u8]>,
 }
@@ -225,7 +220,6 @@ impl<'a> Response<'a> {
 pub struct StatusLine<'a> {
     /// The SIP status code associated with the response (e.g., 200, 404).
     pub code: StatusCode,
-
     /// The reason phrase explaining the status code (e.g., "OK", "Not Found").
     pub reason: &'a str,
 }

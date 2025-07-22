@@ -6,10 +6,9 @@ pub mod endpoint;
 pub mod headers;
 pub mod message;
 pub mod parser;
-pub mod service;
 pub mod transaction;
 pub mod transport;
-
+pub mod ua;
 
 pub(crate) mod error;
 pub(crate) mod macros;
@@ -17,8 +16,8 @@ pub(crate) mod macros;
 pub use endpoint::Endpoint;
 use error::Error;
 pub use error::Result;
-use parser::ParseCtx;
-pub use service::SipService;
+use parser::Parser;
+pub use endpoint::service::SipService;
 
 #[cfg(test)]
 #[macro_use]
@@ -34,6 +33,11 @@ use std::{
 
 use crate::{error::SipParserError, message::Params};
 
+#[derive(Debug, Clone)]
+pub enum CowArcStr<'a> {
+    Borrowed(&'a str),
+    Owned(Arc<str>),
+}
 
 /// Represents a quality value (q-value) used in SIP
 /// headers.
@@ -138,7 +142,7 @@ impl<'a> MediaType<'a> {
         }
     }
 
-    pub fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    pub fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let mtype = parser.parse_token()?;
         parser.advance();
         let subtype = parser.parse_token()?;
@@ -148,7 +152,7 @@ impl<'a> MediaType<'a> {
     }
 
     pub fn from_static(s: &'static str) -> Result<Self> {
-        Self::parse(&mut ParseCtx::new(s.as_bytes()))
+        Self::parse(&mut Parser::new(s.as_bytes()))
     }
 
     /// Constructs a `MediaType` with an optional

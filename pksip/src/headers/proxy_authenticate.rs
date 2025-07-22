@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 use crate::{error::Result, message::auth::Challenge};
 
 use crate::headers::SipHeaderParse;
@@ -38,7 +38,7 @@ impl<'a> SipHeaderParse<'a> for ProxyAuthenticate<'a> {
      *                        *("," qop-value) RDQUOT
      * qop-value           =  "auth" / "auth-int" / token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let challenge = parser.parse_auth_challenge()?;
 
         Ok(ProxyAuthenticate(challenge))
@@ -63,7 +63,7 @@ mod tests {
         domain=\"sip:ss1.carrier.com\", qop=\"auth\", \
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\", \
         opaque=\"\", stale=FALSE, algorithm=MD5\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest( DigestChallenge { realm, domain, nonce, opaque, stale, algorithm, qop, .. }) => {

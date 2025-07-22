@@ -2,7 +2,7 @@ use crate::{
     error::Result,
     headers::SipHeaderParse,
     macros::{hdr_list, parse_header_param},
-    parser::ParseCtx,
+    parser::Parser,
     MediaType,
 };
 use itertools::Itertools;
@@ -70,7 +70,7 @@ impl<'a> SipHeaderParse<'a> for Accept<'a> {
      * generic-param  =  token [ EQUAL gen-value ]
      * gen-value      =  token / host / quoted-string
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Accept<'a>> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Accept<'a>> {
         let mtypes = hdr_list!(parser => {
             let mtype = parser.parse_token()?;
             parser.advance();
@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"application/sdp;level=1, application/x-private, text/html\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 3);
@@ -118,7 +118,7 @@ mod tests {
         assert_eq!(mtype.mimetype.subtype, "html");
 
         let src = b"application/sdp, application/pidf+xml, message/sipfrag\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 3);
@@ -137,7 +137,7 @@ mod tests {
         assert_eq!(mtype.mimetype.subtype, "sipfrag");
 
         let src = b"application/sdp;q=0.8, application/simple-message-summary+xml;q=0.6\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 2);

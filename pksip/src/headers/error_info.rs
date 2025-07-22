@@ -6,7 +6,7 @@ use crate::{
     error::Result,
     macros::{hdr_list, parse_header_param},
     message::Params,
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 use crate::headers::SipHeaderParse;
@@ -41,7 +41,7 @@ impl<'a> SipHeaderParse<'a> for ErrorInfo<'a> {
      * Error-Info  =  "Error-Info" HCOLON error-uri *(COMMA error-uri)
      * error-uri   =  LAQUOT absoluteURI RAQUOT *( SEMI generic-param )
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let infos = hdr_list!(parser => {
             parser.advance();
             let url = parser.read_until_byte(b'>');
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:not-in-service-recording@atlanta.com>\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let err_info = ErrorInfo::parse(&mut scanner).unwrap();
         assert_eq!(scanner.remaing(), b"\r\n");
 

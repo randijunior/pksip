@@ -1,4 +1,4 @@
-use crate::{error::Result, headers::SipHeaderParse, macros::hdr_list, message::SipMethod, parser::ParseCtx};
+use crate::{error::Result, headers::SipHeaderParse, macros::hdr_list, message::SipMethod, parser::Parser};
 use itertools::Itertools;
 use std::fmt;
 
@@ -48,9 +48,9 @@ impl<'a> SipHeaderParse<'a> for Allow {
     /*
      * Allow  =  "Allow" HCOLON [SipMethod *(COMMA SipMethod)]
      */
-    fn parse(parser: &mut ParseCtx) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let allow = hdr_list!(parser => {
-            let b_method = parser.alpha();
+            let b_method = parser.alphabetic();
 
             SipMethod::from(b_method)
         });
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"INVITE, ACK, OPTIONS, CANCEL, BYE\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let allow = Allow::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");

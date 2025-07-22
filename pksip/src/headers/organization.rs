@@ -1,7 +1,7 @@
 use std::{fmt, str};
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -19,8 +19,8 @@ impl<'a> SipHeaderParse<'a> for Organization<'a> {
     /*
      * Organization  =  "Organization" HCOLON [TEXT-UTF8-TRIM]
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let organization = parser.parse_header_value_as_str()?;
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let organization = parser.parse_header_str()?;
 
         Ok(Organization(organization))
     }
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Boxes by Bob\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let org = Organization::parse(&mut scanner).unwrap();
 
         assert_eq!(org.0, "Boxes by Bob");

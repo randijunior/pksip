@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use itertools::Itertools;
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 use crate::{error::Result, macros::hdr_list};
 
 use crate::headers::SipHeaderParse;
@@ -18,7 +18,7 @@ impl<'a> SipHeaderParse<'a> for Unsupported<'a> {
     /*
      * Unsupported  =  "Unsupported" HCOLON option-tag *(COMMA option-tag)
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let tags = hdr_list!(parser => parser.parse_token()?);
 
         Ok(Unsupported(tags))

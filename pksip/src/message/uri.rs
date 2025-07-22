@@ -10,10 +10,10 @@ use itertools::Itertools;
 
 use crate::{
     error::{Error, Result},
-    parser::ParseCtx,
+    parser::Parser,
 };
 
-use super::{Params, SipMethod, TransportKind};
+use super::{Params, SipMethod, TransportProtocol};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 /// A SIP URI.
@@ -50,7 +50,7 @@ impl std::fmt::Display for SipUri<'_> {
 impl<'a> SipUri<'a> {
     /// Create a `SipUri` with a static string.
     pub fn from_static(s: &'static str) -> Result<Self> {
-        let mut p = ParseCtx::new(s.as_bytes());
+        let mut p = Parser::new(s.as_bytes());
 
         p.parse_sip_uri(true)
     }
@@ -104,7 +104,7 @@ impl<'a> SipUri<'a> {
     }
 
     /// Returns the `transport` parameter.
-    pub fn transport_param(&self) -> Option<TransportKind> {
+    pub fn transport_param(&self) -> Option<TransportProtocol> {
         match self {
             SipUri::Uri(uri) => uri.transport_param,
             SipUri::NameAddr(name_addr) => name_addr.uri.transport_param,
@@ -198,7 +198,7 @@ pub struct Uri<'a> {
     pub method_param: Option<SipMethod>,
 
     /// Optional transport param.
-    pub transport_param: Option<TransportKind>,
+    pub transport_param: Option<TransportProtocol>,
 
     /// Optional ttl param.
     pub ttl_param: Option<u8>,
@@ -265,7 +265,6 @@ impl std::fmt::Display for Uri<'_> {
     }
 }
 
-
 impl<'a> Uri<'a> {
     /// Convert
     pub fn into_owned(self) -> Uri<'static> {
@@ -308,7 +307,7 @@ impl<'a> Uri<'a> {
     ///
     /// Panics if the string is not a legal sip URI.
     pub fn from_static(s: &'static str) -> Result<Self> {
-        let mut p = ParseCtx::new(s.as_bytes());
+        let mut p = Parser::new(s.as_bytes());
 
         p.parse_uri(true)
     }
@@ -356,7 +355,7 @@ impl<'a> UriBuilder<'a> {
     }
 
     /// Sets the transport parameter of the uri.
-    pub fn transport_param(mut self, param: TransportKind) -> Self {
+    pub fn transport_param(mut self, param: TransportProtocol) -> Self {
         self.uri.transport_param = Some(param);
         self
     }
@@ -446,7 +445,7 @@ impl<'a> NameAddr<'a> {
     ///
     /// Panics if the string is not a legal sip message.
     pub fn from_static(s: &'static str) -> Result<Self> {
-        let mut p = ParseCtx::new(s.as_bytes());
+        let mut p = Parser::new(s.as_bytes());
 
         p.parse_name_addr()
     }
@@ -534,7 +533,7 @@ impl FromStr for HostPort {
     type Err = Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut p = ParseCtx::new(s.as_bytes());
+        let mut p = Parser::new(s.as_bytes());
 
         p.parse_host_port()
     }

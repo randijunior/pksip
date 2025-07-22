@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::error::Result;
 use crate::macros::hdr_list;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -21,7 +21,7 @@ impl<'a> SipHeaderParse<'a> for Require<'a> {
     /*
      * Require  =  "Require" HCOLON option-tag *(COMMA option-tag)
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let tags = hdr_list!(parser => parser.parse_token()?);
 
         Ok(Require(tags))
@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"100rel\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let require = Require::parse(&mut scanner);
         let require = require.unwrap();
 

@@ -1,4 +1,4 @@
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::error::Result;
 
@@ -42,7 +42,7 @@ impl<'a> SipHeaderParse<'a> for MaxForwards {
     /*
      * Max-Forwards  =  "Max-Forwards" HCOLON 1*DIGIT
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<MaxForwards> {
+    fn parse(parser: &mut Parser<'a>) -> Result<MaxForwards> {
         let fowards = parser.parse_u32()?;
 
         Ok(MaxForwards(fowards))
@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"6\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let c_length = MaxForwards::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");

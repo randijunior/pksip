@@ -59,11 +59,11 @@ impl TsxKey {
     }
 
     pub fn create_server(request: &IncomingRequest) -> Self {
-        match request.req_headers.via.branch() {
+        match request.request_headers.via.branch() {
             Some(branch) if branch.starts_with(BRANCH_RFC3261) => TsxKey::Rfc3261(Rfc3261::Server(ServerTsxKey {
                 branch: branch.into(),
-                via_sent_by: request.req_headers.via.sent_by().clone(),
-                method: Some(*request.req_headers.cseq.method()),
+                via_sent_by: request.request_headers.via.sent_by().clone(),
+                method: Some(*request.request_headers.cseq.method()),
             })),
             _ => {
                 todo!("create rfc 2543")

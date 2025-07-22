@@ -2,7 +2,7 @@ use std::fmt;
 use std::str;
 use std::u32;
 
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 use crate::{error::Result, macros::parse_header_param, message::Params};
 
 use crate::headers::SipHeaderParse;
@@ -28,11 +28,11 @@ impl<'a> SipHeaderParse<'a> for RetryAfter<'a> {
      * retry-param  =  ("duration" EQUAL delta-seconds)
      *                 / generic-param
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let digits = parser.parse_u32()?;
         let mut comment = None;
 
-        parser.take_ws();
+        parser.ws();
         if let Some(b'(') = parser.peek() {
             parser.advance();
             let b = parser.read_until_byte(b')');
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"18000;duration=3600\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let retry_after = RetryAfter::parse(&mut scanner);
         let retry_after = retry_after.unwrap();
 
@@ -81,7 +81,7 @@ mod tests {
         assert_eq!(retry_after.param.unwrap().get("duration").unwrap(), Some("3600"));
 
         let src = b"120 (I'm in a meeting)\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let retry_after = RetryAfter::parse(&mut scanner);
         let retry_after = retry_after.unwrap();
 

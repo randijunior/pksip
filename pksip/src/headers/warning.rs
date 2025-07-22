@@ -1,6 +1,6 @@
 use std::{fmt, str};
 
-use crate::parser::{is_host, ParseCtx};
+use crate::parser::{is_host, Parser};
 use crate::{error::Result, macros::parse_error};
 
 use crate::headers::SipHeaderParse;
@@ -27,11 +27,11 @@ impl<'a> SipHeaderParse<'a> for Warning<'a> {
      * warn-text      =  quoted-string
      * pseudonym      =  token
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let code = parser.parse_u32()?;
-        parser.take_ws();
+        parser.ws();
         let host = unsafe { parser.read_as_str(is_host) };
-        parser.take_ws();
+        parser.ws();
         let Some(b'"') = parser.peek() else {
             return parse_error!("invalid warning header!");
         };
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"307 isi.edu \"Session parameter 'foo' not understood\"";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let warn = Warning::parse(&mut scanner);
         let warn = warn.unwrap();
 

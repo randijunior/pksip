@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -48,8 +48,8 @@ impl<'a> SipHeaderParse<'a> for Date<'a> {
      *                  / "Thu" / "Fri" / "Sat" / "Sun"
      * month         =  "Jan" / "Feb" / "Mar" / "Apr" ...
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
-        let date = parser.parse_header_value_as_str()?;
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let date = parser.parse_header_str()?;
 
         Ok(Date(date))
     }
@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Sat, 13 Nov 2010 23:29:00 GMT\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let date = Date::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");

@@ -1,7 +1,7 @@
 use std::{fmt, str};
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -20,7 +20,7 @@ impl<'a> SipHeaderParse<'a> for MimeVersion {
     /*
      * MIME-Version  =  "MIME-Version" HCOLON 1*DIGIT "." 1*DIGIT
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let (major, _, minor) = (parser.parse_num()?, parser.must_read(b'.')?, parser.parse_num()?);
 
         Ok(MimeVersion { major, minor })
@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"1.0";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let mime_version = MimeVersion::parse(&mut scanner).unwrap();
 
         assert_eq!(mime_version.major, 1);

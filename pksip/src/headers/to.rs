@@ -3,7 +3,7 @@ use crate::{
     headers::TAG_PARAM,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::ParseCtx,
+    parser::Parser,
 };
 
 use crate::headers::SipHeaderParse;
@@ -49,9 +49,18 @@ pub struct To<'a> {
 impl<'a> To<'a> {
     /// Parse a `To` header instance from a `&str`.
     pub fn from_str(s: &'a str) -> Result<Self> {
-        Self::parse(&mut ParseCtx::new(s.as_bytes()))
+        Self::parse(&mut Parser::new(s.as_bytes()))
     }
-    
+
+    /// Convert the `To` header into an owned version.
+    pub fn into_owned(self) -> To<'static> {
+        To {
+            uri: self.uri.into_owned(),
+            tag: self.tag.map(|t| Cow::Owned(t.into_owned())),
+            params: self.params.map(Params::into_owned),
+        }
+    }
+
     /// Create a new `To` instance.
     pub fn new(uri: SipUri<'a>) -> Self {
         Self {
@@ -74,6 +83,11 @@ impl<'a> To<'a> {
     pub fn set_tag(&mut self, tag: Option<&'a str>) {
         self.tag = tag.map(Cow::Borrowed);
     }
+
+    /// Set the tag parameter.
+    pub fn set_tag_onwed(&mut self, tag: Option<String>) {
+        self.tag = tag.map(Cow::Owned);
+    }
 }
 
 impl<'a> SipHeaderParse<'a> for To<'a> {
@@ -84,7 +98,7 @@ impl<'a> SipHeaderParse<'a> for To<'a> {
      *              / addr-spec ) *( SEMI to-param )
      * to-param  =  tag-param / generic-param
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let uri = parser.parse_sip_uri(false)?;
         let mut tag = None;
         let params = parse_header_param!(parser, TAG_PARAM = tag);
@@ -153,7 +167,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>;tag=a6c85cf\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let to = To::parse(&mut scanner);
         let to = to.unwrap();
 

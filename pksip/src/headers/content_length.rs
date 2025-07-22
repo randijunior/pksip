@@ -2,7 +2,7 @@ use core::fmt;
 use std::str;
 
 use crate::error::Result;
-use crate::parser::ParseCtx;
+use crate::parser::Parser;
 
 use crate::headers::SipHeaderParse;
 
@@ -44,7 +44,7 @@ impl<'a> SipHeaderParse<'a> for ContentLength {
     /*
      * Content-Length  =  ( "Content-Length" / "l" ) HCOLON 1*DIGIT
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<ContentLength> {
+    fn parse(parser: &mut Parser<'a>) -> Result<ContentLength> {
         let l = parser.parse_u32()?;
 
         Ok(ContentLength(l))
@@ -63,6 +63,12 @@ impl Default for ContentLength {
     }
 }
 
+impl From<u32> for ContentLength {
+    fn from(c_len: u32) -> Self {
+        Self(c_len)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,7 +76,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"349\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let length = ContentLength::parse(&mut scanner);
         let length = length.unwrap();
 

@@ -1,5 +1,5 @@
 use super::SipHeaderParse;
-use crate::{error::Result, macros::parse_header_param, message::Params, parser::ParseCtx};
+use crate::{error::Result, macros::parse_header_param, message::Params, parser::Parser};
 use std::{borrow::Cow, fmt, str};
 
 const PURPOSE: &str = "purpose";
@@ -59,7 +59,7 @@ impl<'a> SipHeaderParse<'a> for CallInfo<'a> {
      * info-param = ("purpose" EQUAL ("icon" | "info" | "card" | token)) |
      *		        generic-param
      */
-    fn parse(parser: &mut ParseCtx<'a>) -> Result<Self> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
         let mut purpose: Option<Cow<'a, str>> = None;
         // must be an '<'
         parser.advance();
@@ -94,7 +94,7 @@ mod tests {
     fn test_parse() {
         let src = b"<http://wwww.example.com/alice/photo.jpg> \
         ;purpose=icon\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let info = CallInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaing(), b"\r\n");
@@ -102,7 +102,7 @@ mod tests {
         assert_eq!(info.purpose, Some("icon".into()));
 
         let src = b"<http://www.example.com/alice/> ;purpose=info\r\n";
-        let mut scanner = ParseCtx::new(src);
+        let mut scanner = Parser::new(src);
         let info = CallInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(info.url, "http://www.example.com/alice/");
