@@ -2,13 +2,7 @@ use enum_as_inner::EnumAsInner;
 use std::fmt;
 use std::str;
 
-use crate::headers::{
-    Accept, AcceptEncoding, AcceptLanguage, AlertInfo, Allow, AuthenticationInfo, Authorization, CSeq, CallId,
-    CallInfo, Contact, ContentDisposition, ContentEncoding, ContentLanguage, ContentLength, ContentType, Date,
-    ErrorInfo, Expires, From, InReplyTo, MaxForwards, MimeVersion, MinExpires, Organization, Priority,
-    ProxyAuthenticate, ProxyAuthorization, ProxyRequire, RecordRoute, ReplyTo, Require, RetryAfter, Route, Server,
-    Subject, Supported, Timestamp, To, Unsupported, UserAgent, Via, WWWAuthenticate, Warning,
-};
+use crate::headers::*;
 
 /// A SIP Header.
 ///

@@ -91,7 +91,7 @@ impl<'buf> Parser<'buf> {
 
     /// Parse a buffer of bytes into a `SipMsg`.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example parses a simple SIP response message and asserts its contents:
     ///
@@ -1424,7 +1424,7 @@ mod tests {
         assert_eq!(request.method(), &SipMethod::Invite);
         assert_eq!(request.req_line.uri, expected_uri);
         assert_eq!(request.headers, expected_headers);
-        assert_eq!(request.body, Some("Test\r\n".as_bytes()));
+        assert_eq!(request.body, Some("Test\r\n".as_bytes().into()));
     }
 
     #[test]

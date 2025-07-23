@@ -99,7 +99,6 @@ pub use www_authenticate::WWWAuthenticate;
 
 use core::fmt;
 use std::{
-    iter::{Filter, FilterMap},
     ops::{Index, Range, RangeFrom},
     str::{self},
 };
@@ -307,6 +306,11 @@ impl<'hdr> Headers<'hdr> {
     /// Returns the total number of elements the header list can hold without reallocating.
     pub fn capacity(&self) -> usize {
         self.0.capacity()
+    }
+    
+    /// Convert this [`Headers`] into an owned version of itself.
+    pub fn into_owned(self) -> Headers<'static> {
+        unimplemented!()
     }
 }
 
