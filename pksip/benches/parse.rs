@@ -23,7 +23,8 @@ User-Agent: X-Lite release 1104o stamp 56125\r\n\r\n";
     c.bench_function("parse_sip_msg invite with sdp", |b| {
         b.iter(|| {
             let mut parser = Parser::new(black_box(buf));
-            let _ = parser.parse_sip_msg().unwrap();
+            let msg = parser.parse_sip_msg().unwrap();
+            black_box(msg);
         });
     });
 }
