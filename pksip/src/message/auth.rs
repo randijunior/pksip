@@ -1,45 +1,75 @@
 //! SIP Auth types
-//!
-use std::{borrow::Cow, fmt};
+use std::fmt;
 
-use crate::message::Params;
+use super::Parameters;
+use crate::ArcStr;
+
+/// The cnonce parameter used in Digest authentication.
+pub const CNONCE: &str = "cnonce";
+/// The qop parameter used in Digest authentication.
+pub const QOP: &str = "qop";
+/// The nc parameter used in Digest authentication.
+pub const NC: &str = "nc";
+/// The nextnonce parameter used in Digest authentication.
+pub const NEXTNONCE: &str = "nextnonce";
+/// The rspauth parameter used in Digest authentication.
+pub const RSPAUTH: &str = "rspauth";
+/// The SIP authentication scheme used in Digest authentication.
+pub const DIGEST: &str = "Digest";
+/// The realm parameter used in Digest authentication.
+pub const REALM: &str = "realm";
+/// The username parameter used in Digest authentication.
+pub const USERNAME: &str = "username";
+/// The nonce parameter used in Digest authentication.
+pub const NONCE: &str = "nonce";
+/// The uri parameter used in Digest authentication.
+pub const URI: &str = "uri";
+/// The response parameter used in Digest authentication.
+pub const RESPONSE: &str = "response";
+/// The algorithm parameter used in Digest authentication.
+pub const ALGORITHM: &str = "algorithm";
+/// The opaque parameter used in Digest authentication.
+pub const OPAQUE: &str = "opaque";
+/// The authentication scheme used in Digest authentication.
+pub const DOMAIN: &str = "domain";
+/// The authentication scheme used in Digest authentication.
+pub const STALE: &str = "stale";
 
 /// A Digest Challenge.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct DigestChallenge<'a> {
+pub struct DigestChallenge {
     /// The realm of the digest authentication.
-    pub realm: Option<Cow<'a, str>>,
+    pub realm: Option<ArcStr>,
     /// The domain of the digest authentication.
-    pub domain: Option<Cow<'a, str>>,
+    pub domain: Option<ArcStr>,
     /// The nonce of the digest authentication.
-    pub nonce: Option<Cow<'a, str>>,
+    pub nonce: Option<ArcStr>,
     /// The opaque value of the digest authentication.
-    pub opaque: Option<Cow<'a, str>>,
+    pub opaque: Option<ArcStr>,
     /// Indicates whether the previous request was stale.
-    pub stale: Option<Cow<'a, str>>,
+    pub stale: Option<ArcStr>,
     /// The algorithm used in the digest authentication.
-    pub algorithm: Option<Cow<'a, str>>,
+    pub algorithm: Option<ArcStr>,
     /// The quality of protection (qop) value.
-    pub qop: Option<Cow<'a, str>>,
+    pub qop: Option<ArcStr>,
 }
 
-/// This enum represents an authentication challenge mechanism
-/// used in `Proxy-Authenticate` and `WWW-Authenticate` headers.
+/// This enum represents an authentication challenge mechanism used in
+/// `Proxy-Authenticate` and `WWW-Authenticate` headers.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Challenge<'a> {
+pub enum Challenge {
     /// A `Digest` authentication scheme.
-    Digest(DigestChallenge<'a>),
+    Digest(DigestChallenge),
     /// Any other authentication scheme not specifically handled.
     Other {
         /// The name of the authentication scheme.
-        scheme: Cow<'a, str>,
-
+        scheme: ArcStr,
         /// The parameters associated with the scheme.
-        param: Params<'a>,
+        param: Parameters,
     },
 }
 
-impl fmt::Display for Challenge<'_> {
+impl fmt::Display for Challenge {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Challenge::Digest(DigestChallenge {
@@ -53,78 +83,80 @@ impl fmt::Display for Challenge<'_> {
             }) => {
                 write!(f, "Digest ")?;
                 if let Some(realm) = realm {
-                    write!(f, "realm={realm}")?;
+                    write!(f, "realm={realm}, ")?;
                 }
                 if let Some(domain) = domain {
-                    write!(f, ", domain={domain}")?;
+                    write!(f, "domain={domain}, ")?;
                 }
                 if let Some(nonce) = nonce {
-                    write!(f, ", nonce={nonce}")?;
+                    write!(f, "nonce={nonce}, ")?;
                 }
                 if let Some(opaque) = opaque {
-                    write!(f, ", opaque={opaque}")?;
+                    write!(f, "opaque={opaque}, ")?;
                 }
                 if let Some(stale) = stale {
-                    write!(f, ", stale={stale}")?;
+                    write!(f, "stale={stale}, ")?;
                 }
                 if let Some(algorithm) = algorithm {
-                    write!(f, ", algorithm={algorithm}")?;
+                    write!(f, "algorithm={algorithm}, ")?;
                 }
                 if let Some(qop) = qop {
-                    write!(f, ", qop={qop}")?;
+                    write!(f, "qop={qop}")?;
                 }
 
                 Ok(())
             }
-            Challenge::Other { scheme: _, param: _ } => todo!(),
+            Challenge::Other {
+                scheme: _,
+                param: _,
+            } => todo!(),
         }
     }
 }
 
-/// Represents credentials for a `Digest` authentication scheme,
-/// typically found in the `Authorization` and `Proxy-Authorization` headers.
+/// Represents credentials for a `Digest` authentication scheme, typically found
+/// in the `Authorization` and `Proxy-Authorization` headers.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct DigestCredential<'a> {
+pub struct DigestCredential {
     /// The realm value that defines the protection space.
-    pub realm: Option<Cow<'a, str>>,
+    pub realm: Option<ArcStr>,
     /// The username associated with the credential.
-    pub username: Option<Cow<'a, str>>,
+    pub username: Option<ArcStr>,
     /// The nonce value provided by the server.
-    pub nonce: Option<Cow<'a, str>>,
+    pub nonce: Option<ArcStr>,
     /// The URI of the requested resource.
-    pub uri: Option<Cow<'a, str>>,
+    pub uri: Option<ArcStr>,
     /// The response hash calculated from the credential data.
-    pub response: Option<Cow<'a, str>>,
+    pub response: Option<ArcStr>,
     /// The algorithm used to hash the credentials (e.g., "MD5").
-    pub algorithm: Option<Cow<'a, str>>,
+    pub algorithm: Option<ArcStr>,
     /// The client nonce value (cnonce) used to prevent replay attacks.
-    pub cnonce: Option<Cow<'a, str>>,
+    pub cnonce: Option<ArcStr>,
     /// The opaque value provided by the server, to be returned unchanged.
-    pub opaque: Option<Cow<'a, str>>,
+    pub opaque: Option<ArcStr>,
     /// The quality of protection (qop) applied to the message.
-    pub qop: Option<Cow<'a, str>>,
-    /// The nonce count (nc), indicating the number of requests made with the same nonce.
-    pub nc: Option<Cow<'a, str>>,
+    pub qop: Option<ArcStr>,
+    /// The nonce count (nc), indicating the number of requests made with the
+    /// same nonce.
+    pub nc: Option<ArcStr>,
 }
 
-/// This type represent a credential containing the
-/// authentication information in `Authorization` and
-/// `Proxy-Authorization` headers.
+/// This type represent a credential containing the authentication information
+/// in `Authorization` and `Proxy-Authorization` headers.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Credential<'a> {
+pub enum Credential {
     /// A `digest` authentication scheme.
-    Digest(DigestCredential<'a>),
+    Digest(DigestCredential),
     /// Other scheme not specified.
     Other {
         /// The name of the authentication scheme.
-        scheme: Cow<'a, str>,
-
+        scheme: ArcStr,
         /// The parameters associated with the scheme.
-        param: Params<'a>,
+        param: Parameters,
     },
 }
 
-impl fmt::Display for Credential<'_> {
+impl fmt::Display for Credential {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Credential::Digest(DigestCredential {
@@ -144,36 +176,39 @@ impl fmt::Display for Credential<'_> {
                     write!(f, "username={username}")?;
                 }
                 if let Some(realm) = realm {
-                    write!(f, ", realm={realm}")?;
+                    write!(f, "realm={realm}, ")?;
                 }
                 if let Some(nonce) = nonce {
-                    write!(f, ", nonce={nonce}")?;
+                    write!(f, "nonce={nonce}, ")?;
                 }
                 if let Some(uri) = uri {
-                    write!(f, ", uri={uri}")?;
+                    write!(f, "uri={uri}, ")?;
                 }
                 if let Some(response) = response {
-                    write!(f, ", response={response}")?;
+                    write!(f, "response={response}, ")?;
                 }
                 if let Some(algorithm) = algorithm {
-                    write!(f, ", algorithm={algorithm}")?;
+                    write!(f, "algorithm={algorithm}, ")?;
                 }
                 if let Some(cnonce) = cnonce {
-                    write!(f, ", cnonce={cnonce}")?;
+                    write!(f, "cnonce={cnonce}, ")?;
                 }
                 if let Some(qop) = qop {
-                    write!(f, ", qop={qop}")?;
+                    write!(f, "qop={qop}, ")?;
                 }
                 if let Some(nc) = nc {
-                    write!(f, ", nc={nc}")?;
+                    write!(f, "nc={nc}, ")?;
                 }
                 if let Some(opaque) = opaque {
-                    write!(f, ", opaque={opaque}")?;
+                    write!(f, "opaque={opaque}, ")?;
                 }
 
                 Ok(())
             }
-            Credential::Other { scheme: _, param: _ } => todo!(),
+            Credential::Other {
+                scheme: _,
+                param: _,
+            } => todo!(),
         }
     }
 }

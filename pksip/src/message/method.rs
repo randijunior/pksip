@@ -1,52 +1,37 @@
 use std::fmt;
 
-const SIP_INVITE: &[u8] = b"INVITE";
-const SIP_CANCEL: &[u8] = b"CANCEL";
-const SIP_ACK: &[u8] = b"ACK";
-const SIP_BYE: &[u8] = b"BYE";
-const SIP_REGISTER: &[u8] = b"REGISTER";
-const SIP_OPTIONS: &[u8] = b"OPTIONS";
-const SIP_INFO: &[u8] = b"INFO";
-const SIP_NOTIFY: &[u8] = b"NOTIFY";
-const SIP_SUBSCRIBE: &[u8] = b"SUBSCRIBE";
-const SIP_UPDATE: &[u8] = b"UPDATE";
-const SIP_REFER: &[u8] = b"REFER";
-const SIP_PRACK: &[u8] = b"PRACK";
-const SIP_MESSAGE: &[u8] = b"MESSAGE";
-const SIP_PUBLISH: &[u8] = b"PUBLISH";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-/// An SIP Method.
+/// An SIP SipMethod.
 ///
-/// This enum declares SIP methods as described by RFC3261.
+/// This enum declares SIP methods as described by RFC3261 and Others.
 pub enum SipMethod {
-    /// SIP INVITE Method.
+    /// SIP INVITE SipMethod.
     Invite,
-    /// SIP ACK Method.
+    /// SIP ACK SipMethod.
     Ack,
-    /// SIP BYE Method.
+    /// SIP BYE SipMethod.
     Bye,
-    /// SIP CANCEL Method.
+    /// SIP CANCEL SipMethod.
     Cancel,
-    /// SIP REGISTER Method.
+    /// SIP REGISTER SipMethod.
     Register,
-    /// SIP OPTIONS Method.
+    /// SIP OPTIONS SipMethod.
     Options,
-    /// SIP INFO Method.
+    /// SIP INFO SipMethod.
     Info,
-    /// SIP NOTIFY Method.
+    /// SIP NOTIFY SipMethod.
     Notify,
-    /// SIP SUBSCRIBE Method.
+    /// SIP SUBSCRIBE SipMethod.
     Subscribe,
-    /// SIP UPDATE Method.
+    /// SIP UPDATE SipMethod.
     Update,
-    /// SIP REFER Method.
+    /// SIP REFER SipMethod.
     Refer,
-    /// SIP PRACK Method.
+    /// SIP PRACK SipMethod.
     Prack,
-    /// SIP MESSAGE Method.
+    /// SIP MESSAGE SipMethod.
     Message,
-    /// SIP PUBLISH Method.
+    /// SIP PUBLISH SipMethod.
     Publish,
     /// An unknown SIP method.
     Unknown,
@@ -55,43 +40,54 @@ pub enum SipMethod {
 impl SipMethod {
     /// Returns the byte representation of a method.
     pub fn as_bytes(&self) -> &'static [u8] {
+        self.as_str().as_bytes()
+    }
+
+    /// Returns the string representation of a method.
+    #[inline(always)]
+    pub fn as_str(&self) -> &'static str {
         match self {
-            SipMethod::Invite => SIP_INVITE,
-            SipMethod::Ack => SIP_ACK,
-            SipMethod::Bye => SIP_BYE,
-            SipMethod::Cancel => SIP_CANCEL,
-            SipMethod::Register => SIP_REGISTER,
-            SipMethod::Options => SIP_OPTIONS,
-            SipMethod::Info => SIP_INFO,
-            SipMethod::Notify => SIP_NOTIFY,
-            SipMethod::Subscribe => SIP_SUBSCRIBE,
-            SipMethod::Update => SIP_UPDATE,
-            SipMethod::Refer => SIP_REFER,
-            SipMethod::Prack => SIP_PRACK,
-            SipMethod::Message => SIP_MESSAGE,
-            SipMethod::Publish => SIP_PUBLISH,
-            SipMethod::Unknown => b"UNKNOWN-SipMethod",
+            SipMethod::Invite => "INVITE",
+            SipMethod::Ack => "ACK",
+            SipMethod::Bye => "BYE",
+            SipMethod::Cancel => "CANCEL",
+            SipMethod::Register => "REGISTER",
+            SipMethod::Options => "OPTIONS",
+            SipMethod::Info => "INFO",
+            SipMethod::Notify => "NOTIFY",
+            SipMethod::Subscribe => "SUBSCRIBE",
+            SipMethod::Update => "UPDATE",
+            SipMethod::Refer => "REFER",
+            SipMethod::Prack => "PRACK",
+            SipMethod::Message => "MESSAGE",
+            SipMethod::Publish => "PUBLISH",
+            SipMethod::Unknown => "UNKNOWN-SipMethod",
         }
+    }
+
+    /// Returns `true` if this method can establish a dialog
+    pub const fn can_establish_a_dialog(&self) -> bool {
+        matches!(self, SipMethod::Invite)
     }
 }
 
 impl From<&[u8]> for SipMethod {
     fn from(value: &[u8]) -> Self {
         match value {
-            SIP_INVITE => SipMethod::Invite,
-            SIP_CANCEL => SipMethod::Cancel,
-            SIP_ACK => SipMethod::Ack,
-            SIP_BYE => SipMethod::Bye,
-            SIP_REGISTER => SipMethod::Register,
-            SIP_OPTIONS => SipMethod::Options,
-            SIP_INFO => SipMethod::Info,
-            SIP_NOTIFY => SipMethod::Notify,
-            SIP_SUBSCRIBE => SipMethod::Subscribe,
-            SIP_UPDATE => SipMethod::Update,
-            SIP_REFER => SipMethod::Refer,
-            SIP_PRACK => SipMethod::Prack,
-            SIP_MESSAGE => SipMethod::Message,
-            SIP_PUBLISH => SipMethod::Publish,
+            b"INVITE" => SipMethod::Invite,
+            b"CANCEL" => SipMethod::Cancel,
+            b"ACK" => SipMethod::Ack,
+            b"BYE" => SipMethod::Bye,
+            b"REGISTER" => SipMethod::Register,
+            b"OPTIONS" => SipMethod::Options,
+            b"INFO" => SipMethod::Info,
+            b"NOTIFY" => SipMethod::Notify,
+            b"SUBSCRIBE" => SipMethod::Subscribe,
+            b"UPDATE" => SipMethod::Update,
+            b"REFER" => SipMethod::Refer,
+            b"PRACK" => SipMethod::Prack,
+            b"MESSAGE" => SipMethod::Message,
+            b"PUBLISH" => SipMethod::Publish,
             _ => SipMethod::Unknown,
         }
     }
@@ -99,22 +95,6 @@ impl From<&[u8]> for SipMethod {
 
 impl fmt::Display for SipMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SipMethod::Invite => write!(f, "INVITE"),
-            SipMethod::Ack => write!(f, "ACK"),
-            SipMethod::Bye => write!(f, "BYE"),
-            SipMethod::Cancel => write!(f, "CANCEL"),
-            SipMethod::Register => write!(f, "REGISTER"),
-            SipMethod::Options => write!(f, "OPTIONS"),
-            SipMethod::Info => write!(f, "INFO"),
-            SipMethod::Notify => write!(f, "NOTIFY"),
-            SipMethod::Subscribe => write!(f, "SUBSCRIBE"),
-            SipMethod::Update => write!(f, "UPDATE"),
-            SipMethod::Refer => write!(f, "REFER"),
-            SipMethod::Prack => write!(f, "PRACK"),
-            SipMethod::Message => write!(f, "MESSAGE"),
-            SipMethod::Publish => write!(f, "PUBLISH"),
-            SipMethod::Unknown => write!(f, "UNKNOWN-SipMethod"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }

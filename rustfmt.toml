@@ -1,1 +1,10 @@
-max_width = 120
+group_imports = "StdExternalCrate"
+imports_granularity = "Item"
+imports_layout = "Mixed"
+reorder_impl_items = true
+reorder_imports = true
+reorder_modules = true
+unstable_features = true
+format_code_in_doc_comments = true
+comment_width = 80
+wrap_comments = true

@@ -1,4 +1,4 @@
-//! SIP WebSocket Arc<dyn Transport> Implementation.
+//! SIP WebSocket TransportRef Implementation.
 // Temporarily allow unused imports and dead code warnings.
 #![allow(unused_imports)]
 #![allow(dead_code)]
@@ -9,36 +9,46 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use super::{Direction, Transport, TransportTx};
-use crate::message::TransportProtocol;
-use crate::transport::{ws, Packet, Payload, TransportEvent};
-use crate::{error::Result, Endpoint};
+use futures_util::future;
+use futures_util::pin_mut;
 use futures_util::stream::SplitSink;
-use futures_util::{future, StreamExt, TryStreamExt};
-use futures_util::{pin_mut, SinkExt};
+use futures_util::SinkExt;
+use futures_util::StreamExt;
+use futures_util::TryStreamExt;
+use hyper::body::Incoming;
+use hyper::header::SEC_WEBSOCKET_KEY;
 use hyper::header::SEC_WEBSOCKET_PROTOCOL;
-use hyper::{
-    body::Incoming,
-    header::{SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_VERSION},
-    server::conn::http1,
-    service::service_fn,
-    upgrade::Upgraded,
-    Request, Response,
-};
+use hyper::header::SEC_WEBSOCKET_VERSION;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper::upgrade::Upgraded;
+use hyper::Request;
+use hyper::Response;
 use hyper_util::rt::TokioIo;
-use tokio::net::{TcpListener, ToSocketAddrs};
-
+use tokio::net::TcpListener;
+use tokio::net::ToSocketAddrs;
 use tokio::sync::Mutex;
+use tokio_tungstenite::accept_async;
+use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
 use tokio_tungstenite::tungstenite::protocol::Role;
-use tokio_tungstenite::{tungstenite::handshake::derive_accept_key, WebSocketStream};
+use tokio_tungstenite::tungstenite::Error;
+use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
+use tokio_tungstenite::tungstenite::Result as TungsteniteResult;
+use tokio_tungstenite::WebSocketStream;
 
-use tokio_tungstenite::{
-    accept_async,
-    tungstenite::{Error, Message, Result as TungsteniteResult},
-};
+use super::Direction;
+use super::Transport;
+use super::TransportTx;
+use super::TransportType;
+use crate::error::Result;
+use crate::transport::ws;
+use crate::transport::Packet;
+use crate::transport::Payload;
+use crate::transport::TransportMessage;
+use crate::SipEndpoint;
 
 type Body = http_body_util::Full<hyper::body::Bytes>;
-type WsWrite = Arc<Mutex<SplitSink<WebSocketStream<TokioIo<Upgraded>>, Message>>>;
+type WsWrite = Arc<Mutex<SplitSink<WebSocketStream<TokioIo<Upgraded>>, TungsteniteMessage>>>;
 
 /// WebSocket transport implementation.
 pub struct WebSocketTransport {
@@ -52,7 +62,7 @@ pub struct WebSocketTransport {
 impl Transport for WebSocketTransport {
     async fn send(&self, buf: &[u8], _: &SocketAddr) -> Result<usize> {
         // Convert the buffer into a WebSocket message
-        let message = Message::Binary(buf.to_vec().into());
+        let message = TungsteniteMessage::Binary(buf.to_vec().into());
 
         let mut writer = self.write.lock().await;
 
@@ -65,8 +75,8 @@ impl Transport for WebSocketTransport {
         Ok(buf.len())
     }
 
-    fn tp_kind(&self) -> TransportProtocol {
-        TransportProtocol::Ws
+    fn protocol(&self) -> TransportType {
+        TransportType::Ws
     }
 
     fn addr(&self) -> SocketAddr {
@@ -103,7 +113,11 @@ impl WebSocketServer {
         let addr = sock.local_addr()?;
         let local_name = crate::get_local_name(&addr);
 
-        Ok(Self { sock, addr, local_name })
+        Ok(Self {
+            sock,
+            addr,
+            local_name,
+        })
     }
 
     async fn on_ws_connection(
@@ -124,7 +138,9 @@ impl WebSocketServer {
             write,
         });
 
-        let _ = sender.send(TransportEvent::Created(transport.clone())).await;
+        let _ = sender
+            .send(TransportMessage::Created(transport.clone()))
+            .await;
 
         let mut filtered_msgs = ws_receiver.try_filter(|msg| {
             // Filter out unwanted messages.
@@ -133,9 +149,9 @@ impl WebSocketServer {
 
         while let Some(msg) = filtered_msgs.next().await {
             let payload = match msg? {
-                Message::Text(text) => Payload::new(text.into()),
-                Message::Binary(bin) => Payload::new(bin),
-                Message::Close(_) => {
+                TungsteniteMessage::Text(text) => Payload::new(text.into()),
+                TungsteniteMessage::Binary(bin) => Payload::new(bin),
+                TungsteniteMessage::Close(_) => {
                     log::debug!("WebSocket connection closed");
                     break;
                 }
@@ -145,11 +161,19 @@ impl WebSocketServer {
             };
 
             let time = SystemTime::now();
-            let packet = Packet { payload, addr, time };
+            let packet = Packet {
+                payload,
+                addr,
+                time,
+            };
             let transport = transport.clone();
 
             // Send.
-            if sender.send(TransportEvent::Packet { transport, packet }).await.is_err() {
+            if sender
+                .send(TransportMessage::Packet { transport, packet })
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -185,7 +209,8 @@ impl WebSocketServer {
             match hyper::upgrade::on(&mut req).await {
                 Ok(upgraded) => {
                     let upgraded = TokioIo::new(upgraded);
-                    let stream = WebSocketStream::from_raw_socket(upgraded, Role::Server, None).await;
+                    let stream =
+                        WebSocketStream::from_raw_socket(upgraded, Role::Server, None).await;
 
                     let _ = WebSocketServer::on_ws_connection(stream, tx, addr).await;
                 }
@@ -213,13 +238,18 @@ impl WebSocketServer {
 
             println!("Got incoming WebSocket connection from {}", remote_addr);
 
-            // Let's spawn the handling of each connection in a separate task.
+            // Let's spawn the handling of each connection in a separate
+            // task.
             tokio::spawn(async move {
                 let io = TokioIo::new(stream);
 
-                let service = service_fn(move |req| WebSocketServer::on_received_request(req, tx.clone(), remote_addr));
+                let service = service_fn(move |req| {
+                    WebSocketServer::on_received_request(req, tx.clone(), remote_addr)
+                });
 
-                let conn = http1::Builder::new().serve_connection(io, service).with_upgrades();
+                let conn = http1::Builder::new()
+                    .serve_connection(io, service)
+                    .with_upgrades();
 
                 if let Err(err) = conn.await {
                     log::error!("failed to serve connection: {err:?}");

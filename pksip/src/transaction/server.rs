@@ -1,22 +1,24 @@
-use async_trait::async_trait;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
-use crate::{
-    endpoint::Endpoint,
-    error::Result,
-    message::SipMethod,
-    transaction::{Transaction, State, TransactionInner},
-    transport::{IncomingRequest, OutgoingResponse},
-};
-use std::ops::{Deref, DerefMut};
+use crate::core::SipEndpoint;
+use crate::error::Result;
+use crate::message::SipMethod;
+use crate::transaction::State;
+use crate::transaction::Transaction;
+use crate::transaction::T1;
+use crate::transport::IncomingRequest;
+use crate::transport::OutgoingResponse;
 
 /// Represents a Server Non INVITE transaction.
 #[derive(Clone)]
 pub struct ServerTransaction {
-    transaction: TransactionInner,
+    transaction: Transaction,
 }
 
 impl ServerTransaction {
-    pub(crate) fn new(endpoint: &Endpoint, request: &mut IncomingRequest) -> ServerTransaction {
+    pub(crate) fn new(endpoint: &SipEndpoint, request: &IncomingRequest) -> Self {
+        let transactions = endpoint.transactions();
         let method = request.method();
 
         assert!(
@@ -25,18 +27,16 @@ impl ServerTransaction {
             method
         );
 
-        let tsx_layer = endpoint.get_tsx_layer();
-        let transaction = TransactionInner::create_uas(request, endpoint);
+        let transaction = Transaction::new_uas(request, endpoint);
+        let uas = Self { transaction };
 
-        let uas = ServerTransaction { transaction };
-
-        tsx_layer.add_server_tsx_to_map(uas.clone());
-        request.set_tsx(uas.clone());
+        transactions.add_server_tsx_to_map(uas.clone());
 
         uas
     }
 
-    pub async fn respond(&self, msg: &mut OutgoingResponse<'_>) -> Result<()> {
+    /// Send a response and update the state.
+    pub async fn respond(&self, msg: &mut OutgoingResponse) -> Result<()> {
         self.tsx_send_response(msg).await?;
 
         match self.get_state() {
@@ -52,15 +52,12 @@ impl ServerTransaction {
 
         Ok(())
     }
-}
 
-#[async_trait]
-impl Transaction for ServerTransaction {
-    fn terminate(&self) {
+    pub(super) fn terminate(&self) {
         if self.reliable() {
             self.on_terminated();
         } else {
-            self.schedule_termination(Self::T1 * 64);
+            self.schedule_termination(T1 * 64);
         }
     }
 }
@@ -72,7 +69,7 @@ impl DerefMut for ServerTransaction {
 }
 
 impl Deref for ServerTransaction {
-    type Target = TransactionInner;
+    type Target = Transaction;
 
     fn deref(&self) -> &Self::Target {
         &self.transaction
@@ -81,13 +78,13 @@ impl Deref for ServerTransaction {
 
 #[cfg(test)]
 mod tests {
-    use tokio::time::{self, Duration};
+    use tokio::time::Duration;
+    use tokio::time::{self};
 
     use super::*;
-    use crate::{
-        message::{SipMethod, StatusCode},
-        transaction::mock,
-    };
+    use crate::message::SipMethod;
+    use crate::message::StatusCode;
+    use crate::transaction::mock;
 
     #[tokio::test]
     async fn test_receives_100_trying() {
@@ -98,7 +95,7 @@ mod tests {
 
         tsx.respond(response).await.unwrap();
 
-        assert!(tsx.last_status_code().unwrap().into_i32() == 100);
+        assert!(tsx.last_status_code().unwrap().as_u16() == 100);
         assert!(tsx.get_state() == State::Proceeding);
     }
 
@@ -111,7 +108,7 @@ mod tests {
 
         tsx.respond(response).await.unwrap();
 
-        assert!(tsx.last_status_code().unwrap().into_i32() == 200);
+        assert!(tsx.last_status_code().unwrap().as_u16() == 200);
         assert!(tsx.get_state() == State::Completed);
     }
 
@@ -124,7 +121,7 @@ mod tests {
 
         tsx.respond(response).await.unwrap();
 
-        assert!(tsx.last_status_code().unwrap().into_i32() == 100);
+        assert!(tsx.last_status_code().unwrap().as_u16() == 100);
         assert!(tsx.get_state() == State::Proceeding);
     }
 
@@ -137,9 +134,9 @@ mod tests {
 
         tsx.respond(response).await.unwrap();
 
-        time::sleep(ServerTransaction::T1 * 64 + Duration::from_millis(1)).await;
+        time::sleep(T1 * 64 + Duration::from_millis(1)).await;
 
-        assert!(tsx.last_status_code().unwrap().into_i32() == 200);
+        assert!(tsx.last_status_code().unwrap().as_u16() == 200);
         assert!(tsx.get_state() == State::Terminated);
     }
 }

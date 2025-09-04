@@ -1,9 +1,11 @@
 use std::fmt;
-use std::str::{self, Utf8Error};
+use std::str::Utf8Error;
+use std::str::{self};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Error on parsing
+// TODO: Use 'static &str, line and column(or Position)
 #[derive(Debug, PartialEq, Eq, Error)]
 pub struct SipParserError {
     /// Message in error
@@ -48,26 +50,30 @@ impl std::convert::From<Utf8Error> for SipParserError {
     }
 }
 
-impl std::convert::From<pksip_util::Error> for SipParserError {
-    fn from(err: pksip_util::Error) -> Self {
+impl std::convert::From<util::ScannerError> for SipParserError {
+    fn from(err: util::ScannerError) -> Self {
         SipParserError {
             message: format!(
                 "Failed to parse at line:{} column:{} kind:{:?}",
-                err.line, err.col, err.kind,
+                err.position.line, err.position.column, err.kind,
             ),
         }
     }
 }
 
-impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::TransportEvent>> for Error {
-    fn from(value: tokio::sync::mpsc::error::SendError<crate::transport::TransportEvent>) -> Self {
+impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>>
+    for Error
+{
+    fn from(
+        value: tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>,
+    ) -> Self {
         Self::ChannelClosed
     }
 }
 
-impl std::convert::From<pksip_util::Error> for Error {
-    fn from(err: pksip_util::Error) -> Self {
-        todo!()
+impl std::convert::From<util::ScannerError> for Error {
+    fn from(err: util::ScannerError) -> Self {
+        SipParserError::from(err).into()
     }
 }
 
@@ -84,8 +90,9 @@ impl From<std::fmt::Error> for Error {
 }
 
 use thiserror::Error;
+use tokio::task::JoinError;
 
-use crate::transaction::key::TsxKey;
+use crate::message::SipMethod;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -112,4 +119,22 @@ pub enum Error {
 
     #[error("The Sec-WebSocket-Protocol is invalid")]
     InvalidSecWebSocketProtocol,
+
+    #[error("Failed to execute tokio task")]
+    JoinError(JoinError),
+
+    #[error("Internal error: {0}")]
+    Internal(&'static str),
+
+    #[error("SipMethod {0} cannot establish a dialog")]
+    DialogError(#[from] DialogError),
+}
+
+#[derive(Debug, Error)]
+pub enum DialogError {
+    #[error("SipMethod {0} cannot establish a dialog")]
+    InvalidMethod(SipMethod),
+
+    #[error("Missing To tag in 'To' header")]
+    MissingTagInToHeader,
 }

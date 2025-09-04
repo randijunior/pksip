@@ -1,13 +1,23 @@
 //! SIP UDP Transport.
-//! This module provides the implementation of the SIP transport layer over UDP.
+//! This module provides the implementation of the SIP
+//! transport layer over UDP.
 
-use std::{net::SocketAddr, sync::Arc, time::SystemTime};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::SystemTime;
 
-use tokio::net::{ToSocketAddrs, UdpSocket};
+use tokio::net::ToSocketAddrs;
+use tokio::net::UdpSocket;
 
-use crate::{error::Result, message::TransportProtocol};
-
-use super::{Packet, Payload, Transport, TransportEvent, TransportStartup, TransportTx};
+use super::Packet;
+use super::Payload;
+use super::Transport;
+use super::TransportMessage;
+use super::TransportRef;
+use super::TransportStartup;
+use super::TransportTx;
+use super::TransportType;
+use crate::error::Result;
 
 #[derive(Debug)]
 struct Inner {
@@ -28,7 +38,11 @@ impl UdpTransport {
         let addr = sock.local_addr()?;
         let local_name = crate::get_local_name(&addr);
 
-        Ok(Self(Arc::new(Inner { sock, addr, local_name })))
+        Ok(Self(Arc::new(Inner {
+            sock,
+            addr,
+            local_name,
+        })))
     }
 
     async fn recv_from(udp: Arc<Self>, sender: TransportTx) -> Result<()> {
@@ -48,11 +62,17 @@ impl UdpTransport {
             let time = SystemTime::now();
 
             // Create Packet.
-            let packet = Packet { payload, addr, time };
+            let packet = Packet {
+                payload,
+                addr,
+                time,
+            };
             let transport = udp_tp.clone();
 
             // Send.
-            sender.send(TransportEvent::Packet { transport, packet }).await?;
+            sender
+                .send(TransportMessage::Packet { transport, packet })
+                .await?;
         }
     }
 }
@@ -63,8 +83,8 @@ impl Transport for UdpTransport {
         Ok(self.0.sock.send_to(buf, addr).await?)
     }
 
-    fn tp_kind(&self) -> TransportProtocol {
-        TransportProtocol::Udp
+    fn protocol(&self) -> TransportType {
+        TransportType::Udp
     }
 
     fn reliable(&self) -> bool {
@@ -101,14 +121,14 @@ impl TransportStartup for UdpStartup {
 
         log::debug!(
             "SIP {} transport started, listening on {}",
-            crate::message::TransportProtocol::Udp,
+            TransportType::Udp,
             udp.local_name()
         );
 
         let arc_udp = Arc::new(udp.clone());
-        let transport = Arc::new(udp) as Arc<dyn Transport>;
+        let transport = Arc::new(udp) as TransportRef;
 
-        sender.send(TransportEvent::Created(transport)).await?;
+        sender.send(TransportMessage::Created(transport)).await?;
 
         tokio::spawn(Box::pin(UdpTransport::recv_from(arc_udp, sender)));
 
@@ -128,8 +148,8 @@ pub(crate) mod mock {
             Ok(buf.len())
         }
 
-        fn tp_kind(&self) -> TransportProtocol {
-            TransportProtocol::Udp
+        fn protocol(&self) -> TransportType {
+            TransportType::Udp
         }
 
         fn addr(&self) -> SocketAddr {
@@ -143,6 +163,7 @@ pub(crate) mod mock {
         fn secure(&self) -> bool {
             false
         }
+
         fn local_name(&self) -> std::borrow::Cow<'_, str> {
             unimplemented!()
         }
@@ -151,8 +172,9 @@ pub(crate) mod mock {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tokio::sync::mpsc;
+
+    use super::*;
 
     const MSG_TEST: &[u8] = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
         Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
@@ -177,7 +199,11 @@ mod tests {
 
         client.send_to(MSG_TEST, udp.addr()).await.unwrap();
 
-        let TransportEvent::Packet { transport: _, packet } = rx.recv().await.unwrap() else {
+        let TransportMessage::Packet {
+            transport: _,
+            packet,
+        } = rx.recv().await.unwrap()
+        else {
             unreachable!();
         };
 

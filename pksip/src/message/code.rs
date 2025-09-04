@@ -1,634 +1,504 @@
-/// Reason phrase for the `Trying` status code (100).
-pub const REASON_TRYING: &str = "Trying";
-/// Reason phrase for the `Ringing` status code (180).
-pub const REASON_RINGING: &str = "Ringing";
-/// Reason phrase for the `Call Is Being Forwarded` status code (181).
-pub const REASON_CALL_IS_BEING_FORWARDED: &str = "Call Is Being Forwarded";
-/// Reason phrase for the `Queued` status code (182).
-pub const REASON_QUEUED: &str = "Queued";
-/// Reason phrase for the `Session Progress` status code (183).
-pub const REASON_SESSION_PROGRESS: &str = "Session Progress";
-/// Reason phrase for the `OK` status code (200).
-pub const REASON_OK: &str = "OK";
-/// Reason phrase for the `Accepted` status code (202).
-pub const REASON_ACCEPTED: &str = "Accepted";
-/// Reason phrase for the `No Notification` status code (204).
-pub const REASON_NO_NOTIFICATION: &str = "No Notification";
-/// Reason phrase for the `Multiple Choices` status code (300).
-pub const REASON_MULTIPLE_CHOICES: &str = "Multiple Choices";
-/// Reason phrase for the `Moved Permanently` status code (301).
-pub const REASON_MOVED_PERMANENTLY: &str = "Moved Permanently";
-/// Reason phrase for the `Moved Temporarily` status code (302).
-pub const REASON_MOVED_TEMPORARILY: &str = "Moved Temporarily";
-/// Reason phrase for the `Use Proxy` status code (305).
-pub const REASON_USE_PROXY: &str = "Use Proxy";
-/// Reason phrase for the `Alternative Service` status code (380).
-pub const REASON_ALTERNATIVE_SERVICE: &str = "Alternative Service";
-/// Reason phrase for the `Bad Request` status code (400).
-pub const REASON_BAD_REQUEST: &str = "Bad Request";
-/// Reason phrase for the `Unauthorized` status code (401).
-pub const REASON_UNAUTHORIZED: &str = "Unauthorized";
-/// Reason phrase for the `Payment Required` status code (402).
-pub const REASON_PAYMENT_REQUIRED: &str = "Payment Required";
-/// Reason phrase for the `Forbidden` status code (403).
-pub const REASON_FORBIDDEN: &str = "Forbidden";
-/// Reason phrase for the `Not Found` status code (404).
-pub const REASON_NOT_FOUND: &str = "Not Found";
-/// Reason phrase for the `Method Not Allowed` status code (405).
-pub const REASON_METHOD_NOT_ALLOWED: &str = "Method Not Allowed";
-/// Reason phrase for the `Not Acceptable` status code (406).
-pub const REASON_NOT_ACCEPTABLE: &str = "Not Acceptable";
-/// Reason phrase for the `Proxy Authentication Required` status code (407).
-pub const REASON_PROXY_AUTHENTICATION_REQUIRED: &str = "Proxy Authentication Required";
-/// Reason phrase for the `Request Timeout` status code (408).
-pub const REASON_REQUEST_TIMEOUT: &str = "Request Timeout";
-/// Reason phrase for the `Gone` status code (410).
-pub const REASON_GONE: &str = "Gone";
-/// Reason phrase for the `Request Entity Too Large` status code (413).
-pub const REASON_REQUEST_ENTITY_TOO_LARGE: &str = "Request Entity Too Large";
-/// Reason phrase for the `Request-URI Too Long` status code (414).
-pub const REASON_REQUEST_URI_TOO_LONG: &str = "Request-URI Too Long";
-/// Reason phrase for the `Unsupported Media Type` status code (415).
-pub const REASON_UNSUPPORTED_MEDIA_TYPE: &str = "Unsupported Media Type";
-/// Reason phrase for the `Unsupported URI Scheme` status code (416).
-pub const REASON_UNSUPPORTED_URI_SCHEME: &str = "Unsupported URI Scheme";
-/// Reason phrase for the `Bad Extension` status code (420).
-pub const REASON_BAD_EXTENSION: &str = "Bad Extension";
-/// Reason phrase for the `Extension Required` status code (421).
-pub const REASON_EXTENSION_REQUIRED: &str = "Extension Required";
-/// Reason phrase for the `Interval Too Brief` status code (423).
-pub const REASON_INTERVAL_TOO_BRIEF: &str = "Interval Too Brief";
-/// Reason phrase for the `Temporarily Unavailable` status code (480).
-pub const REASON_TEMPORARILY_UNAVAILABLE: &str = "Temporarily Unavailable";
-/// Reason phrase for the `Call/Transaction Does Not Exist` status code (481).
-pub const REASON_CALL_OR_TRANSACTION_DOES_NOT_EXIST: &str = "Call/Transaction Does Not Exist";
-/// Reason phrase for the `Loop Detected` status code (482).
-pub const REASON_LOOP_DETECTED: &str = "Loop Detected";
-/// Reason phrase for the `Too Many Hops` status code (483).
-pub const REASON_TOO_MANY_HOPS: &str = "Too Many Hops";
-/// Reason phrase for the `Address Incomplete` status code (484).
-pub const REASON_ADDRESS_INCOMPLETE: &str = "Address Incomplete";
-/// Reason phrase for the `Ambiguous` status code (485).
-pub const REASON_AMBIGUOUS: &str = "Ambiguous";
-/// Reason phrase for the `Busy Here` status code (486).
-pub const REASON_BUSY_HERE: &str = "Busy Here";
-/// Reason phrase for the `Request Terminated` status code (487).
-pub const REASON_REQUEST_TERMINATED: &str = "Request Terminated";
-/// Reason phrase for the `Not Acceptable Here` status code (488).
-pub const REASON_NOT_ACCEPTABLE_HERE: &str = "Not Acceptable Here";
-/// Reason phrase for the `Request Pending` status code (491).
-pub const REASON_REQUEST_PENDING: &str = "Request Pending";
-/// Reason phrase for the `Undecipherable` status code (493).
-pub const REASON_UNDECIPHERABLE: &str = "Undecipherable";
-/// Reason phrase for the `Server Internal Error` status code (500).
-pub const REASON_SERVER_INTERNAL_ERROR: &str = "Server Internal Error";
-/// Reason phrase for the `Not Implemented` status code (501).
-pub const REASON_NOT_IMPLEMENTED: &str = "Not Implemented";
-/// Reason phrase for the `Bad Gateway` status code (502).
-pub const REASON_BAD_GATEWAY: &str = "Bad Gateway";
-/// Reason phrase for the `Service Unavailable` status code (503).
-pub const REASON_SERVICE_UNAVAILABLE: &str = "Service Unavailable";
-/// Reason phrase for the `Server Time-out` status code (504).
-pub const REASON_SERVER_TIMEOUT: &str = "Server Time-out";
-/// Reason phrase for the `Version Not Supported` status code (505).
-pub const REASON_VERSION_NOT_SUPPORTED: &str = "Version Not Supported";
-/// Reason phrase for the `Message Too Large` status code (513).
-pub const REASON_MESSAGE_TOO_LARGE: &str = "Message Too Large";
-/// Reason phrase for the `Busy Everywhere` status code (600).
-pub const REASON_BUSY_EVERYWHERE: &str = "Busy Everywhere";
-/// Reason phrase for the `Decline` status code (603).
-pub const REASON_DECLINE: &str = "Decline";
-/// Reason phrase for the `Does Not Exist Anywhere` status code (604).
-pub const REASON_DOES_NOT_EXIST_ANYWHERE: &str = "Does Not Exist Anywhere";
-/// Reason phrase for the `Not Acceptable` status code (606).
-pub const REASON_NOT_ACCEPTABLE_ANYWHERE: &str = REASON_NOT_ACCEPTABLE;
-/// Reason phrase for the `Rejected` status code (608).
-pub const REASON_REJECTED: &str = "Rejected";
-
-/// An SIP status code.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
-#[repr(i32)]
-pub enum StatusCode {
-    /// `Trying` status code.
-    Trying = 100,
-    /// `Ringing` status code.
-    Ringing = 180,
-    /// `Call Is Being Forwarded` status code.
-    CallIsBeingForwarded = 181,
-    /// `Queued` status code.
-    Queued = 182,
-    /// `Session Progress` status code.
-    SessionProgress = 183,
-    /// `Early Dialog Terminated` status code.
-    EarlyDialogTerminated = 199,
-
-    /// `OK` status code.
-    Ok = 200,
-    /// `Accepted` status code.
-    Accepted = 202,
-    /// `No Notification` status code.
-    NoNotification = 204,
-
-    /// `Multiple Choices` status code.
-    MultipleChoices = 300,
-    /// `Moved Permanently` status code.
-    MovedPermanently = 301,
-    /// `Moved Temporarily` status code.
-    MovedTemporarily = 302,
-    /// `Use Proxy` status code.
-    UseProxy = 305,
-    /// `Alternative Service` status code.
-    AlternativeService = 380,
-
-    /// `Bad Request` status code.
-    BadRequest = 400,
-    /// `Unauthorized` status code.
-    Unauthorized = 401,
-    /// `Payment Required` status code.
-    PaymentRequired = 402,
-    /// `Forbidden` status code.
-    Forbidden = 403,
-    /// `Not Found` status code.
-    NotFound = 404,
-    /// `SipMethod Not Allowed` status code.
-    MethodNotAllowed = 405,
-    /// `Not Acceptable` status code.
-    NotAcceptable = 406,
-    /// `Proxy Authentication Required` status code.
-    ProxyAuthenticationRequired = 407,
-    /// `Request Timeout` status code.
-    RequestTimeout = 408,
-    /// `Conflict` status code.
-    Conflict = 409,
-    /// `Gone` status code.
-    Gone = 410,
-    /// `Length Required` status code.
-    LengthRequired = 411,
-    /// `Conditional Request Failed` status code.
-    ConditionalRequestFailed = 412,
-    /// `Request Entity Too Large` status code.
-    RequestEntityTooLarge = 413,
-    /// `Request URI Too Long` status code.
-    RequestUriTooLong = 414,
-    /// `Unsupported Media Type` status code.
-    UnsupportedMediaType = 415,
-    /// `Unsupported URI Scheme` status code.
-    UnsupportedUriScheme = 416,
-    /// `Unknown Resource Priority` status code.
-    UnknownResourcePriority = 417,
-    /// `Bad Extension` status code.
-    BadExtension = 420,
-    /// `Extension Required` status code.
-    ExtensionRequired = 421,
-    /// `Session Timer Too Small` status code.
-    SessionTimerTooSmall = 422,
-    /// `Interval Too Brief` status code.
-    IntervalTooBrief = 423,
-    /// `Bad Location Information` status code.
-    BadLocationInformation = 424,
-    /// `Use Identity Header` status code.
-    UseIdentityHeader = 428,
-    /// `Provide Referrer Header` status code.
-    ProvideReferrerHeader = 429,
-    /// `Flow Failed` status code.
-    FlowFailed = 430,
-    /// `Anonymity Disallowed` status code.
-    AnonimityDisallowed = 433,
-    /// `Bad Identity Info` status code.
-    BadIdentityInfo = 436,
-    /// `Unsupported Certificate` status code.
-    UnsupportedCertificate = 437,
-    /// `Invalid Identity Header` status code.
-    InvalidIdentityHeader = 438,
-    /// `First Hop Lacks Outbound Support` status code.
-    FirstHopLacksOutboundSupport = 439,
-    /// `Max Breadth Exceeded` status code.
-    MaxBreadthExceeded = 440,
-    /// `Bad Info Package` status code.
-    BadInfoPackage = 469,
-    /// `Consent Needed` status code.
-    ConsentNeeded = 470,
-    /// `Temporarily Unavailable` status code.
-    TemporarilyUnavailable = 480,
-    /// `Call or Transaction Does Not Exist` status code.
-    CallOrTransactionDoesNotExist = 481,
-    /// `Loop Detected` status code.
-    LoopDetected = 482,
-    /// `Too Many Hops` status code.
-    TooManyHops = 483,
-    /// `Address Incomplete` status code.
-    AddressIncomplete = 484,
-    /// `Ambiguous` status code.
-    Ambiguous = 485,
-    /// `Busy Here` status code.
-    BusyHere = 486,
-    /// `Request Terminated` status code.
-    RequestTerminated = 487,
-    /// `Not Acceptable Here` status code.
-    NotAcceptableHere = 488,
-    /// `Bad Event` status code.
-    BadEvent = 489,
-    /// `Request Updated` status code.
-    RequestUpdated = 490,
-    /// `Request Pending` status code.
-    RequestPending = 491,
-    /// `Undecipherable` status code.
-    Undecipherable = 493,
-    /// `Security Agreement Needed` status code.
-    SecurityAgreementNeeded = 494,
-
-    /// `Server Internal Error` status code.
-    ServerInternalError = 500,
-    /// `Not Implemented` status code.
-    NotImplemented = 501,
-    /// `Bad Gateway` status code.
-    BadGateway = 502,
-    /// `Service Unavailable` status code.
-    ServiceUnavailable = 503,
-    /// `Server Timeout` status code.
-    ServerTimeout = 504,
-    /// `Version Not Supported` status code.
-    VersionNotSupported = 505,
-    /// `Message Too Large` status code.
-    MessageTooLarge = 513,
-    /// `Push Notification Service Not Supported` status code.
-    PushNotificationServiceNotSupported = 555,
-    /// `Precondition Failure` status code.
-    PreconditionFailure = 580,
-
-    /// `Busy Everywhere` status code.
-    BusyEverywhere = 600,
-    /// `Decline` status code.
-    Decline = 603,
-    /// `Does Not Exist Anywhere` status code.
-    DoesNotExistAnywhere = 604,
-    /// `Not Acceptable Anywhere` status code.
-    NotAcceptableAnywhere = 606,
-    /// `Unwanted` status code.
-    Unwanted = 607,
-    /// `Rejected` status code.
-    Rejected = 608,
-
-    /// A non-standard or unknown status code.
-    Custom(i32),
+macro_rules! reason_phrases {
+    ($($reason_const:ident, $name:literal),*$(,)?) => (
+        $(
+            const $reason_const: std::sync::LazyLock<crate::ArcStr> =
+                std::sync::LazyLock::new(|| $name.into());
+        )*
+    );
 }
 
-// https://en.wikipedia.org/wiki/List_of_SIP_response_codes
+// -----------------------------------------------------------------------------
+// 1xx – Provisional Responses
+// -----------------------------------------------------------------------------
+reason_phrases! {
+    TRYING, "Trying",
+    RINGING, "Ringing",
+    CALL_IS_BEING_FORWARDED, "Call Is Being Forwarded",
+    QUEUED, "Queued",
+    SESSION_PROGRESS, "Session Progress",
+    EARLY_DIALOG_TERMINATED, "Early Dialog Terminated",
+}
+
+// -----------------------------------------------------------------------------
+// 2xx – Successful Responses
+// -----------------------------------------------------------------------------
+reason_phrases! {
+    OK, "OK",
+    ACCEPTED, "Accepted",
+    NO_NOTIFICATION, "No Notification",
+    MULTIPLE_CHOICES, "Multiple Choices",
+}
+
+// -----------------------------------------------------------------------------
+// 3xx – Redirection Responses
+// -----------------------------------------------------------------------------
+reason_phrases! {
+    MOVED_PERMANENTLY, "Moved Permanently",
+    MOVED_TEMPORARILY, "Moved Temporarily",
+    USE_PROXY, "Use Proxy",
+    ALTERNATIVE_SERVICE, "Alternative Service",
+}
+
+// -----------------------------------------------------------------------------
+// 4xx – Client Failure Responses
+// -----------------------------------------------------------------------------
+reason_phrases! {
+    BAD_REQUEST, "Bad Request",
+    UNAUTHORIZED, "Unauthorized",
+    PAYMENT_REQUIRED, "Payment Required",
+    FORBIDDEN, "Forbidden",
+    NOT_FOUND, "Not Found",
+    METHOD_NOT_ALLOWED, "SipMethod Not Allowed",
+    NOT_ACCEPTABLE, "Not Acceptable",
+    PROXY_AUTHENTICATION_REQUIRED, "Proxy Authentication Required",
+    REQUEST_TIMEOUT, "Request Timeout",
+    CONFLICT, "Conflict",
+    GONE, "Gone",
+    LENGTH_REQUIRED, "Length Required",
+    CONDITIONAL_REQUEST_FAILED, "Conditional Request Failed",
+    REQUEST_ENTITY_TOO_LARGE, "Request Entity Too Large",
+    REQUEST_URI_TOO_LONG, "Request URI Too Long",
+    UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type",
+    UNSUPPORTED_URI_SCHEME, "Unsupported URI Scheme",
+    UNKNOWN_RESOURCE_PRIORITY, "Unknown Resource Priority",
+    BAD_EXTENSION, "Bad Extension",
+    EXTENSION_REQUIRED, "Extension Required",
+    SESSION_INTERVAL_TOO_SMALL, "Session Interval Too Small",
+    INTERVAL_TOO_BRIEF, "Interval Too Brief",
+    BAD_LOCATION_INFORMATION, "Bad Location Information",
+    USE_IDENTITY_HEADER, "Use Identity Header",
+    PROVIDE_REFERRER_IDENTITY, "Provide Referrer Identity",
+    FLOW_FAILED, "Flow Failed",
+    ANONYMITY_DISALLOWED, "Anonymity Disallowed",
+    BAD_IDENTITY_INFO, "Bad Identity Info",
+    UNSUPPORTED_CERTIFICATE, "Unsupported Certificate",
+    INVALID_IDENTITY_HEADER, "Invalid Identity Header",
+    FIRST_HOP_LACKS_OUTBOUND_SUPPORT, "First Hop Lacks Outbound Support",
+    MAX_BREADTH_EXCEEDED, "Max Breadth Exceeded",
+    BAD_INFO_PACKAGE, "Bad Info Package",
+    CONSENT_NEEDED, "Consent Needed",
+    TEMPORARILY_UNAVAILABLE, "Temporarily Unavailable",
+    CALL_OR_TRANSACTION_DOES_NOT_EXIST, "Call or Transaction Does Not Exist",
+    LOOP_DETECTED, "Loop Detected",
+    TOO_MANY_HOPS, "Too Many Hops",
+    ADDRESS_INCOMPLETE, "Address Incomplete",
+    AMBIGUOUS, "Ambiguous",
+    BUSY_HERE, "Busy Here",
+    REQUEST_TERMINATED, "Request Terminated",
+    NOT_ACCEPTABLE_HERE, "Not Acceptable Here",
+    BAD_EVENT, "Bad Event",
+    REQUEST_UPDATED, "Request Updated",
+    REQUEST_PENDING, "Request Pending",
+    UNDECIPHERABLE, "Undecipherable",
+    SECURITY_AGREEMENT_REQUIRED, "Security Agreement Required",
+}
+
+// -----------------------------------------------------------------------------
+// 5xx – Server Failure Responses
+// -----------------------------------------------------------------------------
+reason_phrases! {
+    SERVER_INTERNAL_ERROR, "Server Internal Error",
+    NOT_IMPLEMENTED, "Not Implemented",
+    BAD_GATEWAY, "Bad Gateway",
+    SERVICE_UNAVAILABLE, "Service Unavailable",
+    SERVER_TIMEOUT, "Server Timeout",
+    VERSION_NOT_SUPPORTED, "Version Not Supported",
+    MESSAGE_TOO_LARGE, "Message Too Large",
+    PUSH_NOTIFICATION_SERVICE_NOT_SUPPORTED, "Push Notification Service Not Supported",
+    PRECONDITION_FAILURE, "Precondition Failure",
+}
+
+// -----------------------------------------------------------------------------
+// 6xx – Global Failure Responses
+// -----------------------------------------------------------------------------
+reason_phrases! {
+    BUSY_EVERYWHERE, "Busy Everywhere",
+    DECLINE, "Decline",
+    DOES_NOT_EXIST_ANYWHERE, "Does Not Exist Anywhere",
+    NOT_ACCEPTABLE_ANYWHERE, "Not Acceptable Anywhere",
+    UNWANTED, "Unwanted",
+    REJECTED, "Rejected",
+}
+
+/// Classifies SIP status codes into categories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeClass {
+    /// Provisional responses (1xx)
+    Provisional,
+    /// Successful responses (2xx)
+    Success,
+    /// Redirection responses (3xx)
+    Redirection,
+    /// Client failure responses (4xx)
+    ClientError,
+    /// Server failure responses (5xx)
+    ServerError,
+    /// Global failure responses (6xx)
+    GlobalFailure,
+}
+
+/// Status Code enum for SIP messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[repr(u16)]
+pub enum StatusCode {
+    ///`Trying` status code.
+    Trying = 100,
+    ///`Ringing` status code.
+    Ringing = 180,
+    ///`Call Is Being Forwarded` status code.
+    CallIsBeingForwarded = 181,
+    ///`Queued` status code.
+    Queued = 182,
+    ///`InvSession Progress` status code.
+    SessionProgress = 183,
+    ///`Early Dialog Terminated` status code.
+    EarlyDialogTerminated = 199,
+    ///`OK` status code.
+    Ok = 200,
+    ///`Accepted` status code.
+    Accepted = 202,
+    ///`No Notification` status code.
+    NoNotification = 204,
+    ///`Multiple Choices` status code.
+    MultipleChoices = 300,
+    ///`Moved Permanently` status code.
+    MovedPermanently = 301,
+    ///`Moved Temporarily` status code.
+    MovedTemporarily = 302,
+    ///`Use Proxy` status code.
+    UseProxy = 305,
+    ///`Alternative Service` status code.
+    AlternativeService = 380,
+    ///`Bad Request` status code.
+    BadRequest = 400,
+    ///`Unauthorized` status code.
+    Unauthorized = 401,
+    ///`Payment Required` status code.
+    PaymentRequired = 402,
+    ///`Forbidden` status code.
+    Forbidden = 403,
+    ///`Not Found` status code.
+    NotFound = 404,
+    ///`SipMethod Not Allowed` status code.
+    MethodNotAllowed = 405,
+    ///`Not Acceptable` status code.
+    NotAcceptable = 406,
+    ///`Proxy Authentication Required` status code.
+    ProxyAuthenticationRequired = 407,
+    ///`Request Timeout` status code.
+    RequestTimeout = 408,
+    ///`Conflict` status code.
+    Conflict = 409,
+    ///`Gone` status code.
+    Gone = 410,
+    ///`Length Required` status code.
+    LengthRequired = 411,
+    ///`Conditional Request Failed` status code.
+    ConditionalRequestFailed = 412,
+    ///`Request Entity Too Large` status code.
+    RequestEntityTooLarge = 413,
+    ///`Request URI Too Long` status code.
+    RequestUriTooLong = 414,
+    ///`Unsupported Media Type` status code.
+    UnsupportedMediaType = 415,
+    ///`Unsupported URI Scheme` status code.
+    UnsupportedUriScheme = 416,
+    ///`Unknown Resource Priority` status code.
+    UnknownResourcePriority = 417,
+    ///`Bad Extension` status code.
+    BadExtension = 420,
+    ///`Extension Required` status code.
+    ExtensionRequired = 421,
+    ///`InvSession Timer Too Small` status code.
+    SessionIntervalTooSmall = 422,
+    ///`Interval Too Brief` status code.
+    IntervalTooBrief = 423,
+    ///`Bad Location Information` status code.
+    BadLocationInformation = 424,
+    ///`Use Identity Header` status code.
+    UseIdentityHeader = 428,
+    ///`Provide Referrer Header` status code.
+    ProvideReferrerIdentity = 429,
+    ///`Flow Failed` status code.
+    FlowFailed = 430,
+    ///`Anonymity Disallowed` status code.
+    AnonymityDisallowed = 433,
+    ///`Bad Identity Info` status code.
+    BadIdentityInfo = 436,
+    ///`Unsupported Certificate` status code.
+    UnsupportedCertificate = 437,
+    ///`Invalid Identity Header` status code.
+    InvalidIdentityHeader = 438,
+    ///`First Hop Lacks Outbound Support` status code.
+    FirstHopLacksOutboundSupport = 439,
+    ///`Max Breadth Exceeded` status code.
+    MaxBreadthExceeded = 440,
+    ///`Bad Info Package` status code.
+    BadInfoPackage = 469,
+    ///`Consent Needed` status code.
+    ConsentNeeded = 470,
+    ///`Temporarily Unavailable` status code.
+    TemporarilyUnavailable = 480,
+    ///`Call or Transaction Does Not Exist` status code.
+    CallOrTransactionDoesNotExist = 481,
+    ///`Loop Detected` status code.
+    LoopDetected = 482,
+    ///`Too Many Hops` status code.
+    TooManyHops = 483,
+    ///`Address Incomplete` status code.
+    AddressIncomplete = 484,
+    ///`Ambiguous` status code.
+    Ambiguous = 485,
+    ///`Busy Here` status code.
+    BusyHere = 486,
+    ///`Request Terminated` status code.
+    RequestTerminated = 487,
+    ///`Not Acceptable Here` status code.
+    NotAcceptableHere = 488,
+    ///`Bad Event` status code.
+    BadEvent = 489,
+    ///`Request Updated` status code.
+    RequestUpdated = 490,
+    ///`Request Pending` status code.
+    RequestPending = 491,
+    ///`Undecipherable` status code.
+    Undecipherable = 493,
+    ///`Security Agreement Needed` status code.
+    SecurityAgreementRequired = 494,
+    ///`Server Internal Error` status code.
+    ServerInternalError = 500,
+    ///`Not Implemented` status code.
+    NotImplemented = 501,
+    ///`Bad Gateway` status code.
+    BadGateway = 502,
+    ///`Service Unavailable` status code.
+    ServiceUnavailable = 503,
+    ///`Server Timeout` status code.
+    ServerTimeout = 504,
+    ///`Version Not Supported` status code.
+    VersionNotSupported = 505,
+    ///`SipMessage Too Large` status code.
+    MessageTooLarge = 513,
+    ///`Push Notification Service Not Supported` status code.
+    PushNotificationServiceNotSupported = 555,
+    ///`Precondition Failure` status code.
+    PreconditionFailure = 580,
+    ///`Busy Everywhere` status code.
+    BusyEverywhere = 600,
+    ///`Decline` status code.
+    Decline = 603,
+    ///`Does Not Exist Anywhere` status code.
+    DoesNotExistAnywhere = 604,
+    ///`Not Acceptable Anywhere` status code.
+    NotAcceptableAnywhere = 606,
+    ///`Unwanted` status code.
+    Unwanted = 607,
+    ///`Rejected` status code.
+    Rejected = 608,
+}
+
 impl StatusCode {
     /// Returns the reason text related to the status code.
-    pub const fn reason(&self) -> &'static str {
+    pub fn reason(&self) -> crate::ArcStr {
         match self {
-            // 1xx — Provisional Responses
-            StatusCode::Trying => REASON_TRYING,
-            StatusCode::Ringing => REASON_RINGING,
-            StatusCode::CallIsBeingForwarded => REASON_CALL_IS_BEING_FORWARDED,
-            StatusCode::Queued => REASON_QUEUED,
-            StatusCode::SessionProgress => REASON_SESSION_PROGRESS,
-
-            // 2xx — Successful Responses
-            StatusCode::Ok => REASON_OK,
-            StatusCode::Accepted => REASON_ACCEPTED,
-            StatusCode::NoNotification => REASON_NO_NOTIFICATION,
-
-            // 3xx — Redirection Responses
-            StatusCode::MultipleChoices => REASON_MULTIPLE_CHOICES,
-            StatusCode::MovedPermanently => REASON_MOVED_PERMANENTLY,
-            StatusCode::MovedTemporarily => REASON_MOVED_TEMPORARILY,
-            StatusCode::UseProxy => REASON_USE_PROXY,
-            StatusCode::AlternativeService => REASON_ALTERNATIVE_SERVICE,
-
-            // 4xx — Client Failure Responses
-            StatusCode::BadRequest => REASON_BAD_REQUEST,
-            StatusCode::Unauthorized => REASON_UNAUTHORIZED,
-            StatusCode::PaymentRequired => REASON_PAYMENT_REQUIRED,
-            StatusCode::Forbidden => REASON_FORBIDDEN,
-            StatusCode::NotFound => REASON_NOT_FOUND,
-            StatusCode::MethodNotAllowed => REASON_METHOD_NOT_ALLOWED,
-            StatusCode::NotAcceptable => REASON_NOT_ACCEPTABLE,
-            StatusCode::ProxyAuthenticationRequired => REASON_PROXY_AUTHENTICATION_REQUIRED,
-            StatusCode::RequestTimeout => REASON_REQUEST_TIMEOUT,
-            StatusCode::Gone => REASON_GONE,
-            StatusCode::RequestEntityTooLarge => REASON_REQUEST_ENTITY_TOO_LARGE,
-            StatusCode::RequestUriTooLong => REASON_REQUEST_URI_TOO_LONG,
-            StatusCode::UnsupportedMediaType => REASON_UNSUPPORTED_MEDIA_TYPE,
-            StatusCode::UnsupportedUriScheme => REASON_UNSUPPORTED_URI_SCHEME,
-            StatusCode::BadExtension => REASON_BAD_EXTENSION,
-            StatusCode::ExtensionRequired => REASON_EXTENSION_REQUIRED,
-            StatusCode::IntervalTooBrief => REASON_INTERVAL_TOO_BRIEF,
-            StatusCode::TemporarilyUnavailable => REASON_TEMPORARILY_UNAVAILABLE,
-            StatusCode::CallOrTransactionDoesNotExist => REASON_CALL_OR_TRANSACTION_DOES_NOT_EXIST,
-            StatusCode::LoopDetected => REASON_LOOP_DETECTED,
-            StatusCode::TooManyHops => REASON_TOO_MANY_HOPS,
-            StatusCode::AddressIncomplete => REASON_ADDRESS_INCOMPLETE,
-            StatusCode::Ambiguous => REASON_AMBIGUOUS,
-            StatusCode::BusyHere => REASON_BUSY_HERE,
-            StatusCode::RequestTerminated => REASON_REQUEST_TERMINATED,
-            StatusCode::NotAcceptableHere => REASON_NOT_ACCEPTABLE_HERE,
-            StatusCode::RequestPending => REASON_REQUEST_PENDING,
-            StatusCode::Undecipherable => REASON_UNDECIPHERABLE,
-
-            // 5xx — Server Failure Responses
-            StatusCode::ServerInternalError => REASON_SERVER_INTERNAL_ERROR,
-            StatusCode::NotImplemented => REASON_NOT_IMPLEMENTED,
-            StatusCode::BadGateway => REASON_BAD_GATEWAY,
-            StatusCode::ServiceUnavailable => REASON_SERVICE_UNAVAILABLE,
-            StatusCode::ServerTimeout => REASON_SERVER_TIMEOUT,
-            StatusCode::VersionNotSupported => REASON_VERSION_NOT_SUPPORTED,
-            StatusCode::MessageTooLarge => REASON_MESSAGE_TOO_LARGE,
-
-            // 6xx — Global Failure Responses
-            StatusCode::BusyEverywhere => REASON_BUSY_EVERYWHERE,
-            StatusCode::Decline => REASON_DECLINE,
-            StatusCode::DoesNotExistAnywhere => REASON_DOES_NOT_EXIST_ANYWHERE,
-            StatusCode::NotAcceptableAnywhere => REASON_NOT_ACCEPTABLE_ANYWHERE,
-            StatusCode::Rejected => REASON_REJECTED,
-
-            // Unknown or custom status
-            _ => "Unknown",
+            Self::Trying => TRYING.clone(),
+            Self::Ringing => RINGING.clone(),
+            Self::CallIsBeingForwarded => CALL_IS_BEING_FORWARDED.clone(),
+            Self::Queued => QUEUED.clone(),
+            Self::SessionProgress => SESSION_PROGRESS.clone(),
+            Self::EarlyDialogTerminated => EARLY_DIALOG_TERMINATED.clone(),
+            Self::Ok => OK.clone(),
+            Self::Accepted => ACCEPTED.clone(),
+            Self::NoNotification => NO_NOTIFICATION.clone(),
+            Self::MultipleChoices => MULTIPLE_CHOICES.clone(),
+            Self::MovedPermanently => MOVED_PERMANENTLY.clone(),
+            Self::MovedTemporarily => MOVED_TEMPORARILY.clone(),
+            Self::UseProxy => USE_PROXY.clone(),
+            Self::AlternativeService => ALTERNATIVE_SERVICE.clone(),
+            Self::BadRequest => BAD_REQUEST.clone(),
+            Self::Unauthorized => UNAUTHORIZED.clone(),
+            Self::PaymentRequired => PAYMENT_REQUIRED.clone(),
+            Self::Forbidden => FORBIDDEN.clone(),
+            Self::NotFound => NOT_FOUND.clone(),
+            Self::MethodNotAllowed => METHOD_NOT_ALLOWED.clone(),
+            Self::NotAcceptable => NOT_ACCEPTABLE.clone(),
+            Self::ProxyAuthenticationRequired => PROXY_AUTHENTICATION_REQUIRED.clone(),
+            Self::RequestTimeout => REQUEST_TIMEOUT.clone(),
+            Self::Conflict => CONFLICT.clone(),
+            Self::Gone => GONE.clone(),
+            Self::LengthRequired => LENGTH_REQUIRED.clone(),
+            Self::ConditionalRequestFailed => CONDITIONAL_REQUEST_FAILED.clone(),
+            Self::RequestEntityTooLarge => REQUEST_ENTITY_TOO_LARGE.clone(),
+            Self::RequestUriTooLong => REQUEST_URI_TOO_LONG.clone(),
+            Self::UnsupportedMediaType => UNSUPPORTED_MEDIA_TYPE.clone(),
+            Self::UnsupportedUriScheme => UNSUPPORTED_URI_SCHEME.clone(),
+            Self::UnknownResourcePriority => UNKNOWN_RESOURCE_PRIORITY.clone(),
+            Self::BadExtension => BAD_EXTENSION.clone(),
+            Self::ExtensionRequired => EXTENSION_REQUIRED.clone(),
+            Self::SessionIntervalTooSmall => SESSION_INTERVAL_TOO_SMALL.clone(),
+            Self::IntervalTooBrief => INTERVAL_TOO_BRIEF.clone(),
+            Self::BadLocationInformation => BAD_LOCATION_INFORMATION.clone(),
+            Self::UseIdentityHeader => USE_IDENTITY_HEADER.clone(),
+            Self::ProvideReferrerIdentity => PROVIDE_REFERRER_IDENTITY.clone(),
+            Self::FlowFailed => FLOW_FAILED.clone(),
+            Self::AnonymityDisallowed => ANONYMITY_DISALLOWED.clone(),
+            Self::BadIdentityInfo => BAD_IDENTITY_INFO.clone(),
+            Self::UnsupportedCertificate => UNSUPPORTED_CERTIFICATE.clone(),
+            Self::InvalidIdentityHeader => INVALID_IDENTITY_HEADER.clone(),
+            Self::FirstHopLacksOutboundSupport => FIRST_HOP_LACKS_OUTBOUND_SUPPORT.clone(),
+            Self::MaxBreadthExceeded => MAX_BREADTH_EXCEEDED.clone(),
+            Self::BadInfoPackage => BAD_INFO_PACKAGE.clone(),
+            Self::ConsentNeeded => CONSENT_NEEDED.clone(),
+            Self::TemporarilyUnavailable => TEMPORARILY_UNAVAILABLE.clone(),
+            Self::CallOrTransactionDoesNotExist => CALL_OR_TRANSACTION_DOES_NOT_EXIST.clone(),
+            Self::LoopDetected => LOOP_DETECTED.clone(),
+            Self::TooManyHops => TOO_MANY_HOPS.clone(),
+            Self::AddressIncomplete => ADDRESS_INCOMPLETE.clone(),
+            Self::Ambiguous => AMBIGUOUS.clone(),
+            Self::BusyHere => BUSY_HERE.clone(),
+            Self::RequestTerminated => REQUEST_TERMINATED.clone(),
+            Self::NotAcceptableHere => NOT_ACCEPTABLE_HERE.clone(),
+            Self::BadEvent => BAD_EVENT.clone(),
+            Self::RequestUpdated => REQUEST_UPDATED.clone(),
+            Self::RequestPending => REQUEST_PENDING.clone(),
+            Self::Undecipherable => UNDECIPHERABLE.clone(),
+            Self::SecurityAgreementRequired => SECURITY_AGREEMENT_REQUIRED.clone(),
+            Self::ServerInternalError => SERVER_INTERNAL_ERROR.clone(),
+            Self::NotImplemented => NOT_IMPLEMENTED.clone(),
+            Self::BadGateway => BAD_GATEWAY.clone(),
+            Self::ServiceUnavailable => SERVICE_UNAVAILABLE.clone(),
+            Self::ServerTimeout => SERVER_TIMEOUT.clone(),
+            Self::VersionNotSupported => VERSION_NOT_SUPPORTED.clone(),
+            Self::MessageTooLarge => MESSAGE_TOO_LARGE.clone(),
+            Self::PushNotificationServiceNotSupported => {
+                PUSH_NOTIFICATION_SERVICE_NOT_SUPPORTED.clone()
+            }
+            Self::PreconditionFailure => PRECONDITION_FAILURE.clone(),
+            Self::BusyEverywhere => BUSY_EVERYWHERE.clone(),
+            Self::Decline => DECLINE.clone(),
+            Self::DoesNotExistAnywhere => DOES_NOT_EXIST_ANYWHERE.clone(),
+            Self::NotAcceptableAnywhere => NOT_ACCEPTABLE_ANYWHERE.clone(),
+            Self::Unwanted => UNWANTED.clone(),
+            Self::Rejected => REJECTED.clone(),
         }
     }
 
-    /// Returns [`true`] if its status code is provisional (from `100` to `199`), and [`false`]
-    /// otherwise.
-    #[inline]
-    pub const fn is_provisional(&self) -> bool {
-        matches!(
-            self,
-            StatusCode::Trying
-                | StatusCode::Ringing
-                | StatusCode::CallIsBeingForwarded
-                | StatusCode::Queued
-                | StatusCode::SessionProgress
-                | StatusCode::EarlyDialogTerminated
-        )
-    }
-
-    #[inline]
-    /// Returns [`true`] if its status code is final (from `200` to `699`), and [`false`]
-    /// otherwise.
-    pub const fn is_final(&self) -> bool {
-        !self.is_provisional()
+    ///  Returns the class of the status code.
+    pub fn class(&self) -> CodeClass {
+        match self.as_u16() {
+            100..=199 => CodeClass::Provisional,
+            200..=299 => CodeClass::Success,
+            300..=399 => CodeClass::Redirection,
+            400..=499 => CodeClass::ClientError,
+            500..=599 => CodeClass::ServerError,
+            600..=699 => CodeClass::GlobalFailure,
+            _ => unreachable!("StatusCode::class called on an invalid status code"),
+        }
     }
 
     /// Converts a `StatusCode` into its numeric code.
-    pub const fn into_i32(self) -> i32 {
-        match self {
-            StatusCode::Trying => 100,
-            StatusCode::Ringing => 180,
-            StatusCode::CallIsBeingForwarded => 181,
-            StatusCode::Queued => 182,
-            StatusCode::SessionProgress => 183,
-            StatusCode::EarlyDialogTerminated => 199,
+    pub const fn as_u16(self) -> u16 {
+        self as u16
+    }
 
-            StatusCode::Ok => 200,
-            StatusCode::Accepted => 202,
-            StatusCode::NoNotification => 204,
+    /// Returns [`true`] if its status code is provisional (from `100` to
+    /// `199`), and [`false`] otherwise.
+    #[inline]
+    pub fn is_provisional(&self) -> bool {
+        matches!(self.class(), CodeClass::Provisional)
+    }
 
-            StatusCode::MultipleChoices => 300,
-            StatusCode::MovedPermanently => 301,
-            StatusCode::MovedTemporarily => 302,
-            StatusCode::UseProxy => 305,
-            StatusCode::AlternativeService => 380,
-
-            StatusCode::BadRequest => 400,
-            StatusCode::Unauthorized => 401,
-            StatusCode::PaymentRequired => 402,
-            StatusCode::Forbidden => 403,
-            StatusCode::NotFound => 404,
-            StatusCode::MethodNotAllowed => 405,
-            StatusCode::NotAcceptable => 406,
-            StatusCode::ProxyAuthenticationRequired => 407,
-            StatusCode::RequestTimeout => 408,
-            StatusCode::Conflict => 409,
-            StatusCode::Gone => 410,
-            StatusCode::LengthRequired => 411,
-            StatusCode::ConditionalRequestFailed => 412,
-            StatusCode::RequestEntityTooLarge => 413,
-            StatusCode::RequestUriTooLong => 414,
-            StatusCode::UnsupportedMediaType => 415,
-            StatusCode::UnsupportedUriScheme => 416,
-            StatusCode::UnknownResourcePriority => 417,
-            StatusCode::BadExtension => 420,
-            StatusCode::ExtensionRequired => 421,
-            StatusCode::SessionTimerTooSmall => 422,
-            StatusCode::IntervalTooBrief => 423,
-            StatusCode::BadLocationInformation => 424,
-            StatusCode::UseIdentityHeader => 428,
-            StatusCode::ProvideReferrerHeader => 429,
-            StatusCode::FlowFailed => 430,
-            StatusCode::AnonimityDisallowed => 433,
-            StatusCode::BadIdentityInfo => 436,
-            StatusCode::UnsupportedCertificate => 437,
-            StatusCode::InvalidIdentityHeader => 438,
-            StatusCode::FirstHopLacksOutboundSupport => 439,
-            StatusCode::MaxBreadthExceeded => 440,
-            StatusCode::BadInfoPackage => 469,
-            StatusCode::ConsentNeeded => 470,
-            StatusCode::TemporarilyUnavailable => 480,
-            StatusCode::CallOrTransactionDoesNotExist => 481,
-            StatusCode::LoopDetected => 482,
-            StatusCode::TooManyHops => 483,
-            StatusCode::AddressIncomplete => 484,
-            StatusCode::Ambiguous => 485,
-            StatusCode::BusyHere => 486,
-            StatusCode::RequestTerminated => 487,
-            StatusCode::NotAcceptableHere => 488,
-            StatusCode::BadEvent => 489,
-            StatusCode::RequestUpdated => 490,
-            StatusCode::RequestPending => 491,
-            StatusCode::Undecipherable => 493,
-            StatusCode::SecurityAgreementNeeded => 494,
-
-            StatusCode::ServerInternalError => 500,
-            StatusCode::NotImplemented => 501,
-            StatusCode::BadGateway => 502,
-            StatusCode::ServiceUnavailable => 503,
-            StatusCode::ServerTimeout => 504,
-            StatusCode::VersionNotSupported => 505,
-            StatusCode::MessageTooLarge => 513,
-            StatusCode::PushNotificationServiceNotSupported => 555,
-            StatusCode::PreconditionFailure => 580,
-
-            StatusCode::BusyEverywhere => 600,
-            StatusCode::Decline => 603,
-            StatusCode::DoesNotExistAnywhere => 604,
-            StatusCode::NotAcceptableAnywhere => 606,
-            StatusCode::Unwanted => 607,
-            StatusCode::Rejected => 608,
-            StatusCode::Custom(n) => n,
-        }
+    /// Returns [`true`]  if its status code is final (from `200` to `699` ),
+    /// and [`false`] otherwise.
+    #[inline]
+    pub fn is_final(&self) -> bool {
+        !self.is_provisional()
     }
 }
 
-impl From<i32> for StatusCode {
-    fn from(value: i32) -> Self {
-        match value {
-            100 => StatusCode::Trying,
-            180 => StatusCode::Ringing,
-            181 => StatusCode::CallIsBeingForwarded,
-            182 => StatusCode::Queued,
-            183 => StatusCode::SessionProgress,
-            199 => StatusCode::EarlyDialogTerminated,
-            200 => StatusCode::Ok,
-            202 => StatusCode::Accepted,
-            204 => StatusCode::NoNotification,
-            300 => StatusCode::MultipleChoices,
-            301 => StatusCode::MovedPermanently,
-            302 => StatusCode::MovedTemporarily,
-            305 => StatusCode::UseProxy,
-            380 => StatusCode::AlternativeService,
-            400 => StatusCode::BadRequest,
-            401 => StatusCode::Unauthorized,
-            402 => StatusCode::PaymentRequired,
-            403 => StatusCode::Forbidden,
-            404 => StatusCode::NotFound,
-            405 => StatusCode::MethodNotAllowed,
-            406 => StatusCode::NotAcceptable,
-            407 => StatusCode::ProxyAuthenticationRequired,
-            408 => StatusCode::RequestTimeout,
-            409 => StatusCode::Conflict,
-            410 => StatusCode::Gone,
-            411 => StatusCode::LengthRequired,
-            412 => StatusCode::ConditionalRequestFailed,
-            413 => StatusCode::RequestEntityTooLarge,
-            414 => StatusCode::RequestUriTooLong,
-            415 => StatusCode::UnsupportedMediaType,
-            416 => StatusCode::UnsupportedUriScheme,
-            417 => StatusCode::UnknownResourcePriority,
-            420 => StatusCode::BadExtension,
-            421 => StatusCode::ExtensionRequired,
-            422 => StatusCode::SessionTimerTooSmall,
-            423 => StatusCode::IntervalTooBrief,
-            424 => StatusCode::BadLocationInformation,
-            428 => StatusCode::UseIdentityHeader,
-            429 => StatusCode::ProvideReferrerHeader,
-            430 => StatusCode::FlowFailed,
-            433 => StatusCode::AnonimityDisallowed,
-            436 => StatusCode::BadIdentityInfo,
-            437 => StatusCode::UnsupportedCertificate,
-            438 => StatusCode::InvalidIdentityHeader,
-            439 => StatusCode::FirstHopLacksOutboundSupport,
-            440 => StatusCode::MaxBreadthExceeded,
-            469 => StatusCode::BadInfoPackage,
-            470 => StatusCode::ConsentNeeded,
-            480 => StatusCode::TemporarilyUnavailable,
-            481 => StatusCode::CallOrTransactionDoesNotExist,
-            482 => StatusCode::LoopDetected,
-            483 => StatusCode::TooManyHops,
-            484 => StatusCode::AddressIncomplete,
-            485 => StatusCode::Ambiguous,
-            486 => StatusCode::BusyHere,
-            487 => StatusCode::RequestTerminated,
-            488 => StatusCode::NotAcceptableHere,
-            489 => StatusCode::BadEvent,
-            490 => StatusCode::RequestUpdated,
-            491 => StatusCode::RequestPending,
-            493 => StatusCode::Undecipherable,
-            494 => StatusCode::SecurityAgreementNeeded,
-            500 => StatusCode::ServerInternalError,
-            501 => StatusCode::NotImplemented,
-            502 => StatusCode::BadGateway,
-            503 => StatusCode::ServiceUnavailable,
-            504 => StatusCode::ServerTimeout,
-            505 => StatusCode::VersionNotSupported,
-            513 => StatusCode::MessageTooLarge,
-            555 => StatusCode::PushNotificationServiceNotSupported,
-            580 => StatusCode::PreconditionFailure,
-            600 => StatusCode::BusyEverywhere,
-            603 => StatusCode::Decline,
-            604 => StatusCode::DoesNotExistAnywhere,
-            606 => StatusCode::NotAcceptableAnywhere,
-            607 => StatusCode::Unwanted,
-            608 => StatusCode::Rejected,
-            other => StatusCode::Custom(other),
-        }
-    }
-}
+impl TryFrom<&[u8]> for StatusCode {
+    type Error = ();
 
-impl From<&[u8]> for StatusCode {
-    fn from(value: &[u8]) -> Self {
-        match value {
-            b"100" => StatusCode::Trying,
-            b"180" => StatusCode::Ringing,
-            b"181" => StatusCode::CallIsBeingForwarded,
-            b"182" => StatusCode::Queued,
-            b"183" => StatusCode::SessionProgress,
-            b"199" => StatusCode::EarlyDialogTerminated,
-            b"200" => StatusCode::Ok,
-            b"202" => StatusCode::Accepted,
-            b"204" => StatusCode::NoNotification,
-            b"300" => StatusCode::MultipleChoices,
-            b"301" => StatusCode::MovedPermanently,
-            b"302" => StatusCode::MovedTemporarily,
-            b"305" => StatusCode::UseProxy,
-            b"380" => StatusCode::AlternativeService,
-            b"400" => StatusCode::BadRequest,
-            b"401" => StatusCode::Unauthorized,
-            b"402" => StatusCode::PaymentRequired,
-            b"403" => StatusCode::Forbidden,
-            b"404" => StatusCode::NotFound,
-            b"405" => StatusCode::MethodNotAllowed,
-            b"406" => StatusCode::NotAcceptable,
-            b"407" => StatusCode::ProxyAuthenticationRequired,
-            b"408" => StatusCode::RequestTimeout,
-            b"409" => StatusCode::Conflict,
-            b"410" => StatusCode::Gone,
-            b"411" => StatusCode::LengthRequired,
-            b"412" => StatusCode::ConditionalRequestFailed,
-            b"413" => StatusCode::RequestEntityTooLarge,
-            b"414" => StatusCode::RequestUriTooLong,
-            b"415" => StatusCode::UnsupportedMediaType,
-            b"416" => StatusCode::UnsupportedUriScheme,
-            b"417" => StatusCode::UnknownResourcePriority,
-            b"420" => StatusCode::BadExtension,
-            b"421" => StatusCode::ExtensionRequired,
-            b"422" => StatusCode::SessionTimerTooSmall,
-            b"423" => StatusCode::IntervalTooBrief,
-            b"424" => StatusCode::BadLocationInformation,
-            b"428" => StatusCode::UseIdentityHeader,
-            b"429" => StatusCode::ProvideReferrerHeader,
-            b"430" => StatusCode::FlowFailed,
-            b"433" => StatusCode::AnonimityDisallowed,
-            b"436" => StatusCode::BadIdentityInfo,
-            b"437" => StatusCode::UnsupportedCertificate,
-            b"438" => StatusCode::InvalidIdentityHeader,
-            b"439" => StatusCode::FirstHopLacksOutboundSupport,
-            b"440" => StatusCode::MaxBreadthExceeded,
-            b"469" => StatusCode::BadInfoPackage,
-            b"470" => StatusCode::ConsentNeeded,
-            b"480" => StatusCode::TemporarilyUnavailable,
-            b"481" => StatusCode::CallOrTransactionDoesNotExist,
-            b"482" => StatusCode::LoopDetected,
-            b"483" => StatusCode::TooManyHops,
-            b"484" => StatusCode::AddressIncomplete,
-            b"485" => StatusCode::Ambiguous,
-            b"486" => StatusCode::BusyHere,
-            b"487" => StatusCode::RequestTerminated,
-            b"488" => StatusCode::NotAcceptableHere,
-            b"489" => StatusCode::BadEvent,
-            b"490" => StatusCode::RequestUpdated,
-            b"491" => StatusCode::RequestPending,
-            b"493" => StatusCode::Undecipherable,
-            b"494" => StatusCode::SecurityAgreementNeeded,
-            b"500" => StatusCode::ServerInternalError,
-            b"501" => StatusCode::NotImplemented,
-            b"502" => StatusCode::BadGateway,
-            b"503" => StatusCode::ServiceUnavailable,
-            b"504" => StatusCode::ServerTimeout,
-            b"505" => StatusCode::VersionNotSupported,
-            b"513" => StatusCode::MessageTooLarge,
-            b"555" => StatusCode::PushNotificationServiceNotSupported,
-            b"580" => StatusCode::PreconditionFailure,
-            b"600" => StatusCode::BusyEverywhere,
-            b"603" => StatusCode::Decline,
-            b"604" => StatusCode::DoesNotExistAnywhere,
-            b"606" => StatusCode::NotAcceptableAnywhere,
-            b"607" => StatusCode::Unwanted,
-            b"608" => StatusCode::Rejected,
-            other => {
-                let code = std::str::from_utf8(other).unwrap_or("0").parse::<i32>().unwrap();
-                StatusCode::Custom(code)
-            }
-        }
+    fn try_from(code: &[u8]) -> Result<Self, Self::Error> {
+        Ok(match code {
+            b"100" => Self::Trying,
+            b"180" => Self::Ringing,
+            b"181" => Self::CallIsBeingForwarded,
+            b"182" => Self::Queued,
+            b"183" => Self::SessionProgress,
+            b"199" => Self::EarlyDialogTerminated,
+            b"200" => Self::Ok,
+            b"202" => Self::Accepted,
+            b"204" => Self::NoNotification,
+            b"300" => Self::MultipleChoices,
+            b"301" => Self::MovedPermanently,
+            b"302" => Self::MovedTemporarily,
+            b"305" => Self::UseProxy,
+            b"380" => Self::AlternativeService,
+            b"400" => Self::BadRequest,
+            b"401" => Self::Unauthorized,
+            b"402" => Self::PaymentRequired,
+            b"403" => Self::Forbidden,
+            b"404" => Self::NotFound,
+            b"405" => Self::MethodNotAllowed,
+            b"406" => Self::NotAcceptable,
+            b"407" => Self::ProxyAuthenticationRequired,
+            b"408" => Self::RequestTimeout,
+            b"409" => Self::Conflict,
+            b"410" => Self::Gone,
+            b"411" => Self::LengthRequired,
+            b"412" => Self::ConditionalRequestFailed,
+            b"413" => Self::RequestEntityTooLarge,
+            b"414" => Self::RequestUriTooLong,
+            b"415" => Self::UnsupportedMediaType,
+            b"416" => Self::UnsupportedUriScheme,
+            b"417" => Self::UnknownResourcePriority,
+            b"420" => Self::BadExtension,
+            b"421" => Self::ExtensionRequired,
+            b"422" => Self::SessionIntervalTooSmall,
+            b"423" => Self::IntervalTooBrief,
+            b"424" => Self::BadLocationInformation,
+            b"428" => Self::UseIdentityHeader,
+            b"429" => Self::ProvideReferrerIdentity,
+            b"430" => Self::FlowFailed,
+            b"433" => Self::AnonymityDisallowed,
+            b"436" => Self::BadIdentityInfo,
+            b"437" => Self::UnsupportedCertificate,
+            b"438" => Self::InvalidIdentityHeader,
+            b"439" => Self::FirstHopLacksOutboundSupport,
+            b"440" => Self::MaxBreadthExceeded,
+            b"469" => Self::BadInfoPackage,
+            b"470" => Self::ConsentNeeded,
+            b"480" => Self::TemporarilyUnavailable,
+            b"481" => Self::CallOrTransactionDoesNotExist,
+            b"482" => Self::LoopDetected,
+            b"483" => Self::TooManyHops,
+            b"484" => Self::AddressIncomplete,
+            b"485" => Self::Ambiguous,
+            b"486" => Self::BusyHere,
+            b"487" => Self::RequestTerminated,
+            b"488" => Self::NotAcceptableHere,
+            b"489" => Self::BadEvent,
+            b"490" => Self::RequestUpdated,
+            b"491" => Self::RequestPending,
+            b"493" => Self::Undecipherable,
+            b"494" => Self::SecurityAgreementRequired,
+            b"500" => Self::ServerInternalError,
+            b"501" => Self::NotImplemented,
+            b"502" => Self::BadGateway,
+            b"503" => Self::ServiceUnavailable,
+            b"504" => Self::ServerTimeout,
+            b"505" => Self::VersionNotSupported,
+            b"513" => Self::MessageTooLarge,
+            b"555" => Self::PushNotificationServiceNotSupported,
+            b"580" => Self::PreconditionFailure,
+            b"600" => Self::BusyEverywhere,
+            b"603" => Self::Decline,
+            b"604" => Self::DoesNotExistAnywhere,
+            b"606" => Self::NotAcceptableAnywhere,
+            b"607" => Self::Unwanted,
+            b"608" => Self::Rejected,
+            _ => return Err(()),
+        })
     }
 }

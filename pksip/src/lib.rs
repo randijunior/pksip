@@ -2,41 +2,47 @@
 //!
 //! A rust library that implements the SIP protocol.
 
-pub mod endpoint;
-pub mod headers;
+pub mod core;
+pub mod dialog;
+pub mod header;
 pub mod message;
 pub mod parser;
 pub mod transaction;
 pub mod transport;
-pub mod ua;
 
 pub(crate) mod error;
-pub(crate) mod macros;
+pub mod macros;
 
-pub use endpoint::Endpoint;
+pub use core::EndpointService;
+pub use core::SipEndpoint;
+
 use error::Error;
 pub use error::Result;
+pub use message::SipMethod;
 use parser::Parser;
-pub use endpoint::service::SipService;
 
 #[cfg(test)]
 #[macro_use]
 extern crate assert_matches;
 
-use std::{
-    borrow::Cow,
-    fmt,
-    net::SocketAddr,
-    str::{self, FromStr},
-    sync::Arc,
-};
+use std::fmt;
+use std::net::SocketAddr;
+use std::str::FromStr;
+use std::str::{self};
+use std::sync::Arc;
 
-use crate::{error::SipParserError, message::Params};
+use crate::error::SipParserError;
+use crate::message::Parameters;
 
-#[derive(Debug, Clone)]
-pub enum CowArcStr<'a> {
-    Borrowed(&'a str),
-    Owned(Arc<str>),
+pub(crate) type ArcStr = Arc<str>;
+
+pub(crate) fn generate_random_str() -> String {
+    todo!("Implement a function to generate a random string for tags")
+}
+
+#[inline(always)]
+pub(crate) fn is_valid_port(v: u16) -> bool {
+    matches!(v, 0..=65535)
 }
 
 /// Represents a quality value (q-value) used in SIP
@@ -47,7 +53,7 @@ pub enum CowArcStr<'a> {
 /// q-value is typically used to indicate the preference
 /// of certain SIP headers.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// use pksip::Q;
@@ -106,20 +112,20 @@ impl fmt::Display for Q {
 /// This type reprents an MIME type that indicates an
 /// content format.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MimeType<'a> {
-    pub mtype: Cow<'a, str>,
-    pub subtype: Cow<'a, str>,
+pub struct MimeType {
+    pub mtype: Arc<str>,
+    pub subtype: Arc<str>,
 }
 
 /// The `media-type` that appears in `Accept` and
 /// `Content-Type` SIP headers.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MediaType<'a> {
-    pub mimetype: MimeType<'a>,
-    pub param: Option<Params<'a>>,
+pub struct MediaType {
+    pub mimetype: MimeType,
+    pub param: Option<Parameters>,
 }
 
-impl fmt::Display for MediaType<'_> {
+impl fmt::Display for MediaType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let MediaType { mimetype, param } = self;
         write!(f, "{}/{}", mimetype.mtype, mimetype.subtype)?;
@@ -130,9 +136,9 @@ impl fmt::Display for MediaType<'_> {
     }
 }
 
-impl<'a> MediaType<'a> {
+impl MediaType {
     /// Constructs a `MediaType` from a type and a subtype.
-    pub fn new(mtype: &'a str, subtype: &'a str) -> Self {
+    pub fn new(mtype: &str, subtype: &str) -> Self {
         Self {
             mimetype: MimeType {
                 mtype: mtype.into(),
@@ -142,9 +148,9 @@ impl<'a> MediaType<'a> {
         }
     }
 
-    pub fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+    pub fn parse(parser: &mut Parser) -> Result<Self> {
         let mtype = parser.parse_token()?;
-        parser.advance();
+        parser.next_byte();
         let subtype = parser.parse_token()?;
         let param = crate::macros::parse_header_param!(parser);
 
@@ -157,7 +163,7 @@ impl<'a> MediaType<'a> {
 
     /// Constructs a `MediaType` with an optional
     /// parameters.
-    pub fn from_parts(mtype: &'a str, subtype: &'a str, param: Option<Params<'a>>) -> Self {
+    pub fn from_parts(mtype: &str, subtype: &str, param: Option<Parameters>) -> Self {
         Self {
             mimetype: MimeType {
                 mtype: mtype.into(),

@@ -1,34 +1,37 @@
-use async_trait::async_trait;
-use pksip::{
-    endpoint::{Builder, Endpoint, service::SipService},
-    message::{SipMethod, REASON_NOT_IMPLEMENTED, REASON_OK},
-    transaction::TransactionLayer,
-    transport::IncomingRequest,
-    Result,
-};
 use std::error::Error;
+
+use async_trait::async_trait;
+use pksip::core::service::EndpointService;
+use pksip::core::to_take::ToTake;
+use pksip::core::SipEndpoint;
+use pksip::message::{SipMethod, StatusCode};
+use pksip::transaction::Transactions;
+use pksip::transport::IncomingRequest;
+use pksip::Result;
 use tracing::Level;
 
 pub struct MyService;
 
 #[async_trait]
-impl SipService for MyService {
+impl EndpointService for MyService {
     fn name(&self) -> &str {
         "SipUAS"
     }
-    async fn on_incoming_request(&self, endpoint: &Endpoint, request: &mut Option<IncomingRequest>) -> Result<()> {
-        let mut request = request.take().unwrap();
-        match request.method() {
-            SipMethod::Options => {
-                let tsx = endpoint.new_uas_tsx(&mut request);
-                let mut response = endpoint.new_response(&request, 200, REASON_OK);
-                tsx.respond(&mut response).await?;
-            }
-            &method if method != SipMethod::Ack => {
-                endpoint.respond(&request, 501, REASON_NOT_IMPLEMENTED).await?;
-            }
-            _ => (),
-        };
+
+    async fn on_incoming_request(&self, endpoint: &SipEndpoint, request: ToTake<'_, IncomingRequest>) -> Result<()> {
+        let request = request.take();
+
+        let method = request.method();
+        if method == SipMethod::Options {
+            let server_tsx = endpoint.new_server_transaction(&request);
+            let mut response = endpoint.new_response(&request, StatusCode::Ok, None);
+            server_tsx.respond(&mut response).await?;
+        } else if method != SipMethod::Ack {
+            endpoint.respond(&request, StatusCode::NotImplemented, None).await?;
+        } else {
+            // ACK method does not require a response
+            tracing::debug!("Received ACK request, no response needed.");
+        }
 
         Ok(())
     }
@@ -46,9 +49,9 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let svc = MyService;
     let addr = "127.0.0.1:0".parse()?;
 
-    let endpoint = Builder::new()
+    let endpoint = SipEndpoint::builder()
         .with_service(svc)
-        .with_transaction_layer(TransactionLayer::default())
+        .with_transaction(Transactions::default())
         .with_udp(addr)
         .build()
         .await;

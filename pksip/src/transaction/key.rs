@@ -1,26 +1,26 @@
-use std::sync::Arc;
+use crate::header::Header;
+use crate::message::HostPort;
+use crate::message::SipMethod;
+use crate::transport::IncomingRequest;
+use crate::transport::OutgoingRequest;
+use crate::ArcStr;
 
-use crate::{
-    headers::Header,
-    message::{HostPort, SipMethod},
-    transport::{IncomingRequest, OutgoingRequest},
-};
-
-const BRANCH_RFC3261: &str = "z9hG4bK";
+const BRANCH_MAGIC_COOKIE: &str = "z9hG4bK";
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum TsxKey {
+pub enum TransactionKey {
     Rfc2543(Rfc2543),
     Rfc3261(Rfc3261),
 }
 
-impl TsxKey {
+impl TransactionKey {
     pub fn create_client_with(method: &SipMethod, branch: &str) -> Self {
-        TsxKey::Rfc3261(Rfc3261::Client(ClientTsxKey {
+        TransactionKey::Rfc3261(Rfc3261::Client(ClientTransactionKey {
             branch: branch.into(),
             method: Some(*method),
         }))
     }
+
     pub fn create_client(request: &OutgoingRequest) -> Self {
         let via = request
             .msg
@@ -47,7 +47,7 @@ impl TsxKey {
         match via.branch() {
             Some(branch) => {
                 // Valid branch for RFC 3261
-                TsxKey::Rfc3261(Rfc3261::Client(ClientTsxKey {
+                TransactionKey::Rfc3261(Rfc3261::Client(ClientTransactionKey {
                     branch: branch.into(),
                     method: Some(*cseq.method()),
                 }))
@@ -60,11 +60,13 @@ impl TsxKey {
 
     pub fn create_server(request: &IncomingRequest) -> Self {
         match request.request_headers.via.branch() {
-            Some(branch) if branch.starts_with(BRANCH_RFC3261) => TsxKey::Rfc3261(Rfc3261::Server(ServerTsxKey {
-                branch: branch.into(),
-                via_sent_by: request.request_headers.via.sent_by().clone(),
-                method: Some(*request.request_headers.cseq.method()),
-            })),
+            Some(branch) if branch.starts_with(BRANCH_MAGIC_COOKIE) => {
+                TransactionKey::Rfc3261(Rfc3261::Server(ServerTransactionKey {
+                    branch: branch.into(),
+                    via_sent_by: request.request_headers.via.sent_by().clone(),
+                    method: Some(*request.request_headers.cseq.method()),
+                }))
+            }
             _ => {
                 todo!("create rfc 2543")
             }
@@ -75,28 +77,28 @@ impl TsxKey {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Rfc2543 {
     pub cseq: u32,
-    pub from_tag: Option<Arc<str>>,
-    pub to_tag: Option<Arc<str>>,
-    pub call_id: Arc<str>,
+    pub from_tag: Option<ArcStr>,
+    pub to_tag: Option<ArcStr>,
+    pub call_id: ArcStr,
     pub via_host_port: HostPort,
     pub method: Option<SipMethod>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Rfc3261 {
-    Client(ClientTsxKey),
-    Server(ServerTsxKey),
+    Client(ClientTransactionKey),
+    Server(ServerTransactionKey),
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ClientTsxKey {
-    branch: Arc<str>,
+pub struct ClientTransactionKey {
+    branch: ArcStr,
     method: Option<SipMethod>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ServerTsxKey {
-    branch: Arc<str>,
+pub struct ServerTransactionKey {
+    branch: ArcStr,
     via_sent_by: HostPort,
     method: Option<SipMethod>,
 }

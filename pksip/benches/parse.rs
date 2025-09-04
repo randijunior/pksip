@@ -1,4 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::black_box;
+use criterion::criterion_group;
+use criterion::criterion_main;
+use criterion::Criterion;
 use pksip::parser::Parser;
 
 fn bench_parse_sip_msg(c: &mut Criterion) {
@@ -20,10 +23,10 @@ Content-Length: 151\r\n
 X-BroadWorks-DNC: network-address=sip:+9876543210@127.0.0.101;user=phone\r\n
 User-Agent: X-Lite release 1104o stamp 56125\r\n\r\n";
 
-    c.bench_function("parse_sip_msg invite with sdp", |b| {
+    c.bench_function("parse invite with sdp", |b| {
         b.iter(|| {
             let mut parser = Parser::new(black_box(buf));
-            let msg = parser.parse_sip_msg().unwrap();
+            let msg = parser.parse().unwrap();
             black_box(msg);
         });
     });

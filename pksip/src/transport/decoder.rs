@@ -1,22 +1,20 @@
 use std::io;
 
-use tokio_util::{
-    bytes::{Buf, BytesMut},
-    codec::Decoder,
-};
-
-use crate::headers::{ContentLength, SipHeaderParse};
+use tokio_util::bytes::Buf;
+use tokio_util::bytes::BytesMut;
+use tokio_util::codec::Decoder;
 
 use super::Payload;
+use crate::header::ContentLength;
+use crate::header::HeaderParser;
 
 //stream_oriented
 #[derive(Default)]
 pub(crate) struct StreamingDecoder;
 
 impl Decoder for StreamingDecoder {
-    type Item = Payload;
-
     type Error = io::Error;
+    type Item = Payload;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // Check if is keep-alive.
@@ -71,7 +69,10 @@ impl Decoder for StreamingDecoder {
             Ok(Some(Payload::new(src_bytes)))
         } else {
             // Return Error
-            Err(io::Error::new(io::ErrorKind::InvalidData, "Content-Length not found"))
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Content-Length not found",
+            ))
         }
     }
 }

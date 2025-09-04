@@ -1,0 +1,58 @@
+use std::fmt;
+use std::str;
+
+use crate::error::Result;
+use crate::header::HeaderParser;
+use crate::parser::Parser;
+use crate::ArcStr;
+
+/// The `Subject` SIP header.
+///
+/// Provides a summary or indicates the nature of the call.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Subject(ArcStr);
+
+impl<'a> HeaderParser<'a> for Subject {
+    const NAME: &'static str = "Subject";
+    const SHORT_NAME: &'static str = "s";
+
+    /*
+     * Subject  =  ( "Subject" / "s" ) HCOLON
+     * [TEXT-UTF8-TRIM]
+     */
+    fn parse(parser: &mut Parser<'a>) -> Result<Self> {
+        let subject = parser.read_until_new_line()?;
+
+        Ok(Subject(subject.into()))
+    }
+}
+
+impl fmt::Display for Subject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", Subject::NAME, self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let src = b"Need more boxes\r\n";
+        let mut scanner = Parser::new(src);
+        let subject = Subject::parse(&mut scanner);
+        let subject = subject.unwrap();
+
+        assert_eq!(scanner.remaining(), b"\r\n");
+        assert_eq!(subject.0.as_ref(), "Need more boxes");
+
+        let src = b"Tech Support\r\n";
+        let mut scanner = Parser::new(src);
+        let subject = Subject::parse(&mut scanner);
+        let subject = subject.unwrap();
+
+        assert_eq!(scanner.remaining(), b"\r\n");
+        assert_eq!(subject.0.as_ref(), "Tech Support");
+    }
+}
