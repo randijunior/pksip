@@ -1,12 +1,11 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::parse_header_param;
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Alert-Info` SIP header.
 ///
@@ -25,7 +24,7 @@ use crate::ArcStr;
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AlertInfo {
-    url: ArcStr,
+    url: Arc<str>,
     params: Option<Parameters>,
 }
 
@@ -40,7 +39,7 @@ impl AlertInfo {
 
     /// Creates a new `AlertInfo` header with the specified
     /// url and params.
-    pub fn from_parts(url: ArcStr, params: Option<Parameters>) -> Self {
+    pub fn from_parts(url: Arc<str>, params: Option<Parameters>) -> Self {
         Self { url, params }
     }
 

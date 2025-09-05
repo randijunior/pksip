@@ -1,16 +1,15 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Subject` SIP header.
 ///
 /// Provides a summary or indicates the nature of the call.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Subject(ArcStr);
+pub struct Subject(Arc<str>);
 
 impl<'a> HeaderParser<'a> for Subject {
     const NAME: &'static str = "Subject";

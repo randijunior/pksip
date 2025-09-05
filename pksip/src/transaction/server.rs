@@ -1,14 +1,10 @@
-use std::ops::Deref;
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 
 use crate::core::SipEndpoint;
 use crate::error::Result;
 use crate::message::SipMethod;
-use crate::transaction::State;
-use crate::transaction::Transaction;
-use crate::transaction::T1;
-use crate::transport::IncomingRequest;
-use crate::transport::OutgoingResponse;
+use crate::transaction::{State, Transaction, T1};
+use crate::transport::{IncomingRequest, OutgoingResponse};
 
 /// Represents a Server Non INVITE transaction.
 #[derive(Clone)]
@@ -78,12 +74,12 @@ impl Deref for ServerTransaction {
 
 #[cfg(test)]
 mod tests {
-    use tokio::time::Duration;
-    use tokio::time::{self};
+    use tokio::time::{
+        Duration, {self},
+    };
 
     use super::*;
-    use crate::message::SipMethod;
-    use crate::message::StatusCode;
+    use crate::message::{SipMethod, StatusCode};
     use crate::transaction::mock;
 
     #[tokio::test]

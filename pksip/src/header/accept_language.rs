@@ -1,16 +1,13 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
 use crate::error::Result;
-use crate::header::HeaderParser;
-use crate::header::Q_PARAM;
-use crate::macros::comma_separated_header_value;
-use crate::macros::parse_header_param;
+use crate::header::{HeaderParser, Q_PARAM};
+use crate::macros::{comma_separated_header_value, parse_header_param};
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
 use crate::Q;
 
 /// The `Accept-Language` SIP header.
@@ -100,7 +97,7 @@ impl fmt::Display for AcceptLanguage {
 /// A `language` that apear in `Accept-Language` header.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Language {
-    language: ArcStr,
+    language: Arc<str>,
     q: Option<Q>,
     param: Option<Parameters>,
 }
@@ -117,7 +114,7 @@ impl Language {
 
     /// Creates a new `Language` header with the given
     /// language, q param and another params.
-    pub fn from_parts(language: ArcStr, q: Option<Q>, param: Option<Parameters>) -> Self {
+    pub fn from_parts(language: Arc<str>, q: Option<Q>, param: Option<Parameters>) -> Self {
         Self { language, q, param }
     }
 }

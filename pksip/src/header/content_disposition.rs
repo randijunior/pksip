@@ -1,11 +1,11 @@
 use core::fmt;
+use std::sync::Arc;
 
 use super::HeaderParser;
 use crate::error::Result;
 use crate::macros::parse_header_param;
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Content-Disposition` SIP header.
 ///
@@ -22,7 +22,7 @@ use crate::ArcStr;
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ContentDisposition {
-    _type: ArcStr,
+    _type: Arc<str>,
     params: Option<Parameters>,
 }
 

@@ -1,10 +1,8 @@
 //! Service module.
 
 use crate::core::to_take::ToTake;
-use crate::transport::IncomingRequest;
-use crate::transport::IncomingResponse;
-use crate::Result;
-use crate::SipEndpoint;
+use crate::transport::{IncomingRequest, IncomingResponse};
+use crate::{Result, SipEndpoint};
 
 /// A trait which provides a way to extend the SIP endpoint
 /// functionalities.

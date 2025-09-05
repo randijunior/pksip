@@ -1,19 +1,16 @@
 use std::borrow::Cow;
 use std::fmt;
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use itertools::Itertools;
 
-use super::Parameters;
-use super::SipMethod;
-use crate::error::Error;
-use crate::error::Result;
+use super::{Parameters, SipMethod};
+use crate::error::{Error, Result};
 use crate::parser::Parser;
 use crate::transport::TransportType;
-use crate::ArcStr;
 
 /// A SIP URI.
 ///
@@ -24,48 +21,47 @@ use crate::ArcStr;
 /// # Examples
 ///
 /// ```rust
-/// use pksip::message::NameAddr;
-/// use pksip::message::SipUri;
+/// use pksip::message::{NameAddr, SipAddr};
 ///
-/// let uri: SipUri = "sip:alice@example.com".parse().unwrap();
+/// let uri: SipAddr = "sip:alice@example.com".parse().unwrap();
 /// assert!(uri.is_uri());
 ///
-/// let name_addr: SipUri = "\"Alice\" <sip:alice@example.com>".parse().unwrap();
+/// let name_addr: SipAddr = "\"Alice\" <sip:alice@example.com>".parse().unwrap();
 /// assert!(name_addr.is_name_addr());
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum SipUri {
+pub enum SipAddr {
     /// A plain SIP URI (e.g. `sip:user@example.com`)
     Uri(Uri),
     /// A named address (e.g. `"Alice" <sip:user@example.com>`)
     NameAddr(NameAddr),
 }
 
-impl SipUri {
-    /// Returns `true` if this is a [`SipUri::NameAddr`] variant, otherwise
+impl SipAddr {
+    /// Returns `true` if this is a [`SipAddr::NameAddr`] variant, otherwise
     /// returns `false`.
     pub fn is_name_addr(&self) -> bool {
-        matches!(self, SipUri::NameAddr(_))
+        matches!(self, SipAddr::NameAddr(_))
     }
 
-    /// Returns `true` if this is a [`SipUri::Uri`] variant, otherwise returns
+    /// Returns `true` if this is a [`SipAddr::Uri`] variant, otherwise returns
     /// `false`.
     pub fn is_uri(&self) -> bool {
-        matches!(self, SipUri::Uri(_))
+        matches!(self, SipAddr::Uri(_))
     }
 
     /// Returns a reference to the [`Uri`].
     pub fn uri(&self) -> &Uri {
         match self {
-            SipUri::Uri(uri) => &uri,
-            SipUri::NameAddr(name_addr) => &name_addr.uri,
+            SipAddr::Uri(uri) => &uri,
+            SipAddr::NameAddr(name_addr) => &name_addr.uri,
         }
     }
 
     /// Returns a reference to the [`NameAddr`] if this is a
-    /// [`SipUri::NameAddr`] variant.
+    /// [`SipAddr::NameAddr`] variant.
     pub fn name_addr(&self) -> Option<&NameAddr> {
-        if let SipUri::NameAddr(addr) = self {
+        if let SipAddr::NameAddr(addr) = self {
             Some(addr)
         } else {
             None
@@ -74,7 +70,7 @@ impl SipUri {
 
     /// Returns the display part if present.
     pub fn display(&self) -> Option<&str> {
-        if let SipUri::NameAddr(addr) = self {
+        if let SipAddr::NameAddr(addr) = self {
             addr.display()
         } else {
             None
@@ -84,105 +80,105 @@ impl SipUri {
     /// Returns the scheme of the uri.
     pub fn scheme(&self) -> Scheme {
         match self {
-            SipUri::Uri(uri) => uri.scheme,
-            SipUri::NameAddr(addr) => addr.uri.scheme,
+            SipAddr::Uri(uri) => uri.scheme,
+            SipAddr::NameAddr(addr) => addr.uri.scheme,
         }
     }
 
     /// Returns the user part of the uri.
     pub fn user(&self) -> Option<&UserInfo> {
         match self {
-            SipUri::Uri(uri) => uri.user.as_ref(),
-            SipUri::NameAddr(addr) => addr.uri.user.as_ref(),
+            SipAddr::Uri(uri) => uri.user.as_ref(),
+            SipAddr::NameAddr(addr) => addr.uri.user.as_ref(),
         }
     }
 
     /// Returns a reference to the [`HostPort`] of the uri.
     pub fn host_port(&self) -> &HostPort {
         match self {
-            SipUri::Uri(uri) => &uri.host_port,
-            SipUri::NameAddr(addr) => &addr.uri.host_port,
+            SipAddr::Uri(uri) => &uri.host_port,
+            SipAddr::NameAddr(addr) => &addr.uri.host_port,
         }
     }
 
     /// Returns the `transport` parameter.
     pub fn transport_param(&self) -> Option<TransportType> {
         match self {
-            SipUri::Uri(uri) => uri.transport_param,
-            SipUri::NameAddr(addr) => addr.uri.transport_param,
+            SipAddr::Uri(uri) => uri.transport_param,
+            SipAddr::NameAddr(addr) => addr.uri.transport_param,
         }
     }
 
     /// Returns the user parameter of the uri.
-    pub fn user_param(&self) -> &Option<ArcStr> {
+    pub fn user_param(&self) -> &Option<Arc<str>> {
         match self {
-            SipUri::Uri(uri) => &uri.user_param,
-            SipUri::NameAddr(addr) => &addr.uri.user_param,
+            SipAddr::Uri(uri) => &uri.user_param,
+            SipAddr::NameAddr(addr) => &addr.uri.user_param,
         }
     }
 
     /// Returns the method parameter of the uri.
     pub fn method_param(&self) -> &Option<SipMethod> {
         match self {
-            SipUri::Uri(uri) => &uri.method_param,
-            SipUri::NameAddr(addr) => &addr.uri.method_param,
+            SipAddr::Uri(uri) => &uri.method_param,
+            SipAddr::NameAddr(addr) => &addr.uri.method_param,
         }
     }
 
     /// Returns the ttl parameter of the uri.
     pub fn ttl_param(&self) -> &Option<u8> {
         match self {
-            SipUri::Uri(uri) => &uri.ttl_param,
-            SipUri::NameAddr(addr) => &addr.uri.ttl_param,
+            SipAddr::Uri(uri) => &uri.ttl_param,
+            SipAddr::NameAddr(addr) => &addr.uri.ttl_param,
         }
     }
 
     /// Returns the lr parameter of the uri.
     pub fn lr_param(&self) -> bool {
         match self {
-            SipUri::Uri(uri) => uri.lr_param,
-            SipUri::NameAddr(addr) => addr.uri.lr_param,
+            SipAddr::Uri(uri) => uri.lr_param,
+            SipAddr::NameAddr(addr) => addr.uri.lr_param,
         }
     }
 
     /// Returns the maddr parameter of the uri.
     pub fn maddr_param(&self) -> &Option<Host> {
         match self {
-            SipUri::Uri(uri) => &uri.maddr_param,
-            SipUri::NameAddr(addr) => &addr.uri.maddr_param,
+            SipAddr::Uri(uri) => &uri.maddr_param,
+            SipAddr::NameAddr(addr) => &addr.uri.maddr_param,
         }
     }
 
     /// Returns the other parameters of the uri.
     pub fn other_params(&self) -> Option<&Parameters> {
         match self {
-            SipUri::Uri(uri) => uri.parameters.as_ref(),
-            SipUri::NameAddr(addr) => addr.uri.parameters.as_ref(),
+            SipAddr::Uri(uri) => uri.parameters.as_ref(),
+            SipAddr::NameAddr(addr) => addr.uri.parameters.as_ref(),
         }
     }
 
     /// Returns the header parameters of the uri.
     pub fn headers(&self) -> Option<&UriHeaders> {
         match self {
-            SipUri::Uri(uri) => uri.headers.as_ref(),
-            SipUri::NameAddr(addr) => addr.uri.headers.as_ref(),
+            SipAddr::Uri(uri) => uri.headers.as_ref(),
+            SipAddr::NameAddr(addr) => addr.uri.headers.as_ref(),
         }
     }
 }
 
-impl FromStr for SipUri {
+impl FromStr for SipAddr {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        Parser::new(s.as_bytes()).parse_sip_uri(true)
+        Parser::new(s.as_bytes()).parse_sip_addr(true)
     }
 }
 
-impl fmt::Display for SipUri {
+impl fmt::Display for SipAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SipUri::Uri(uri) => write!(f, "{}", uri),
-            SipUri::NameAddr(addr) => write!(f, "{}", addr),
+            SipAddr::Uri(uri) => write!(f, "{}", uri),
+            SipAddr::NameAddr(addr) => write!(f, "{}", addr),
         }
     }
 }
@@ -223,7 +219,7 @@ pub struct Uri {
     /// The uri host.
     pub host_port: HostPort,
     /// The user parameter.
-    pub user_param: Option<ArcStr>,
+    pub user_param: Option<Arc<str>>,
     /// The method parameter.
     pub method_param: Option<SipMethod>,
     /// The transport parameter.
@@ -241,7 +237,7 @@ pub struct Uri {
 }
 
 impl Uri {
-    /// Returns a builder to create an `SipUri`.
+    /// Returns a builder to create an `SipAddr`.
     pub fn builder() -> UriBuilder {
         UriBuilder::new()
     }
@@ -441,7 +437,7 @@ impl UriBuilder {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NameAddr {
     /// The optional display part.
-    pub display: Option<ArcStr>,
+    pub display: Option<Arc<str>>,
     /// The uri of the `name-addr`.
     pub uri: Uri,
 }
@@ -478,17 +474,17 @@ impl fmt::Display for NameAddr {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UserInfo {
     /// The username part of the URI.
-    pub user: ArcStr,
+    pub user: Arc<str>,
     /// The optional password associated with the user.
-    pub pass: Option<ArcStr>,
+    pub pass: Option<Arc<str>>,
 }
 
 impl UserInfo {
     /// Creates a new `UserInfo` with the given `user` and optional `pass`.
     pub fn new(user: &str, pass: Option<&str>) -> Self {
         Self {
-            user: ArcStr::from(user),
-            pass: pass.map(ArcStr::from),
+            user: user.into(),
+            pass: pass.map(|pass| pass.into()),
         }
     }
 
@@ -505,7 +501,7 @@ impl UserInfo {
 
 /// Represents a domain name in a SIP URI.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub struct DomainName(pub(crate) ArcStr);
+pub struct DomainName(pub(crate) Arc<str>);
 
 impl From<&str> for DomainName {
     fn from(name: &str) -> Self {
@@ -516,7 +512,7 @@ impl From<&str> for DomainName {
 impl DomainName {
     /// Creates a new `DomainName` from a string slice.
     pub fn new(name: &str) -> Self {
-        DomainName(ArcStr::from(name))
+        DomainName(name.into())
     }
 
     /// Returns the string representation of the domain name.
@@ -579,7 +575,7 @@ impl FromStr for Host {
         if let Ok(ip_addr) = s.parse::<IpAddr>() {
             Ok(Host::IpAddr(ip_addr))
         } else {
-            Ok(Host::DomainName(DomainName(ArcStr::from(s))))
+            Ok(Host::DomainName(DomainName(s.into())))
         }
     }
 }

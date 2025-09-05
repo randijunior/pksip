@@ -9,42 +9,27 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use futures_util::future;
-use futures_util::pin_mut;
 use futures_util::stream::SplitSink;
-use futures_util::SinkExt;
-use futures_util::StreamExt;
-use futures_util::TryStreamExt;
+use futures_util::{future, pin_mut, SinkExt, StreamExt, TryStreamExt};
 use hyper::body::Incoming;
-use hyper::header::SEC_WEBSOCKET_KEY;
-use hyper::header::SEC_WEBSOCKET_PROTOCOL;
-use hyper::header::SEC_WEBSOCKET_VERSION;
+use hyper::header::{SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_PROTOCOL, SEC_WEBSOCKET_VERSION};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::upgrade::Upgraded;
-use hyper::Request;
-use hyper::Response;
+use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use tokio::net::TcpListener;
-use tokio::net::ToSocketAddrs;
+use tokio::net::{TcpListener, ToSocketAddrs};
 use tokio::sync::Mutex;
-use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
 use tokio_tungstenite::tungstenite::protocol::Role;
-use tokio_tungstenite::tungstenite::Error;
-use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
-use tokio_tungstenite::tungstenite::Result as TungsteniteResult;
-use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::tungstenite::{
+    Error, Message as TungsteniteMessage, Result as TungsteniteResult,
+};
+use tokio_tungstenite::{accept_async, WebSocketStream};
 
-use super::Direction;
-use super::Transport;
-use super::TransportTx;
-use super::TransportType;
+use super::{Direction, Transport, TransportTx, TransportType};
 use crate::error::Result;
-use crate::transport::ws;
-use crate::transport::Packet;
-use crate::transport::Payload;
-use crate::transport::TransportMessage;
+use crate::transport::{ws, Packet, Payload, TransportMessage};
 use crate::SipEndpoint;
 
 type Body = http_body_util::Full<hyper::body::Bytes>;

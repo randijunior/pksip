@@ -1,10 +1,9 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Date` SIP header.
 ///
@@ -21,7 +20,7 @@ use crate::ArcStr;
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[repr(transparent)]
-pub struct Date(ArcStr);
+pub struct Date(Arc<str>);
 
 impl Date {
     /// Create a new `Date` instance.

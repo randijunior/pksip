@@ -1,5 +1,5 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
@@ -7,14 +7,13 @@ use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::comma_separated_header_value;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Supported` SIP header.
 ///
 /// Enumerates all the extensions supported by the `UAC` or
 /// `UAS`.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Supported(Vec<ArcStr>);
+pub struct Supported(Vec<Arc<str>>);
 
 impl Supported {
     /// Add a new tag to the list of supported tags.

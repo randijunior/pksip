@@ -1,12 +1,10 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::parse_error;
-use crate::parser::is_host;
-use crate::parser::Parser;
-use crate::ArcStr;
+use crate::parser::{is_host, Parser};
 
 /// The `Warning` SIP header.
 /// Carry additional information about the status of a
@@ -14,8 +12,8 @@ use crate::ArcStr;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Warning {
     code: u32,
-    host: ArcStr,
-    text: ArcStr,
+    host: Arc<str>,
+    text: Arc<str>,
 }
 
 impl<'a> HeaderParser<'a> for Warning {

@@ -8,7 +8,6 @@ use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::comma_separated_header_value;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Content-Encoding` SIP header.
 ///
@@ -25,7 +24,7 @@ use crate::ArcStr;
 /// assert_eq!("Content-Encoding: gzip, deflate", encoding.to_string());
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ContentEncoding(Vec<ArcStr>);
+pub struct ContentEncoding(Vec<Arc<str>>);
 
 impl ContentEncoding {
     ///

@@ -1,5 +1,5 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
@@ -7,7 +7,6 @@ use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::comma_separated_header_value;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Require` SIP header.
 ///
@@ -15,7 +14,7 @@ use crate::ArcStr;
 /// `UAC` expects the `UAS` to support in order to process
 /// the request.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Require(Vec<ArcStr>);
+pub struct Require(Vec<Arc<str>>);
 
 impl<'a> HeaderParser<'a> for Require {
     const NAME: &'static str = "Require";

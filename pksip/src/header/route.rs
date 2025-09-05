@@ -3,8 +3,7 @@ use std::fmt;
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::parse_header_param;
-use crate::message::NameAddr;
-use crate::message::Parameters;
+use crate::message::{NameAddr, Parameters};
 use crate::parser::Parser;
 
 /// The `Route` SIP header.
@@ -48,10 +47,7 @@ impl fmt::Display for Route {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::DomainName;
-    use crate::message::Host;
-    use crate::message::HostPort;
-    use crate::message::Scheme;
+    use crate::message::{DomainName, Host, HostPort, Scheme};
 
     #[test]
     fn test_parse() {

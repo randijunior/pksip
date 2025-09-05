@@ -1,14 +1,12 @@
 use std::fmt;
-use std::str::FromStr;
-use std::str::{self};
+use std::str::{
+    FromStr, {self},
+};
 
 use crate::error::Result;
-use crate::header::HeaderParser;
-use crate::header::TAG_PARAM;
+use crate::header::{HeaderParser, TAG_PARAM};
 use crate::macros::parse_header_param;
-use crate::message::Parameters;
-use crate::message::SipUri;
-use crate::message::Uri;
+use crate::message::{Parameters, SipAddr, Uri};
 use crate::parser::Parser;
 
 /// The `To` SIP header.
@@ -18,8 +16,8 @@ use crate::parser::Parser;
 /// # Examples
 /// ```
 /// # use pksip::{header::To};
-/// # use pksip::message::{HostPort, Host, UserInfo, UriBuilder, SipUri, NameAddr};
-/// let uri = SipUri::NameAddr(NameAddr {
+/// # use pksip::message::{HostPort, Host, UserInfo, UriBuilder, SipAddr, NameAddr};
+/// let uri = SipAddr::NameAddr(NameAddr {
 ///     display: None,
 ///     uri: UriBuilder::new()
 ///         .with_user(UserInfo {
@@ -37,7 +35,7 @@ use crate::parser::Parser;
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct To {
-    uri: SipUri,
+    uri: SipAddr,
     tag: Option<String>,
     params: Option<Parameters>,
 }
@@ -53,7 +51,7 @@ impl FromStr for To {
 
 impl To {
     /// Create a new `To` instance.
-    pub fn new(uri: SipUri) -> Self {
+    pub fn new(uri: SipAddr) -> Self {
         Self {
             uri,
             tag: None,
@@ -62,7 +60,7 @@ impl To {
     }
 
     /// Get the SIP URI of the `To` header.
-    pub fn sip_uri(&self) -> &SipUri {
+    pub fn sip_uri(&self) -> &SipAddr {
         &self.uri
     }
 
@@ -97,7 +95,7 @@ impl<'a> HeaderParser<'a> for To {
      * to-param  =  tag-param / generic-param
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let uri = parser.parse_sip_uri(false)?;
+        let uri = parser.parse_sip_addr(false)?;
         let mut tag: Option<String> = None;
         let params = parse_header_param!(parser, TAG_PARAM = tag);
 
@@ -162,10 +160,7 @@ mod tests {
     // "To: Alice Liddell<sip:alice@wonderland.com>"
     // "To: Alice<sip:alice@wonderland.com>"
     use super::*;
-    use crate::message::DomainName;
-    use crate::message::Host;
-    use crate::message::HostPort;
-    use crate::message::Scheme;
+    use crate::message::{DomainName, Host, HostPort, Scheme};
 
     #[test]
     fn test_parse() {
@@ -176,7 +171,7 @@ mod tests {
 
         match to {
             To {
-                uri: SipUri::NameAddr(addr),
+                uri: SipAddr::NameAddr(addr),
                 tag,
                 ..
             } => {

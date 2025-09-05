@@ -1,6 +1,7 @@
 use std::fmt;
-use std::str::Utf8Error;
-use std::str::{self};
+use std::str::{
+    Utf8Error, {self},
+};
 
 pub type Result<T> = std::result::Result<T, Error>;
 

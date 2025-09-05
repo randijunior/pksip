@@ -1,17 +1,16 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `User-Agent` SIP header.
 ///
 /// Contains information about the `UAC` originating the
 /// request.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct UserAgent(ArcStr);
+pub struct UserAgent(Arc<str>);
 
 impl<'a> HeaderParser<'a> for UserAgent {
     const NAME: &'static str = "User-Agent";

@@ -11,29 +11,18 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use local_ip_address::local_ip;
-use tokio::io::split;
-use tokio::io::AsyncWriteExt;
-use tokio::io::ReadHalf;
-use tokio::io::WriteHalf;
-use tokio::net::TcpListener;
-use tokio::net::TcpStream;
-use tokio::net::ToSocketAddrs;
+use tokio::io::{split, AsyncWriteExt, ReadHalf, WriteHalf};
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
 use super::decoder::StreamingDecoder;
-use super::Direction;
-use super::Factory;
-use super::Packet;
-use super::Transport;
-use super::TransportKey;
-use super::TransportRef;
-use super::TransportStartup;
-use super::TransportTx;
-use super::TransportType;
-use crate::error::Error;
-use crate::error::Result;
+use super::{
+    Direction, Factory, Packet, Transport, TransportKey, TransportRef, TransportStartup,
+    TransportTx, TransportType,
+};
+use crate::error::{Error, Result};
 use crate::transport::TransportMessage;
 use crate::SipEndpoint;
 

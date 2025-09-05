@@ -2,15 +2,11 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::core::to_take::ToTake;
-use crate::dialog::Dialog;
-use crate::dialog::DialogId;
+use crate::dialog::{Dialog, DialogId};
 use crate::header::Contact;
-use crate::message::SipMethod;
-use crate::message::StatusCode;
+use crate::message::{SipMethod, StatusCode};
 use crate::transport::IncomingRequest;
-use crate::EndpointService;
-use crate::Result;
-use crate::SipEndpoint;
+use crate::{EndpointService, Result, SipEndpoint};
 
 pub struct UserAgent {
     dialogs: Mutex<HashMap<DialogId, Dialog>>,

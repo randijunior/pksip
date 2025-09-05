@@ -1,18 +1,11 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
-use crate::macros::comma_separated;
-use crate::macros::parse_error;
-use crate::message::Parameter;
-use crate::message::CNONCE;
-use crate::message::NC;
-use crate::message::NEXTNONCE;
-use crate::message::QOP;
-use crate::message::RSPAUTH;
+use crate::macros::{comma_separated, parse_error};
+use crate::message::{Parameter, CNONCE, NC, NEXTNONCE, QOP, RSPAUTH};
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Authentication-Info` SIP header.
 ///
@@ -32,11 +25,11 @@ use crate::ArcStr;
 /// ```
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct AuthenticationInfo {
-    nextnonce: Option<ArcStr>,
-    qop: Option<ArcStr>,
-    rspauth: Option<ArcStr>,
-    cnonce: Option<ArcStr>,
-    nc: Option<ArcStr>,
+    nextnonce: Option<Arc<str>>,
+    qop: Option<Arc<str>>,
+    rspauth: Option<Arc<str>>,
+    cnonce: Option<Arc<str>>,
+    nc: Option<Arc<str>>,
 }
 
 impl<'a> AuthenticationInfo {

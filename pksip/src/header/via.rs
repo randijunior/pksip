@@ -1,20 +1,16 @@
 use core::fmt;
 use std::net::IpAddr;
 use std::str::{self};
+use std::sync::Arc;
 
 use crate::error::Result;
 use crate::header::HeaderParser;
-use crate::macros::parse_error;
-use crate::macros::parse_param;
-use crate::message::DomainName;
-use crate::message::Host;
-use crate::message::HostPort;
-use crate::message::Parameters;
-use crate::parser::Parser;
-use crate::parser::SIPV2;
-use crate::parser::{self};
+use crate::macros::{parse_error, parse_param};
+use crate::message::{DomainName, Host, HostPort, Parameters};
+use crate::parser::{
+    Parser, SIPV2, {self},
+};
 use crate::transport::TransportType;
-use crate::ArcStr;
 
 const MADDR_PARAM: &str = "maddr";
 const BRANCH_PARAM: &str = "branch";
@@ -48,9 +44,9 @@ pub struct Via {
     ttl: Option<u8>,
     maddr: Option<Host>,
     received: Option<IpAddr>,
-    branch: Option<ArcStr>,
+    branch: Option<Arc<str>>,
     rport: Option<u16>,
-    comment: Option<ArcStr>,
+    comment: Option<Arc<str>>,
     params: Option<Parameters>,
 }
 
@@ -250,8 +246,7 @@ impl<'a> HeaderParser<'a> for Via {
 
 #[cfg(test)]
 mod tests {
-    use std::net::IpAddr;
-    use std::net::Ipv4Addr;
+    use std::net::{IpAddr, Ipv4Addr};
 
     use super::*;
     use crate::message::Host;

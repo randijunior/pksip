@@ -1,6 +1,5 @@
-use std::fmt;
-use std::str;
 use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
@@ -9,7 +8,6 @@ use crate::header::accept_language::is_lang;
 use crate::header::HeaderParser;
 use crate::macros::comma_separated_header_value;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Content-Language` SIP header.
 ///
@@ -24,7 +22,7 @@ use crate::ArcStr;
 /// assert_eq!("Content-Language: fr, en", c_language.to_string());
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ContentLanguage(Vec<ArcStr>);
+pub struct ContentLanguage(Vec<Arc<str>>);
 
 impl<'a> HeaderParser<'a> for ContentLanguage {
     const NAME: &'static str = "Content-Language";

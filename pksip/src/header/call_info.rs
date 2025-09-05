@@ -1,12 +1,11 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use super::HeaderParser;
 use crate::error::Result;
 use crate::macros::parse_header_param;
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 const PURPOSE: &str = "purpose";
 
@@ -28,8 +27,8 @@ const PURPOSE: &str = "purpose";
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CallInfo {
-    url: ArcStr,
-    purpose: Option<ArcStr>,
+    url: Arc<str>,
+    purpose: Option<Arc<str>>,
     params: Option<Parameters>,
 }
 
@@ -45,7 +44,7 @@ impl CallInfo {
 
     /// Creates a new `CallInfo` header with the given url,
     /// params and purpose.
-    pub fn from_parts(url: ArcStr, purpose: Option<&str>, params: Option<Parameters>) -> Self {
+    pub fn from_parts(url: Arc<str>, purpose: Option<&str>, params: Option<Parameters>) -> Self {
         Self {
             url,
             purpose: purpose.map(|p| p.into()),
@@ -69,7 +68,7 @@ impl<'a> HeaderParser<'a> for CallInfo {
      * "card" | token)) | 		        generic-param
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let mut purpose: Option<ArcStr> = None;
+        let mut purpose: Option<Arc<str>> = None;
         // must be an '<'
         parser.next_byte()?;
         let url = parser.read_until_byte(b'>');

@@ -13,8 +13,7 @@ pub mod transport;
 pub(crate) mod error;
 pub mod macros;
 
-pub use core::EndpointService;
-pub use core::SipEndpoint;
+pub use core::{EndpointService, SipEndpoint};
 
 use error::Error;
 pub use error::Result;
@@ -27,14 +26,13 @@ extern crate assert_matches;
 
 use std::fmt;
 use std::net::SocketAddr;
-use std::str::FromStr;
-use std::str::{self};
+use std::str::{
+    FromStr, {self},
+};
 use std::sync::Arc;
 
 use crate::error::SipParserError;
 use crate::message::Parameters;
-
-pub(crate) type ArcStr = Arc<str>;
 
 pub(crate) fn generate_random_str() -> String {
     todo!("Implement a function to generate a random string for tags")

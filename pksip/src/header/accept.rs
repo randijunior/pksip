@@ -4,8 +4,7 @@ use itertools::Itertools;
 
 use crate::error::Result;
 use crate::header::HeaderParser;
-use crate::macros::comma_separated_header_value;
-use crate::macros::parse_header_param;
+use crate::macros::{comma_separated_header_value, parse_header_param};
 use crate::parser::Parser;
 use crate::MediaType;
 

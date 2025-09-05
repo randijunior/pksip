@@ -1,5 +1,5 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
@@ -7,13 +7,12 @@ use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::comma_separated_header_value;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Unsupported` SIP header.
 ///
 /// Lists the features not supported by the `UAS`.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Unsupported(Vec<ArcStr>);
+pub struct Unsupported(Vec<Arc<str>>);
 
 impl<'a> HeaderParser<'a> for Unsupported {
     const NAME: &'static str = "Unsupported";

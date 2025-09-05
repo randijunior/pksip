@@ -1,16 +1,13 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
 use crate::error::Result;
-use crate::header::HeaderParser;
-use crate::header::Q_PARAM;
-use crate::macros::comma_separated_header_value;
-use crate::macros::parse_header_param;
+use crate::header::{HeaderParser, Q_PARAM};
+use crate::macros::{comma_separated_header_value, parse_header_param};
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
 use crate::Q;
 
 /// The `Accept-Encoding` SIP header.
@@ -108,7 +105,7 @@ impl fmt::Display for AcceptEncoding {
 /// A `coding` that apear in `Accept-Encoding` header.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Coding {
-    coding: ArcStr,
+    coding: Arc<str>,
     q: Option<Q>,
     param: Option<Parameters>,
 }
@@ -125,7 +122,7 @@ impl Coding {
 
     /// Creates a new `Coding` header with the given coding,
     /// q param and another params.
-    pub fn from_parts(coding: ArcStr, q: Option<Q>, param: Option<Parameters>) -> Self {
+    pub fn from_parts(coding: Arc<str>, q: Option<Q>, param: Option<Parameters>) -> Self {
         Self { coding, q, param }
     }
 }

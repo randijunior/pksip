@@ -1,25 +1,15 @@
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::RwLock;
 
 use crate::core::to_take::ToTake;
 use crate::core::ua::UserAgent;
-use crate::error::DialogError;
-use crate::error::Result;
-use crate::header::CallId;
-use crate::header::Contact;
-use crate::header::From;
-use crate::header::Header;
-use crate::header::Headers;
-use crate::header::To;
-use crate::message::Parameters;
-use crate::message::Uri;
+use crate::error::{DialogError, Result};
+use crate::header::{CallId, Contact, From, Header, Headers, To};
+use crate::message::{Parameters, Uri};
 use crate::transaction::Role;
 use crate::transport::IncomingRequest;
-use crate::ArcStr;
 use crate::SipEndpoint;
 
 type Usages = RwLock<Vec<Box<dyn DialogUsage>>>;
@@ -169,7 +159,7 @@ enum DialogState {
 pub struct DialogId {
     call_id: CallId,
     pub local_tag: String,
-    remote_tag: ArcStr,
+    remote_tag: Arc<str>,
 }
 
 impl DialogId {

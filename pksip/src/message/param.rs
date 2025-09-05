@@ -1,10 +1,9 @@
 use std::fmt;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::parser::Parser;
-use crate::ArcStr;
-use crate::Error;
-use crate::Result;
+use crate::{Error, Result};
 
 pub(crate) type ParameterRef<'a> = (&'a str, Option<&'a str>);
 
@@ -94,9 +93,9 @@ impl<'a, const N: usize> From<[(&'a str, &'a str); N]> for Parameters {
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Parameter {
     /// The parameter name.
-    pub(crate) name: ArcStr,
+    pub(crate) name: Arc<str>,
     /// The parameter optional value
-    pub(crate) value: Option<ArcStr>,
+    pub(crate) value: Option<Arc<str>>,
 }
 
 impl Parameter {

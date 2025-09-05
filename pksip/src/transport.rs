@@ -5,39 +5,21 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::Write;
 use std::net::SocketAddr;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use bytes::BufMut;
-use bytes::Bytes;
-use bytes::BytesMut;
+use bytes::{BufMut, Bytes, BytesMut};
 use tokio::sync::mpsc;
 
 use crate::core::SipEndpoint;
-use crate::error::Error;
-use crate::error::Result;
-use crate::header::CSeq;
-use crate::header::CallId;
-use crate::header::ContentLength;
-use crate::header::From as FromHdr;
-use crate::header::Header;
-use crate::header::HeaderParser;
-use crate::header::Headers;
-use crate::header::To;
-use crate::header::Via;
-use crate::header::{self};
-use crate::message::HostPort;
-use crate::message::Request;
-use crate::message::Response;
-use crate::message::Scheme;
-use crate::message::SipMessage;
-use crate::message::SipMethod;
-use crate::message::StatusCode;
+use crate::error::{Error, Result};
+use crate::header::{
+    CSeq, CallId, ContentLength, From as FromHdr, Header, HeaderParser, Headers, To, Via, {self},
+};
+use crate::message::{HostPort, Request, Response, Scheme, SipMessage, SipMethod, StatusCode};
 use crate::parser::Parser;
 use crate::transaction::key::TransactionKey;
-use crate::transaction::ClientTsx;
-use crate::transaction::ServerTsx;
+use crate::transaction::{ClientTsx, ServerTsx};
 
 mod decoder;
 

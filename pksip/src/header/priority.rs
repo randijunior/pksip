@@ -1,17 +1,16 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Priority` SIP header.
 ///
 /// Indicates the urgency of the request as received by the
 /// client.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Priority(ArcStr);
+pub struct Priority(Arc<str>);
 
 impl<'a> HeaderParser<'a> for Priority {
     const NAME: &'static str = "Priority";

@@ -1,10 +1,9 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Server` SIP header.
 ///
@@ -12,7 +11,7 @@ use crate::ArcStr;
 /// that the UAC expects the UAS to support in order to
 /// process the request.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Server(ArcStr);
+pub struct Server(Arc<str>);
 
 impl Server {
     /// Creates a new `Server` header with the given value.

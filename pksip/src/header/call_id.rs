@@ -1,10 +1,10 @@
 use core::fmt;
 use std::str::{self};
+use std::sync::Arc;
 
 use super::HeaderParser;
 use crate::error::Result;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Call-ID` SIP header.
 ///
@@ -21,7 +21,7 @@ use crate::ArcStr;
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[repr(transparent)]
-pub struct CallId(ArcStr);
+pub struct CallId(Arc<str>);
 
 impl<'a> From<&'a str> for CallId {
     fn from(value: &'a str) -> Self {

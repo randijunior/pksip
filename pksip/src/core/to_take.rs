@@ -1,7 +1,6 @@
 //! To Take
 
-use std::ops::Deref;
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 
 pub struct ToTake<'a, T> {
     inner: &'a mut Option<T>,

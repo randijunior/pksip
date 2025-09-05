@@ -52,9 +52,7 @@ mod warning;
 mod www_authenticate;
 
 use core::fmt;
-use std::ops::Index;
-use std::ops::Range;
-use std::ops::RangeFrom;
+use std::ops::{Index, Range, RangeFrom};
 use std::str::{self};
 
 pub use accept::Accept;

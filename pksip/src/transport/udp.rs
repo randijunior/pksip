@@ -6,17 +6,12 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use tokio::net::ToSocketAddrs;
-use tokio::net::UdpSocket;
+use tokio::net::{ToSocketAddrs, UdpSocket};
 
-use super::Packet;
-use super::Payload;
-use super::Transport;
-use super::TransportMessage;
-use super::TransportRef;
-use super::TransportStartup;
-use super::TransportTx;
-use super::TransportType;
+use super::{
+    Packet, Payload, Transport, TransportMessage, TransportRef, TransportStartup, TransportTx,
+    TransportType,
+};
 use crate::error::Result;
 
 #[derive(Debug)]

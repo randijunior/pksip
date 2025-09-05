@@ -1,12 +1,10 @@
 use std::io;
 
-use tokio_util::bytes::Buf;
-use tokio_util::bytes::BytesMut;
+use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::Decoder;
 
 use super::Payload;
-use crate::header::ContentLength;
-use crate::header::HeaderParser;
+use crate::header::{ContentLength, HeaderParser};
 
 //stream_oriented
 #[derive(Default)]

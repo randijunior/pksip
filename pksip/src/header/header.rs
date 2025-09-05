@@ -1,9 +1,9 @@
 use std::fmt;
+use std::sync::Arc;
 
 use enum_as_inner::EnumAsInner;
 
 use crate::header::*;
-use crate::ArcStr;
 
 /// A SIP Header.
 ///
@@ -108,17 +108,17 @@ pub enum Header {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawHeader {
     /// Header name.
-    pub name: ArcStr,
+    pub name: Arc<str>,
     /// Header value.
-    pub data: ArcStr,
+    pub data: Arc<str>,
 }
 
 impl RawHeader {
     /// Constructs a raw Header header using the specified name and value.
     pub fn new<N, V>(name: N, data: V) -> Self
     where
-        N: Into<ArcStr>,
-        V: Into<ArcStr>,
+        N: Into<Arc<str>>,
+        V: Into<Arc<str>>,
     {
         Self {
             name: name.into(),

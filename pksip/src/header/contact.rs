@@ -1,12 +1,9 @@
 use core::fmt;
 
 use crate::error::Result;
-use crate::header::HeaderParser;
-use crate::header::EXPIRES_PARAM;
-use crate::header::Q_PARAM;
+use crate::header::{HeaderParser, EXPIRES_PARAM, Q_PARAM};
 use crate::macros::parse_header_param;
-use crate::message::Parameters;
-use crate::message::SipUri;
+use crate::message::{Parameters, SipAddr};
 use crate::parser::Parser;
 use crate::Q;
 
@@ -19,8 +16,8 @@ use crate::Q;
 ///
 /// ```
 /// # use pksip::header::Contact;
-/// # use pksip::message::{HostPort, Host, UserInfo, UriBuilder, SipUri, NameAddr};
-/// let uri = SipUri::from_static("<sip:alice@client.atlanta.example.com>").unwrap();
+/// # use pksip::message::{HostPort, Host, UserInfo, UriBuilder, SipAddr, NameAddr};
+/// let uri = SipAddr::from_static("<sip:alice@client.atlanta.example.com>").unwrap();
 ///
 /// let c = Contact {
 ///     uri,
@@ -37,7 +34,7 @@ use crate::Q;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Contact {
     /// The URI of the contact.
-    pub uri: SipUri,
+    pub uri: SipAddr,
     /// The quality value of the contact.
     pub q: Option<Q>,
     /// The expires parameter of the contact.
@@ -53,8 +50,8 @@ impl Contact {
     }
 
     /// Create a new `Contact` header with the given
-    /// `SipUri`.
-    pub fn new(uri: SipUri) -> Self {
+    /// `SipAddr`.
+    pub fn new(uri: SipAddr) -> Self {
         Contact {
             uri,
             q: None,
@@ -85,7 +82,7 @@ impl<'a> HeaderParser<'a> for Contact {
      * delta-seconds      =  1*DIGIT
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let uri = parser.parse_sip_uri(false)?;
+        let uri = parser.parse_sip_addr(false)?;
         let mut q = None;
         let mut expires = None;
         let param = parse_header_param!(parser, Q_PARAM = q, EXPIRES_PARAM = expires);
@@ -123,14 +120,10 @@ impl fmt::Display for Contact {
 
 #[cfg(test)]
 mod tests {
-    use std::net::IpAddr;
-    use std::net::Ipv4Addr;
+    use std::net::{IpAddr, Ipv4Addr};
 
     use super::*;
-    use crate::message::DomainName;
-    use crate::message::Host;
-    use crate::message::HostPort;
-    use crate::message::Scheme;
+    use crate::message::{DomainName, Host, HostPort, Scheme};
 
     // ContactHeader inputs
 
@@ -198,7 +191,7 @@ mod tests {
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact {
-            uri: SipUri::NameAddr(addr),
+            uri: SipAddr::NameAddr(addr),
             q,
             expires,
             ..
@@ -229,7 +222,7 @@ mod tests {
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact {
-            uri: SipUri::Uri(uri),
+            uri: SipAddr::Uri(uri),
             ..
         } => {
             assert_eq!(uri.user.unwrap().user.as_ref(), "caller");
@@ -252,7 +245,7 @@ mod tests {
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact {
-            uri: SipUri::Uri(uri),
+            uri: SipAddr::Uri(uri),
             ..
         } => {
             let addr: IpAddr =
@@ -276,7 +269,7 @@ mod tests {
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact {
-            uri: SipUri::Uri(uri),
+            uri: SipAddr::Uri(uri),
             ..
         } => {
             assert_eq!(
@@ -301,7 +294,7 @@ mod tests {
         let contact = contact.unwrap();
 
         assert_matches!(contact, Contact  {
-            uri: SipUri::Uri(uri),
+            uri: SipAddr::Uri(uri),
             ..
         } => {
             let addr = Ipv4Addr::new(192, 168, 1, 1);

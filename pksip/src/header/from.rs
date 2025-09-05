@@ -1,16 +1,12 @@
 use core::fmt;
-use std::str::FromStr;
-use std::str::{self};
+use std::str::{self, FromStr};
+use std::sync::Arc;
 
 use crate::error::Result;
-use crate::header::HeaderParser;
-use crate::header::TAG_PARAM;
+use crate::header::{HeaderParser, TAG_PARAM};
 use crate::macros::parse_header_param;
-use crate::message::Parameters;
-use crate::message::SipUri;
-use crate::message::Uri;
+use crate::message::{Parameters, SipAddr, Uri};
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `From` SIP header.
 ///
@@ -19,8 +15,8 @@ use crate::ArcStr;
 /// # Examples
 /// ```
 /// # use pksip::{header::From};
-/// # use pksip::message::{HostPort, Host, UserInfo, UriBuilder, SipUri, NameAddr};
-/// let uri = SipUri::NameAddr(NameAddr {
+/// # use pksip::message::{HostPort, Host, UserInfo, UriBuilder, SipAddr, NameAddr};
+/// let uri = SipAddr::NameAddr(NameAddr {
 ///     display: None,
 ///     uri: UriBuilder::new()
 ///         .with_user(UserInfo {
@@ -42,8 +38,8 @@ use crate::ArcStr;
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct From {
-    uri: SipUri,
-    tag: Option<ArcStr>,
+    uri: SipAddr,
+    tag: Option<Arc<str>>,
     params: Option<Parameters>,
 }
 
@@ -58,7 +54,7 @@ impl FromStr for From {
 
 impl From {
     /// Create a new `From` instance.
-    pub fn new(uri: SipUri) -> Self {
+    pub fn new(uri: SipAddr) -> Self {
         Self {
             uri,
             tag: None,
@@ -77,7 +73,7 @@ impl From {
     }
 
     /// Returns the tag parameter.
-    pub fn tag(&self) -> &Option<ArcStr> {
+    pub fn tag(&self) -> &Option<Arc<str>> {
         &self.tag
     }
 }
@@ -94,7 +90,7 @@ impl<'a> HeaderParser<'a> for From {
      * tag-param   =  "tag" EQUAL token
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let uri = parser.parse_sip_uri(false)?;
+        let uri = parser.parse_sip_addr(false)?;
         let mut tag = None;
         let params = parse_header_param!(parser, TAG_PARAM = tag);
 
@@ -105,8 +101,8 @@ impl<'a> HeaderParser<'a> for From {
 impl fmt::Display for From {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.uri {
-            SipUri::Uri(uri) => write!(f, "{}: {}", From::NAME, uri)?,
-            SipUri::NameAddr(name_addr) => write!(f, "{}: {}", From::NAME, name_addr)?,
+            SipAddr::Uri(uri) => write!(f, "{}: {}", From::NAME, uri)?,
+            SipAddr::NameAddr(name_addr) => write!(f, "{}: {}", From::NAME, name_addr)?,
         }
         if let Some(tag) = &self.tag {
             write!(f, ";tag={}", tag)?;
@@ -122,10 +118,7 @@ impl fmt::Display for From {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::DomainName;
-    use crate::message::Host;
-    use crate::message::HostPort;
-    use crate::message::Scheme;
+    use crate::message::{DomainName, Host, HostPort, Scheme};
 
     // FromHeader inputs
 
@@ -171,7 +164,7 @@ mod tests {
         let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
-            uri: SipUri::NameAddr(addr),
+            uri: SipAddr::NameAddr(addr),
             tag,
             ..
         } => {
@@ -193,7 +186,7 @@ mod tests {
         let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
-            uri: SipUri::Uri(uri),
+            uri: SipAddr::Uri(uri),
             tag,
             ..
         } => {
@@ -214,7 +207,7 @@ mod tests {
         let from = From::parse(&mut scanner).unwrap();
 
         assert_matches!(from, From {
-            uri: SipUri::NameAddr(addr),
+            uri: SipAddr::NameAddr(addr),
             tag,
             ..
         } => {

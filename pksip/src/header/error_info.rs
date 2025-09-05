@@ -1,18 +1,17 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
 use crate::error::Result;
 use crate::header::HeaderParser;
-use crate::macros::comma_separated_header_value;
-use crate::macros::parse_header_param;
+use crate::macros::{comma_separated_header_value, parse_header_param};
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ErrorInfoUri {
-    url: ArcStr,
+    url: Arc<str>,
     params: Option<Parameters>,
 }
 

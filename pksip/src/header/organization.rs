@@ -1,17 +1,16 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Organization` SIP header.
 ///
 /// The name of the organization to which the SIP
 /// element issuing the request or response belongs.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Organization(ArcStr);
+pub struct Organization(Arc<str>);
 
 impl<'a> HeaderParser<'a> for Organization {
     const NAME: &'static str = "Organization";

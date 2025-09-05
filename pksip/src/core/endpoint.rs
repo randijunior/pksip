@@ -2,8 +2,7 @@
 //! SIP SipEndpoint
 
 use std::io;
-use std::net::IpAddr;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,32 +10,16 @@ use itertools::Itertools;
 use util::DnsResolver;
 
 use crate::core::to_take::ToTake;
-use crate::header::Header;
-use crate::header::Headers;
-use crate::header::Via;
-use crate::message::Host;
-use crate::message::HostPort;
-use crate::message::Response;
-use crate::message::StatusCode;
-use crate::message::StatusLine;
-use crate::transaction::ServerInvTransaction;
-use crate::transaction::ServerTransaction;
-use crate::transaction::Transactions;
-use crate::transport;
-use crate::transport::tcp::TcpFactory;
-use crate::transport::tcp::TcpStartup;
+use crate::header::{Header, Headers, Via};
+use crate::message::{Host, HostPort, Response, StatusCode, StatusLine};
+use crate::transaction::{ServerInvTransaction, ServerTransaction, Transactions};
+use crate::transport::tcp::{TcpFactory, TcpStartup};
 use crate::transport::udp::UdpStartup;
-use crate::transport::Encode;
-use crate::transport::IncomingRequest;
-use crate::transport::IncomingResponse;
-use crate::transport::OutgoingAddr;
-use crate::transport::OutgoingResponse;
-use crate::transport::TransportRef;
-use crate::transport::TransportStartup;
-use crate::transport::Transports;
-use crate::ArcStr;
-use crate::EndpointService;
-use crate::Result;
+use crate::transport::{
+    Encode, IncomingRequest, IncomingResponse, OutgoingAddr, OutgoingResponse, TransportRef,
+    TransportStartup, Transports,
+};
+use crate::{transport, EndpointService, Result};
 
 struct Inner {
     /// The transport layer for the endpoint.
@@ -136,7 +119,7 @@ impl SipEndpoint {
         &self,
         request: &IncomingRequest,
         status_code: StatusCode,
-        reason_phrase: Option<ArcStr>,
+        reason_phrase: Option<Arc<str>>,
     ) -> Result<()> {
         // No `UAS` transaction must be created for this request.
         assert!(
@@ -160,7 +143,7 @@ impl SipEndpoint {
         &self,
         request: &IncomingRequest,
         status_code: StatusCode,
-        reason_phrase: Option<ArcStr>,
+        reason_phrase: Option<Arc<str>>,
     ) -> OutgoingResponse {
         // Copy the necessary headers from the request.
         let mut headers = Headers::with_capacity(7);

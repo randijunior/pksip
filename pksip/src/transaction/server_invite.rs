@@ -1,25 +1,19 @@
 use std::cmp;
 use std::ops::Deref;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use futures_util::future::Either;
-use futures_util::future::{self};
+use futures_util::future::{
+    Either, {self},
+};
 use tokio::pin;
 use tokio::sync::oneshot;
 use tokio::time::{self};
 
 use crate::core::SipEndpoint;
 use crate::error::Result;
-use crate::message::CodeClass;
-use crate::message::SipMethod;
-use crate::transaction::State;
-use crate::transaction::Transaction;
-use crate::transaction::T1;
-use crate::transaction::T2;
-use crate::transaction::T4;
-use crate::transport::IncomingRequest;
-use crate::transport::OutgoingResponse;
+use crate::message::{CodeClass, SipMethod};
+use crate::transaction::{State, Transaction, T1, T2, T4};
+use crate::transport::{IncomingRequest, OutgoingResponse};
 
 type TxConfirmed = Arc<Mutex<Option<oneshot::Sender<()>>>>;
 type RxConfirmed = oneshot::Receiver<()>;

@@ -2,15 +2,11 @@
 //! SIP Transaction Layer.
 
 use std::collections::HashMap;
-use std::io;
-use std::mem;
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::RwLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
+use std::{io, mem};
 
 use bytes::Bytes;
 pub use client::ClientTransaction;
@@ -21,14 +17,10 @@ pub use server_invite::ServerInvTransaction;
 
 use crate::core::SipEndpoint;
 use crate::error::Result;
-use crate::message::SipMethod;
-use crate::message::StatusCode;
-use crate::transport::Encode;
-use crate::transport::IncomingRequest;
-use crate::transport::IncomingResponse;
-use crate::transport::OutgoingRequest;
-use crate::transport::OutgoingResponse;
-use crate::transport::TransportRef;
+use crate::message::{SipMethod, StatusCode};
+use crate::transport::{
+    Encode, IncomingRequest, IncomingResponse, OutgoingRequest, OutgoingResponse, TransportRef,
+};
 
 pub(crate) mod client;
 pub(crate) mod client_invite;
@@ -613,22 +605,10 @@ pub(crate) mod mock {
     use std::time::SystemTime;
 
     use super::*;
-    use crate::header::CSeq;
-    use crate::header::CallId;
-    use crate::header::Header;
-    use crate::header::HeaderParser;
-    use crate::header::Headers;
-    use crate::message::Request;
-    use crate::message::RequestLine;
-    use crate::message::Response;
-    use crate::message::SipMethod;
-    use crate::message::SipUri;
+    use crate::header::{CSeq, CallId, Header, HeaderParser, Headers};
+    use crate::message::{Request, RequestLine, Response, SipMethod, SipAddr};
     use crate::transport::udp::mock::MockUdpTransport;
-    use crate::transport::OutgoingAddr;
-    use crate::transport::Packet;
-    use crate::transport::Payload;
-    use crate::transport::RequiredHeaders;
-    use crate::transport::Transport;
+    use crate::transport::{OutgoingAddr, Packet, Payload, RequiredHeaders, Transport};
 
     pub fn response<'a>(c: StatusCode) -> OutgoingResponse {
         let from = crate::header::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
@@ -671,12 +651,12 @@ pub(crate) mod mock {
         let from = crate::header::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
         let to = crate::header::To::from_bytes("sip:bob@127.0.0.1:5060".as_bytes()).unwrap();
         let p = &mut crate::parser::Parser::new("sip:bob@127.0.0.1:5060".as_bytes());
-        let target = p.parse_sip_uri(false).unwrap();
+        let target = p.parse_sip_addr(false).unwrap();
         let via = crate::header::Via::from_bytes(
             "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes(),
         )
         .unwrap();
-        let SipUri::Uri(uri) = target else {
+        let SipAddr::Uri(uri) = target else {
             unreachable!()
         };
         let cseq = CSeq::new(1, m);
@@ -714,12 +694,12 @@ pub(crate) mod mock {
     pub fn outgoing_request<'o>(m: SipMethod) -> OutgoingRequest {
         let from = crate::header::From::from_bytes("sip:alice@127.0.0.1:5060".as_bytes()).unwrap();
         let p = &mut crate::parser::Parser::new("sip:bob@127.0.0.1:5060".as_bytes());
-        let target = p.parse_sip_uri(false).unwrap();
+        let target = p.parse_sip_addr(false).unwrap();
         let via = crate::header::Via::from_bytes(
             "SIP/2.0/UDP 127.0.0.1:5060;branch=z9hG4bK3060200;received=127.0.0.1".as_bytes(),
         )
         .unwrap();
-        let SipUri::Uri(uri) = target else {
+        let SipAddr::Uri(uri) = target else {
             unreachable!()
         };
         let cseq = CSeq::new(1, m);

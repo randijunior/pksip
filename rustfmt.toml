@@ -1,5 +1,5 @@
 group_imports = "StdExternalCrate"
-imports_granularity = "Item"
+imports_granularity = "Module"
 imports_layout = "Mixed"
 reorder_impl_items = true
 reorder_imports = true

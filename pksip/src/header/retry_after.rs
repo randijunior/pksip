@@ -1,13 +1,11 @@
-use std::fmt;
-use std::str;
-use std::u32;
+use std::sync::Arc;
+use std::{fmt, str, u32};
 
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::parse_header_param;
 use crate::message::Parameters;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Retry-After` SIP header.
 ///
@@ -19,7 +17,7 @@ use crate::ArcStr;
 pub struct RetryAfter {
     seconds: u32,
     param: Option<Parameters>,
-    comment: Option<ArcStr>,
+    comment: Option<Arc<str>>,
 }
 
 impl<'a> HeaderParser<'a> for RetryAfter {

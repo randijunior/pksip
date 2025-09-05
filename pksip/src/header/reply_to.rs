@@ -3,8 +3,7 @@ use std::fmt;
 use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::parse_header_param;
-use crate::message::Parameters;
-use crate::message::SipUri;
+use crate::message::{Parameters, SipAddr};
 use crate::parser::Parser;
 
 /// The `Reply-To` SIP header.
@@ -13,7 +12,7 @@ use crate::parser::Parser;
 /// the From header field
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ReplyTo {
-    uri: SipUri,
+    uri: SipAddr,
     param: Option<Parameters>,
 }
 
@@ -27,7 +26,7 @@ impl<'a> HeaderParser<'a> for ReplyTo {
      * rplyto-param  =  generic-param
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let uri = parser.parse_sip_uri(false)?;
+        let uri = parser.parse_sip_addr(false)?;
         let param = parse_header_param!(parser);
 
         Ok(ReplyTo { uri, param })
@@ -48,10 +47,7 @@ impl fmt::Display for ReplyTo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::DomainName;
-    use crate::message::Host;
-    use crate::message::HostPort;
-    use crate::message::Scheme;
+    use crate::message::{DomainName, Host, HostPort, Scheme};
 
     #[test]
     fn test_parse() {
@@ -61,7 +57,7 @@ mod tests {
         let reply_to = reply_to.unwrap();
 
         assert_matches!(reply_to, ReplyTo {
-            uri: SipUri::NameAddr(addr),
+            uri: SipAddr::NameAddr(addr),
             ..
         } => {
             assert_eq!(addr.uri.scheme, Scheme::Sip);

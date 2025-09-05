@@ -1,5 +1,5 @@
-use std::fmt;
-use std::str;
+use std::sync::Arc;
+use std::{fmt, str};
 
 use itertools::Itertools;
 
@@ -7,14 +7,13 @@ use crate::error::Result;
 use crate::header::HeaderParser;
 use crate::macros::comma_separated_header_value;
 use crate::parser::Parser;
-use crate::ArcStr;
 
 /// The `Proxy-Require` SIP header.
 ///
 /// Indicate `proxy-sensitive` features that must be
 /// supported by the proxy.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ProxyRequire(Vec<ArcStr>);
+pub struct ProxyRequire(Vec<Arc<str>>);
 
 impl<'a> HeaderParser<'a> for ProxyRequire {
     const NAME: &'static str = "Proxy-Require";

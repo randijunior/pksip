@@ -1,25 +1,18 @@
 use std::cmp;
-use std::ops::Deref;
-use std::ops::DerefMut;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
 
-use futures_util::future::Either;
-use futures_util::future::{self};
+use futures_util::future::{
+    Either, {self},
+};
 use tokio::pin;
 use tokio::sync::oneshot;
 use tokio::time::{self};
 
 use crate::message::SipMethod;
-use crate::transaction::State;
-use crate::transaction::Transaction;
-use crate::transaction::T1;
-use crate::transaction::T2;
-use crate::transaction::T4;
-use crate::transport::IncomingResponse;
-use crate::transport::OutgoingRequest;
-use crate::Result;
-use crate::SipEndpoint;
+use crate::transaction::{State, Transaction, T1, T2, T4};
+use crate::transport::{IncomingResponse, OutgoingRequest};
+use crate::{Result, SipEndpoint};
 
 type TxCompleted = Arc<Mutex<Option<oneshot::Sender<()>>>>;
 type RxCompleted = oneshot::Receiver<()>;
@@ -165,12 +158,12 @@ impl Deref for ClientTransaction {
 
 #[cfg(test)]
 mod tests {
-    use tokio::time::Duration;
-    use tokio::time::{self};
+    use tokio::time::{
+        Duration, {self},
+    };
 
     use super::*;
-    use crate::message::SipMethod;
-    use crate::message::StatusCode;
+    use crate::message::{SipMethod, StatusCode};
     use crate::transaction::mock;
 
     /*

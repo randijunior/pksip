@@ -1,7 +1,7 @@
 macro_rules! reason_phrases {
     ($($reason_const:ident, $name:literal),*$(,)?) => (
         $(
-            const $reason_const: std::sync::LazyLock<crate::ArcStr> =
+            const $reason_const: std::sync::LazyLock<crate::Arc<str>> =
                 std::sync::LazyLock::new(|| $name.into());
         )*
     );
@@ -299,7 +299,7 @@ pub enum StatusCode {
 
 impl StatusCode {
     /// Returns the reason text related to the status code.
-    pub fn reason(&self) -> crate::ArcStr {
+    pub fn reason(&self) -> crate::Arc<str> {
         match self {
             Self::Trying => TRYING.clone(),
             Self::Ringing => RINGING.clone(),

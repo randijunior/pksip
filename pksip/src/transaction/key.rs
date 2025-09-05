@@ -1,9 +1,8 @@
+use std::sync::Arc;
+
 use crate::header::Header;
-use crate::message::HostPort;
-use crate::message::SipMethod;
-use crate::transport::IncomingRequest;
-use crate::transport::OutgoingRequest;
-use crate::ArcStr;
+use crate::message::{HostPort, SipMethod};
+use crate::transport::{IncomingRequest, OutgoingRequest};
 
 const BRANCH_MAGIC_COOKIE: &str = "z9hG4bK";
 
@@ -77,9 +76,9 @@ impl TransactionKey {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Rfc2543 {
     pub cseq: u32,
-    pub from_tag: Option<ArcStr>,
-    pub to_tag: Option<ArcStr>,
-    pub call_id: ArcStr,
+    pub from_tag: Option<Arc<str>>,
+    pub to_tag: Option<Arc<str>>,
+    pub call_id: Arc<str>,
     pub via_host_port: HostPort,
     pub method: Option<SipMethod>,
 }
@@ -92,13 +91,13 @@ pub enum Rfc3261 {
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ClientTransactionKey {
-    branch: ArcStr,
+    branch: Arc<str>,
     method: Option<SipMethod>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ServerTransactionKey {
-    branch: ArcStr,
+    branch: Arc<str>,
     via_sent_by: HostPort,
     method: Option<SipMethod>,
 }
