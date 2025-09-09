@@ -40,7 +40,7 @@ impl<'a> HeaderParser<'a> for Expires {
      * Expires     =  "Expires" HCOLON delta-seconds
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Expires> {
-        let expires = parser.parse_u32()?;
+        let expires = parser.read_u32()?;
 
         Ok(Expires(expires))
     }

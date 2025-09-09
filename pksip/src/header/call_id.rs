@@ -50,7 +50,7 @@ impl<'a> HeaderParser<'a> for CallId {
      * Call-ID  =  ( "Call-ID" / "i" ) HCOLON callid
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let id = parser.read_until_new_line()?;
+        let id = parser.read_until_new_line_as_str()?;
 
         Ok(CallId(id.into()))
     }

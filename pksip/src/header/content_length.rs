@@ -44,7 +44,7 @@ impl<'a> HeaderParser<'a> for ContentLength {
      * 1*DIGIT
      */
     fn parse(parser: &mut Parser<'a>) -> Result<ContentLength> {
-        let l = parser.parse_u32()?;
+        let l = parser.read_u32()?;
 
         Ok(ContentLength(l))
     }

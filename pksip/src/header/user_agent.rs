@@ -20,7 +20,7 @@ impl<'a> HeaderParser<'a> for UserAgent {
      * server-val)
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let agent = parser.read_until_new_line()?;
+        let agent = parser.read_until_new_line_as_str()?;
 
         Ok(UserAgent(agent.into()))
     }

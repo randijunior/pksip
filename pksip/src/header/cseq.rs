@@ -57,9 +57,9 @@ impl<'a> HeaderParser<'a> for CSeq {
      * CSeq  =  "CSeq" HCOLON 1*DIGIT LWS SipMethod
      */
     fn parse(parser: &mut Parser<'a>) -> Result<CSeq> {
-        let cseq = parser.parse_u32()?;
+        let cseq = parser.read_u32()?;
 
-        parser.space();
+        parser.skip_ws();
         let b_method = parser.alphabetic();
         let method = SipMethod::from(b_method);
 

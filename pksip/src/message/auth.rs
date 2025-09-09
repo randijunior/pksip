@@ -118,7 +118,7 @@ impl fmt::Display for Challenge {
 /// in the `Authorization` and `Proxy-Authorization` headers.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DigestCredential {
-    /// The realm value that defines the protection space.
+    /// The realm value that defines the protection split_ws.
     pub realm: Option<Arc<str>>,
     /// The username associated with the credential.
     pub username: Option<Arc<str>>,

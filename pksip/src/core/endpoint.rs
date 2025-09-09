@@ -11,7 +11,7 @@ use util::DnsResolver;
 
 use crate::core::to_take::ToTake;
 use crate::header::{Header, Headers, Via};
-use crate::message::{Host, HostPort, Response, StatusCode, StatusLine};
+use crate::message::{Host, HostPort, ReasonPhrase, Response, StatusCode, StatusLine};
 use crate::transaction::{ServerInvTransaction, ServerTransaction, Transactions};
 use crate::transport::tcp::{TcpFactory, TcpStartup};
 use crate::transport::udp::UdpStartup;
@@ -178,7 +178,7 @@ impl SipEndpoint {
         // the response (with the exception of the 100 (Trying)
         // response, in which a tag MAY be present).
         if to.tag().is_none() && status_code.as_u16() > 100 {
-            to.set_tag(req_hdrs.via.branch().map(|s| s.to_string()));
+            to.set_tag(req_hdrs.via.branch.as_ref().map(|s| s.to_string()));
         }
         headers.push(Header::To(to));
 
@@ -190,6 +190,7 @@ impl SipEndpoint {
             None => status_code.reason(),
             Some(reason) => reason,
         };
+        let reason = ReasonPhrase::new(reason);
         let status_line = StatusLine::new(status_code, reason);
 
         // Done.
@@ -263,18 +264,18 @@ impl SipEndpoint {
             };
         }
 
-        if let Some(maddr) = via.maddr() {
-            let port = via.sent_by().port.unwrap_or(5060);
+        if let Some(maddr) = &via.maddr {
+            let port = via.sent_by.port.unwrap_or(5060);
 
             OutgoingAddr::HostPort {
                 host: HostPort {
                     host: maddr.clone(),
                     port: Some(port),
                 },
-                protocol: via.transport(),
+                protocol: via.transport,
             }
-        } else if let Some(rport) = via.rport() {
-            let ip = via.received().unwrap();
+        } else if let Some(rport) = via.rport {
+            let ip = via.received.unwrap();
             let addr = SocketAddr::new(ip, rport);
 
             OutgoingAddr::Addr {
@@ -283,9 +284,9 @@ impl SipEndpoint {
             }
         } else {
             let ip = via
-                .received()
+                .received
                 .expect("Missing received parameter on 'Via' header");
-            let port = via.sent_by().port.unwrap_or(5060);
+            let port = via.sent_by.port.unwrap_or(5060);
             let addr = SocketAddr::new(ip, port);
 
             OutgoingAddr::Addr {
@@ -301,7 +302,7 @@ impl SipEndpoint {
             log::debug!(
                 "<= Response ({} {})",
                 msg.response.status_line.code.as_u16(),
-                msg.response.status_line.reason
+                msg.response.status_line.reason.phrase_str()
             );
         }
 
@@ -326,7 +327,7 @@ impl SipEndpoint {
             log::debug!(
                 "Response ({} {}) from /{} was unhandled by any sevice",
                 msg.response.status_line.code.as_u16(),
-                msg.response.status_line.reason,
+                msg.response.status_line.reason.phrase_str(),
                 msg.packet.addr
             );
         }

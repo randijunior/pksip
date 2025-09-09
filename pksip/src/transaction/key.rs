@@ -13,9 +13,9 @@ pub enum TransactionKey {
 }
 
 impl TransactionKey {
-    pub fn create_client_with(method: &SipMethod, branch: &str) -> Self {
+    pub fn create_client_with(method: &SipMethod, branch: Arc<str>) -> Self {
         TransactionKey::Rfc3261(Rfc3261::Client(ClientTransactionKey {
-            branch: branch.into(),
+            branch: branch.clone(),
             method: Some(*method),
         }))
     }
@@ -43,11 +43,11 @@ impl TransactionKey {
             .next()
             .unwrap();
 
-        match via.branch() {
-            Some(branch) => {
+        match via.branch {
+            Some(ref branch) => {
                 // Valid branch for RFC 3261
                 TransactionKey::Rfc3261(Rfc3261::Client(ClientTransactionKey {
-                    branch: branch.into(),
+                    branch: branch.clone(),
                     method: Some(*cseq.method()),
                 }))
             }
@@ -58,11 +58,11 @@ impl TransactionKey {
     }
 
     pub fn create_server(request: &IncomingRequest) -> Self {
-        match request.request_headers.via.branch() {
-            Some(branch) if branch.starts_with(BRANCH_MAGIC_COOKIE) => {
+        match request.request_headers.via.branch {
+            Some(ref branch) if branch.starts_with(BRANCH_MAGIC_COOKIE) => {
                 TransactionKey::Rfc3261(Rfc3261::Server(ServerTransactionKey {
-                    branch: branch.into(),
-                    via_sent_by: request.request_headers.via.sent_by().clone(),
+                    branch: branch.clone(),
+                    via_sent_by: request.request_headers.via.sent_by.clone(),
                     method: Some(*request.request_headers.cseq.method()),
                 }))
             }

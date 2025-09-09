@@ -56,7 +56,7 @@ impl<'a> HeaderParser<'a> for MinExpires {
      * Min-Expires  =  "Min-Expires" HCOLON delta-seconds
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let expires = parser.parse_u32()?;
+        let expires = parser.read_u32()?;
 
         Ok(MinExpires(expires))
     }

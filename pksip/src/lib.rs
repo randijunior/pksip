@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! # pksip
 //!
 //! A rust library that implements the SIP protocol.
@@ -31,7 +32,6 @@ use std::str::{
 };
 use std::sync::Arc;
 
-use crate::error::SipParserError;
 use crate::message::Parameters;
 
 pub(crate) fn generate_random_str() -> String {
@@ -77,9 +77,10 @@ pub struct ParseQError;
 
 impl From<ParseQError> for Error {
     fn from(value: ParseQError) -> Self {
-        Self::ParseError(SipParserError {
-            message: format!("{:?}", value),
-        })
+        todo!()
+        // Self::ParseError(SipParserError {
+        //     message: format!("{:?}", value),
+        // })
     }
 }
 

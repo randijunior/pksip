@@ -30,13 +30,13 @@ impl<'a> HeaderParser<'a> for RetryAfter {
      *                 / generic-param
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let digits = parser.parse_u32()?;
+        let digits = parser.read_u32()?;
         let mut comment = None;
 
-        parser.space();
+        parser.skip_ws();
         if let Some(b'(') = parser.peek_byte() {
             parser.next_byte()?;
-            let b = parser.read_until_byte(b')');
+            let b = parser.read_until(b')');
             parser.next_byte()?;
             comment = Some(str::from_utf8(b)?);
         }

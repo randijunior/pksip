@@ -5,11 +5,13 @@
 //! headers.
 
 use std::str::{self};
+use std::sync::Arc;
 
-use util::{Position, Scanner};
+use util::{Position, Scanner, ScannerError};
 
+use crate::error::{Error, ParseError, ParseErrorKind as Kind};
 use crate::header::*;
-use crate::macros::{comma_separated, lookup_table, parse_error, parse_param, try_parse_hdr};
+use crate::macros::{comma_separated, lookup_table, parse_param, try_parse_hdr};
 use crate::message::*;
 use crate::Result;
 
@@ -119,17 +121,17 @@ impl<'buf> Parser<'buf> {
     /// ```
     pub fn parse(&mut self) -> Result<SipMessage> {
         let mut sip_message = self.parse_start_line()?;
+        let mut found_content_type = false;
 
-        let mut has_content_type = false;
         // Parse headers loop.
         let headers = sip_message.headers_mut();
         'headers: loop {
             // Get name.
             let header_name = self.parse_token()?;
 
-            self.space();
+            self.skip_ws();
             self.must_read(b':')?;
-            self.space();
+            self.skip_ws();
 
             match header_name {
                 ErrorInfo::NAME => {
@@ -235,7 +237,7 @@ impl<'buf> Parser<'buf> {
                 ContentType::NAME | ContentType::SHORT_NAME => {
                     let header = try_parse_hdr!(ContentType, self);
                     headers.push(Header::ContentType(header));
-                    has_content_type = true;
+                    found_content_type = true;
                 }
                 ContentDisposition::NAME => {
                     let header = try_parse_hdr!(ContentDisposition, self);
@@ -303,26 +305,23 @@ impl<'buf> Parser<'buf> {
                 }
                 name => {
                     // Found a header that is not defined in RFC 3261.
-                    let data = self.read_until_new_line()?;
+                    let data = self.read_until_new_line_as_str()?;
                     let header = RawHeader::new(name, data);
                     headers.push(Header::RawHeader(header));
                 }
             };
 
-            if self.advance_if_eq(b'\r').is_none() || self.advance_if_eq(b'\n').is_none() {
-                return self.parse_error("Missing CRLF on header end!".into());
+            if !self.parse_header_end() {
+                return self.parse_error(Kind::Header);
             }
 
-            if matches!(self.peek_byte(), Some(b'\r') | Some(b'\n') | None) {
+            if matches!(self.scanner.peek_byte(), Some(b'\r') | Some(b'\n') | None) {
                 break 'headers;
             }
         }
 
-        self.space();
-
-        if has_content_type {
-            self.new_line();
-
+        if found_content_type {
+            self.skip_new_line();
             let body = self.remaining();
             sip_message.set_body(body.into());
         }
@@ -361,138 +360,36 @@ impl<'buf> Parser<'buf> {
 
     fn parse_status_line(&mut self) -> Result<StatusLine> {
         self.parse_sip_version()?;
-        let code = self.parse_status_code()?;
-        let reason = self.read_until_new_line()?.into();
-        self.new_line();
+
+        let code = self.parse_code()?;
+        let reason = self.parse_reason()?;
+
+        self.skip_new_line();
 
         Ok(StatusLine { code, reason })
     }
 
     fn parse_request_line(&mut self) -> Result<RequestLine> {
-        let token = self.read_while(is_token);
+        let token = self.scanner.read_while(is_token);
         let method = token.into();
         let uri = self.parse_uri(true)?;
-        self.parse_sip_version()?;
 
-        self.new_line();
+        self.parse_sip_version()?;
+        self.skip_new_line();
 
         Ok(RequestLine { method, uri })
     }
 
     #[inline]
     pub(crate) fn parse_sip_version(&mut self) -> Result<()> {
-        self.must_read_bytes(B_SIPV2)
-    }
-
-    fn parse_status_code(&mut self) -> Result<StatusCode> {
-        self.space();
-        let digits = self.read_digits();
-        self.space();
-
-        let code = digits
-            .try_into()
-            .or_else(|_| self.parse_error("Invalid status code".into()))?;
-
-        Ok(code)
-    }
-
-    fn parse_scheme(&mut self) -> Result<Scheme> {
-        let token = self.scanner.peek_while(is_token);
-
-        let scheme = match token {
-            SIP => Scheme::Sip,
-            SIPS => Scheme::Sips,
-            other => {
-                return self.parse_error(format!(
-                    "Unsupported URI scheme: {}",
-                    String::from_utf8_lossy(other)
-                ))
-            }
-        };
-
-        // Eat the scheme.
-        self.scanner.advance_by(token.len());
-        // Eat the ":" character.
-        self.must_read(b':')?;
-
-        Ok(scheme)
-    }
-
-    fn exists_user_part_in_uri(&self) -> bool {
-        self.remaining()
-            .iter()
-            .take_while(|&&b| !is_space(b) && !is_newline(b) && b != b'>')
-            .any(|&b| b == b'@')
-    }
-
-    fn parse_user_info(&mut self) -> Result<Option<UserInfo>> {
-        if !self.exists_user_part_in_uri() {
-            return Ok(None);
-        }
-
-        // We have user part in uri.
-        let user = self.read_user_str().into();
-        let pass = if let Some(b':') = self.advance_if_eq(b':') {
-            Some(self.read_pass_as_str().into())
-        } else {
-            None
-        };
-
-        // Take '@'.
-        self.must_read(b'@')?;
-
-        Ok(Some(UserInfo { user, pass }))
-    }
-
-    pub(crate) fn parse_host_port(&mut self) -> Result<HostPort> {
-        let host = match self.peek_byte() {
-            Some(b'[') => {
-                // Is a Ipv6 host
-                self.next_byte()?;
-                // the '[' and ']' characters are removed from the host
-                let host = self.read_while_as_str(|b| b != b']')?;
-                self.next_byte()?;
-
-                if let Ok(ipv6_addr) = host.parse() {
-                    Host::IpAddr(ipv6_addr)
-                } else {
-                    return self.parse_error("Error parsing Ipv6 host!".into());
-                }
-            }
-            _ => {
-                // Is a domain name or Ipv4 host.
-                let host = self.read_host_str();
-                if host.is_empty() {
-                    return self.parse_error("Can't parse the host!".into());
-                }
-                if let Ok(ip_addr) = host.parse() {
-                    Host::IpAddr(ip_addr)
-                } else {
-                    Host::DomainName(DomainName(host.into()))
-                }
-            }
-        };
-
-        let port = self.parse_port()?;
-
-        Ok(HostPort { host, port })
-    }
-
-    fn parse_port(&mut self) -> Result<Option<u16>> {
-        let Some(b':') = self.advance_if_eq(b':') else {
-            return Ok(None);
-        };
-        let port = self.scanner.read_u16()?;
-
-        if crate::is_valid_port(port) {
-            Ok(Some(port))
-        } else {
-            self.parse_error("Sip Uri Port is invalid!".into())
-        }
+        Ok(self
+            .scanner
+            .must_read_bytes(B_SIPV2)
+            .or_else(|_| self.parse_error(Kind::Version))?)
     }
 
     pub(crate) fn parse_sip_addr(&mut self, parse_params: bool) -> Result<SipAddr> {
-        self.space();
+        self.skip_ws();
 
         match self.scanner.peek_bytes(3) {
             Some(SIP) | Some(SIPS) => {
@@ -507,8 +404,8 @@ impl<'buf> Parser<'buf> {
     }
 
     pub(crate) fn parse_uri(&mut self, parse_params: bool) -> Result<Uri> {
-        self.space();
-        // "sip:" [ userinfo ] hostport uri-parameters [ headers ]
+        self.skip_ws();
+
         let scheme = self.parse_scheme()?;
         let user = self.parse_user_info()?;
         let host_port = self.parse_host_port()?;
@@ -543,13 +440,13 @@ impl<'buf> Parser<'buf> {
         let user_param = user_param.map(|u: &str| u.into());
         let maddr_param = maddr_param.and_then(|m: &str| m.parse::<Host>().ok());
 
-        let headers = if let Some(b'?') = self.advance_if_eq(b'?') {
+        let headers = if let Some(b'?') = self.scanner.advance_if_eq(b'?') {
             // The uri has header parameters.
             Some(self.parse_headers_in_sip_uri()?)
         } else {
             None
         };
-        self.space();
+        self.skip_ws();
 
         Ok(Uri {
             scheme,
@@ -567,49 +464,142 @@ impl<'buf> Parser<'buf> {
     }
 
     pub(crate) fn parse_name_addr(&mut self) -> Result<NameAddr> {
-        self.space();
+        self.skip_ws();
         let display = self.parse_display_name()?;
-        self.space();
+        self.skip_ws();
 
-        // must be an '<'
-        let Some(b'<') = self.scanner.next_byte() else {
-            return self.parse_error("Expected '<' in NameAddr!".into());
-        };
-
+        self.must_read(b'<')?;
         let uri = self.parse_uri(true)?;
+        self.must_read(b'>')?;
 
-        // must be an '>'
-        let Some(b'>') = self.scanner.next_byte() else {
-            return self.parse_error("Expected '>' in NameAddr!".into());
+        Ok(NameAddr { display, uri })
+    }
+
+    pub(crate) fn parse_host_port(&mut self) -> Result<HostPort> {
+        let host = match self.peek_byte() {
+            Some(b'[') => {
+                // Is a Ipv6 host
+                self.next_byte()?;
+                // the '[' and ']' characters are removed from the host
+                let host = self
+                    .scanner
+                    .read_while_as_str(|b| b != b']')
+                    .or_else(|_| self.parse_error(Kind::Host))?;
+                self.next_byte()?;
+
+                if let Ok(ipv6_addr) = host.parse() {
+                    Host::IpAddr(ipv6_addr)
+                } else {
+                    return self.parse_error(Kind::Host);
+                }
+            }
+            _ => {
+                // Is a domain name or Ipv4 host.
+                let host = self.read_host_str();
+                if host.is_empty() {
+                    return self.parse_error(Kind::Host);
+                }
+                if let Ok(ip_addr) = host.parse() {
+                    Host::IpAddr(ip_addr)
+                } else {
+                    Host::DomainName(DomainName(host.into()))
+                }
+            }
         };
 
-        Ok(NameAddr {
-            display: display.map(|d| d.into()),
-            uri,
-        })
+        let port = self.parse_port()?;
+
+        Ok(HostPort { host, port })
+    }
+
+    fn parse_code(&mut self) -> Result<StatusCode> {
+        self.skip_ws();
+        let digits = self.scanner.read_while(is_digit);
+        self.skip_ws();
+
+        let code = digits
+            .try_into()
+            .or_else(|_| self.parse_error(Kind::StatusCode))?;
+
+        Ok(code)
+    }
+
+    fn parse_reason(&mut self) -> Result<ReasonPhrase> {
+        let reason = self.read_until_new_line_as_str()?.into();
+
+        Ok(ReasonPhrase::new(reason))
+    }
+
+    fn parse_scheme(&mut self) -> Result<Scheme> {
+        let token = self.scanner.peek_while(is_token);
+        let scheme = match token {
+            SIP => Scheme::Sip,
+            SIPS => Scheme::Sips,
+            _ => return self.parse_error(Kind::Uri),
+        };
+        // Eat the scheme.
+        self.scanner.advance_by(token.len());
+        // Eat the ":" character.
+        self.must_read(b':')?;
+
+        Ok(scheme)
+    }
+
+    fn parse_user_info(&mut self) -> Result<Option<UserInfo>> {
+        if !self.exists_user_part_in_uri() {
+            return Ok(None);
+        }
+        // We have user part in uri.
+        let user = self.read_user_str().into();
+        let pass = if let Some(b':') = self.scanner.advance_if_eq(b':') {
+            Some(self.read_pass_as_str().into())
+        } else {
+            None
+        };
+        // Take '@'.
+        self.scanner
+            .must_read(b'@')
+            .or_else(|_| self.parse_error(Kind::Uri))?;
+
+        Ok(Some(UserInfo { user, pass }))
+    }
+
+    fn parse_port(&mut self) -> Result<Option<u16>> {
+        let Some(b':') = self.scanner.advance_if_eq(b':') else {
+            return Ok(None);
+        };
+        let port = self
+            .scanner
+            .read_u16()
+            .or_else(|_| self.parse_error(Kind::Host))?;
+
+        if crate::is_valid_port(port) {
+            Ok(Some(port))
+        } else {
+            self.parse_error(Kind::Host)
+        }
     }
 
     fn parse_headers_in_sip_uri(&mut self) -> Result<UriHeaders> {
         let mut params = Parameters::new();
-
         loop {
             let param = self.parse_hdr_in_uri()?;
             params.push(param);
 
-            if self.advance_if_eq(b'&').is_none() {
+            if self.scanner.advance_if_eq(b'&').is_none() {
                 break;
             }
         }
         Ok(UriHeaders { inner: params })
     }
 
-    fn parse_display_name(&mut self) -> Result<Option<&'buf str>> {
+    fn parse_display_name(&mut self) -> Result<Option<DisplayName>> {
         match self.scanner.peek_byte() {
             Some(b'"') => {
                 self.next_byte()?; // consume '"'
-                let name = self.read_while(|b| b != b'"');
+                let name = self.scanner.read_while(|b| b != b'"');
                 self.next_byte()?; // consume closing '"'
-                Ok(Some(str::from_utf8(name)?))
+                Ok(Some(DisplayName::new(str::from_utf8(name)?.into())))
             }
             Some(b'<') => Ok(None), // no display name
             None => {
@@ -617,16 +607,29 @@ impl<'buf> Parser<'buf> {
             }
             _ => {
                 let name = self.parse_token()?;
-                self.space();
-                Ok(Some(name))
+                self.skip_ws();
+                Ok(Some(DisplayName::new(name.into())))
             }
         }
     }
 
+    fn exists_user_part_in_uri(&self) -> bool {
+        self.remaining()
+            .iter()
+            .take_while(|&&b| !is_space(b) && !is_newline(b) && b != b'>')
+            .any(|&b| b == b'@')
+    }
+
+    #[inline]
+    fn parse_header_end(&mut self) -> bool {
+        !(self.scanner.advance_if_eq(b'\r').is_none()
+            || self.scanner.advance_if_eq(b'\n').is_none())
+    }
+
     #[inline]
     pub(crate) fn parse_token(&mut self) -> Result<&'buf str> {
-        if let Some(b'"') = self.advance_if_eq(b'"') {
-            let value = self.read_while(|b| b != b'"');
+        if let Some(b'"') = self.scanner.advance_if_eq(b'"') {
+            let value = self.scanner.read_while(|b| b != b'"');
             self.next_byte()?;
 
             Ok(str::from_utf8(value)?)
@@ -638,194 +641,32 @@ impl<'buf> Parser<'buf> {
 
     #[inline]
     pub(crate) fn next_byte(&mut self) -> Result<u8> {
-        self.scanner
-            .next_byte()
-            .ok_or_else(|| self.parse_error::<u8>("EOF!".into()).unwrap_err())
+        self.scanner.next_byte().ok_or_else(|| {
+            self.parse_error::<u8>(Kind::Scanner(ScannerError::Eof))
+                .unwrap_err()
+        })
     }
 
     /// Shortcut for yielding a parse error wrapped in a result type.
-    pub(crate) fn parse_error<T>(&self, msg: String) -> Result<T> {
-        parse_error!(msg, self.scanner)
+    pub(crate) fn parse_error<T>(&self, kind: Kind) -> Result<T> {
+        Err(Error::ParseError(ParseError::new(kind, *self.position())))
     }
 
     /// Read until a new line (`\r` or `\n`) is found.
-    pub(crate) fn read_until_new_line(&mut self) -> Result<&'buf str> {
-        let bytes = self.read_while(is_not_newline);
+    pub(crate) fn read_until_new_line_as_str(&mut self) -> Result<&'buf str> {
+        let bytes = self.scanner.read_while(is_not_newline);
 
         Ok(str::from_utf8(bytes)?)
-    }
-
-    fn read_while_as_str(&mut self, func: impl Fn(u8) -> bool) -> Result<&'buf str> {
-        let bytes = self.read_while(func);
-
-        Ok(str::from_utf8(bytes)?)
-    }
-
-    /// Read space characters.
-    #[inline]
-    pub(crate) fn space(&mut self) {
-        self.read_while(is_space);
-    }
-
-    /// Advance to the next line.
-    #[inline]
-    pub(crate) fn new_line(&mut self) {
-        self.read_while(is_newline);
-    }
-
-    /// Read alphabetic characters.
-    #[inline]
-    pub(crate) fn alphabetic(&mut self) -> &'buf [u8] {
-        self.read_while(is_alphabetic)
-    }
-
-    #[inline]
-    fn read_while(&mut self, func: impl Fn(u8) -> bool) -> &'buf [u8] {
-        self.scanner.read_while(func)
-    }
-
-    #[inline]
-    fn advance_if_eq(&mut self, byte: u8) -> Option<u8> {
-        self.scanner.advance_if_eq(byte)
-    }
-
-    #[inline]
-    fn must_read_bytes(&mut self, bytes: &[u8]) -> Result<()> {
-        Ok(self.scanner.must_read_bytes(bytes)?)
-    }
-
-    #[inline]
-    pub(crate) fn read_until_byte(&mut self, byte: u8) -> &'buf [u8] {
-        self.scanner.read_until(byte)
-    }
-
-    #[inline]
-    pub(crate) fn peek_byte(&self) -> Option<&u8> {
-        self.scanner.peek_byte()
-    }
-
-    #[inline]
-    pub(crate) fn position(&self) -> &Position {
-        self.scanner.position()
-    }
-
-    /// Get the remaining bytes in the scanner.
-    #[inline]
-    pub(crate) fn remaining(&self) -> &[u8] {
-        self.scanner.remaining()
-    }
-
-    #[inline]
-    pub(crate) fn not_comma_or_newline(&mut self) -> &'buf [u8] {
-        self.read_while(not_comma_or_newline)
-    }
-
-    #[inline]
-    pub(crate) fn is_next_newline(&self) -> bool {
-        self.scanner.peek_byte().is_some_and(|&b| is_newline(b))
-    }
-
-    #[inline]
-    pub(crate) fn parse_u32(&mut self) -> Result<u32> {
-        Ok(self.scanner.read_u32()?)
-    }
-
-    #[inline]
-    pub(crate) fn must_read(&mut self, byte: u8) -> Result<()> {
-        Ok(self.scanner.must_read(byte)?)
-    }
-
-    #[inline]
-    pub(crate) fn parse_f32(&mut self) -> Result<f32> {
-        Ok(self.scanner.read_f32()?)
-    }
-
-    fn read_digits(&mut self) -> &'buf [u8] {
-        self.read_while(is_digit)
-    }
-
-    #[inline]
-    fn read_user_str(&mut self) -> &'buf str {
-        unsafe { self.read_while_as_str_unchecked(is_user) }
-    }
-
-    #[inline]
-    fn read_pass_as_str(&mut self) -> &'buf str {
-        unsafe { self.read_while_as_str_unchecked(is_pass) }
-    }
-
-    #[inline]
-    fn read_host_str(&mut self) -> &'buf str {
-        unsafe { self.read_while_as_str_unchecked(is_host) }
-    }
-
-    #[inline]
-    fn read_token_str(&mut self) -> &'buf str {
-        unsafe { self.read_while_as_str_unchecked(is_token) }
-    }
-
-    #[inline]
-    pub(crate) unsafe fn read_while_as_str_unchecked(
-        &mut self,
-        func: impl Fn(u8) -> bool,
-    ) -> &'buf str {
-        self.scanner.read_while_as_str_unchecked(func)
-    }
-
-    pub(crate) unsafe fn parse_param_unchecked(
-        &mut self,
-        func: impl Fn(u8) -> bool,
-    ) -> Result<(&'buf str, Option<&'buf str>)> {
-        self.space();
-
-        let name = unsafe { self.scanner.read_while_as_str_unchecked(&func) };
-
-        let Some(b'=') = self.scanner.peek_byte() else {
-            return Ok((name, None));
-        };
-
-        self.next_byte()?;
-
-        let value = if let Some(b'"') = self.scanner.peek_byte() {
-            // TODO: skip ignore \"\"
-            let Some(value) = self.scanner.read_between(b'"') else {
-                return self.parse_error("Missing quoted end on parse param!".into());
-            };
-
-            str::from_utf8(value)?
-        } else {
-            unsafe { self.scanner.read_while_as_str_unchecked(func) }
-        };
-
-        Ok((name, Some(value)))
-    }
-
-    // Parse parameter (";" pname ["=" pvalue]).
-    pub(crate) fn parse_param_ref(&mut self) -> Result<ParamRef<'buf>> {
-        unsafe { self.parse_param_unchecked(is_token) }
-    }
-
-    pub(crate) fn parse_auth_credential(&mut self) -> Result<Credential> {
-        let scheme = self.parse_token()?;
-
-        if scheme == DIGEST {
-            return self.parse_digest_credential();
-        }
-
-        self.parse_other_credential(scheme)
     }
 
     pub(crate) fn parse_auth_challenge(&mut self) -> Result<Challenge> {
         let scheme = self.parse_token()?;
-
         if scheme == DIGEST {
             return self.parse_digest_challenge();
         }
-
         let mut params = Parameters::new();
-
         comma_separated!(self => {
-            let param = self.parse_param_ref()?.into();
+            let param = self.parse_ref_param()?.into();
 
             params.push(param);
 
@@ -841,16 +682,16 @@ impl<'buf> Parser<'buf> {
         let mut digest = DigestChallenge::default();
 
         comma_separated!(self => {
-            let Parameter {name, value} = self.parse_param_ref()?.into();
+            let (name, value) = self.parse_ref_param()?;
 
-            match name.as_ref() {
-                REALM => digest.realm = value,
-                NONCE => digest.nonce = value,
-                DOMAIN => digest.domain = value,
-                ALGORITHM => digest.algorithm = value,
-                OPAQUE => digest.opaque = value,
-                QOP => digest.qop = value,
-                STALE => digest.stale = value,
+            match name {
+                REALM => digest.realm = value.map(Arc::from),
+                NONCE => digest.nonce = value.map(Arc::from),
+                DOMAIN => digest.domain = value.map(Arc::from),
+                ALGORITHM => digest.algorithm = value.map(Arc::from),
+                OPAQUE => digest.opaque = value.map(Arc::from),
+                QOP => digest.qop = value.map(Arc::from),
+                STALE => digest.stale = value.map(Arc::from),
                 _other => {
                     // return err?
                 }
@@ -864,18 +705,19 @@ impl<'buf> Parser<'buf> {
         let mut digest = DigestCredential::default();
 
         comma_separated!(self => {
-            let Parameter { name, value } = self.parse_param_ref()?.into();
-            match name.as_ref() {
-                REALM => digest.realm = value,
-                USERNAME => digest.username = value,
-                NONCE => digest.nonce = value,
-                URI => digest.uri = value,
-                RESPONSE => digest.response = value,
-                ALGORITHM => digest.algorithm = value,
-                CNONCE => digest.cnonce = value,
-                OPAQUE => digest.opaque = value,
-                QOP => digest.qop = value,
-                NC => digest.nc = value,
+            let (name, value) = self.parse_ref_param()?;
+
+            match name {
+                REALM => digest.realm = value.map(Arc::from),
+                USERNAME => digest.username = value.map(Arc::from),
+                NONCE => digest.nonce = value.map(Arc::from),
+                URI => digest.uri = value.map(Arc::from),
+                RESPONSE => digest.response = value.map(Arc::from),
+                ALGORITHM => digest.algorithm = value.map(Arc::from),
+                CNONCE => digest.cnonce = value.map(Arc::from),
+                OPAQUE => digest.opaque = value.map(Arc::from),
+                QOP => digest.qop = value.map(Arc::from),
+                NC => digest.nc = value.map(Arc::from),
                 _ => {}, // Ignore unknown parameters
             }
         });
@@ -885,13 +727,8 @@ impl<'buf> Parser<'buf> {
 
     fn parse_other_credential(&mut self, scheme: &'buf str) -> Result<Credential> {
         let mut param = Parameters::new();
-
         comma_separated!(self => {
-            let mut p: Parameter = self.parse_param_ref()?.into();
-
-            if p.value.is_none() {
-                p.value = Some("".into());
-            }
+            let p: Parameter = self.parse_ref_param()?.into();
 
             param.push(p);
         });
@@ -900,6 +737,138 @@ impl<'buf> Parser<'buf> {
             scheme: scheme.into(),
             param,
         })
+    }
+
+    #[inline]
+    pub(crate) fn skip_ws(&mut self) {
+        self.scanner.read_while(is_space);
+    }
+
+    #[inline]
+    pub(crate) fn skip_new_line(&mut self) {
+        self.scanner.read_while(is_newline);
+    }
+
+    #[inline]
+    pub(crate) fn alphabetic(&mut self) -> &'buf [u8] {
+        self.scanner.read_while(is_alphabetic)
+    }
+
+    #[inline]
+    pub(crate) fn read_until(&mut self, byte: u8) -> &'buf [u8] {
+        self.scanner.read_until(byte)
+    }
+
+    #[inline]
+    pub(crate) fn peek_byte(&self) -> Option<&u8> {
+        self.scanner.peek_byte()
+    }
+
+    #[inline]
+    pub(crate) fn position(&self) -> &Position {
+        self.scanner.position()
+    }
+
+    #[inline]
+    pub(crate) fn remaining(&self) -> &[u8] {
+        self.scanner.remaining()
+    }
+
+    #[inline]
+    pub(crate) fn not_comma_or_newline(&mut self) -> &'buf [u8] {
+        self.scanner.read_while(not_comma_or_newline)
+    }
+
+    #[inline]
+    pub(crate) fn is_next_newline(&self) -> bool {
+        self.scanner.peek_if(is_newline).is_some()
+    }
+
+    #[inline]
+    pub(crate) fn read_u32(&mut self) -> Result<u32> {
+        Ok(self
+            .scanner
+            .read_u32()
+            .or_else(|err| self.parse_error(Kind::Scanner(err)))?)
+    }
+
+    #[inline]
+    pub(crate) fn must_read(&mut self, byte: u8) -> Result<()> {
+        Ok(self
+            .scanner
+            .must_read(byte)
+            .or_else(|err| self.parse_error(Kind::Scanner(err)))?)
+    }
+
+    #[inline]
+    pub(crate) fn read_f32(&mut self) -> Result<f32> {
+        Ok(self
+            .scanner
+            .read_f32()
+            .or_else(|err| self.parse_error(Kind::Scanner(err)))?)
+    }
+
+    #[inline]
+    fn read_user_str(&mut self) -> &'buf str {
+        unsafe { self.scanner.read_while_as_str_unchecked(is_user) }
+    }
+
+    #[inline]
+    fn read_pass_as_str(&mut self) -> &'buf str {
+        unsafe { self.scanner.read_while_as_str_unchecked(is_pass) }
+    }
+
+    #[inline]
+    fn read_host_str(&mut self) -> &'buf str {
+        unsafe { self.scanner.read_while_as_str_unchecked(is_host) }
+    }
+
+    #[inline]
+    fn read_token_str(&mut self) -> &'buf str {
+        unsafe { self.scanner.read_while_as_str_unchecked(is_token) }
+    }
+
+    #[inline]
+    pub(crate) unsafe fn read_while_as_str_unchecked(
+        &mut self,
+        func: impl Fn(u8) -> bool,
+    ) -> &'buf str {
+        self.scanner.read_while_as_str_unchecked(func)
+    }
+
+    pub(crate) unsafe fn parse_param_unchecked(
+        &mut self,
+        func: impl Fn(u8) -> bool,
+    ) -> Result<(&'buf str, Option<&'buf str>)> {
+        self.skip_ws();
+        let name = unsafe { self.scanner.read_while_as_str_unchecked(&func) };
+        let Some(b'=') = self.scanner.peek_byte() else {
+            return Ok((name, None));
+        };
+        self.next_byte()?;
+        let value = if let Some(b'"') = self.scanner.peek_byte() {
+            // TODO: skip ignore \"\"
+            let Some(value) = self.scanner.read_between(b'"') else {
+                return self.parse_error(Kind::Param);
+            };
+            str::from_utf8(value)?
+        } else {
+            unsafe { self.scanner.read_while_as_str_unchecked(func) }
+        };
+
+        Ok((name, Some(value)))
+    }
+
+    pub(crate) fn parse_ref_param(&mut self) -> Result<ParamRef<'buf>> {
+        unsafe { self.parse_param_unchecked(is_token) }
+    }
+
+    pub(crate) fn parse_auth_credential(&mut self) -> Result<Credential> {
+        let scheme = self.parse_token()?;
+        if scheme == DIGEST {
+            return self.parse_digest_credential();
+        }
+        self.parse_other_credential(scheme)
     }
 
     #[inline]
@@ -997,7 +966,6 @@ fn is_hdr_uri(b: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::TransportType;
     use crate::{filter_map_header, find_map_header};
 
     macro_rules! uri_test_ok {
@@ -1271,345 +1239,296 @@ mod tests {
             .build()
     }
 
-    #[test]
-    fn test_parse_request() {
-        let buf = concat! {
-            "INVITE sip:bob@biloxi.example.com SIP/2.0\r\n",
-            "Via: SIP/2.0/TCP client.atlanta.example.com:5060;branch=z9hG4bK74b43\r\n",
-            "Max-Forwards: 70\r\n",
-            "Route: <sip:ss1.atlanta.example.com;lr>\r\n",
-            "From: Alice <sip:alice@atlanta.example.com>;tag=9fxced76sl\r\n",
-            "To: Bob <sip:bob@biloxi.example.com>\r\n",
-            "Call-ID: 3848276298220188511@atlanta.example.com\r\n",
-            "CSeq: 1 INVITE\r\n",
-            "Contact: <sip:alice@client.atlanta.example.com;transport=tcp>\r\n",
-            "Content-Type: application/sdp\r\n",
-            "Content-Length: 151\r\n",
-            "\r\n",
-            "v=0\r\n",
-            "o=alice 2890844526 2890844526 IN IP4 client.atlanta.example.com\r\n",
-            "s=-\r\n",
-            "c=IN IP4 192.0.2.101\r\n",
-            "t=0 0\r\n",
-            "m=audio 49172 RTP/AVP 0\r\n",
-            "a=rtpmap:0 PCMU/8000\r\n"
-        };
+    static REQUEST_SIMPLE: &str = concat! {
+        "INVITE sip:bob@biloxi.example.com SIP/2.0\r\n",
+        "Via: SIP/2.0/TCP client.atlanta.example.com:5060;branch=z9hG4bK74b43\r\n",
+        "Max-Forwards: 70\r\n",
+        "Route: <sip:ss1.atlanta.example.com;lr>\r\n",
+        "From: Alice <sip:alice@atlanta.example.com>;tag=9fxced76sl\r\n",
+        "To: Bob <sip:bob@biloxi.example.com>\r\n",
+        "Call-ID: 3848276298220188511@atlanta.example.com\r\n",
+        "CSeq: 1 INVITE\r\n",
+        "Contact: <sip:alice@client.atlanta.example.com;transport=tcp>\r\n",
+        "Content-Type: application/sdp\r\n",
+        "Content-Length: 151\r\n",
+        "\r\n",
+        "v=0\r\n",
+        "o=alice 2890844526 2890844526 IN IP4 client.atlanta.example.com\r\n",
+        "s=-\r\n",
+        "c=IN IP4 192.0.2.101\r\n",
+        "t=0 0\r\n",
+        "m=audio 49172 RTP/AVP 0\r\n",
+        "a=rtpmap:0 PCMU/8000\r\n"
+    };
 
-        let msg = Parser::parse_sip_msg(buf).unwrap();
+    #[test]
+    fn test_request_simple() {
+        let msg = Parser::parse_sip_msg(REQUEST_SIMPLE).unwrap();
         let req = msg.request().unwrap();
+        let via = find_map_header!(req.headers, Via).unwrap();
+        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
+        let route = find_map_header!(req.headers, Route).unwrap();
+        let from = find_map_header!(req.headers, From).unwrap();
+        let to = find_map_header!(req.headers, To).unwrap();
+        let call_id = find_map_header!(req.headers, CallId).unwrap();
+        let cseq = find_map_header!(req.headers, CSeq).unwrap();
+        let contact = find_map_header!(req.headers, Contact).unwrap();
+        let content_type = find_map_header!(req.headers, ContentType).unwrap();
+        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
+        let host_str = contact.uri.uri().host_port.host_as_str();
 
         assert_eq!(req.req_line.method, SipMethod::Invite);
         assert_eq!(req.req_line.uri.to_string(), "sip:bob@biloxi.example.com");
-
-        let via = find_map_header!(req.headers, Via).unwrap();
-        assert_eq!(via.transport(), TransportType::Tcp);
-        assert_eq!(via.sent_by().to_string(), "client.atlanta.example.com:5060");
-        assert_eq!(via.branch().unwrap(), "z9hG4bK74b43");
-
-        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
+        assert_eq!(via.sent_by.to_string(), "client.atlanta.example.com:5060");
+        assert_eq!(via.branch.as_deref(), Some("z9hG4bK74b43"));
         assert_eq!(maxfowards.max_fowards(), 70);
-
-        let route = find_map_header!(req.headers, Route).unwrap();
         assert_eq!(route.addr.uri.to_string(), "sip:ss1.atlanta.example.com;lr");
-
-        let from = find_map_header!(req.headers, From).unwrap();
         assert_eq!(from.display(), Some("Alice"));
         assert_eq!(from.tag().as_deref(), Some("9fxced76sl"));
-
-        let to = find_map_header!(req.headers, To).unwrap();
         assert_eq!(to.display(), Some("Bob"));
         assert_eq!(to.uri().to_string(), "sip:bob@biloxi.example.com");
-
-        let call_id = find_map_header!(req.headers, CallId).unwrap();
         assert_eq!(call_id.id(), "3848276298220188511@atlanta.example.com");
-
-        let cseq = find_map_header!(req.headers, CSeq).unwrap();
         assert_eq!(cseq.cseq, 1);
         assert_eq!(cseq.method, SipMethod::Invite);
-
-        let contact = find_map_header!(req.headers, Contact).unwrap();
-        let host_str = contact.uri.uri().host_port.host_as_str();
         assert_eq!(host_str, "client.atlanta.example.com");
-
-        let content_type = find_map_header!(req.headers, ContentType).unwrap();
         assert_eq!(content_type.media_type().to_string(), "application/sdp");
-
-        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
         assert_eq!(content_length.clen(), 151);
-
-        assert_eq!(
-            req.body.as_deref().unwrap(),
-            concat!(
-                "v=0\r\n",
-                "o=alice 2890844526 2890844526 IN IP4 client.atlanta.example.com\r\n",
-                "s=-\r\n",
-                "c=IN IP4 192.0.2.101\r\n",
-                "t=0 0\r\n",
-                "m=audio 49172 RTP/AVP 0\r\n",
-                "a=rtpmap:0 PCMU/8000\r\n"
-            )
-            .as_bytes()
-        );
     }
 
-    #[test]
-    fn test_parse_request_without_body() {
-        let buf = concat! {
-            "INVITE sip:bob@example.com SIP/2.0\r\n",
-            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-            "Max-Forwards: 70\r\n",
-            "To: Bob <sip:bob@example.com>\r\n",
-            "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
-            "Call-ID: a84b4c76e66710\r\n",
-            "CSeq: 314159 INVITE\r\n",
-            "Contact: <sip:alice@example.com>\r\n",
-            "Content-Length: 0\r\n",
-            "\r\n"
-        };
+    static REQUEST_WITHOUT_BODY: &str = concat! {
+        "INVITE sip:bob@example.com SIP/2.0\r\n",
+        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
+        "Max-Forwards: 70\r\n",
+        "To: Bob <sip:bob@example.com>\r\n",
+        "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
+        "Call-ID: a84b4c76e66710\r\n",
+        "CSeq: 314159 INVITE\r\n",
+        "Contact: <sip:alice@example.com>\r\n",
+        "Content-Length: 0\r\n",
+        "\r\n"
+    };
 
-        let msg = Parser::parse_sip_msg(buf).unwrap();
+    #[test]
+    fn test_request_without_body() {
+        let msg = Parser::parse_sip_msg(REQUEST_WITHOUT_BODY).unwrap();
         let req = msg.request().unwrap();
+        let via = find_map_header!(req.headers, Via).unwrap();
+        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
+        let to = find_map_header!(req.headers, To).unwrap();
+        let from = find_map_header!(req.headers, From).unwrap();
+        let call_id = find_map_header!(req.headers, CallId).unwrap();
+        let cseq = find_map_header!(req.headers, CSeq).unwrap();
+        let contact = find_map_header!(req.headers, Contact).unwrap();
+        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
 
         assert_eq!(req.req_line.method, SipMethod::Invite);
         assert_eq!(req.req_line.uri.to_string(), "sip:bob@example.com");
-
-        let via = find_map_header!(req.headers, Via).unwrap();
-        assert_eq!(via.transport(), TransportType::Udp);
-        assert_eq!(via.sent_by().to_string(), "pc33.atlanta.com");
-        assert_eq!(via.branch().unwrap(), "z9hG4bK776asdhds");
-
-        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
+        assert_eq!(via.sent_by.to_string(), "pc33.atlanta.com");
+        assert_eq!(via.branch.as_deref(), Some("z9hG4bK776asdhds"));
         assert_eq!(maxfowards.max_fowards(), 70);
-
-        let to = find_map_header!(req.headers, To).unwrap();
         assert_eq!(to.uri().to_string(), "sip:bob@example.com");
         assert_eq!(to.display(), Some("Bob"));
-
-        let from = find_map_header!(req.headers, From).unwrap();
         assert_eq!(from.display(), Some("Alice"));
         assert_eq!(from.uri().to_string(), "sip:alice@example.com");
-
-        let call_id = find_map_header!(req.headers, CallId).unwrap();
         assert_eq!(call_id.id(), "a84b4c76e66710");
-
-        let cseq = find_map_header!(req.headers, CSeq).unwrap();
         assert_eq!(cseq.cseq, 314159);
-
-        let contact = find_map_header!(req.headers, Contact).unwrap();
         assert_eq!(contact.uri.to_string(), "<sip:alice@example.com>");
-
-        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
         assert_eq!(content_length.clen(), 0);
     }
 
-    #[test]
-    fn test_parse_response() {
-        let buf = concat! {
-            "SIP/2.0 200 OK\r\n",
-            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-            "From: Alice <sip:alice@atlanta.com>;tag=1928301774\r\n",
-            "To: Bob <sip:bob@example.com>;tag=a6c85cf\r\n",
-            "Call-ID: a84b4c76e66710@pc33.atlanta.com\r\n",
-            "CSeq: 314159 INVITE\r\n",
-            "Contact: <sip:bob@biloxi.com>\r\n",
-            "Content-Type: application/sdp\r\n",
-            "Content-Length: 131\r\n",
-            "\r\n",
-            "v=0\r\n",
-            "o=bob 2808844564 2808844564 IN IP4 biloxi.com\r\n",
-            "s=-\r\n",
-            "c=IN IP4 biloxi.com\r\n",
-            "t=0 0\r\n",
-            "m=audio 7078 RTP/AVP 0\r\n",
-            "a=rtpmap:0 PCMU/8000\r\n"
-        };
+    static RESPONSE_SIMPLE: &str = concat! {
+        "SIP/2.0 200 OK\r\n",
+        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
+        "From: Alice <sip:alice@atlanta.com>;tag=1928301774\r\n",
+        "To: Bob <sip:bob@example.com>;tag=a6c85cf\r\n",
+        "Call-ID: a84b4c76e66710@pc33.atlanta.com\r\n",
+        "CSeq: 314159 INVITE\r\n",
+        "Contact: <sip:bob@biloxi.com>\r\n",
+        "Content-Type: application/sdp\r\n",
+        "Content-Length: 131\r\n",
+        "\r\n",
+        "v=0\r\n",
+        "o=bob 2808844564 2808844564 IN IP4 biloxi.com\r\n",
+        "s=-\r\n",
+        "c=IN IP4 biloxi.com\r\n",
+        "t=0 0\r\n",
+        "m=audio 7078 RTP/AVP 0\r\n",
+        "a=rtpmap:0 PCMU/8000\r\n"
+    };
 
-        let msg = Parser::parse_sip_msg(buf).unwrap();
+    #[test]
+    fn test_response() {
+        let msg = Parser::parse_sip_msg(RESPONSE_SIMPLE).unwrap();
         let resp = msg.response().unwrap();
+        let headers = &resp.headers;
+        let via = find_map_header!(headers, Via).unwrap();
+        let from = find_map_header!(headers, From).unwrap();
+        let to = find_map_header!(headers, To).unwrap();
+        let call_id = find_map_header!(headers, CallId).unwrap();
+        let cseq = find_map_header!(headers, CSeq).unwrap();
+        let contact = find_map_header!(headers, Contact).unwrap();
+        let content_length = find_map_header!(headers, ContentLength).unwrap();
+        let content_type = find_map_header!(headers, ContentType).unwrap();
 
         assert_eq!(resp.code().as_u16(), 200);
         assert_eq!(resp.reason(), "OK");
-
-        let via = find_map_header!(resp.headers, Via).unwrap();
-        assert_eq!(via.transport(), TransportType::Udp);
-        assert_eq!(via.sent_by().to_string(), "pc33.atlanta.com");
-
-        let content_type = find_map_header!(resp.headers, ContentType).unwrap();
-        assert_eq!(content_type.media_type().to_string(), "application/sdp");
-
-        let content_length = find_map_header!(resp.headers, ContentLength).unwrap();
-        assert_eq!(content_length.clen(), 131);
-
-        assert_eq!(
-            resp.body.as_deref().unwrap(),
-            concat!(
-                "v=0\r\n",
-                "o=bob 2808844564 2808844564 IN IP4 biloxi.com\r\n",
-                "s=-\r\n",
-                "c=IN IP4 biloxi.com\r\n",
-                "t=0 0\r\n",
-                "m=audio 7078 RTP/AVP 0\r\n",
-                "a=rtpmap:0 PCMU/8000\r\n"
-            )
-            .as_bytes()
-        );
-    }
-
-    #[test]
-    fn test_parse_response_without_body() {
-        let buf = concat! {
-            "SIP/2.0 200 OK\r\n",
-            "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-            "Max-Forwards: 70\r\n",
-            "To: Bob <sip:bob@example.com>\r\n",
-            "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
-            "Call-ID: a84b4c76e66710\r\n",
-            "CSeq: 314159 INVITE\r\n",
-            "Content-Length: 0\r\n\r\n"
-        };
-
-        let msg = Parser::parse_sip_msg(buf).unwrap();
-        let resp = msg.response().unwrap();
-
-        assert_eq!(resp.code().as_u16(), 200);
-        assert_eq!(resp.reason(), "OK");
-
-        let via = find_map_header!(resp.headers, Via).unwrap();
-        assert_eq!(via.transport(), TransportType::Udp);
-        assert_eq!(via.sent_by().to_string(), "pc33.atlanta.com");
-
-        let maxfowards = find_map_header!(resp.headers, MaxForwards).unwrap();
-        assert_eq!(maxfowards.max_fowards(), 70);
-
-        let to = find_map_header!(resp.headers, To).unwrap();
+        assert_eq!(via.sent_by.to_string(), "pc33.atlanta.com");
+        assert_eq!(via.branch.as_deref(), Some("z9hG4bK776asdhds"));
         assert_eq!(to.uri().to_string(), "sip:bob@example.com");
         assert_eq!(to.display(), Some("Bob"));
-
-        let from = find_map_header!(resp.headers, From).unwrap();
         assert_eq!(from.display(), Some("Alice"));
         assert_eq!(from.uri().to_string(), "sip:alice@example.com");
-
-        let call_id = find_map_header!(resp.headers, CallId).unwrap();
-        assert_eq!(call_id.id(), "a84b4c76e66710");
-
-        let cseq = find_map_header!(resp.headers, CSeq).unwrap();
+        assert_eq!(call_id.id(), "a84b4c76e66710@pc33.atlanta.com");
         assert_eq!(cseq.cseq, 314159);
-        assert_eq!(cseq.method, SipMethod::Invite);
-
-        let content_length = find_map_header!(resp.headers, ContentLength).unwrap();
-        assert_eq!(content_length.clen(), 0);
+        assert_eq!(contact.uri.to_string(), "<sip:alice@example.com>");
+        assert_eq!(content_length.clen(), 131);
+        assert_eq!(content_type.media_type().to_string(), "application/sdp");
+        assert_eq!(resp.body.as_ref().unwrap().len(), 131);
     }
 
+    static RESPONSE_WITHOUT_BODY: &str = concat! {
+        "SIP/2.0 200 OK\r\n",
+        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
+        "Max-Forwards: 70\r\n",
+        "To: Bob <sip:bob@example.com>\r\n",
+        "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
+        "Call-ID: a84b4c76e66710\r\n",
+        "CSeq: 314159 INVITE\r\n",
+        "Content-Length: 0\r\n\r\n"
+    };
+
     #[test]
-    fn test_parse_request_with_multiple_via_headers() {
-        let buf = concat! {
-            "REGISTER sip:registrar.example.com SIP/2.0\r\n",
-            "Via: SIP/2.0/UDP host1.example.com;branch=z9hG4bK111\r\n",
-            "Via: SIP/2.0/UDP host2.example.com;branch=z9hG4bK222\r\n",
-            "Via: SIP/2.0/UDP host3.example.com;branch=z9hG4bK333\r\n",
-            "Max-Forwards: 70\r\n",
-            "To: <sip:alice@example.com>\r\n",
-            "From: <sip:alice@example.com>;tag=1928301774\r\n",
-            "Call-ID: manyvias@atlanta.com\r\n",
-            "CSeq: 42 REGISTER\r\n",
-            "Contact: <sip:alice@pc33.atlanta.com>\r\n",
-            "Content-Length: 0\r\n"
-        };
+    fn test_response_without_body() {
+        let msg = Parser::parse_sip_msg(RESPONSE_WITHOUT_BODY).unwrap();
+        let resp = msg.response().unwrap();
+        let headers = &resp.headers;
+        let via = find_map_header!(headers, Via).unwrap();
+        let maxfowards = find_map_header!(headers, MaxForwards).unwrap();
+        let to = find_map_header!(headers, To).unwrap();
+        let from = find_map_header!(headers, From).unwrap();
+        let call_id = find_map_header!(headers, CallId).unwrap();
+        let cseq = find_map_header!(headers, CSeq).unwrap();
 
-        let msg = Parser::parse_sip_msg(buf).unwrap();
+        assert_eq!(resp.code().as_u16(), 200);
+        assert_eq!(resp.reason(), "OK");
+        assert_eq!(via.sent_by.to_string(), "pc33.atlanta.com");
+        assert_eq!(via.branch.as_deref(), Some("z9hG4bK776asdhds"));
+        assert_eq!(maxfowards.max_fowards(), 70);
+        assert_eq!(to.uri().to_string(), "sip:bob@example.com");
+        assert_eq!(to.display(), Some("Bob"));
+        assert_eq!(from.display(), Some("Alice"));
+        assert_eq!(from.uri().to_string(), "sip:alice@example.com");
+        assert_eq!(call_id.id(), "a84b4c76e66710");
+        assert_eq!(cseq.cseq, 314159);
+    }
+
+    static REGISTER_WITH_MULTIPLE_VIA: &str = concat! {
+        "REGISTER sip:registrar.example.com SIP/2.0\r\n",
+        "Via: SIP/2.0/UDP host1.example.com;branch=z9hG4bK111\r\n",
+        "Via: SIP/2.0/UDP host2.example.com;branch=z9hG4bK222\r\n",
+        "Via: SIP/2.0/UDP host3.example.com;branch=z9hG4bK333\r\n",
+        "Max-Forwards: 70\r\n",
+        "To: <sip:alice@example.com>\r\n",
+        "From: <sip:alice@example.com>;tag=1928301774\r\n",
+        "Call-ID: manyvias@atlanta.com\r\n",
+        "CSeq: 42 REGISTER\r\n",
+        "Contact: <sip:alice@pc33.atlanta.com>\r\n",
+        "Content-Length: 0\r\n"
+    };
+
+    #[test]
+    fn test_register_with_multiple_via() {
+        let msg = Parser::parse_sip_msg(REGISTER_WITH_MULTIPLE_VIA).unwrap();
         let req = msg.request().unwrap();
-
         assert_eq!(req.req_line.method, SipMethod::Register);
         assert_eq!(req.req_line.uri.to_string(), "sip:registrar.example.com");
 
         let vias: Vec<_> = filter_map_header!(req.headers, Via).collect();
         assert_eq!(vias.len(), 3);
-        assert_eq!(vias[0].sent_by().to_string(), "host1.example.com");
-        assert_eq!(vias[0].branch().unwrap(), "z9hG4bK111");
-        assert_eq!(vias[1].sent_by().to_string(), "host2.example.com");
-        assert_eq!(vias[1].branch().unwrap(), "z9hG4bK222");
-        assert_eq!(vias[2].sent_by().to_string(), "host3.example.com");
-        assert_eq!(vias[2].branch().unwrap(), "z9hG4bK333");
-
-        let max_forwards = find_map_header!(req.headers, MaxForwards).unwrap();
-        assert_eq!(max_forwards.max_fowards(), 70);
-
-        let to = find_map_header!(req.headers, To).unwrap();
-        assert_eq!(to.uri().to_string(), "sip:alice@example.com");
-
-        let from = find_map_header!(req.headers, From).unwrap();
-        assert_eq!(from.uri().to_string(), "sip:alice@example.com");
-        assert_eq!(from.tag().as_deref(), Some("1928301774"));
-
-        let call_id = find_map_header!(req.headers, CallId).unwrap();
-        assert_eq!(call_id.id(), "manyvias@atlanta.com");
-
-        let cseq = find_map_header!(req.headers, CSeq).unwrap();
-        assert_eq!(cseq.cseq, 42);
-        assert_eq!(cseq.method, SipMethod::Register);
-
-        let contact = find_map_header!(req.headers, Contact).unwrap();
-        assert_eq!(contact.uri.to_string(), "<sip:alice@pc33.atlanta.com>");
-
-        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
-        assert_eq!(content_length.clen(), 0);
-
+        assert_eq!(vias[0].sent_by.to_string(), "host1.example.com");
+        assert_eq!(vias[0].branch.as_deref().unwrap(), "z9hG4bK111");
+        assert_eq!(vias[1].sent_by.to_string(), "host2.example.com");
+        assert_eq!(vias[1].branch.as_deref().unwrap(), "z9hG4bK222");
+        assert_eq!(vias[2].sent_by.to_string(), "host3.example.com");
+        assert_eq!(vias[2].branch.as_deref().unwrap(), "z9hG4bK333");
         assert!(req.body.is_none());
     }
 
-    #[test]
-    fn test_header_with_multi_params() {
-        let buf = concat! {
-            "OPTIONS sip:bob@example.com SIP/2.0\r\n",
-            "Via: SIP/2.0/UDP folded.example.com;branch=z9hG4bKfolded\r\n",
-            "Max-Forwards: 70\r\n",
-            "To: <sip:bob@example.com>\r\n",
-            "From: <sip:alice@atlanta.com>;tag=1928301774\r\n",
-            "Call-ID: foldedoptions@atlanta.com\r\n",
-            "CSeq: 100 OPTIONS\r\n",
-            "Contact: <sip:alice@atlanta.com>;",
-            " param1=value1;",
-            " param2=value2;",
-            " param3=value3;",
-            " param4=value4\r\n",
-            "Content-Length: 0\r\n\r\n"
-        };
+    static INVITE_WITH_MULTIPLE_CONTACT: &str = concat! {
+        "INVITE sip:bob@biloxi.com SIP/2.0\r\n",
+        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
+        "Max-Forwards: 78\r\n",
+        "To: Bob <sip:bob@biloxi.com>\r\n",
+        "From: Alice <sip:alice@atlanta.com>;tag=1928301774\r\n",
+        "Call-ID: a84b4c76e66710@pc33.atlanta.com\r\n",
+        "CSeq: 314160 INVITE\r\n",
+        "Contact: <sip:alice1@pc33.atlanta.com>\r\n",
+        "Contact: <sip:alice2@pc33.atlanta.com>\r\n",
+        "Contact: <sip:alice3@pc33.atlanta.com>\r\n",
+        "Content-Length: 0\r\n\r\n",
+    };
 
-        let msg = Parser::parse_sip_msg(buf).unwrap();
+    #[test]
+    fn test_invite_with_multiple_contact() {
+        let msg = Parser::parse_sip_msg(INVITE_WITH_MULTIPLE_CONTACT).unwrap();
         let req = msg.request().unwrap();
+        let contacts: Vec<_> = filter_map_header!(req.headers, Contact).collect();
+
+        assert_eq!(req.req_line.method, SipMethod::Invite);
+        assert_eq!(req.req_line.uri.to_string(), "sip:bob@biloxi.com");
+        assert_eq!(contacts[0].uri.to_string(), "<sip:alice1@pc33.atlanta.com>");
+        assert_eq!(contacts[1].uri.to_string(), "<sip:alice2@pc33.atlanta.com>");
+        assert_eq!(contacts[2].uri.to_string(), "<sip:alice3@pc33.atlanta.com>");
+    }
+    static HEADER_WITH_MULTIPLE_PARAM: &str = concat! {
+        "OPTIONS sip:bob@example.com SIP/2.0\r\n",
+        "Via: SIP/2.0/UDP folded.example.com;branch=z9hG4bKfolded\r\n",
+        "Max-Forwards: 70\r\n",
+        "To: <sip:bob@example.com>\r\n",
+        "From: <sip:alice@atlanta.com>;tag=1928301774\r\n",
+        "Call-ID: foldedoptions@atlanta.com\r\n",
+        "CSeq: 100 OPTIONS\r\n",
+        "Contact: <sip:alice@atlanta.com>;",
+        " param1=value1;",
+        " param2=value2;",
+        " param3=value3;",
+        " param4=value4\r\n",
+        "Content-Length: 0\r\n\r\n"
+    };
+
+    #[test]
+    fn test_header_with_multiple_params() {
+        let msg = Parser::parse_sip_msg(HEADER_WITH_MULTIPLE_PARAM).unwrap();
+        let req = msg.request().unwrap();
+        let contact = find_map_header!(req.headers, Contact).unwrap();
+        let params = contact.param.as_ref().unwrap();
 
         assert_eq!(req.req_line.method, SipMethod::Options);
         assert_eq!(req.req_line.uri.to_string(), "sip:bob@example.com");
-
-        let via = find_map_header!(req.headers, Via).unwrap();
-        assert_eq!(via.transport(), TransportType::Udp);
-        assert_eq!(via.sent_by().to_string(), "folded.example.com");
-
-        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
-        assert_eq!(maxfowards.max_fowards(), 70);
-
-        let to = find_map_header!(req.headers, To).unwrap();
-        assert_eq!(to.uri().to_string(), "sip:bob@example.com");
-
-        let from = find_map_header!(req.headers, From).unwrap();
-        assert_eq!(from.uri().to_string(), "sip:alice@atlanta.com");
-
-        let call_id = find_map_header!(req.headers, CallId).unwrap();
-        assert_eq!(call_id.id(), "foldedoptions@atlanta.com");
-
-        let cseq = find_map_header!(req.headers, CSeq).unwrap();
-        assert_eq!(cseq.cseq, 100);
-        assert_eq!(cseq.method, SipMethod::Options);
-
-        let contact = find_map_header!(req.headers, Contact).unwrap();
-        let params = contact.param.as_ref().unwrap();
         assert_eq!(contact.uri.to_string(), "<sip:alice@atlanta.com>");
         assert_eq!(params.get_named("param1"), Some("value1"));
         assert_eq!(params.get_named("param2"), Some("value2"));
         assert_eq!(params.get_named("param3"), Some("value3"));
         assert_eq!(params.get_named("param4"), Some("value4"));
+    }
 
-        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
-        assert_eq!(content_length.clen(), 0);
+    static INVALID_REQUEST_LINE: &str = concat! {
+        "CANCEL bob@example.com SIP/2.0\r\n",
+        "Via: SIP/2.0/UDP client.example.com;branch=z9hG4bKnashds10\r\n",
+        "Max-Forwards: 70\r\n",
+        "To: <sip:bob@example.com>\r\n",
+        "From: <sip:alice@example.com>;tag=9fxced76sl\r\n",
+        "Call-ID: 3848276298220188511@client.example.com\r\n",
+        "CSeq: 1 CANCEL\r\n",
+        "Content-Length: 0\r\n\r\n",
+    };
+
+    #[test]
+    fn test_invalid_request_line_error() {
+        let Err(Error::ParseError(err)) = Parser::parse_sip_msg(INVALID_REQUEST_LINE) else {
+            panic!("Expected ParseError error.");
+        };
+        assert_eq!(err.kind, Kind::Uri);
+        assert_eq!(err.position, Position { line: 1, column: 7 });
     }
 }

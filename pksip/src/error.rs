@@ -1,66 +1,14 @@
-use std::fmt;
 use std::str::{
     Utf8Error, {self},
 };
 
+use thiserror::Error;
+use tokio::task::JoinError;
+use util::{Position, ScannerError};
+
+use crate::message::SipMethod;
+
 pub type Result<T> = std::result::Result<T, Error>;
-
-/// Error on parsing
-// TODO: Use 'static &str, line and column(or Position)
-#[derive(Debug, PartialEq, Eq, Error)]
-pub struct SipParserError {
-    /// Message in error
-    pub message: String,
-}
-
-impl fmt::Display for SipParserError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-#[allow(missing_docs)]
-impl SipParserError {
-    pub fn new<T>(s: T) -> Self
-    where
-        T: AsRef<str>,
-    {
-        Self {
-            message: s.as_ref().to_string(),
-        }
-    }
-}
-
-impl std::convert::From<&str> for SipParserError {
-    fn from(value: &str) -> Self {
-        Self::new(value)
-    }
-}
-
-impl std::convert::From<String> for SipParserError {
-    fn from(value: String) -> Self {
-        Self::new(value)
-    }
-}
-
-impl std::convert::From<Utf8Error> for SipParserError {
-    fn from(value: Utf8Error) -> Self {
-        SipParserError {
-            message: format!("{:#?}", value),
-        }
-    }
-}
-
-impl std::convert::From<util::ScannerError> for SipParserError {
-    fn from(err: util::ScannerError) -> Self {
-        SipParserError {
-            message: format!(
-                "Failed to parse at line:{} column:{} kind:{:?}",
-                err.position.line, err.position.column, err.kind,
-            ),
-        }
-    }
-}
 
 impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>>
     for Error
@@ -69,12 +17,6 @@ impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::Tr
         value: tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>,
     ) -> Self {
         Self::ChannelClosed
-    }
-}
-
-impl std::convert::From<util::ScannerError> for Error {
-    fn from(err: util::ScannerError) -> Self {
-        SipParserError::from(err).into()
     }
 }
 
@@ -90,15 +32,10 @@ impl From<std::fmt::Error> for Error {
     }
 }
 
-use thiserror::Error;
-use tokio::task::JoinError;
-
-use crate::message::SipMethod;
-
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
-    ParseError(#[from] SipParserError),
+    ParseError(#[from] ParseError),
 
     #[error("Missing required '{0}' header")]
     MissingRequiredHeader(&'static str),
@@ -129,6 +66,36 @@ pub enum Error {
 
     #[error("SipMethod {0} cannot establish a dialog")]
     DialogError(#[from] DialogError),
+}
+
+#[derive(Debug, Error)]
+pub struct ParseError {
+    pub kind: ParseErrorKind,
+    pub position: Position,
+}
+
+impl ParseError {
+    pub fn new(kind: ParseErrorKind, position: Position) -> Self {
+        Self { kind, position }
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseErrorKind {
+    StatusCode,
+    Header,
+    Host,
+    Method,
+    Version,
+    Uri,
+    Param,
+    Scanner(ScannerError),
 }
 
 #[derive(Debug, Error)]

@@ -46,7 +46,7 @@ impl EndpointService for MyService {
 
             let server_tsx = endpoint.new_server_transaction(&request);
             server_tsx.respond(&mut response).await?;
-        } else {
+        } else if request.msg.req_line.method != SipMethod::Ack {
             endpoint.respond(&request, StatusCode::NotImplemented, None).await?;
         }
 
@@ -78,6 +78,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_service(svc)
         .with_transaction(Transactions::default())
         .with_tcp(addr)
+        .with_udp(addr)
         .build()
         .await;
 

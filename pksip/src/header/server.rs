@@ -30,7 +30,7 @@ impl<'a> HeaderParser<'a> for Server {
      * product-version  =  token
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let server = parser.read_until_new_line()?;
+        let server = parser.read_until_new_line_as_str()?;
 
         Ok(Server(server.into()))
     }

@@ -160,7 +160,7 @@ mod tests {
     // "To: Alice Liddell<sip:alice@wonderland.com>"
     // "To: Alice<sip:alice@wonderland.com>"
     use super::*;
-    use crate::message::{DomainName, Host, HostPort, Scheme};
+    use crate::message::{DisplayName, DomainName, Host, HostPort, Scheme};
 
     #[test]
     fn test_parse() {
@@ -176,7 +176,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(addr.uri.scheme, Scheme::Sip);
-                assert_eq!(addr.display, Some("Bob".into()));
+                assert_eq!(addr.display, Some(DisplayName::new("Bob")));
                 assert_eq!(addr.uri.user.unwrap().user.as_ref(), "bob");
                 assert_eq!(
                     addr.uri.host_port,

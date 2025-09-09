@@ -288,7 +288,7 @@ impl OutgoingResponse {
 
     /// Returns the message rason text.
     pub fn reason(&self) -> &str {
-        &self.response.status_line.reason
+        &self.response.status_line.reason.phrase_str()
     }
 
     /// Returns `true` if this is a provisional response.
@@ -682,7 +682,7 @@ impl Transports {
         // The server MUST insert a "received" parameter containing
         // the source IP address that the request came from even if
         // it is identical to the value of the "sent-by" component.
-        via.set_received(packet.addr.ip());
+        via.received = Some(packet.addr.ip());
 
         let request_headers = RequiredHeaders {
             via,

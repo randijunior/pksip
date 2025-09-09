@@ -430,6 +430,23 @@ impl UriBuilder {
     }
 }
 
+/// Represents an display name in `NameAddr`
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct DisplayName(Arc<str>);
+
+impl DisplayName {
+    /// Creates a new `DisplayName` whith the given `display`.
+    #[inline]
+    pub fn new(display: &str) -> Self {
+        Self(display.into())
+    }
+
+    /// Returns the inner phrase as str.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Represents an SIP `name-addr`.
 ///  
 /// Typically appear in `From`, `To`, and `Contact` header. Contains an sip uri
@@ -437,7 +454,7 @@ impl UriBuilder {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NameAddr {
     /// The optional display part.
-    pub display: Option<Arc<str>>,
+    pub display: Option<DisplayName>,
     /// The uri of the `name-addr`.
     pub uri: Uri,
 }
@@ -445,7 +462,7 @@ pub struct NameAddr {
 impl NameAddr {
     /// Returns the display part if present.
     pub fn display(&self) -> Option<&str> {
-        self.display.as_deref()
+        self.display.as_ref().map(|d| d.as_str())
     }
 }
 
@@ -462,7 +479,7 @@ impl FromStr for NameAddr {
 impl fmt::Display for NameAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(display) = &self.display {
-            write!(f, "{} ", display)?;
+            write!(f, "{} ", display.0)?;
         }
         write!(f, "<{}>", self.uri)?;
 

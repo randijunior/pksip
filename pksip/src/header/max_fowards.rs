@@ -41,7 +41,7 @@ impl<'a> HeaderParser<'a> for MaxForwards {
      * Max-Forwards  =  "Max-Forwards" HCOLON 1*DIGIT
      */
     fn parse(parser: &mut Parser<'a>) -> Result<MaxForwards> {
-        let fowards = parser.parse_u32()?;
+        let fowards = parser.read_u32()?;
 
         Ok(MaxForwards(fowards))
     }

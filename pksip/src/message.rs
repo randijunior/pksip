@@ -220,7 +220,7 @@ impl Response {
 
     /// Returns the reason.
     pub fn reason(&self) -> &str {
-        &self.status_line.reason
+        &self.status_line.reason.0
     }
 
     /// Creates a new `Response` with the given `Status-Line` and headers,
@@ -252,6 +252,22 @@ impl Response {
     }
 }
 
+/// Represents a `reason-phrase` in Status-Line.
+pub struct ReasonPhrase(Arc<str>);
+
+impl ReasonPhrase {
+    /// Creates a new `ReasonPhrase` whith the given `reason`.
+    #[inline]
+    pub fn new(reason: Arc<str>) -> Self {
+        Self(reason)
+    }
+
+    /// Returns the inner phrase as str.
+    pub fn phrase_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Represents a SIP Status-Line.
 ///
 /// The Status-Line appears in SIP responses and includes a status code and a
@@ -260,19 +276,19 @@ pub struct StatusLine {
     /// The SIP status code associated with the response.
     pub code: StatusCode,
     /// The reason phrase explaining the status code.
-    pub reason: Arc<str>,
+    pub reason: ReasonPhrase,
 }
 
 impl std::fmt::Display for StatusLine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{SIPV2} {} {}\r\n", self.code as i32, self.reason)
+        write!(f, "{SIPV2} {} {}\r\n", self.code as i32, self.reason.0)
     }
 }
 
 impl StatusLine {
     /// Creates a new `StatusLine` instance from the given
     /// [`StatusCode`] and `reason-phrase`.
-    pub fn new(code: StatusCode, reason: Arc<str>) -> Self {
+    pub fn new(code: StatusCode, reason: ReasonPhrase) -> Self {
         StatusLine { code, reason }
     }
 }

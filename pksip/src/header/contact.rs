@@ -123,7 +123,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
     use super::*;
-    use crate::message::{DomainName, Host, HostPort, Scheme};
+    use crate::message::{DisplayName, DomainName, Host, HostPort, Scheme};
 
     // ContactHeader inputs
 
@@ -196,7 +196,7 @@ mod tests {
             expires,
             ..
         } => {
-            assert_eq!(addr.display, Some("Mr. Watson".into()));
+            assert_eq!(addr.display, Some(DisplayName::new("Mr. Watson")));
             assert_eq!(addr.uri.user.unwrap().user.as_ref(), "watson");
             assert_eq!(
                 addr.uri.host_port,

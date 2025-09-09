@@ -20,7 +20,7 @@ impl<'a> HeaderParser<'a> for Organization {
      * [TEXT-UTF8-TRIM]
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let organization = parser.read_until_new_line()?;
+        let organization = parser.read_until_new_line_as_str()?;
 
         Ok(Organization(organization.into()))
     }

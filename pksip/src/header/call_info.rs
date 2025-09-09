@@ -71,7 +71,7 @@ impl<'a> HeaderParser<'a> for CallInfo {
         let mut purpose: Option<Arc<str>> = None;
         // must be an '<'
         parser.next_byte()?;
-        let url = parser.read_until_byte(b'>');
+        let url = parser.read_until(b'>');
         // must be an '>'
         parser.next_byte()?;
         let url = str::from_utf8(url)?;

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::{fmt, str};
 
-use crate::error::Result;
+use crate::error::{ParseErrorKind as ErrorKind, Result};
 use crate::header::HeaderParser;
-use crate::macros::{comma_separated, parse_error};
+use crate::macros::comma_separated;
 use crate::message::{Parameter, CNONCE, NC, NEXTNONCE, QOP, RSPAUTH};
 use crate::parser::Parser;
 
@@ -58,14 +58,14 @@ impl<'a> HeaderParser<'a> for AuthenticationInfo {
         let mut auth_info = AuthenticationInfo::default();
 
         comma_separated!(parser => {
-            let Parameter {name, value} = parser.parse_param_ref()?.into();
+            let Parameter {name, value} = parser.parse_ref_param()?.into();
             match name.as_ref() {
                 NEXTNONCE => auth_info.nextnonce = value,
                 QOP => auth_info.qop = value,
                 RSPAUTH => auth_info.rspauth = value,
                 CNONCE => auth_info.cnonce = value,
                 NC => auth_info.nc = value,
-                _ => parse_error!("Can't parse Authentication-Info".into())?,
+                _ => parser.parse_error(ErrorKind::Header)?,
             };
         });
 

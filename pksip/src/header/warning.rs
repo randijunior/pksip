@@ -1,9 +1,8 @@
 use std::sync::Arc;
 use std::{fmt, str};
 
-use crate::error::Result;
+use crate::error::{Result, ParseErrorKind as ErrorKind};
 use crate::header::HeaderParser;
-use crate::macros::parse_error;
 use crate::parser::{is_host, Parser};
 
 /// The `Warning` SIP header.
@@ -30,16 +29,16 @@ impl<'a> HeaderParser<'a> for Warning {
      * quoted-string pseudonym      =  token
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let code = parser.parse_u32()?;
-        parser.space();
+        let code = parser.read_u32()?;
+        parser.skip_ws();
         let host = unsafe { parser.read_while_as_str_unchecked(is_host) };
-        parser.space();
+        parser.skip_ws();
         let Some(b'"') = parser.peek_byte() else {
-            return parse_error!("invalid warning header!".into());
+            return parser.parse_error(ErrorKind::Header);
         };
-        parser.next_byte();
-        let text = parser.read_until_byte(b'"');
-        parser.next_byte();
+        parser.next_byte()?;
+        let text = parser.read_until(b'"');
+        parser.next_byte()?;
         let text = str::from_utf8(text)?;
 
         Ok(Warning {

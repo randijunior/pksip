@@ -18,14 +18,14 @@ macro_rules! parse_header_param {
     ($scanner:ident) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::Parser::parse_param_ref,
+            $crate::parser::Parser::parse_ref_param,
         )
     );
 
     ($scanner:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::Parser::parse_param_ref,
+            $crate::parser::Parser::parse_ref_param,
             $($name = $var),*
         )
     );
@@ -37,7 +37,7 @@ macro_rules! parse_param {
         $func:expr,
         $($name:ident = $var:expr),*
     ) =>  {{
-        $scanner.space();
+        $scanner.skip_ws();
         match $scanner.peek_byte() {
             Some(b';') => {
                 let mut params = $crate::message::Parameters::new();
@@ -48,12 +48,12 @@ macro_rules! parse_param {
                         $(
                             if param.0 == $name {
                                 $var = param.1.map(|p| p.into());
-                                $scanner.space();
+                                $scanner.skip_ws();
                                 continue;
                             }
                         )*
                         params.push(param.into());
-                        $scanner.space();
+                        $scanner.skip_ws();
                     }
                     if params.is_empty() {
                         None
@@ -80,12 +80,12 @@ macro_rules! comma_separated_header_value {
 
 macro_rules! comma_separated {
     ($scanner:ident => $body:expr) => {{
-        $scanner.space();
+        $scanner.skip_ws();
         $body
 
         while let Some(b',') = $scanner.peek_byte() {
             $scanner.next_byte()?;
-            $scanner.space();
+            $scanner.skip_ws();
             $body
         }
     }};
@@ -101,34 +101,11 @@ macro_rules! headers {
     );
 }
 
-macro_rules! parse_error {
-    ($message:expr) => {{
-        Err($crate::error::Error::ParseError(
-            $crate::error::SipParserError { message: $message },
-        ))
-    }};
-    ($message:expr, $scanner:expr) => {{
-        Err($crate::error::SipParserError::new(format!(
-            "{} line {} column {}",
-            $message,
-            $scanner.position().line,
-            $scanner.position().column
-        ))
-        .into())
-    }};
-}
-
 macro_rules! try_parse_hdr {
     ($header:ident, $scanner:ident) => {{
         let Ok(header) = $header::parse($scanner) else {
-            let position = $scanner.position();
-            return Err($crate::error::SipParserError::new(format!(
-                "Error parsing '{}' header line {} column {}",
-                $header::NAME,
-                position.line,
-                position.column
-            ))
-            .into());
+            let position = *$scanner.position();
+            return Err(ParseError::new($crate::error::ParseErrorKind::Header, position).into());
         };
         header
     }};
@@ -161,7 +138,7 @@ macro_rules! find_map_header {
 }
 
 pub(crate) use {
-    comma_separated, comma_separated_header_value, lookup_table, parse_error, parse_header_param,
-    parse_param, try_parse_hdr,
+    comma_separated, comma_separated_header_value, lookup_table, parse_header_param, parse_param,
+    try_parse_hdr,
 };
 pub use {filter_map_header, find_map_header, headers};

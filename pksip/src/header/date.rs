@@ -45,7 +45,7 @@ impl<'a> HeaderParser<'a> for Date {
      * month         =  "Jan" / "Feb" / "Mar" / "Apr" ...
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let date = parser.read_until_new_line()?;
+        let date = parser.read_until_new_line_as_str()?;
 
         Ok(Date(date.into()))
     }

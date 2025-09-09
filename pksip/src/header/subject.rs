@@ -20,7 +20,7 @@ impl<'a> HeaderParser<'a> for Subject {
      * [TEXT-UTF8-TRIM]
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let subject = parser.read_until_new_line()?;
+        let subject = parser.read_until_new_line_as_str()?;
 
         Ok(Subject(subject.into()))
     }

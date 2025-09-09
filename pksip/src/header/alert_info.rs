@@ -58,10 +58,10 @@ impl<'a> HeaderParser<'a> for AlertInfo {
      * absoluteURI RAQUOT *( SEMI generic-param )
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        parser.space();
+        parser.skip_ws();
 
         parser.next_byte()?;
-        let url = parser.read_until_byte(b'>');
+        let url = parser.read_until(b'>');
         parser.next_byte()?;
 
         let url = str::from_utf8(url)?.into();

@@ -22,11 +22,11 @@ impl<'a> HeaderParser<'a> for Timestamp {
      * delay      =  *(DIGIT) [ "." *(DIGIT) ]
      */
     fn parse(parser: &mut Parser<'a>) -> Result<Self> {
-        let time = parser.parse_f32()?;
-        parser.space();
+        let time = parser.read_f32()?;
+        parser.skip_ws();
 
         let delay = if parser.peek_byte().is_some_and(|b| b.is_ascii_digit()) {
-            Some(parser.parse_f32()?)
+            Some(parser.read_f32()?)
         } else {
             None
         };

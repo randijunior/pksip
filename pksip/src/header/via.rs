@@ -3,9 +3,9 @@ use std::net::IpAddr;
 use std::str::{self};
 use std::sync::Arc;
 
-use crate::error::Result;
+use crate::error::{ParseErrorKind as ErrorKind, Result};
 use crate::header::HeaderParser;
-use crate::macros::{parse_error, parse_param};
+use crate::macros::parse_param;
 use crate::message::{DomainName, Host, HostPort, Parameters};
 use crate::parser::{
     Parser, SIPV2, {self},
@@ -39,15 +39,24 @@ const RECEIVED_PARAM: &str = "received";
 /// ```
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Via {
-    transport: TransportType,
-    sent_by: HostPort,
-    ttl: Option<u8>,
-    maddr: Option<Host>,
-    received: Option<IpAddr>,
-    branch: Option<Arc<str>>,
-    rport: Option<u16>,
-    comment: Option<Arc<str>>,
-    params: Option<Parameters>,
+    /// Via transport.
+    pub transport: TransportType,
+    /// Via sent_by.
+    pub sent_by: HostPort,
+    /// Via ttl.
+    pub ttl: Option<u8>,
+    /// Via.
+    pub maddr: Option<Host>,
+    /// Via.
+    pub received: Option<IpAddr>,
+    /// Via.
+    pub branch: Option<Arc<str>>,
+    /// Via.
+    pub rport: Option<u16>,
+    /// Via.
+    pub comment: Option<Arc<str>>,
+    /// Via.
+    pub params: Option<Parameters>,
 }
 
 impl Via {
@@ -70,46 +79,6 @@ impl Via {
             comment: None,
             params: None,
         }
-    }
-
-    /// Set the `received` parameter.
-    pub fn set_received(&mut self, received: IpAddr) {
-        self.received = Some(received);
-    }
-
-    /// Returns the `received` parameter.
-    pub fn received(&self) -> Option<IpAddr> {
-        self.received
-    }
-
-    /// Returns the `transport`.
-    pub fn transport(&self) -> TransportType {
-        self.transport
-    }
-
-    /// Returns the `rport`.
-    pub fn rport(&self) -> Option<u16> {
-        self.rport
-    }
-
-    /// Set the sent_by field.
-    pub fn set_sent_by(&mut self, sent_by: HostPort) {
-        self.sent_by = sent_by;
-    }
-
-    /// Returns the branch parameter.
-    pub fn branch(&self) -> Option<&str> {
-        self.branch.as_deref()
-    }
-
-    /// Returns the sent_by field.
-    pub fn sent_by(&self) -> &HostPort {
-        &self.sent_by
-    }
-
-    /// Returns the `maddr` parameter.
-    pub fn maddr(&self) -> &Option<Host> {
-        &self.maddr
     }
 }
 
@@ -180,10 +149,10 @@ impl<'a> HeaderParser<'a> for Via {
         parser.parse_sip_version()?;
         parser.next_byte()?;
 
-        let b = parser.read_until_byte(b' ');
+        let b = parser.read_until(b' ');
         let transport = b.into();
 
-        parser.space();
+        parser.skip_ws();
 
         let sent_by = parser.parse_host_port()?;
         let mut branch = None;
@@ -215,7 +184,7 @@ impl<'a> HeaderParser<'a> for Via {
             if crate::is_valid_port(rport) {
                 Some(rport)
             } else {
-                return parse_error!("Via param rport is invalid!".into());
+                return parser.parse_error(ErrorKind::Header);
             }
         } else {
             None
@@ -223,7 +192,7 @@ impl<'a> HeaderParser<'a> for Via {
 
         let comment = if parser.peek_byte() == Some(&b'(') {
             parser.next_byte()?;
-            let comment = parser.read_until_byte(b')');
+            let comment = parser.read_until(b')');
             parser.next_byte();
             Some(str::from_utf8(comment)?.into())
         } else {

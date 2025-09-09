@@ -568,7 +568,7 @@ impl Transactions {
 
     pub(crate) async fn handle_response(&self, response: &IncomingResponse) -> Result<bool> {
         let cseq_method = response.request_headers.cseq.method();
-        let via_branch = response.request_headers.via.branch().unwrap();
+        let via_branch = response.request_headers.via.branch.clone().unwrap();
 
         let key = TransactionKey::create_client_with(cseq_method, via_branch);
         let client_tsx = {
@@ -606,7 +606,7 @@ pub(crate) mod mock {
 
     use super::*;
     use crate::header::{CSeq, CallId, Header, HeaderParser, Headers};
-    use crate::message::{Request, RequestLine, Response, SipMethod, SipAddr};
+    use crate::message::{ReasonPhrase, Request, RequestLine, Response, SipAddr, SipMethod};
     use crate::transport::udp::mock::MockUdpTransport;
     use crate::transport::{OutgoingAddr, Packet, Payload, RequiredHeaders, Transport};
 
@@ -635,7 +635,7 @@ pub(crate) mod mock {
         };
         let mut response = Response::new(crate::message::StatusLine {
             code: c,
-            reason: c.reason().into(),
+            reason: ReasonPhrase::new(c.reason().into()),
         });
 
         response.headers = headers;
@@ -752,7 +752,7 @@ pub(crate) mod mock {
         let addr = transport.addr();
         let mut response = Response::new(crate::message::StatusLine {
             code: c,
-            reason: c.reason().into(),
+            reason: ReasonPhrase::new(c.reason().into()),
         });
         response.headers = headers;
 

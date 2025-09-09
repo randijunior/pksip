@@ -45,7 +45,7 @@ impl<'buf> Scanner<'buf> {
         }
     }
 
-    /// Reads the next byte and next_bytes the scanner position.
+    /// Reads the next byte and advance the scanner position.
     ///
     /// If the scanner has reached the end of the buffer, it returns `None`.
     pub fn next_byte(&mut self) -> Option<u8> {
@@ -98,7 +98,7 @@ impl<'buf> Scanner<'buf> {
     pub fn read_u32(&mut self) -> Result<u32> {
         self.read_number_str()
             .parse()
-            .or_else(|_| self.error(ScannerErrorKind::InvalidNumber))
+            .or_else(|_| Err(ScannerError::InvalidNumber))
     }
 
     /// Read a `u16` number until an invalid digit is found.
@@ -108,7 +108,7 @@ impl<'buf> Scanner<'buf> {
     pub fn read_u16(&mut self) -> Result<u16> {
         self.read_number_str()
             .parse()
-            .or_else(|_| self.error(ScannerErrorKind::InvalidNumber))
+            .or_else(|_| Err(ScannerError::InvalidNumber))
     }
 
     /// Read a `f32` number until an invalid digit is found.
@@ -118,7 +118,7 @@ impl<'buf> Scanner<'buf> {
     pub fn read_f32(&mut self) -> Result<f32> {
         self.read_number_str()
             .parse()
-            .or_else(|_| self.error(ScannerErrorKind::InvalidNumber))
+            .or_else(|_| Err(ScannerError::InvalidNumber))
     }
 
     /// Call the `func` closure for each element in the buffer and next_byte
@@ -169,13 +169,18 @@ impl<'buf> Scanner<'buf> {
         unsafe { buffer.get_unchecked(..n) }
     }
 
+    /// Peek next byte if `condition` returns `true`.
+    pub fn peek_if(&self, condition: impl Fn(u8) -> bool) -> Option<u8> {
+        self.peek_byte().filter(|&&byte| condition(byte)).copied()
+    }
+
     /// Read next bytes if equals to `expected`
     pub fn must_read_bytes(&mut self, expected: &[u8]) -> Result<()> {
         let remaining = &self.buffer[self.index..];
         let iter = remaining.iter().zip(expected);
         for (&found, &expected) in iter {
             if found != expected {
-                return self.error(ScannerErrorKind::UnexpectedByte { expected, found });
+                return Err(ScannerError::UnexpectedByte { expected, found });
             }
             self.bump(found);
         }
@@ -194,8 +199,8 @@ impl<'buf> Scanner<'buf> {
                 self.bump(found);
                 Ok(())
             }
-            Some(found) => self.error(ScannerErrorKind::UnexpectedByte { expected, found }),
-            None => self.error(ScannerErrorKind::Eof),
+            Some(found) => Err(ScannerError::UnexpectedByte { expected, found }),
+            None => Err(ScannerError::Eof),
         }
     }
 
@@ -212,12 +217,12 @@ impl<'buf> Scanner<'buf> {
     ///
     /// # Errors
     ///
-    /// Returns `ScannerErrorKind::InvalidUtf8` if the resulting bytes are not
+    /// Returns `ScannerError::InvalidUtf8` if the resulting bytes are not
     /// valid UTF-8.
     pub fn read_while_as_str(&mut self, func: impl Fn(u8) -> bool) -> Result<&'buf str> {
         let bytes = self.read_while(func);
 
-        std::str::from_utf8(bytes).or_else(|_| self.error(ScannerErrorKind::InvalidUtf8))
+        std::str::from_utf8(bytes).or_else(|_| Err(ScannerError::InvalidUtf8))
     }
 
     /// Same as [`Scanner::read_while`] but returns the bytes as a string slice
@@ -269,13 +274,6 @@ impl<'buf> Scanner<'buf> {
             self.position.column += 1;
         }
     }
-
-    fn error<T>(&self, kind: ScannerErrorKind) -> Result<T> {
-        Err(ScannerError {
-            kind,
-            position: self.position,
-        })
-    }
 }
 
 impl AsRef<[u8]> for Scanner<'_> {
@@ -293,18 +291,9 @@ impl ToString for Scanner<'_> {
     }
 }
 
-/// Represents an error that occurred while reading the buffer.
-#[derive(Debug, PartialEq)]
-pub struct ScannerError {
-    /// The kind of error that occurred.
-    pub kind: ScannerErrorKind,
-    /// The position in the buffer where the error was detected.
-    pub position: Position,
-}
-
 /// Errors that can occur while reading the buffer.
 #[derive(Debug, PartialEq, Clone, Copy, Eq)]
-pub enum ScannerErrorKind {
+pub enum ScannerError {
     /// End of the buffer reached unexpectedly.
     Eof,
 
@@ -332,20 +321,20 @@ pub enum ScannerErrorKind {
 pub struct Position {
     /// Current line number (starting from 1).
     pub line: usize,
-    /// Current column number (starting from 1).
+    /// Current column number (starting from 0).
     pub column: usize,
 }
 
 impl Position {
-    /// Create a new `Position` starting at line 1, column 1.
+    /// Create a new `Position` starting at line 1, column 0.
     pub const fn new() -> Self {
-        Self { line: 1, column: 1 }
+        Self { line: 1, column: 0 }
     }
 }
 
 impl Default for Position {
     fn default() -> Self {
-        Self { line: 1, column: 1 }
+        Self { line: 1, column: 0 }
     }
 }
 
@@ -364,7 +353,7 @@ mod tests {
     fn test_must_read_fails_on_eof() {
         let mut scanner = Scanner::new(b"");
         let err = scanner.must_read(b'h').unwrap_err();
-        assert_eq!(err.kind, ScannerErrorKind::Eof);
+        assert_eq!(err, ScannerError::Eof);
     }
 
     #[test]
@@ -385,7 +374,7 @@ mod tests {
     fn read_while_as_str_fails_on_invalid_utf8() {
         let mut scanner = Scanner::new(&[0xff, 0xff]);
         let err = scanner.read_while_as_str(|_| true).unwrap_err();
-        assert_eq!(err.kind, ScannerErrorKind::InvalidUtf8);
+        assert_eq!(err, ScannerError::InvalidUtf8);
     }
 
     #[test]
@@ -407,7 +396,7 @@ mod tests {
     fn test_read_u32_invalid_number_returns_error() {
         let mut scanner = Scanner::new(b"hello");
         let err = scanner.read_u32().unwrap_err();
-        assert_eq!(err.kind, ScannerErrorKind::InvalidNumber);
+        assert_eq!(err, ScannerError::InvalidNumber);
     }
 
     #[test]
@@ -428,6 +417,6 @@ mod tests {
     fn test_read_f32_invalid_number_returns_error() {
         let mut scanner = Scanner::new(b"hello");
         let err = scanner.read_f32().unwrap_err();
-        assert_eq!(err.kind, ScannerErrorKind::InvalidNumber);
+        assert_eq!(err, ScannerError::InvalidNumber);
     }
 }

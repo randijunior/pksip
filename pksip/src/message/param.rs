@@ -132,7 +132,7 @@ impl FromStr for Parameter {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        Ok(Parser::new(s.as_bytes()).parse_param_ref()?.into())
+        Ok(Parser::new(s.as_bytes()).parse_ref_param()?.into())
     }
 }
 

@@ -118,7 +118,7 @@ impl fmt::Display for From {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{DomainName, Host, HostPort, Scheme};
+    use crate::message::{DisplayName, DomainName, Host, HostPort, Scheme};
 
     // FromHeader inputs
 
@@ -168,7 +168,7 @@ mod tests {
             tag,
             ..
         } => {
-            assert_eq!(addr.display, Some("A. G. Bell".into()));
+            assert_eq!(addr.display, Some(DisplayName::new("A. G. Bell")));
             assert_eq!(addr.uri.user.unwrap().user.as_ref(), "agb");
             assert_eq!(
                 addr.uri.host_port,
@@ -211,7 +211,7 @@ mod tests {
             tag,
             ..
         } => {
-            assert_eq!(addr.display, Some("Anonymous".into()));
+            assert_eq!(addr.display, Some(DisplayName::new("Anonymous")));
             assert_eq!(addr.uri.user.unwrap().user.as_ref(), "c8oqz84zk7z");
             assert_eq!(
                 addr.uri.host_port,
