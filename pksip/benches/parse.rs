@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use pksip::parser::Parser;
 
 fn bench_parse_sip_msg(c: &mut Criterion) {
@@ -23,7 +23,7 @@ User-Agent: X-Lite release 1104o stamp 56125\r\n\r\n";
     c.bench_function("parse invite with sdp", |b| {
         b.iter(|| {
             let mut parser = Parser::new(black_box(buf));
-            let msg = parser.parse().unwrap();
+            let msg = parser.parse_sip_msg().unwrap();
             black_box(msg);
         });
     });

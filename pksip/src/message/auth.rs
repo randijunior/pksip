@@ -1,37 +1,50 @@
 //! SIP Auth types
 use std::fmt;
-use std::sync::Arc;
 
-use super::Parameters;
+use super::Params;
 
 /// The cnonce parameter used in Digest authentication.
 pub const CNONCE: &str = "cnonce";
+
 /// The qop parameter used in Digest authentication.
 pub const QOP: &str = "qop";
+
 /// The nc parameter used in Digest authentication.
 pub const NC: &str = "nc";
+
 /// The nextnonce parameter used in Digest authentication.
 pub const NEXTNONCE: &str = "nextnonce";
+
 /// The rspauth parameter used in Digest authentication.
 pub const RSPAUTH: &str = "rspauth";
+
 /// The SIP authentication scheme used in Digest authentication.
 pub const DIGEST: &str = "Digest";
+
 /// The realm parameter used in Digest authentication.
 pub const REALM: &str = "realm";
+
 /// The username parameter used in Digest authentication.
 pub const USERNAME: &str = "username";
+
 /// The nonce parameter used in Digest authentication.
 pub const NONCE: &str = "nonce";
+
 /// The uri parameter used in Digest authentication.
 pub const URI: &str = "uri";
+
 /// The response parameter used in Digest authentication.
 pub const RESPONSE: &str = "response";
+
 /// The algorithm parameter used in Digest authentication.
 pub const ALGORITHM: &str = "algorithm";
+
 /// The opaque parameter used in Digest authentication.
 pub const OPAQUE: &str = "opaque";
+
 /// The authentication scheme used in Digest authentication.
 pub const DOMAIN: &str = "domain";
+
 /// The authentication scheme used in Digest authentication.
 pub const STALE: &str = "stale";
 
@@ -39,19 +52,19 @@ pub const STALE: &str = "stale";
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct DigestChallenge {
     /// The realm of the digest authentication.
-    pub realm: Option<Arc<str>>,
+    pub realm: Option<String>,
     /// The domain of the digest authentication.
-    pub domain: Option<Arc<str>>,
+    pub domain: Option<String>,
     /// The nonce of the digest authentication.
-    pub nonce: Option<Arc<str>>,
+    pub nonce: Option<String>,
     /// The opaque value of the digest authentication.
-    pub opaque: Option<Arc<str>>,
+    pub opaque: Option<String>,
     /// Indicates whether the previous request was stale.
-    pub stale: Option<Arc<str>>,
+    pub stale: Option<String>,
     /// The algorithm used in the digest authentication.
-    pub algorithm: Option<Arc<str>>,
+    pub algorithm: Option<String>,
     /// The quality of protection (qop) value.
-    pub qop: Option<Arc<str>>,
+    pub qop: Option<String>,
 }
 
 /// This enum represents an authentication challenge mechanism used in
@@ -63,9 +76,9 @@ pub enum Challenge {
     /// Any other authentication scheme not specifically handled.
     Other {
         /// The name of the authentication scheme.
-        scheme: Arc<str>,
+        scheme: String,
         /// The parameters associated with the scheme.
-        param: Parameters,
+        param: Params,
     },
 }
 
@@ -119,26 +132,26 @@ impl fmt::Display for Challenge {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DigestCredential {
     /// The realm value that defines the protection split_ws.
-    pub realm: Option<Arc<str>>,
+    pub realm: Option<String>,
     /// The username associated with the credential.
-    pub username: Option<Arc<str>>,
+    pub username: Option<String>,
     /// The nonce value provided by the server.
-    pub nonce: Option<Arc<str>>,
+    pub nonce: Option<String>,
     /// The URI of the requested resource.
-    pub uri: Option<Arc<str>>,
+    pub uri: Option<String>,
     /// The response hash calculated from the credential data.
-    pub response: Option<Arc<str>>,
+    pub response: Option<String>,
     /// The algorithm used to hash the credentials (e.g., "MD5").
-    pub algorithm: Option<Arc<str>>,
+    pub algorithm: Option<String>,
     /// The client nonce value (cnonce) used to prevent replay attacks.
-    pub cnonce: Option<Arc<str>>,
+    pub cnonce: Option<String>,
     /// The opaque value provided by the server, to be returned unchanged.
-    pub opaque: Option<Arc<str>>,
+    pub opaque: Option<String>,
     /// The quality of protection (qop) applied to the message.
-    pub qop: Option<Arc<str>>,
+    pub qop: Option<String>,
     /// The nonce count (nc), indicating the number of requests made with the
     /// same nonce.
-    pub nc: Option<Arc<str>>,
+    pub nc: Option<String>,
 }
 
 /// This type represent a credential containing the authentication information
@@ -150,9 +163,9 @@ pub enum Credential {
     /// Other scheme not specified.
     Other {
         /// The name of the authentication scheme.
-        scheme: Arc<str>,
+        scheme: String,
         /// The parameters associated with the scheme.
-        param: Parameters,
+        param: Params,
     },
 }
 

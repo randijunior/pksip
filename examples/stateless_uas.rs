@@ -1,31 +1,30 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::core::to_take::ToTake;
-use pksip::core::SipEndpoint;
-use pksip::message::SipMethod;
-use pksip::message::StatusCode;
-use pksip::transport::IncomingRequest;
-use pksip::EndpointService;
-use pksip::Result;
+use pksip::{
+    Endpoint, EndpointHandler,
+    endpoint::EndpointResponse,
+    message::{SipMethod, StatusCode},
+    transport::IncomingRequest,
+};
 use tracing::Level;
 use tracing_subscriber::fmt::time::ChronoLocal;
 
 pub struct MyService;
 
 #[async_trait]
-impl EndpointService for MyService {
+impl EndpointHandler for MyService {
     fn name(&self) -> &str {
         "MyService"
     }
 
-    async fn on_incoming_request(&self, endpoint: &SipEndpoint, request: ToTake<'_, IncomingRequest>) -> Result<()> {
-        let request = request.take();
-
-        if !matches!(request.method(), SipMethod::Ack) {
-            endpoint.respond(&request, StatusCode::NotImplemented, None).await?;
+    async fn on_request(&self, request: &IncomingRequest) -> Option<EndpointResponse> {
+        if request.message.req_line.method != SipMethod::Ack {
+            let response = EndpointResponse::stateless(request, StatusCode::NotImplemented, None);
+            Some(response)
+        } else {
+            None
         }
-        Ok(())
     }
 }
 
@@ -41,13 +40,12 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let svc = MyService;
     let addr = "127.0.0.1:0".parse()?;
 
-    let endpoint = SipEndpoint::builder()
-        .with_service(svc)
-        .with_udp(addr)
-        .with_tcp(addr)
-        .build()
-        .await;
+    let endpoint = Endpoint::builder().add_service(svc).build();
 
-    endpoint.run().await?;
-    Ok(())
+    endpoint.start_ws(addr).await?;
+    endpoint.start_udp(addr).await?;
+
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
 }

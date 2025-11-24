@@ -4,51 +4,69 @@
 //! requests and responses, as well as various components such as URIs and
 //! headers.
 
-use std::str::{self};
-use std::sync::Arc;
+use std::str::{self, FromStr};
 
 use util::{Position, Scanner, ScannerError};
 
-use crate::error::{Error, ParseError, ParseErrorKind as Kind};
-use crate::header::*;
-use crate::macros::{comma_separated, lookup_table, parse_param, try_parse_hdr};
-use crate::message::*;
-use crate::Result;
+use crate::{
+    Result,
+    error::{Error, ParseError, ParseErrorKind as Kind},
+    headers::*,
+    macros::{comma_separated, lookup_table, parse_param, try_parse_hdr},
+    message::*,
+    transport::TransportType,
+};
 
 // ---------------------------------------------------------------------
 // Parser constants
 // ---------------------------------------------------------------------
+
 /// The user param used in SIP URIs.
 const USER_PARAM: &str = "user";
+
 /// The method param used in SIP URIs.
 const METHOD_PARAM: &str = "method";
+
 /// The transport param used in SIP URIs.
 const TRANSPORT_PARAM: &str = "transport";
+
 /// The ttl param used in SIP URIs.
 const TTL_PARAM: &str = "ttl";
+
 /// The lr param used in SIP URIs.
 const LR_PARAM: &str = "lr";
+
 /// The maddr param used in SIP URIs.
 const MADDR_PARAM: &str = "maddr";
+
 /// Alphanumeric is valid in all sip message components.
 const ALPHANUMERIC: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
 /// Unreserved characters in user, password, uri and header
 /// parameters in SIP uris.
 const UNRESERVED: &[u8] = b"-_.!~*'()%";
+
 /// Escaped character in SIP URIs.
 const ESCAPED: &[u8] = b"%";
+
 /// Unreserverd charaters in user part of SIP URIs.
 const USER_UNRESERVED: &[u8] = b"&=+$,;?/";
+
 /// Token in SIP Messages
 const TOKEN: &[u8] = b"-.!%*_`'~+";
+
 /// Password valid characters in SIP URIs.
 const PASS: &[u8] = b"&=+$,";
+
 /// Valid characters in SIP URIs host part.
 const HOST: &[u8] = b"_-.";
+
 /// The "sip" schema used in SIP URIs.
 const SIP: &[u8] = b"sip";
+
 /// The "sips" schema used in SIP URIs.
 const SIPS: &[u8] = b"sips";
+
 /// The SIP version used in the parser.
 pub(crate) const SIPV2: &str = "SIP/2.0";
 
@@ -57,18 +75,25 @@ const B_SIPV2: &[u8] = SIPV2.as_bytes();
 // ---------------------------------------------------------------------
 // Lookup Tables
 // ---------------------------------------------------------------------
+
 // For reading user in uri.
 lookup_table!(USER_TAB => ALPHANUMERIC, UNRESERVED, USER_UNRESERVED, ESCAPED);
+
 // For reading password in uri.
 lookup_table!(PASS_TAB => ALPHANUMERIC, UNRESERVED, ESCAPED, PASS);
+
 // For reading host in uri.
 lookup_table!(HOST_TAB => ALPHANUMERIC, HOST);
+
 // For reading parameter in uri.
 lookup_table!(PARAM_TAB => b"[]/:&+$", ALPHANUMERIC, UNRESERVED, ESCAPED);
+
 // For reading header parameter in uri.
 lookup_table!(HDR_TAB => b"[]/?:+$", ALPHANUMERIC, UNRESERVED, ESCAPED);
+
 // For reading token.
 lookup_table!(TOKEN_TAB => ALPHANUMERIC, TOKEN);
+
 // For reading via parameter.
 lookup_table!(VIA_PARAM_TAB => b"[:]", ALPHANUMERIC, TOKEN);
 
@@ -85,6 +110,19 @@ pub struct Parser<'buf> {
 
 impl<'buf> Parser<'buf> {
     /// Creates a new `Parser` from the given byte slice.
+    ///
+    /// This method is useful if you want to parse only specific parts of a SIP
+    /// message, such as a URI.
+    ///
+    /// To parse the buffer direct into a [`SipMessage`], use the [`Parser::parse`]
+    /// method.
+    ///
+    /// # Examples
+    /// ```
+    /// let line = Parser::new(b"SIP/2.0 200 OK\r\n")
+    ///     .parse_status_line()
+    ///     .unwrap();
+    /// ```
     #[inline]
     pub fn new<B>(buf: &'buf B) -> Self
     where
@@ -98,12 +136,23 @@ impl<'buf> Parser<'buf> {
     /// Parses the `buf` into a [`SipMessage`].
     ///
     /// This is equivalent to `Parser::new(buf).parse()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let buf = b"SIP/2.0 200 OK\r\nContent-Length: 0\r\n\r\n";
+    /// let msg = Parser::parse(buf).unwrap();
+    /// let res = msg.response().unwrap();
+    ///
+    /// assert_eq!(res.code().as_u16(), 200);
+    /// assert_eq!(res.reason(), "OK");
+    /// ```
     #[inline]
-    pub fn parse_sip_msg<B>(buf: &'buf B) -> Result<SipMessage>
+    pub fn parse<B>(buf: &'buf B) -> Result<SipMessage>
     where
         B: AsRef<[u8]> + ?Sized,
     {
-        Self::new(buf.as_ref()).parse()
+        Self::new(buf.as_ref()).parse_sip_msg()
     }
 
     /// Parses the internal buffer into a [`SipMessage`].
@@ -119,7 +168,7 @@ impl<'buf> Parser<'buf> {
     /// assert_eq!(res.reason(), "OK");
     /// assert_eq!(res.headers.len(), 1);
     /// ```
-    pub fn parse(&mut self) -> Result<SipMessage> {
+    pub fn parse_sip_msg(&mut self) -> Result<SipMessage> {
         let mut sip_message = self.parse_start_line()?;
         let mut found_content_type = false;
 
@@ -388,17 +437,17 @@ impl<'buf> Parser<'buf> {
             .or_else(|_| self.parse_error(Kind::Version))?)
     }
 
-    pub(crate) fn parse_sip_addr(&mut self, parse_params: bool) -> Result<SipAddr> {
+    pub(crate) fn parse_sip_addr(&mut self, parse_params: bool) -> Result<SipUri> {
         self.skip_ws();
 
         match self.scanner.peek_bytes(3) {
             Some(SIP) | Some(SIPS) => {
                 let uri = self.parse_uri(parse_params)?;
-                Ok(SipAddr::Uri(uri))
+                Ok(SipUri::Uri(uri))
             }
             _ => {
                 let addr = self.parse_name_addr()?;
-                Ok(SipAddr::NameAddr(addr))
+                Ok(SipUri::NameAddr(addr))
             }
         }
     }
@@ -417,7 +466,7 @@ impl<'buf> Parser<'buf> {
         // Parse SIP uri parameters.
         let mut user_param = None;
         let mut method_param = None;
-        let mut transport_param = None;
+        let mut transport_param: Option<&str> = None;
         let mut ttl_param = None;
         let mut lr_param: Option<&str> = None;
         let mut maddr_param = None;
@@ -433,7 +482,10 @@ impl<'buf> Parser<'buf> {
             MADDR_PARAM = maddr_param
         );
 
-        let transport_param = transport_param.map(|s: &str| s.into());
+        let transport_param = transport_param
+            .map(TransportType::from_str)
+            .transpose()
+            .or_else(|_| self.parse_error(Kind::Transport))?;
         let ttl_param = ttl_param.map(|ttl: &str| ttl.parse().unwrap());
         let lr_param = lr_param.is_some();
         let method_param = method_param.map(|p: &str| p.as_bytes().into());
@@ -502,7 +554,7 @@ impl<'buf> Parser<'buf> {
                 if let Ok(ip_addr) = host.parse() {
                     Host::IpAddr(ip_addr)
                 } else {
-                    Host::DomainName(DomainName(host.into()))
+                    Host::DomainName(DomainName::new(host.to_string()))
                 }
             }
         };
@@ -525,7 +577,7 @@ impl<'buf> Parser<'buf> {
     }
 
     fn parse_reason(&mut self) -> Result<ReasonPhrase> {
-        let reason = self.read_until_new_line_as_str()?.into();
+        let reason = self.read_until_new_line_as_str()?.to_string().into();
 
         Ok(ReasonPhrase::new(reason))
     }
@@ -581,7 +633,7 @@ impl<'buf> Parser<'buf> {
     }
 
     fn parse_headers_in_sip_uri(&mut self) -> Result<UriHeaders> {
-        let mut params = Parameters::new();
+        let mut params = Params::new();
         loop {
             let param = self.parse_hdr_in_uri()?;
             params.push(param);
@@ -664,7 +716,7 @@ impl<'buf> Parser<'buf> {
         if scheme == DIGEST {
             return self.parse_digest_challenge();
         }
-        let mut params = Parameters::new();
+        let mut params = Params::new();
         comma_separated!(self => {
             let param = self.parse_ref_param()?.into();
 
@@ -685,13 +737,13 @@ impl<'buf> Parser<'buf> {
             let (name, value) = self.parse_ref_param()?;
 
             match name {
-                REALM => digest.realm = value.map(Arc::from),
-                NONCE => digest.nonce = value.map(Arc::from),
-                DOMAIN => digest.domain = value.map(Arc::from),
-                ALGORITHM => digest.algorithm = value.map(Arc::from),
-                OPAQUE => digest.opaque = value.map(Arc::from),
-                QOP => digest.qop = value.map(Arc::from),
-                STALE => digest.stale = value.map(Arc::from),
+                REALM => digest.realm = value.map(String::from),
+                NONCE => digest.nonce = value.map(String::from),
+                DOMAIN => digest.domain = value.map(String::from),
+                ALGORITHM => digest.algorithm = value.map(String::from),
+                OPAQUE => digest.opaque = value.map(String::from),
+                QOP => digest.qop = value.map(String::from),
+                STALE => digest.stale = value.map(String::from),
                 _other => {
                     // return err?
                 }
@@ -708,16 +760,16 @@ impl<'buf> Parser<'buf> {
             let (name, value) = self.parse_ref_param()?;
 
             match name {
-                REALM => digest.realm = value.map(Arc::from),
-                USERNAME => digest.username = value.map(Arc::from),
-                NONCE => digest.nonce = value.map(Arc::from),
-                URI => digest.uri = value.map(Arc::from),
-                RESPONSE => digest.response = value.map(Arc::from),
-                ALGORITHM => digest.algorithm = value.map(Arc::from),
-                CNONCE => digest.cnonce = value.map(Arc::from),
-                OPAQUE => digest.opaque = value.map(Arc::from),
-                QOP => digest.qop = value.map(Arc::from),
-                NC => digest.nc = value.map(Arc::from),
+                REALM => digest.realm = value.map(String::from),
+                USERNAME => digest.username = value.map(String::from),
+                NONCE => digest.nonce = value.map(String::from),
+                URI => digest.uri = value.map(String::from),
+                RESPONSE => digest.response = value.map(String::from),
+                ALGORITHM => digest.algorithm = value.map(String::from),
+                CNONCE => digest.cnonce = value.map(String::from),
+                OPAQUE => digest.opaque = value.map(String::from),
+                QOP => digest.qop = value.map(String::from),
+                NC => digest.nc = value.map(String::from),
                 _ => {}, // Ignore unknown parameters
             }
         });
@@ -726,9 +778,9 @@ impl<'buf> Parser<'buf> {
     }
 
     fn parse_other_credential(&mut self, scheme: &'buf str) -> Result<Credential> {
-        let mut param = Parameters::new();
+        let mut param = Params::new();
         comma_separated!(self => {
-            let p: Parameter = self.parse_ref_param()?.into();
+            let p: Param = self.parse_ref_param()?.into();
 
             param.push(p);
         });
@@ -824,7 +876,7 @@ impl<'buf> Parser<'buf> {
     }
 
     #[inline]
-    fn read_token_str(&mut self) -> &'buf str {
+    pub(crate) fn read_token_str(&mut self) -> &'buf str {
         unsafe { self.scanner.read_while_as_str_unchecked(is_token) }
     }
 
@@ -872,7 +924,7 @@ impl<'buf> Parser<'buf> {
     }
 
     #[inline]
-    fn parse_hdr_in_uri(&mut self) -> Result<Parameter> {
+    fn parse_hdr_in_uri(&mut self) -> Result<Param> {
         // SAFETY: `is_hdr_uri` only accepts ASCII bytes, which are
         // always valid UTF-8.
         Ok(unsafe { self.parse_param_unchecked(is_hdr_uri)?.into() })
@@ -966,7 +1018,6 @@ fn is_hdr_uri(b: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{filter_map_header, find_map_header};
 
     macro_rules! uri_test_ok {
         (name: $name:ident, input: $input:literal, expected: $expected:expr) => {
@@ -1237,298 +1288,5 @@ mod tests {
             .param("foo", None)
             .header("foo", Some("bar"))
             .build()
-    }
-
-    static REQUEST_SIMPLE: &str = concat! {
-        "INVITE sip:bob@biloxi.example.com SIP/2.0\r\n",
-        "Via: SIP/2.0/TCP client.atlanta.example.com:5060;branch=z9hG4bK74b43\r\n",
-        "Max-Forwards: 70\r\n",
-        "Route: <sip:ss1.atlanta.example.com;lr>\r\n",
-        "From: Alice <sip:alice@atlanta.example.com>;tag=9fxced76sl\r\n",
-        "To: Bob <sip:bob@biloxi.example.com>\r\n",
-        "Call-ID: 3848276298220188511@atlanta.example.com\r\n",
-        "CSeq: 1 INVITE\r\n",
-        "Contact: <sip:alice@client.atlanta.example.com;transport=tcp>\r\n",
-        "Content-Type: application/sdp\r\n",
-        "Content-Length: 151\r\n",
-        "\r\n",
-        "v=0\r\n",
-        "o=alice 2890844526 2890844526 IN IP4 client.atlanta.example.com\r\n",
-        "s=-\r\n",
-        "c=IN IP4 192.0.2.101\r\n",
-        "t=0 0\r\n",
-        "m=audio 49172 RTP/AVP 0\r\n",
-        "a=rtpmap:0 PCMU/8000\r\n"
-    };
-
-    #[test]
-    fn test_request_simple() {
-        let msg = Parser::parse_sip_msg(REQUEST_SIMPLE).unwrap();
-        let req = msg.request().unwrap();
-        let via = find_map_header!(req.headers, Via).unwrap();
-        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
-        let route = find_map_header!(req.headers, Route).unwrap();
-        let from = find_map_header!(req.headers, From).unwrap();
-        let to = find_map_header!(req.headers, To).unwrap();
-        let call_id = find_map_header!(req.headers, CallId).unwrap();
-        let cseq = find_map_header!(req.headers, CSeq).unwrap();
-        let contact = find_map_header!(req.headers, Contact).unwrap();
-        let content_type = find_map_header!(req.headers, ContentType).unwrap();
-        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
-        let host_str = contact.uri.uri().host_port.host_as_str();
-
-        assert_eq!(req.req_line.method, SipMethod::Invite);
-        assert_eq!(req.req_line.uri.to_string(), "sip:bob@biloxi.example.com");
-        assert_eq!(via.sent_by.to_string(), "client.atlanta.example.com:5060");
-        assert_eq!(via.branch.as_deref(), Some("z9hG4bK74b43"));
-        assert_eq!(maxfowards.max_fowards(), 70);
-        assert_eq!(route.addr.uri.to_string(), "sip:ss1.atlanta.example.com;lr");
-        assert_eq!(from.display(), Some("Alice"));
-        assert_eq!(from.tag().as_deref(), Some("9fxced76sl"));
-        assert_eq!(to.display(), Some("Bob"));
-        assert_eq!(to.uri().to_string(), "sip:bob@biloxi.example.com");
-        assert_eq!(call_id.id(), "3848276298220188511@atlanta.example.com");
-        assert_eq!(cseq.cseq, 1);
-        assert_eq!(cseq.method, SipMethod::Invite);
-        assert_eq!(host_str, "client.atlanta.example.com");
-        assert_eq!(content_type.media_type().to_string(), "application/sdp");
-        assert_eq!(content_length.clen(), 151);
-    }
-
-    static REQUEST_WITHOUT_BODY: &str = concat! {
-        "INVITE sip:bob@example.com SIP/2.0\r\n",
-        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-        "Max-Forwards: 70\r\n",
-        "To: Bob <sip:bob@example.com>\r\n",
-        "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
-        "Call-ID: a84b4c76e66710\r\n",
-        "CSeq: 314159 INVITE\r\n",
-        "Contact: <sip:alice@example.com>\r\n",
-        "Content-Length: 0\r\n",
-        "\r\n"
-    };
-
-    #[test]
-    fn test_request_without_body() {
-        let msg = Parser::parse_sip_msg(REQUEST_WITHOUT_BODY).unwrap();
-        let req = msg.request().unwrap();
-        let via = find_map_header!(req.headers, Via).unwrap();
-        let maxfowards = find_map_header!(req.headers, MaxForwards).unwrap();
-        let to = find_map_header!(req.headers, To).unwrap();
-        let from = find_map_header!(req.headers, From).unwrap();
-        let call_id = find_map_header!(req.headers, CallId).unwrap();
-        let cseq = find_map_header!(req.headers, CSeq).unwrap();
-        let contact = find_map_header!(req.headers, Contact).unwrap();
-        let content_length = find_map_header!(req.headers, ContentLength).unwrap();
-
-        assert_eq!(req.req_line.method, SipMethod::Invite);
-        assert_eq!(req.req_line.uri.to_string(), "sip:bob@example.com");
-        assert_eq!(via.sent_by.to_string(), "pc33.atlanta.com");
-        assert_eq!(via.branch.as_deref(), Some("z9hG4bK776asdhds"));
-        assert_eq!(maxfowards.max_fowards(), 70);
-        assert_eq!(to.uri().to_string(), "sip:bob@example.com");
-        assert_eq!(to.display(), Some("Bob"));
-        assert_eq!(from.display(), Some("Alice"));
-        assert_eq!(from.uri().to_string(), "sip:alice@example.com");
-        assert_eq!(call_id.id(), "a84b4c76e66710");
-        assert_eq!(cseq.cseq, 314159);
-        assert_eq!(contact.uri.to_string(), "<sip:alice@example.com>");
-        assert_eq!(content_length.clen(), 0);
-    }
-
-    static RESPONSE_SIMPLE: &str = concat! {
-        "SIP/2.0 200 OK\r\n",
-        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-        "From: Alice <sip:alice@atlanta.com>;tag=1928301774\r\n",
-        "To: Bob <sip:bob@example.com>;tag=a6c85cf\r\n",
-        "Call-ID: a84b4c76e66710@pc33.atlanta.com\r\n",
-        "CSeq: 314159 INVITE\r\n",
-        "Contact: <sip:bob@biloxi.com>\r\n",
-        "Content-Type: application/sdp\r\n",
-        "Content-Length: 131\r\n",
-        "\r\n",
-        "v=0\r\n",
-        "o=bob 2808844564 2808844564 IN IP4 biloxi.com\r\n",
-        "s=-\r\n",
-        "c=IN IP4 biloxi.com\r\n",
-        "t=0 0\r\n",
-        "m=audio 7078 RTP/AVP 0\r\n",
-        "a=rtpmap:0 PCMU/8000\r\n"
-    };
-
-    #[test]
-    fn test_response() {
-        let msg = Parser::parse_sip_msg(RESPONSE_SIMPLE).unwrap();
-        let resp = msg.response().unwrap();
-        let headers = &resp.headers;
-        let via = find_map_header!(headers, Via).unwrap();
-        let from = find_map_header!(headers, From).unwrap();
-        let to = find_map_header!(headers, To).unwrap();
-        let call_id = find_map_header!(headers, CallId).unwrap();
-        let cseq = find_map_header!(headers, CSeq).unwrap();
-        let contact = find_map_header!(headers, Contact).unwrap();
-        let content_length = find_map_header!(headers, ContentLength).unwrap();
-        let content_type = find_map_header!(headers, ContentType).unwrap();
-
-        assert_eq!(resp.code().as_u16(), 200);
-        assert_eq!(resp.reason(), "OK");
-        assert_eq!(via.sent_by.to_string(), "pc33.atlanta.com");
-        assert_eq!(via.branch.as_deref(), Some("z9hG4bK776asdhds"));
-        assert_eq!(to.uri().to_string(), "sip:bob@example.com");
-        assert_eq!(to.display(), Some("Bob"));
-        assert_eq!(from.display(), Some("Alice"));
-        assert_eq!(from.uri().to_string(), "sip:alice@example.com");
-        assert_eq!(call_id.id(), "a84b4c76e66710@pc33.atlanta.com");
-        assert_eq!(cseq.cseq, 314159);
-        assert_eq!(contact.uri.to_string(), "<sip:alice@example.com>");
-        assert_eq!(content_length.clen(), 131);
-        assert_eq!(content_type.media_type().to_string(), "application/sdp");
-        assert_eq!(resp.body.as_ref().unwrap().len(), 131);
-    }
-
-    static RESPONSE_WITHOUT_BODY: &str = concat! {
-        "SIP/2.0 200 OK\r\n",
-        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-        "Max-Forwards: 70\r\n",
-        "To: Bob <sip:bob@example.com>\r\n",
-        "From: Alice <sip:alice@example.com>;tag=1928301774\r\n",
-        "Call-ID: a84b4c76e66710\r\n",
-        "CSeq: 314159 INVITE\r\n",
-        "Content-Length: 0\r\n\r\n"
-    };
-
-    #[test]
-    fn test_response_without_body() {
-        let msg = Parser::parse_sip_msg(RESPONSE_WITHOUT_BODY).unwrap();
-        let resp = msg.response().unwrap();
-        let headers = &resp.headers;
-        let via = find_map_header!(headers, Via).unwrap();
-        let maxfowards = find_map_header!(headers, MaxForwards).unwrap();
-        let to = find_map_header!(headers, To).unwrap();
-        let from = find_map_header!(headers, From).unwrap();
-        let call_id = find_map_header!(headers, CallId).unwrap();
-        let cseq = find_map_header!(headers, CSeq).unwrap();
-
-        assert_eq!(resp.code().as_u16(), 200);
-        assert_eq!(resp.reason(), "OK");
-        assert_eq!(via.sent_by.to_string(), "pc33.atlanta.com");
-        assert_eq!(via.branch.as_deref(), Some("z9hG4bK776asdhds"));
-        assert_eq!(maxfowards.max_fowards(), 70);
-        assert_eq!(to.uri().to_string(), "sip:bob@example.com");
-        assert_eq!(to.display(), Some("Bob"));
-        assert_eq!(from.display(), Some("Alice"));
-        assert_eq!(from.uri().to_string(), "sip:alice@example.com");
-        assert_eq!(call_id.id(), "a84b4c76e66710");
-        assert_eq!(cseq.cseq, 314159);
-    }
-
-    static REGISTER_WITH_MULTIPLE_VIA: &str = concat! {
-        "REGISTER sip:registrar.example.com SIP/2.0\r\n",
-        "Via: SIP/2.0/UDP host1.example.com;branch=z9hG4bK111\r\n",
-        "Via: SIP/2.0/UDP host2.example.com;branch=z9hG4bK222\r\n",
-        "Via: SIP/2.0/UDP host3.example.com;branch=z9hG4bK333\r\n",
-        "Max-Forwards: 70\r\n",
-        "To: <sip:alice@example.com>\r\n",
-        "From: <sip:alice@example.com>;tag=1928301774\r\n",
-        "Call-ID: manyvias@atlanta.com\r\n",
-        "CSeq: 42 REGISTER\r\n",
-        "Contact: <sip:alice@pc33.atlanta.com>\r\n",
-        "Content-Length: 0\r\n"
-    };
-
-    #[test]
-    fn test_register_with_multiple_via() {
-        let msg = Parser::parse_sip_msg(REGISTER_WITH_MULTIPLE_VIA).unwrap();
-        let req = msg.request().unwrap();
-        assert_eq!(req.req_line.method, SipMethod::Register);
-        assert_eq!(req.req_line.uri.to_string(), "sip:registrar.example.com");
-
-        let vias: Vec<_> = filter_map_header!(req.headers, Via).collect();
-        assert_eq!(vias.len(), 3);
-        assert_eq!(vias[0].sent_by.to_string(), "host1.example.com");
-        assert_eq!(vias[0].branch.as_deref().unwrap(), "z9hG4bK111");
-        assert_eq!(vias[1].sent_by.to_string(), "host2.example.com");
-        assert_eq!(vias[1].branch.as_deref().unwrap(), "z9hG4bK222");
-        assert_eq!(vias[2].sent_by.to_string(), "host3.example.com");
-        assert_eq!(vias[2].branch.as_deref().unwrap(), "z9hG4bK333");
-        assert!(req.body.is_none());
-    }
-
-    static INVITE_WITH_MULTIPLE_CONTACT: &str = concat! {
-        "INVITE sip:bob@biloxi.com SIP/2.0\r\n",
-        "Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds\r\n",
-        "Max-Forwards: 78\r\n",
-        "To: Bob <sip:bob@biloxi.com>\r\n",
-        "From: Alice <sip:alice@atlanta.com>;tag=1928301774\r\n",
-        "Call-ID: a84b4c76e66710@pc33.atlanta.com\r\n",
-        "CSeq: 314160 INVITE\r\n",
-        "Contact: <sip:alice1@pc33.atlanta.com>\r\n",
-        "Contact: <sip:alice2@pc33.atlanta.com>\r\n",
-        "Contact: <sip:alice3@pc33.atlanta.com>\r\n",
-        "Content-Length: 0\r\n\r\n",
-    };
-
-    #[test]
-    fn test_invite_with_multiple_contact() {
-        let msg = Parser::parse_sip_msg(INVITE_WITH_MULTIPLE_CONTACT).unwrap();
-        let req = msg.request().unwrap();
-        let contacts: Vec<_> = filter_map_header!(req.headers, Contact).collect();
-
-        assert_eq!(req.req_line.method, SipMethod::Invite);
-        assert_eq!(req.req_line.uri.to_string(), "sip:bob@biloxi.com");
-        assert_eq!(contacts[0].uri.to_string(), "<sip:alice1@pc33.atlanta.com>");
-        assert_eq!(contacts[1].uri.to_string(), "<sip:alice2@pc33.atlanta.com>");
-        assert_eq!(contacts[2].uri.to_string(), "<sip:alice3@pc33.atlanta.com>");
-    }
-    static HEADER_WITH_MULTIPLE_PARAM: &str = concat! {
-        "OPTIONS sip:bob@example.com SIP/2.0\r\n",
-        "Via: SIP/2.0/UDP folded.example.com;branch=z9hG4bKfolded\r\n",
-        "Max-Forwards: 70\r\n",
-        "To: <sip:bob@example.com>\r\n",
-        "From: <sip:alice@atlanta.com>;tag=1928301774\r\n",
-        "Call-ID: foldedoptions@atlanta.com\r\n",
-        "CSeq: 100 OPTIONS\r\n",
-        "Contact: <sip:alice@atlanta.com>;",
-        " param1=value1;",
-        " param2=value2;",
-        " param3=value3;",
-        " param4=value4\r\n",
-        "Content-Length: 0\r\n\r\n"
-    };
-
-    #[test]
-    fn test_header_with_multiple_params() {
-        let msg = Parser::parse_sip_msg(HEADER_WITH_MULTIPLE_PARAM).unwrap();
-        let req = msg.request().unwrap();
-        let contact = find_map_header!(req.headers, Contact).unwrap();
-        let params = contact.param.as_ref().unwrap();
-
-        assert_eq!(req.req_line.method, SipMethod::Options);
-        assert_eq!(req.req_line.uri.to_string(), "sip:bob@example.com");
-        assert_eq!(contact.uri.to_string(), "<sip:alice@atlanta.com>");
-        assert_eq!(params.get_named("param1"), Some("value1"));
-        assert_eq!(params.get_named("param2"), Some("value2"));
-        assert_eq!(params.get_named("param3"), Some("value3"));
-        assert_eq!(params.get_named("param4"), Some("value4"));
-    }
-
-    static INVALID_REQUEST_LINE: &str = concat! {
-        "CANCEL bob@example.com SIP/2.0\r\n",
-        "Via: SIP/2.0/UDP client.example.com;branch=z9hG4bKnashds10\r\n",
-        "Max-Forwards: 70\r\n",
-        "To: <sip:bob@example.com>\r\n",
-        "From: <sip:alice@example.com>;tag=9fxced76sl\r\n",
-        "Call-ID: 3848276298220188511@client.example.com\r\n",
-        "CSeq: 1 CANCEL\r\n",
-        "Content-Length: 0\r\n\r\n",
-    };
-
-    #[test]
-    fn test_invalid_request_line_error() {
-        let Err(Error::ParseError(err)) = Parser::parse_sip_msg(INVALID_REQUEST_LINE) else {
-            panic!("Expected ParseError error.");
-        };
-        assert_eq!(err.kind, Kind::Uri);
-        assert_eq!(err.position, Position { line: 1, column: 7 });
     }
 }

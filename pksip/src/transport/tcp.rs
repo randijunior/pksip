@@ -1,308 +1,215 @@
-//! SIP TCP TransportRef Implementation.
-// Temporarily allow unused imports and dead code warnings.
-#![allow(unused_imports)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
-#![warn(missing_docs)]
+//! TCP transport implementation for SIP.
 
-use std::borrow::Cow;
 use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::SystemTime;
 
-use local_ip_address::local_ip;
-use tokio::io::{split, AsyncWriteExt, ReadHalf, WriteHalf};
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
-use tokio::sync::Mutex;
+use async_trait::async_trait;
+use tokio::{
+    io::{AsyncWriteExt, ReadHalf, WriteHalf, split},
+    net::{TcpListener as TokioTcpListener, TcpStream, ToSocketAddrs},
+    sync::Mutex,
+};
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
-use super::decoder::StreamingDecoder;
 use super::{
-    Direction, Factory, Packet, Transport, TransportKey, TransportRef, TransportStartup,
-    TransportTx, TransportType,
+    KEEPALIVE_RESPONSE, Packet, SipTransport, Transport, TransportFactory, TransportMessage,
+    TransportType,
+    decode::{FramedMessage, StreamingDecoder},
 };
-use crate::error::{Error, Result};
-use crate::transport::TransportMessage;
-use crate::SipEndpoint;
+use crate::{
+    Endpoint,
+    error::{Error, Result},
+};
 
-type TcpRead = FramedRead<ReadHalf<TcpStream>, StreamingDecoder>;
-type TcpWrite = Arc<Mutex<WriteHalf<TcpStream>>>;
+type TcpFrameRead = FramedRead<ReadHalf<TcpStream>, StreamingDecoder>;
+type TcpAccept = (TcpStream, SocketAddr);
 
-#[derive(Clone)]
 /// TCP transport implementation.
+///
+/// The [`TcpTransport`] represents a single reliable, connection-oriented transport
+/// between a local and a remote socket.
 pub struct TcpTransport {
-    /// The transport addr.
-    addr: SocketAddr,
-    /// The transport remote addr.
+    /// Local address.
+    bind_addr: SocketAddr,
+    /// Connected remote address.
     remote_addr: SocketAddr,
-
     /// The tcp writer.
-    write: TcpWrite,
-
-    /// TransportRef direction.
-    dir: Direction,
+    write_half: Mutex<WriteHalf<TcpStream>>,
 }
 
-#[async_trait::async_trait]
-impl Transport for TcpTransport {
-    async fn send(&self, buf: &[u8], _: &SocketAddr) -> Result<usize> {
-        let mut writer = self.write.lock().await;
+#[async_trait]
+impl SipTransport for TcpTransport {
+    async fn send_msg(&self, data: &[u8], _dest: &SocketAddr) -> Result<usize> {
+        let mut mguard = self.write_half.lock().await;
 
-        writer.write_all(buf).await?;
-        writer.flush().await?;
+        mguard.write_all(data).await?;
+        mguard.flush().await?;
 
-        Ok(buf.len())
+        drop(mguard);
+
+        Ok(data.len())
     }
 
-    fn protocol(&self) -> TransportType {
+    fn remote_addr(&self) -> Option<SocketAddr> {
+        Some(self.remote_addr)
+    }
+
+    fn transport_type(&self) -> TransportType {
         TransportType::Tcp
     }
 
-    fn addr(&self) -> SocketAddr {
+    fn local_addr(&self) -> SocketAddr {
+        self.bind_addr
+    }
+}
+
+/// A TCP server socket that listens for incoming SIP connections.
+///
+/// The [`TcpListener`] accepts new TCP connections and spawns a dedicated
+/// task for each one. Each accepted connection is wrapped into a [`TcpTransport`]
+/// and registered into the [`Endpoint`].
+pub struct TcpListener {
+    /// Listener for TCP sockets.
+    listener: TokioTcpListener,
+    /// The local listener address.
+    addr: SocketAddr,
+}
+
+impl TcpListener {
+    /// Creates a new `TcpListener`, which will be bound to the specified address.
+    pub async fn bind<A: ToSocketAddrs>(addr: A) -> Result<TcpListener> {
+        let listener = TokioTcpListener::bind(addr).await?;
+        let addr = listener.local_addr()?;
+        Ok(Self { listener, addr })
+    }
+
+    /// Returns the local socket address of this listener.
+    pub fn local_addr(&self) -> SocketAddr {
         self.addr
     }
 
-    fn local_name(&self) -> Cow<'_, str> {
-        Cow::Owned(self.addr.to_string())
-    }
-
-    fn reliable(&self) -> bool {
-        true
-    }
-
-    fn secure(&self) -> bool {
-        false
-    }
-}
-
-/// A TCP server for accept incoming connections.
-pub struct TcpServer {
-    // Main socket for accept tcp connections.
-    sock: TcpListener,
-    // Where this server is bind to.
-    addr: SocketAddr,
-    // The server local name addres.
-    local_name: String,
-}
-
-struct TcpStreamRead {
-    reader: TcpRead,
-    addr: SocketAddr,
-    transport: TransportRef,
-    sender: TransportTx,
-}
-
-impl TcpServer {
-    /// Creates a new TCP server.
-    pub async fn create<A>(addr: A) -> Result<Self>
-    where
-        A: ToSocketAddrs,
-    {
-        let sock = TcpListener::bind(addr).await?;
-        let addr = sock.local_addr()?;
-        let local_name = crate::get_local_name(&addr);
-
-        Ok(Self {
-            sock,
-            local_name,
-            addr,
-        })
-    }
-
-    /// Serves incoming TCP connections by accepting and
-    /// handling them.
-    pub(crate) async fn handle_incoming(self, sender: TransportTx) -> Result<()> {
-        loop {
-            let (stream, addr) = match self.sock.accept().await {
-                Ok(ok) => ok,
-                Err(err) => {
-                    log::error!("Failed to accept connection: {:#}", err);
-                    continue;
-                }
-            };
-            #[cfg(test)]
-            println!("Got incoming TCP connection from {}", addr);
-
+    /// Accepts incoming TCP connections and handles them asynchronously.
+    pub async fn accept_clients(self, endpoint: Endpoint) -> Result<()> {
+        while let Ok((stream, addr)) = self.listener.accept().await {
             log::debug!("Got incoming TCP connection from {}", addr);
             // Spawn a new task to handle the connection.
-            tokio::spawn(Self::on_accept((stream, addr), sender.clone()));
+            tokio::spawn(Self::on_accept_complete((stream, addr), endpoint.clone()));
         }
+        Ok(())
     }
 
-    // Handle incoming connection.
-    async fn on_accept((stream, addr): (TcpStream, SocketAddr), sender: TransportTx) -> Result<()> {
-        let local_addr = stream.local_addr()?;
+    async fn on_accept_complete((stream, addr): TcpAccept, endpoint: Endpoint) -> Result<()> {
+        let bind_addr = stream.local_addr()?;
+        let remote_addr = stream.peer_addr()?;
+
         let (read, write) = split(stream);
-        let decoder = StreamingDecoder;
+        let decoder = StreamingDecoder::new();
 
-        let reader = FramedRead::new(read, decoder);
-        let write = Arc::new(Mutex::new(write));
+        let read_half = FramedRead::new(read, decoder);
+        let write_half = Mutex::new(write);
 
-        // Create TCP transport for the new socket.
-        let transport = Arc::new(TcpTransport {
-            addr: local_addr,
-            remote_addr: addr,
-            write,
-            dir: Direction::Incoming,
+        let transport = Transport::new(TcpTransport {
+            bind_addr,
+            remote_addr,
+            write_half,
+        });
+        endpoint.transports().register_transport(transport.clone())?;
+
+        if let Err(err) = tcp_read(read_half, addr, transport, endpoint).await {
+            log::warn!("An error occured; error = {:#}", err);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+/// Factory for creating new TCP transports.
+pub struct TcpFactory;
+
+impl Default for TcpFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TcpFactory {
+    /// Creates a new `TcpFactory`
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+#[async_trait]
+impl TransportFactory for TcpFactory {
+    async fn create<A>(&self, addr: A, endpoint: &Endpoint) -> Result<Transport>
+    where
+        A: ToSocketAddrs + Send,
+    {
+        let stream = TcpStream::connect(addr).await?;
+
+        let bind_addr = stream.local_addr()?;
+        let remote_addr = stream.peer_addr()?;
+
+        let (read, write) = split(stream);
+        let decoder = StreamingDecoder::new();
+
+        let read_half = FramedRead::new(read, decoder);
+        let write_half = Mutex::new(write);
+
+        let transport = Transport::new(TcpTransport {
+            bind_addr,
+            remote_addr,
+            write_half,
         });
 
-        // Register the new transport.
-        sender
-            .send(TransportMessage::Created(transport.clone()))
-            .await?;
+        // TODO: Start keep-alive timer.
+        endpoint.transports().register_transport(transport.clone())?;
 
-        let reader = TcpStreamRead {
-            reader,
-            addr,
-            transport,
-            sender,
-        };
-
+        let endpoint = endpoint.clone();
+        let tcp = transport.clone();
         tokio::spawn(async move {
-            if let Err(err) = Self::stream_read(reader).await {
+            if let Err(err) = tcp_read(read_half, remote_addr, tcp, endpoint).await {
                 log::warn!("An error occured; error = {:#}", err);
             }
         });
 
-        Ok(())
+        Ok(transport)
     }
 
-    async fn stream_read(reader: TcpStreamRead) -> Result<()> {
-        let TcpStreamRead {
-            mut reader,
-            addr,
-            transport,
-            sender,
-        } = reader;
-        let key = transport.key();
-
-        loop {
-            match reader.next().await {
-                Some(Ok(payload)) => {
-                    let time = SystemTime::now();
-                    let packet = Packet {
-                        payload,
-                        addr,
-                        time,
-                    };
-                    let transport = transport.clone();
-
-                    // Send.
-                    sender
-                        .send(TransportMessage::Packet { transport, packet })
-                        .await?;
-                }
-                Some(Err(err)) => {
-                    return Err(Error::Io(err));
-                }
-                None => {
-                    sender.send(TransportMessage::Closed(key)).await?;
-                }
-            };
-        }
-    }
-}
-
-#[derive(Clone, Copy, Default)]
-/// Factory for create tcp transports.
-pub struct TcpFactory;
-
-#[async_trait::async_trait]
-impl Factory for TcpFactory {
-    async fn create(&self, addr: SocketAddr) -> Result<TransportRef> {
-        // TODO: Keep-Alive timer.
-        let stream = TcpStream::connect(addr).await?;
-        let addr = stream.local_addr()?;
-        let remote_addr = stream.peer_addr()?;
-
-        let (read, write) = split(stream);
-
-        let write = Arc::new(Mutex::new(write));
-
-        Ok(Arc::new(TcpTransport {
-            addr,
-            remote_addr,
-            write,
-            dir: Direction::Outgoing,
-        }))
-    }
-
-    fn protocol(&self) -> TransportType {
+    fn transport_type(&self) -> TransportType {
         TransportType::Tcp
     }
 }
 
-pub(crate) struct TcpStartup {
-    addr: SocketAddr,
-}
+async fn tcp_read(
+    mut framed: TcpFrameRead,
+    peer: SocketAddr,
+    transport: Transport,
+    endpoint: Endpoint,
+) -> Result<()> {
+    loop {
+        match framed.next().await {
+            Some(Ok(FramedMessage::Complete(data))) => {
+                let packet = Packet::new(data, peer);
+                let transport = transport.clone();
+                let msg = TransportMessage { transport, packet };
 
-impl TcpStartup {
-    pub fn new(addr: SocketAddr) -> Self {
-        Self { addr }
-    }
-}
-
-#[async_trait::async_trait]
-impl TransportStartup for TcpStartup {
-    async fn start(&self, sender: TransportTx) -> Result<()> {
-        let tcp_server = TcpServer::create(self.addr).await?;
-
-        log::debug!(
-            "SIP {} transport ready for incoming connections at {}",
-            TransportType::Tcp,
-            tcp_server.local_name
-        );
-
-        tokio::spawn(tcp_server.handle_incoming(sender));
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use tokio::net::TcpSocket;
-
-    use super::*;
-
-    const MSG_TEST: &[u8] = b"REGISTER sip:registrar.biloxi.com SIP/2.0\r\n\
-    Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7\r\n\
-    Max-Forwards: 70\r\n\
-    To: Bob <sip:bob@biloxi.com>\r\n\
-    From: Bob <sip:bob@biloxi.com>;tag=456248\r\n\
-    Call-ID: 843817637684230@998sdasdh09\r\n\
-    CSeq: 1826 REGISTER\r\n\
-    Contact: <sip:bob@192.0.2.4>\r\n\
-    Expires: 7200\r\n\
-    Content-Length: 0\r\n\r\n";
-
-    #[tokio::test]
-    async fn smoke() {
-        let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-        let endpoint = crate::core::EndpointBuilder::new().build().await;
-        let (tx, mut rx) = tokio::sync::mpsc::channel(2);
-
-        let server = TcpServer::create(addr).await.unwrap();
-        let socket = TcpSocket::new_v4().unwrap();
-        let server_addr = server.addr;
-
-        tokio::spawn(server.handle_incoming(tx));
-
-        let mut client = socket.connect(server_addr).await.unwrap();
-
-        assert!(matches!(
-            rx.recv().await.unwrap(),
-            TransportMessage::Created(_)
-        ));
-
-        client.write_all(MSG_TEST).await.unwrap();
-        client.flush().await.unwrap();
-
-        let TransportMessage::Packet { transport, packet } = rx.recv().await.unwrap() else {
-            unreachable!();
+                endpoint.receive_transport_message(msg);
+            }
+            Some(Ok(FramedMessage::KeepaliveRequest)) => {
+                transport.send_msg(KEEPALIVE_RESPONSE, &peer).await?;
+            }
+            Some(Ok(FramedMessage::KeepaliveResponse)) => {}
+            Some(Err(err)) => {
+                return Err(Error::Io(err));
+            }
+            None => {
+                endpoint.transports().remove_transport(&transport.key())?;
+                break;
+            }
         };
-
-        assert_eq!(packet.payload.0.as_ref(), MSG_TEST);
     }
+
+    Ok(())
 }

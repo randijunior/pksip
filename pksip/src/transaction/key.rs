@@ -1,10 +1,12 @@
-use std::sync::Arc;
+use crate::{
+    SipMethod,
+    message::HostPort,
+    transaction::{sip_transaction::Role},
+    transport::IncomingMessageInfo,
+};
 
-use crate::header::Header;
-use crate::message::{HostPort, SipMethod};
-use crate::transport::{IncomingRequest, OutgoingRequest};
-
-const BRANCH_MAGIC_COOKIE: &str = "z9hG4bK";
+/// Branch parameter prefix defined in RFC3261.
+const RFC3261_BRANCH_ID: &str = "z9hG4bK";
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum TransactionKey {
@@ -13,91 +15,48 @@ pub enum TransactionKey {
 }
 
 impl TransactionKey {
-    pub fn create_client_with(method: &SipMethod, branch: Arc<str>) -> Self {
-        TransactionKey::Rfc3261(Rfc3261::Client(ClientTransactionKey {
-            branch: branch.clone(),
-            method: Some(*method),
-        }))
-    }
+    pub fn from_incoming(info: &IncomingMessageInfo) -> Self {
+        match info.mandatory_headers.via.branch {
+            Some(ref branch) if branch.starts_with(RFC3261_BRANCH_ID) => {
+                let branch = branch.clone();
+                let method = info.mandatory_headers.cseq.method;
 
-    pub fn create_client(request: &OutgoingRequest) -> Self {
-        let via = request
-            .msg
-            .headers
-            .iter()
-            .filter_map(|header| match header {
-                Header::Via(via_hdr) => Some(via_hdr),
-                _ => None,
-            })
-            .next()
-            .unwrap();
-
-        let cseq = request
-            .msg
-            .headers
-            .iter()
-            .filter_map(|header| match header {
-                Header::CSeq(cseq) => Some(cseq),
-                _ => None,
-            })
-            .next()
-            .unwrap();
-
-        match via.branch {
-            Some(ref branch) => {
-                // Valid branch for RFC 3261
-                TransactionKey::Rfc3261(Rfc3261::Client(ClientTransactionKey {
-                    branch: branch.clone(),
-                    method: Some(*cseq.method()),
-                }))
-            }
-            _ => {
-                todo!("Generate branch parameter if it doesn't exist");
-            }
-        }
-    }
-
-    pub fn create_server(request: &IncomingRequest) -> Self {
-        match request.request_headers.via.branch {
-            Some(ref branch) if branch.starts_with(BRANCH_MAGIC_COOKIE) => {
-                TransactionKey::Rfc3261(Rfc3261::Server(ServerTransactionKey {
-                    branch: branch.clone(),
-                    via_sent_by: request.request_headers.via.sent_by.clone(),
-                    method: Some(*request.request_headers.cseq.method()),
-                }))
+                Self::new_key_3261(Role::UAS, method, branch)
             }
             _ => {
                 todo!("create rfc 2543")
             }
         }
     }
+
+    pub fn new_key_3261(role: Role, method: SipMethod, branch: String) -> Self {
+        let method = if matches!(method, SipMethod::Invite | SipMethod::Ack) {
+            None
+        } else {
+            Some(method)
+        };
+
+        Self::Rfc3261(Rfc3261 {
+            role,
+            branch,
+            method,
+        })
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Rfc2543 {
     pub cseq: u32,
-    pub from_tag: Option<Arc<str>>,
-    pub to_tag: Option<Arc<str>>,
-    pub call_id: Arc<str>,
+    pub from_tag: Option<String>,
+    pub to_tag: Option<String>,
+    pub call_id: String,
     pub via_host_port: HostPort,
     pub method: Option<SipMethod>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum Rfc3261 {
-    Client(ClientTransactionKey),
-    Server(ServerTransactionKey),
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ClientTransactionKey {
-    branch: Arc<str>,
-    method: Option<SipMethod>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ServerTransactionKey {
-    branch: Arc<str>,
-    via_sent_by: HostPort,
+pub struct Rfc3261 {
+    role: Role,
+    branch: String,
     method: Option<SipMethod>,
 }

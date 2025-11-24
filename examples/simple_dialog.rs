@@ -1,33 +1,31 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::core::service::EndpointService;
-use pksip::core::to_take::ToTake;
-use pksip::core::SipEndpoint;
-use pksip::find_map_header;
-use pksip::header::Header;
-use pksip::header::Headers;
-use pksip::message::SipMethod;
-use pksip::message::StatusCode;
-use pksip::transaction::Transactions;
-use pksip::transport::IncomingRequest;
-use pksip::Result;
+use pksip::{
+    Endpoint, EndpointHandler,
+    endpoint::EndpointResponse,
+    find_map_header,
+    headers::{Header, Headers},
+    message::{SipMethod, StatusCode},
+    transport::IncomingRequest,
+    transaction::TransactionLayer
+};
 use tracing::Level;
 
 pub struct MyService;
 
 #[async_trait]
-impl EndpointService for MyService {
+impl EndpointHandler for MyService {
     fn name(&self) -> &str {
         "SipUAS"
     }
 
-    async fn on_incoming_request(&self, endpoint: &SipEndpoint, request: ToTake<'_, IncomingRequest>) -> Result<()> {
-        let request = request.take();
-        let headers = &request.msg.headers;
+    async fn on_request(&self, request: &IncomingRequest) -> Option<EndpointResponse> {
+        let method = request.message.req_line.method;
+        let headers = &request.message.headers;
 
-        if request.msg.req_line.method == SipMethod::Register {
-            let mut response = endpoint.new_response(&request, StatusCode::Ok, None);
+        let response = if method == SipMethod::Register {
+            let mut response = EndpointResponse::stateful(request, StatusCode::Ok, None);
 
             if let Some(expires) = find_map_header!(headers, Expires) {
                 let mut hdrs = Headers::with_capacity(2);
@@ -41,22 +39,16 @@ impl EndpointService for MyService {
                         hdrs.push(Header::Contact(contact.clone()));
                     }
                 }
-                response.append_headers(&mut hdrs);
+                response.message.headers.append(&mut hdrs);
             }
+            response
+        } else if method != SipMethod::Ack {
+            EndpointResponse::stateless(request, StatusCode::NotImplemented, None)
+        } else {
+            return None;
+        };
 
-            let server_tsx = endpoint.new_server_transaction(&request);
-            server_tsx.respond(&mut response).await?;
-        } else if request.msg.req_line.method != SipMethod::Ack {
-            endpoint.respond(&request, StatusCode::NotImplemented, None).await?;
-        }
-
-        Ok(())
-
-        // if request.msg.req_line.method == SipMethod::Invite {
-        //     // TODO: create dialog and inv session
-        // }
-
-        // Ok(())
+        Some(response)
     }
 }
 
@@ -65,30 +57,37 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
         .with_env_filter("pksip=debug,simple_dialog=trace")
-        .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(String::from(
-            "%H:%M:%S%.3f",
-        )))
+        .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(
+            String::from("%H:%M:%S%.3f"),
+        ))
         // .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
     let svc = MyService;
-    let addr = "127.0.0.1:0".parse()?;
+    let addr = "127.0.0.1:8089".parse()?;
 
-    let endpoint = SipEndpoint::builder()
-        .with_service(svc)
-        .with_transaction(Transactions::default())
-        .with_tcp(addr)
-        .with_udp(addr)
-        .build()
-        .await;
+    let endpoint = Endpoint::builder()
+        .add_service(svc)
+        .add_transaction(TransactionLayer::default())
+        .build();
+    endpoint.start_ws(addr).await?;
 
-    tokio::select! {
-        _ = endpoint.run() => {
-            println!("received done signal!");
-        }
-        _ = tokio::signal::ctrl_c() => {
-            println!();
-        }
-    };
-    Ok(())
+    let server_addr = format!("ws://{addr}");
+
+    let transport =
+        pksip::transport::websocket::WebSocketTransport::connect(&server_addr, 1.0, &endpoint)
+            .await?;
+
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+
+    // tokio::select! {
+    //     _ = endpoint.run() => {
+    //         println!("received done signal!");
+    //     }
+    //     _ = tokio::signal::ctrl_c() => {
+    //         println!();
+    //     }
+    // };
 }

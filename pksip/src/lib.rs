@@ -2,10 +2,11 @@
 //! # pksip
 //!
 //! A rust library that implements the SIP protocol.
+//!
 
-pub mod core;
 pub mod dialog;
-pub mod header;
+pub mod endpoint;
+pub mod headers;
 pub mod message;
 pub mod parser;
 pub mod transaction;
@@ -14,25 +15,30 @@ pub mod transport;
 pub(crate) mod error;
 pub mod macros;
 
-pub use core::{EndpointService, SipEndpoint};
-
+pub use endpoint::{Endpoint, EndpointHandler};
 use error::Error;
 pub use error::Result;
 pub use message::SipMethod;
 use parser::Parser;
+use util::ArcStr;
 
 #[cfg(test)]
 #[macro_use]
 extern crate assert_matches;
 
-use std::fmt;
-use std::net::SocketAddr;
-use std::str::{
-    FromStr, {self},
+use std::{
+    fmt::{self, Debug, Display},
+    net::SocketAddr,
+    str::{
+        FromStr, {self},
+    },
 };
-use std::sync::Arc;
 
-use crate::message::Parameters;
+use crate::message::Params;
+
+pub(crate) fn generate_branch(n: i32) -> String {
+    todo!()
+}
 
 pub(crate) fn generate_random_str() -> String {
     todo!("Implement a function to generate a random string for tags")
@@ -112,8 +118,8 @@ impl fmt::Display for Q {
 /// content format.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MimeType {
-    pub mtype: Arc<str>,
-    pub subtype: Arc<str>,
+    pub mtype: String,
+    pub subtype: String,
 }
 
 /// The `media-type` that appears in `Accept` and
@@ -121,7 +127,7 @@ pub struct MimeType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MediaType {
     pub mimetype: MimeType,
-    pub param: Option<Parameters>,
+    pub param: Option<Params>,
 }
 
 impl fmt::Display for MediaType {
@@ -162,7 +168,7 @@ impl MediaType {
 
     /// Constructs a `MediaType` with an optional
     /// parameters.
-    pub fn from_parts(mtype: &str, subtype: &str, param: Option<Parameters>) -> Self {
+    pub fn from_parts(mtype: &str, subtype: &str, param: Option<Params>) -> Self {
         Self {
             mimetype: MimeType {
                 mtype: mtype.into(),

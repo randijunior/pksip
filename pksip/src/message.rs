@@ -1,14 +1,21 @@
-#![deny(missing_docs)]
-//! SIP SipMessage types
+//! SIP Message types
 //!
-//! The module provide the [`SipMessage`] enum that can be an
-//! [`SipMessage::Request`] or [`SipMessage::Response`] and represents a SIP
-//! message.
+//! This module provides the [`SipMessage`] enum, which can be either a
+//! [`SipMessage::Request`] or a [`SipMessage::Response`], representing
+//! a complete SIP message.
+//!
+//! Within this crate, the module corresponds to the lowest layer of SIP: syntax
+//! and encoding.
 
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult},
+    ops::Deref,
+};
 
-use crate::header::Headers;
-use crate::parser::SIPV2;
+use bytes::Bytes;
+
+use crate::headers::Headers;
 
 mod auth;
 mod code;
@@ -22,12 +29,10 @@ pub use method::*;
 pub use param::*;
 pub use uri::*;
 
-/// A SIP message.
+/// An SIP message, either Request or Response.
 ///
-/// It can be either a request from a client to a server,
-/// or a response from a server to a client.
-///
-/// See [`Request`] and [`Response`] for more details.
+/// This enum can contain either an [`Request`] or an [`Response`], see their
+/// respective documentation for more details.
 pub enum SipMessage {
     /// An SIP Request.
     Request(Request),
@@ -36,33 +41,19 @@ pub enum SipMessage {
 }
 
 impl SipMessage {
-    /// Returns `true` if this message is an [`Request`] message, and `false`
-    /// otherwise.
-    pub const fn is_request(&self) -> bool {
-        matches!(self, SipMessage::Request(_))
-    }
-
-    /// Returns `true` if this message is an [`Response`] message, and `false`
-    /// otherwise.
-    pub const fn is_response(&self) -> bool {
-        matches!(self, SipMessage::Response(_))
-    }
-
-    /// Returns a reference to the [`Request`] if this is a
-    /// [`SipMessage::Request`] variant.
+    /// Returns a reference to the inner [`Request`] if this message is an request.
     pub fn request(&self) -> Option<&Request> {
-        if let SipMessage::Request(request) = self {
-            Some(request)
+        if let SipMessage::Request(req) = self {
+            Some(req)
         } else {
             None
         }
     }
 
-    /// Returns a reference to the [`Response`] if this is a
-    /// [`SipMessage::Response`] variant.
+    /// Returns a reference to the inner [`Response`] if this message is an response.
     pub fn response(&self) -> Option<&Response> {
-        if let SipMessage::Response(response) = self {
-            Some(response)
+        if let SipMessage::Response(res) = self {
+            Some(res)
         } else {
             None
         }
@@ -77,10 +68,20 @@ impl SipMessage {
     }
 
     /// Returns a reference to the message body.
-    pub fn body(&self) -> Option<&[u8]> {
+    pub fn body(&self) -> Option<&SipMessageBody> {
         match self {
-            SipMessage::Request(request) => request.body.as_deref(),
-            SipMessage::Response(response) => response.body.as_deref(),
+            SipMessage::Request(req) => req.body.as_ref(),
+            SipMessage::Response(res) => res.body.as_ref(),
+        }
+    }
+
+    /// Sets the body of the message. It can be `None` to remove the body.
+    pub fn set_body(&mut self, body: Option<impl Into<SipMessageBody>>) {
+        let body = body.map(|b| b.into());
+
+        match self {
+            SipMessage::Request(req) => req.body = body,
+            SipMessage::Response(res) => res.body = body,
         }
     }
 
@@ -92,40 +93,34 @@ impl SipMessage {
         }
     }
 
-    /// Sets the body of the message. It can be `None` to remove the body.
-    pub fn set_body(&mut self, body: Option<&[u8]>) {
-        match self {
-            SipMessage::Request(req) => {
-                req.body = body.map(|b| b.into());
-            }
-            SipMessage::Response(res) => {
-                res.body = body.map(|b| b.into());
-            }
-        }
-    }
-
     /// Sets the headers of the message, replacing any existing headers.
     pub fn set_headers(&mut self, headers: Headers) {
         match self {
-            SipMessage::Request(req) => {
-                req.headers = headers;
-            }
-            SipMessage::Response(res) => {
-                res.headers = headers;
-            }
+            SipMessage::Request(req) => req.headers = headers,
+            SipMessage::Response(res) => res.headers = headers,
         }
+    }
+
+    /// If this message is an request, returns `true` otherwise returns `false`.
+    pub fn is_request(&self) -> bool {
+        matches!(self, SipMessage::Request(_))
+    }
+
+    /// If this message is an response, returns `true` otherwise returns `false`.
+    pub fn is_response(&self) -> bool {
+        matches!(self, SipMessage::Response(_))
     }
 }
 
 impl From<Request> for SipMessage {
-    fn from(value: Request) -> Self {
-        SipMessage::Request(value)
+    fn from(request: Request) -> Self {
+        SipMessage::Request(request)
     }
 }
 
 impl From<Response> for SipMessage {
-    fn from(value: Response) -> Self {
-        SipMessage::Response(value)
+    fn from(response: Response) -> Self {
+        SipMessage::Response(response)
     }
 }
 
@@ -138,25 +133,15 @@ pub struct Request {
     /// All headers present in the SIP message.
     pub headers: Headers,
     /// The body of the SIP message, if present.
-    pub body: Option<Arc<[u8]>>,
+    pub body: Option<SipMessageBody>,
 }
 
 impl Request {
     /// Creates a new SIP `Request`.
-    pub fn new(req_line: RequestLine) -> Self {
+    pub fn new(method: SipMethod, uri: Uri) -> Self {
         Request {
-            req_line,
+            req_line: RequestLine { method, uri },
             headers: Headers::new(),
-            body: None,
-        }
-    }
-
-    /// Creates a new `Request` with the given headers.
-    #[inline]
-    pub const fn with_headers(req_line: RequestLine, headers: Headers) -> Self {
-        Self {
-            req_line,
-            headers,
             body: None,
         }
     }
@@ -167,9 +152,9 @@ impl Request {
     }
 }
 
-impl std::fmt::Display for RequestLine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} {SIPV2}\r\n", self.method, self.uri)
+impl Display for RequestLine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{} {} SIP/2.0\r\n", self.method, self.uri)
     }
 }
 
@@ -199,7 +184,7 @@ pub struct Response {
     /// All headers present in the SIP message.
     pub headers: Headers,
     /// The body of the SIP message, if present.
-    pub body: Option<Arc<[u8]>>,
+    pub body: Option<SipMessageBody>,
 }
 
 impl Response {
@@ -245,26 +230,60 @@ impl Response {
     pub fn set_headers(&mut self, headers: Headers) {
         self.headers = headers;
     }
-
-    /// Appends headers from another collection to the current headers.
-    pub fn append_headers(&mut self, other: &mut Headers) {
-        self.headers.append(other);
-    }
 }
 
 /// Represents a `reason-phrase` in Status-Line.
-pub struct ReasonPhrase(Arc<str>);
+pub struct ReasonPhrase(Cow<'static, str>);
 
 impl ReasonPhrase {
     /// Creates a new `ReasonPhrase` whith the given `reason`.
     #[inline]
-    pub fn new(reason: Arc<str>) -> Self {
+    pub fn new(reason: Cow<'static, str>) -> Self {
         Self(reason)
     }
 
     /// Returns the inner phrase as str.
     pub fn phrase_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl From<&'static str> for ReasonPhrase {
+    fn from(value: &'static str) -> Self {
+        Self::new(Cow::Borrowed(value))
+    }
+}
+
+/// This type represents a body in a SIP message.
+pub struct SipMessageBody {
+    data: Bytes,
+}
+
+impl SipMessageBody {
+    /// Creates a new `SipMessageBody` whith the given `data`.
+    #[inline]
+    pub fn new(data: Bytes) -> Self {
+        Self { data }
+    }
+}
+
+impl From<&str> for SipMessageBody {
+    fn from(value: &str) -> Self {
+        value.as_bytes().into()
+    }
+}
+
+impl From<&[u8]> for SipMessageBody {
+    fn from(data: &[u8]) -> Self {
+        Self::new(Bytes::copy_from_slice(data))
+    }
+}
+
+impl Deref for SipMessageBody {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }
 
@@ -279,9 +298,9 @@ pub struct StatusLine {
     pub reason: ReasonPhrase,
 }
 
-impl std::fmt::Display for StatusLine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{SIPV2} {} {}\r\n", self.code as i32, self.reason.0)
+impl Display for StatusLine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "SIP/2.0 {} {}\r\n", self.code as i32, self.reason.0)
     }
 }
 

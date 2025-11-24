@@ -1,9 +1,6 @@
-use std::fmt;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{fmt, str::FromStr};
 
-use crate::parser::Parser;
-use crate::{Error, Result};
+use crate::{ArcStr, Error, Result, parser::Parser};
 
 pub(crate) type ParameterRef<'a> = (&'a str, Option<&'a str>);
 
@@ -12,12 +9,12 @@ pub(crate) type ParameterRef<'a> = (&'a str, Option<&'a str>);
 /// A parameter takes the form `name=value` and can appear in a SIP message as
 /// either a URI parameter or a header parameter.
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Parameters {
-    inner: Vec<Parameter>,
+pub struct Params {
+    inner: Vec<Param>,
 }
 
-impl Parameters {
-    /// Creates an empty `Parameters`.
+impl Params {
+    /// Creates an empty `Params`.
     pub fn new() -> Self {
         Self { inner: Vec::new() }
     }
@@ -33,17 +30,17 @@ impl Parameters {
     pub fn get_named(&self, name: &str) -> Option<&str> {
         self.inner
             .iter()
-            .find(|Parameter { name: p_name, .. }| p_name.as_ref() == name)
-            .map(|Parameter { value, .. }| value.as_deref())?
+            .find(|Param { name: p_name, .. }| p_name == name)
+            .map(|Param { value, .. }| value.as_deref())?
     }
 
     /// Returns an iterator over the parameters.
-    pub fn iter(&self) -> impl Iterator<Item = &Parameter> {
+    pub fn iter(&self) -> impl Iterator<Item = &Param> {
         self.inner.iter()
     }
 
     /// Pushes a new parameter into collection.
-    pub fn push(&mut self, param: Parameter) {
+    pub fn push(&mut self, param: Param) {
         self.inner.push(param)
     }
 
@@ -53,9 +50,9 @@ impl Parameters {
     }
 }
 
-impl fmt::Display for Parameters {
+impl fmt::Display for Params {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for Parameter { name, value } in &self.inner {
+        for Param { name, value } in &self.inner {
             write!(f, ";{}", name)?;
             if let Some(v) = value {
                 write!(f, "={}", v)?;
@@ -65,10 +62,10 @@ impl fmt::Display for Parameters {
     }
 }
 
-impl<'a, const N: usize> From<[(&'a str, &'a str); N]> for Parameters {
+impl<'a, const N: usize> From<[(&'a str, &'a str); N]> for Params {
     fn from(params: [(&'a str, &'a str); N]) -> Self {
         let params = params
-            .map(|(name, value)| Parameter::new(name, Some(value)))
+            .map(|(name, value)| Param::new(name, Some(value)))
             .to_vec();
 
         Self { inner: params }
@@ -83,23 +80,23 @@ impl<'a, const N: usize> From<[(&'a str, &'a str); N]> for Parameters {
 /// # Examples
 ///
 /// ```
-/// use pksip::message::Parameter;
+/// use pksip::message::Param;
 ///
-/// let param: Parameter = "param=value".parse().unwrap();
+/// let param: Param = "param=value".parse().unwrap();
 ///
 /// assert_eq!(param.name(), "param");
 /// assert_eq!(param.value(), Some("value"));
 /// ```
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Parameter {
+pub struct Param {
     /// The parameter name.
-    pub(crate) name: Arc<str>,
+    pub(crate) name: String,
     /// The parameter optional value
-    pub(crate) value: Option<Arc<str>>,
+    pub(crate) value: Option<String>,
 }
 
-impl Parameter {
-    /// Creates a new `Parameter` with the given `name` and optional `value`.
+impl Param {
+    /// Creates a new `Param` with the given `name` and optional `value`.
     pub fn new(name: &str, value: Option<&str>) -> Self {
         Self {
             name: name.into(),
@@ -118,7 +115,7 @@ impl Parameter {
     }
 }
 
-impl From<ParameterRef<'_>> for Parameter {
+impl From<ParameterRef<'_>> for Param {
     #[inline]
     fn from((name, value): ParameterRef) -> Self {
         Self {
@@ -128,7 +125,7 @@ impl From<ParameterRef<'_>> for Parameter {
     }
 }
 
-impl FromStr for Parameter {
+impl FromStr for Param {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
@@ -142,20 +139,20 @@ mod tests {
 
     #[test]
     fn test_parameter_from_str() {
-        let param: Parameter = "param=value".parse().unwrap();
+        let param: Param = "param=value".parse().unwrap();
         assert_eq!(param.name(), "param");
         assert_eq!(param.value(), Some("value"));
     }
 
     #[test]
     fn test_parameters_display() {
-        let params = Parameters::from([("param1", "value1"), ("param2", "value2")]);
+        let params = Params::from([("param1", "value1"), ("param2", "value2")]);
         assert_eq!(params.to_string(), ";param1=value1;param2=value2");
     }
 
     #[test]
     fn test_parameters_get_named() {
-        let params = Parameters::from([("param1", "value1"), ("param2", "value2")]);
+        let params = Params::from([("param1", "value1"), ("param2", "value2")]);
         assert_eq!(params.get_named("param1"), Some("value1"));
         assert_eq!(params.get_named("param3"), None);
     }

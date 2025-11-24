@@ -40,7 +40,7 @@ macro_rules! parse_param {
         $scanner.skip_ws();
         match $scanner.peek_byte() {
             Some(b';') => {
-                let mut params = $crate::message::Parameters::new();
+                let mut params = $crate::message::Params::new();
                 while let Some(b';') = $scanner.peek_byte() {
                         // take ';' character
                         let _ = $scanner.next_byte();
@@ -115,7 +115,7 @@ macro_rules! try_parse_hdr {
 macro_rules! filter_map_header {
     ($hdrs:expr, $header:ident) => {
         $hdrs.iter().filter_map(|hdr| {
-            if let $crate::header::Header::$header(v) = hdr {
+            if let $crate::headers::Header::$header(v) = hdr {
                 Some(v)
             } else {
                 None
@@ -128,7 +128,7 @@ macro_rules! filter_map_header {
 macro_rules! find_map_header {
     ($hdrs:expr, $header:ident) => {
         $hdrs.iter().find_map(|hdr| {
-            if let $crate::header::Header::$header(v) = hdr {
+            if let $crate::headers::Header::$header(v) = hdr {
                 Some(v)
             } else {
                 None
@@ -137,8 +137,12 @@ macro_rules! find_map_header {
     };
 }
 
-pub(crate) use {
-    comma_separated, comma_separated_header_value, lookup_table, parse_header_param, parse_param,
-    try_parse_hdr,
-};
-pub use {filter_map_header, find_map_header, headers};
+pub(crate) use comma_separated;
+pub(crate) use comma_separated_header_value;
+pub use filter_map_header;
+pub use find_map_header;
+pub use headers;
+pub(crate) use lookup_table;
+pub(crate) use parse_header_param;
+pub(crate) use parse_param;
+pub(crate) use try_parse_hdr;

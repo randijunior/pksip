@@ -1,39 +1,40 @@
-use std::error::Error;
+use std::{error::Error, time::Duration};
 
 use async_trait::async_trait;
-use pksip::core::service::EndpointService;
-use pksip::core::to_take::ToTake;
-use pksip::core::SipEndpoint;
-use pksip::message::{SipMethod, StatusCode};
-use pksip::transaction::Transactions;
-use pksip::transport::IncomingRequest;
-use pksip::Result;
+use pksip::{
+    Endpoint, EndpointHandler,
+    endpoint::EndpointResponse,
+    message::{SipMethod, StatusCode},
+    transport::IncomingRequest,
+};
+use tokio::time;
 use tracing::Level;
 
 pub struct MyService;
 
 #[async_trait]
-impl EndpointService for MyService {
+impl EndpointHandler for MyService {
     fn name(&self) -> &str {
         "SipUAS"
     }
 
-    async fn on_incoming_request(&self, endpoint: &SipEndpoint, request: ToTake<'_, IncomingRequest>) -> Result<()> {
-        let request = request.take();
+    async fn on_request(&self, request: &IncomingRequest) -> Option<EndpointResponse> {
+        match request.message.req_line.method {
+            SipMethod::Options => {
+                let response = EndpointResponse::stateful(request, StatusCode::Ok, None);
 
-        let method = request.method();
-        if method == SipMethod::Options {
-            let server_tsx = endpoint.new_server_transaction(&request);
-            let mut response = endpoint.new_response(&request, StatusCode::Ok, None);
-            server_tsx.respond(&mut response).await?;
-        } else if method != SipMethod::Ack {
-            endpoint.respond(&request, StatusCode::NotImplemented, None).await?;
-        } else {
-            // ACK method does not require a response
-            tracing::debug!("Received ACK request, no response needed.");
+                Some(response)
+            }
+            method if method != SipMethod::Ack => {
+                let response = EndpointResponse::stateless(request, StatusCode::NotImplemented, None);
+
+                Some(response)
+            }
+            _ => {
+                tracing::debug!("Received ACK request, no response needed.");
+                None
+            }
         }
-
-        Ok(())
     }
 }
 
@@ -42,20 +43,32 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
         .with_env_filter("pksip=trace")
-        // .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(String::from("%H:%M:%S%.3f")))
+        // .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(String::from("%H:%M:%S%.3f"
+        // )))
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
     let svc = MyService;
     let addr = "127.0.0.1:0".parse()?;
 
-    let endpoint = SipEndpoint::builder()
-        .with_service(svc)
-        .with_transaction(Transactions::default())
-        .with_udp(addr)
-        .build()
-        .await;
+    let endpoint = Endpoint::builder()
+        .add_service(svc)
+        .add_transaction(Default::default())
+        .build();
 
-    endpoint.run().await?;
+    endpoint.start_tcp(addr).await?;
+    endpoint.start_udp(addr).await?;
+    endpoint.start_ws(addr).await?;
+
+    loop {
+        tokio::select! {
+            _ = time::sleep(Duration::from_secs(1)) => {
+            }
+            _ = tokio::signal::ctrl_c() => {
+            println!();
+            break;
+        }
+        }
+    }
     Ok(())
 }

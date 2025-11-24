@@ -3,22 +3,22 @@ use std::str::{
 };
 
 use thiserror::Error;
-use tokio::task::JoinError;
 use util::{Position, ScannerError};
 
 use crate::message::SipMethod;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>>
-    for Error
-{
-    fn from(
-        value: tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>,
-    ) -> Self {
-        Self::ChannelClosed
-    }
-}
+// impl std::convert::From<tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>>
+//     for Error
+// {
+//     fn from(
+//         value:
+// tokio::sync::mpsc::error::SendError<crate::transport::TransportMessage>,
+//     ) -> Self {
+//         Self::ChannelClosed
+//     }
+// }
 
 impl std::convert::From<Utf8Error> for Error {
     fn from(value: Utf8Error) -> Self {
@@ -37,8 +37,14 @@ pub enum Error {
     #[error(transparent)]
     ParseError(#[from] ParseError),
 
+    #[error("Transaction Erro: {0}")]
+    TransactionError(String),
+
+    #[error(transparent)]
+    DialogError(#[from] DialogError),
+
     #[error("Missing required '{0}' header")]
-    MissingRequiredHeader(&'static str),
+    MissingHeader(&'static str),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -46,26 +52,14 @@ pub enum Error {
     #[error("Channel closed")]
     ChannelClosed,
 
-    #[error("The Sec-WebSocket-Key has missing")]
-    MissingSecWebSocketKey,
-
-    #[error("Invalid Web Socket Version")]
-    InvalidWebSocketVersion,
+    #[error("Poisoned lock")]
+    PoisonedLock,
 
     #[error("Fmt Error")]
     FmtError(std::fmt::Error),
 
-    #[error("The Sec-WebSocket-Protocol is invalid")]
-    InvalidSecWebSocketProtocol,
-
-    #[error("Failed to execute tokio task")]
-    JoinError(JoinError),
-
     #[error("Internal error: {0}")]
     Internal(&'static str),
-
-    #[error("SipMethod {0} cannot establish a dialog")]
-    DialogError(#[from] DialogError),
 }
 
 #[derive(Debug, Error)]
@@ -95,6 +89,7 @@ pub enum ParseErrorKind {
     Version,
     Uri,
     Param,
+    Transport,
     Scanner(ScannerError),
 }
 
@@ -105,4 +100,15 @@ pub enum DialogError {
 
     #[error("Missing To tag in 'To' header")]
     MissingTagInToHeader,
+}
+
+#[derive(Debug, Error)]
+pub enum TransactionError {
+    #[error("Invalid method for transaction creation: expected {required}, got {actual}")]
+    InvalidMethod {
+        required: SipMethod,
+        actual: SipMethod,
+    },
+    #[error("OutgoingMessageInfo not present in outgoing request")]
+    MissingOutgoingMessageInfo,
 }
