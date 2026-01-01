@@ -1,3 +1,3 @@
 # pksip
 
-This project is in its early stages of development. 🚧 
+This project is in its early stages of development.
