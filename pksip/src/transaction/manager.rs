@@ -1,132 +1,149 @@
-use std::{collections::HashMap, sync::Mutex, time::Duration};
+use std::{collections::HashMap, sync::Mutex};
 
-use crate::{
-    transaction::{
-        key::TransactionKey as Key, sip_transaction::Role, ClientNonInviteTx, ClientTx, ClientInviteTx, ServerInviteTx, ServerNonInviteTx, ServerTx
-    }, transport::{IncomingRequest, IncomingResponse}, Result
+use bytes::Bytes;
+use tokio::sync::{
+    mpsc::{self, UnboundedSender},
+    oneshot,
 };
 
-type Transactions<T> = Mutex<HashMap<Key, T>>;
+use crate::{Method, RFC3261_BRANCH_ID, message::HostPort};
+use crate::{
+    transport::{IncomingRequest, IncomingResponse},
+};
 
-/// This type holds all server and client TransactionLayer
-/// created by the TU (Transaction User).
-#[derive(Default)]
-pub struct TransactionLayer {
-    client_transactions: Transactions<ClientTx>,
-    server_transactions: Transactions<ServerTx>,
+use super::{Role, TransactionMessage};
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum TransactionKey {
+    Rfc2543(Rfc2543),
+    Rfc3261(Rfc3261),
 }
 
-impl TransactionLayer {
-    /// Remove an server transaction in the collection.
-    #[inline]
-    pub fn remove_server_tsx(&self, key: &Key) -> Option<ServerTx> {
-        let mut map = self.server_transactions.lock().expect("Lock failed");
-        map.remove(key)
-    }
+impl TransactionKey {
+    pub fn from_request(request: &IncomingRequest) -> Self {
+        let info = &request.info;
+        match info.mandatory_headers.via.branch {
+            Some(ref branch) if branch.starts_with(RFC3261_BRANCH_ID) => {
+                let branch = branch.clone();
+                let method = info.mandatory_headers.cseq.method;
 
-    /// Remove an client transaction in the collection.
-    #[inline]
-    pub fn remove_client_tsx(&self, key: &Key) -> Option<ClientTx> {
-        let mut map = self.client_transactions.lock().expect("Lock failed");
-        map.remove(key)
-    }
-
-    #[inline]
-    pub(crate) fn add_server_tsx_to_map(&self, tsx: ServerNonInviteTx) {
-        todo!()
-        // let key = tsx.inner.key.clone();
-        // let mut map = self.server_transactions.lock().expect("Lock failed");
-
-        // map.insert(key, ServerTx::NonInvite(tsx));
-    }
-
-    #[inline]
-    pub(crate) fn add_client_tsx_to_map(&self, tsx: ClientNonInviteTx) {
-        let key = tsx.key().clone();
-        let mut map = self.client_transactions.lock().expect("Lock failed");
-
-        map.insert(key, ClientTx::NonInvite(tsx));
-    }
-
-    #[inline]
-    pub(crate) fn add_client_inv(&self, client_inv: ClientInviteTx) {
-        let key = client_inv.key().clone();
-        let mut map = self.client_transactions.lock().expect("Lock failed");
-
-        map.insert(key, ClientTx::Invite(client_inv));
-    }
-
-    #[inline]
-    pub(crate) fn add_server_inv_to_map(&self, tsx: ServerInviteTx) {
-        todo!()
-        // let key = tsx.inner.key.clone();
-        // let mut map = self.server_transactions.lock().expect("Lock failed");
-
-        // map.insert(key, ServerTx::Invite(tsx));
-    }
-
-    fn find_server_tsx(&self, key: &Key) -> Option<ServerTx> {
-        self.server_transactions
-            .lock()
-            .expect("Lock failed")
-            .get(key)
-            .cloned()
-    }
-
-    fn find_client_tsx(&self, key: &Key) -> Option<ClientTx> {
-        self.client_transactions
-            .lock()
-            .expect("Lock failed")
-            .get(key)
-            .cloned()
-    }
-
-    pub(crate) async fn handle_response(&self, response: &IncomingResponse) -> Result<bool> {
-        let cseq_method = response.info.mandatory_headers.cseq.method;
-        let via_branch = response.info.mandatory_headers.via.branch.clone().unwrap();
-
-        let key = Key::new_key_3261(Role::UAC, cseq_method, via_branch);
-        let client_tsx = {
-            match self.find_client_tsx(&key) {
-                Some(tsx) => tsx,
-                None => return Ok(false),
+                Self::new_key_3261(Role::UAS, method, branch)
             }
-        };
-        let handled = match client_tsx {
-            ClientTx::NonInvite(tsx) => tsx.receive(response).await?,
-            ClientTx::Invite(tsx_inv) => tsx_inv.receive(response).await?,
-        };
-
-        Ok(handled)
+            _ => {
+                todo!("create rfc 2543")
+            }
+        }
     }
 
-    pub(crate) async fn on_request(&self, request: &IncomingRequest) -> Result<bool> {
-        let server_tsx = {
-            let key = Key::from_incoming(&request.info);
-
-            match self.find_server_tsx(&key) {
-                Some(tsx) => tsx,
-                None => return Ok(false),
-            }
+    pub fn new_key_3261(role: Role, method: Method, branch: String) -> Self {
+        let method = if matches!(method, Method::Invite | Method::Ack) {
+            None
+        } else {
+            Some(method)
         };
 
-        // server_tsx.receive_request(request).await?;
-        Ok(true)
+        Self::Rfc3261(Rfc3261 {
+            role,
+            branch,
+            method,
+        })
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Rfc2543 {
+    pub cseq: u32,
+    pub from_tag: Option<String>,
+    pub to_tag: Option<String>,
+    pub call_id: String,
+    pub via_host_port: HostPort,
+    pub method: Option<Method>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Rfc3261 {
+    role: Role,
+    branch: String,
+    method: Option<Method>,
+}
+
+type TransactionEntry = mpsc::UnboundedSender<TransactionMessage>;
+
+/// This type holds all server and client Transactions created by the TU (Transaction User).
+#[derive(Default)]
+pub struct TransactionManager {
+    transactions: Mutex<HashMap<TransactionKey, TransactionEntry>>,
+}
+
+impl TransactionManager {
+    /// Add an transaction in the collection.
+    #[inline]
+    pub(crate) fn add_transaction(&self, key: TransactionKey, entry: TransactionEntry) {
+        let mut map = self.transactions.lock().expect("Lock failed");
+
+        map.insert(key, entry);
+    }
+
+    #[inline]
+    pub(crate) fn remove(&self, key: &TransactionKey) {
+        let mut map = self.transactions.lock().expect("Lock failed");
+
+        map.remove(key);
+    }
+
+    #[inline]
+    pub(crate) fn get_entry(&self, key: &TransactionKey) -> Option<TransactionEntry> {
+        let map = self.transactions.lock().expect("Lock failed");
+
+        map.get(key).cloned()
+    }
+
+
+
+    pub(crate) fn handle_response(&self, response: IncomingResponse) -> Option<IncomingResponse> {
+        // let mandatory = &response.info.mandatory_headers;
+
+        // let method = mandatory.cseq.method;
+        // let Some(branch) = mandatory.via.branch.clone() else {
+        //     return Some(response);
+        // };
+        // let key = TransactionKey::new_key_3261(Role::UAC, method, branch);
+        // let map = self.transactions.lock().expect("Lock failed");
+        // let Some(channel) = map.get(&key) else {
+        //     return Some(response);
+        // };
+        // let _result = channel.send(TransactionMessage::Response(response));
+        None
+    }
+
+    pub(crate) fn handle_incoming_request(
+        &self,
+        request: IncomingRequest,
+    ) -> Option<IncomingRequest> {
+        let key = TransactionKey::from_request(&request);
+
+        let map = self.transactions.lock().expect("Lock failed");
+
+        let Some(channel) = map.get(&key) else {
+            return Some(request);
+        };
+        let _res = channel.send(TransactionMessage::Request(request));
+        None
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{endpoint, message::SipMethod};
+    use crate::{endpoint, message::Method};
 
     #[tokio::test]
     async fn test_non_invite_server_tsx() {
         /*
-        let mut req = mock::request(SipMethod::Register);
+        let mut req = mock::request(Method::Register);
 
         let endpoint = endpoint::EndpointBuilder::new()
-            .add_transaction(TransactionLayer::default())
+            .add_transaction(TransactionManager::default())
             .build();
 
         let tsx = endpoint.new_server_transaction(&mut req);
@@ -135,13 +152,13 @@ mod tests {
         let key = tsx.key();
         let tsx = transactions.find_server_tsx(&key);
 
-        assert!(matches!(tsx.as_ref(), Some(ServerTx::NonInvite(_))));
+        assert!(matches!(tsx.as_ref(), Some(ServerTransaction::NonInvite(_))));
         let tsx = match tsx.unwrap() {
-            ServerTx::NonInvite(tsx) => tsx,
+            ServerTransaction::NonInvite(tsx) => tsx,
             _ => unreachable!(),
         };
 
-        tsx.on_terminated();
+        tsx.terminate();
         let tsx = transactions.find_server_tsx(&key);
 
         assert!(tsx.is_none());
@@ -151,10 +168,10 @@ mod tests {
     #[tokio::test]
     async fn test_invite_server_tsx() {
         /*
-        let mut req = mock::request(SipMethod::Invite);
+        let mut req = mock::request(Method::Invite);
 
         let endpoint = endpoint::EndpointBuilder::new()
-            .add_transaction(TransactionLayer::default())
+            .add_transaction(TransactionManager::default())
             .build();
 
         let tsx = endpoint.new_inv_server_transaction(&mut req);
@@ -164,14 +181,14 @@ mod tests {
 
         let tsx = transactions.find_server_tsx(&key);
 
-        assert!(matches!(tsx.as_ref(), Some(ServerTx::Invite(_))));
+        assert!(matches!(tsx.as_ref(), Some(ServerTransaction::Invite(_))));
 
         let tsx = match tsx.unwrap() {
-            ServerTx::Invite(tsx) => tsx,
+            ServerTransaction::Invite(tsx) => tsx,
             _ => unreachable!(),
         };
 
-        tsx.on_terminated();
+        tsx.terminate();
 
         let tsx = transactions.find_server_tsx(&key);
 

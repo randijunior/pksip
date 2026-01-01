@@ -18,14 +18,14 @@ macro_rules! parse_header_param {
     ($scanner:ident) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::Parser::parse_ref_param,
+            $crate::parser::SipMessageParser::parse_ref_param,
         )
     );
 
     ($scanner:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::Parser::parse_ref_param,
+            $crate::parser::SipMessageParser::parse_ref_param,
             $($name = $var),*
         )
     );
@@ -94,10 +94,10 @@ macro_rules! comma_separated {
 #[macro_export]
 macro_rules! headers {
     () => (
-        $crate::header::Headers::new()
+        $crate::message::headers::Headers::new()
     );
     ($($x:expr),+ $(,)?) => (
-        $crate::header::Headers::from(vec![$($x),+])
+        $crate::message::headers::Headers::from(vec![$($x),+])
     );
 }
 
@@ -115,7 +115,7 @@ macro_rules! try_parse_hdr {
 macro_rules! filter_map_header {
     ($hdrs:expr, $header:ident) => {
         $hdrs.iter().filter_map(|hdr| {
-            if let $crate::headers::Header::$header(v) = hdr {
+            if let $crate::message::headers::Header::$header(v) = hdr {
                 Some(v)
             } else {
                 None
@@ -128,7 +128,20 @@ macro_rules! filter_map_header {
 macro_rules! find_map_header {
     ($hdrs:expr, $header:ident) => {
         $hdrs.iter().find_map(|hdr| {
-            if let $crate::headers::Header::$header(v) = hdr {
+            if let $crate::message::headers::Header::$header(v) = hdr {
+                Some(v)
+            } else {
+                None
+            }
+        })
+    };
+}
+
+#[macro_export]
+macro_rules! find_map_mut_header {
+    ($hdrs:expr, $header:ident) => {
+        $hdrs.iter_mut().find_map(|hdr| {
+            if let $crate::message::headers::Header::$header(v) = hdr {
                 Some(v)
             } else {
                 None
@@ -141,6 +154,7 @@ pub(crate) use comma_separated;
 pub(crate) use comma_separated_header_value;
 pub use filter_map_header;
 pub use find_map_header;
+pub use find_map_mut_header;
 pub use headers;
 pub(crate) use lookup_table;
 pub(crate) use parse_header_param;

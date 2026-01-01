@@ -28,6 +28,9 @@ hyper = { version = "1.0", default-features = false, features = ["http1", "serve
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 bytes = "1"
+rand = "0.9.2"
+uuid = {version = "1.18.1", features = [ "v4" ]}
+pin-project-lite = "0.2"
 
 [dev-dependencies]
 assert_matches = "1.5"

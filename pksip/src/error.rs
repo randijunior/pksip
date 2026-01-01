@@ -1,11 +1,12 @@
-use std::str::{
-    Utf8Error, {self},
+use std::{
+    ops::Range,
+    str::{self, Utf8Error},
 };
 
 use thiserror::Error;
 use util::{Position, ScannerError};
 
-use crate::message::SipMethod;
+use crate::message::{CodeClass, Method, StatusCode};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -37,8 +38,11 @@ pub enum Error {
     #[error(transparent)]
     ParseError(#[from] ParseError),
 
-    #[error("Transaction Erro: {0}")]
-    TransactionError(String),
+    #[error("Transport: {0}")]
+    TransportError(String),
+
+    #[error("Transaction Error: {0}")]
+    TransactionError(#[from] TransactionError),
 
     #[error(transparent)]
     DialogError(#[from] DialogError),
@@ -52,14 +56,26 @@ pub enum Error {
     #[error("Channel closed")]
     ChannelClosed,
 
+    #[error("Unsupported transport")]
+    UnsupportedTransport,
+
     #[error("Poisoned lock")]
     PoisonedLock,
+
+    #[error("Invalid Status Code")]
+    InvalidStatusCode,
 
     #[error("Fmt Error")]
     FmtError(std::fmt::Error),
 
     #[error("Internal error: {0}")]
     Internal(&'static str),
+}
+
+impl Error {
+    pub fn is_transport_error(&self) -> bool {
+        matches!(self, Self::TransportError(_))
+    }
 }
 
 #[derive(Debug, Error)]
@@ -95,8 +111,8 @@ pub enum ParseErrorKind {
 
 #[derive(Debug, Error)]
 pub enum DialogError {
-    #[error("SipMethod {0} cannot establish a dialog")]
-    InvalidMethod(SipMethod),
+    #[error("Method {0} cannot establish a dialog")]
+    InvalidMethod(Method),
 
     #[error("Missing To tag in 'To' header")]
     MissingTagInToHeader,
@@ -104,11 +120,16 @@ pub enum DialogError {
 
 #[derive(Debug, Error)]
 pub enum TransactionError {
-    #[error("Invalid method for transaction creation: expected {required}, got {actual}")]
-    InvalidMethod {
-        required: SipMethod,
-        actual: SipMethod,
-    },
-    #[error("OutgoingMessageInfo not present in outgoing request")]
-    MissingOutgoingMessageInfo,
+    #[error(
+        "Received invalid 'ACK' method, The ACK request must be passed directly to the transport layer for transmission."
+    )]
+    AckCannotCreateTransaction,
+    #[error("Invalid status code for provisional response (expected 1xx)")]
+    InvalidProvisionalStatusCode,
+    #[error("Invalid status code for final response (expected 2xx–6xx)")]
+    InvalidFinalStatusCode,
+    #[error("Failed to send request: {0}")]
+    FailedToSendMessage(String),
+    //     #[error("The transaction is no longer valid")]
+    // Invalid,
 }

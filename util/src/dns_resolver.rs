@@ -3,12 +3,11 @@
 use std::{io, net::IpAddr};
 
 use hickory_resolver::ResolveError;
-use hickory_resolver::{
-    IntoName,lookup::Lookup, lookup_ip::LookupIp, proto::rr::RecordType,
-};
+use hickory_resolver::{IntoName, lookup::Lookup, lookup_ip::LookupIp, proto::rr::RecordType};
 
+pub use hickory_resolver::Name;
+pub use hickory_resolver::proto::rr::RData;
 pub use hickory_resolver::proto::rr::rdata::{NAPTR, SRV};
-pub use hickory_resolver::proto::rr::{RData};
 
 /// A DNS resolver backed by [hickory-dns](https://github.com/hickory-dns/hickory-dns).
 pub struct DnsResolver {
@@ -17,7 +16,7 @@ pub struct DnsResolver {
 
 impl DnsResolver {
     /// NATPTR Lookup
-    pub async fn naptr_query<N: IntoName>(&self, name: N) -> Result<Lookup, io::Error> {
+    pub async fn naptr_lookup<N: IntoName>(&self, name: N) -> Result<Lookup, io::Error> {
         self.dns_resolver
             .lookup(name, RecordType::NAPTR)
             .await
@@ -25,14 +24,17 @@ impl DnsResolver {
     }
 
     /// SRV Lookup
-    pub async fn srv_query<N: IntoName>(&self, name: N) -> Result<Lookup, io::Error> {
+    pub async fn srv_lookup<N: IntoName>(&self, name: N) -> Result<Lookup, io::Error> {
         self.dns_resolver
             .lookup(name, RecordType::SRV)
             .await
             .map_err(|err| io::Error::other(format!("Failed to lookup SRV: {}", err)))
     }
     /// Lookup IP addresses for a host.
-    pub async fn lookup_ip(&self, host: impl IntoName) -> std::result::Result<LookupIp, ResolveError> {
+    pub async fn lookup_ip(
+        &self,
+        host: impl IntoName,
+    ) -> std::result::Result<LookupIp, ResolveError> {
         self.dns_resolver.lookup_ip(host).await
     }
 
@@ -63,7 +65,7 @@ impl DnsResolver {
 impl Default for DnsResolver {
     fn default() -> Self {
         Self {
-            dns_resolver: hickory_resolver::Resolver::builder_tokio().unwrap().build()
+            dns_resolver: hickory_resolver::Resolver::builder_tokio().unwrap().build(),
         }
     }
 }

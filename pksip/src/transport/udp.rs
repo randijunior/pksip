@@ -41,7 +41,7 @@ impl UdpTransport {
     }
 
     /// Receive UDP datagrams on this transport.
-    pub(crate) async fn receive(self, endpoint: Endpoint) -> Result<()> {
+    pub(crate) async fn receive_datagram(self, endpoint: Endpoint) -> Result<()> {
         let udp_tp = Transport::new(self.clone());
         // Buffer to recv packet.
         let mut buf = vec![0u8; 4000];

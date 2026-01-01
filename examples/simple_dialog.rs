@@ -3,31 +3,27 @@ use std::error::Error;
 use async_trait::async_trait;
 use pksip::{
     Endpoint, EndpointHandler,
-    endpoint::EndpointResponse,
+    endpoint::{self},
     find_map_header,
-    headers::{Header, Headers},
-    message::{SipMethod, StatusCode},
+    message::{
+        Method, StatusCode,
+        headers::{Header, Headers},
+    },
+    transaction::TransactionManager,
     transport::IncomingRequest,
-    transaction::TransactionLayer
 };
 use tracing::Level;
 
-pub struct MyService;
+pub struct SimpleDialogHandler;
 
 #[async_trait]
-impl EndpointHandler for MyService {
-    fn name(&self) -> &str {
-        "SipUAS"
-    }
-
-    async fn on_request(&self, request: &IncomingRequest) -> Option<EndpointResponse> {
+impl EndpointHandler for SimpleDialogHandler {
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
         let method = request.message.req_line.method;
         let headers = &request.message.headers;
 
-        let response = if method == SipMethod::Register {
-            let mut response = EndpointResponse::stateful(request, StatusCode::Ok, None);
-
-            if let Some(expires) = find_map_header!(headers, Expires) {
+        if method == Method::Register {
+            let new_header = if let Some(expires) = find_map_header!(headers, Expires) {
                 let mut hdrs = Headers::with_capacity(2);
                 let expires = *expires;
 
@@ -39,16 +35,21 @@ impl EndpointHandler for MyService {
                         hdrs.push(Header::Contact(contact.clone()));
                     }
                 }
-                response.message.headers.append(&mut hdrs);
-            }
-            response
-        } else if method != SipMethod::Ack {
-            EndpointResponse::stateless(request, StatusCode::NotImplemented, None)
-        } else {
-            return None;
-        };
+                Some(hdrs)
+            } else {
+                None
+            };
+            let server_tx = endpoint.create_server_transaction(request)?;
 
-        Some(response)
+            server_tx
+                .send_final_response(200, None, new_header, None)
+                .await?;
+        } else if method != Method::Ack {
+            endpoint.send_response(&request, 501, None).await?;
+        } else {
+            return Ok(());
+        };
+        Ok(())
     }
 }
 
@@ -63,20 +64,19 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         // .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
-    let svc = MyService;
+    let svc = SimpleDialogHandler;
     let addr = "127.0.0.1:8089".parse()?;
 
     let endpoint = Endpoint::builder()
-        .add_service(svc)
-        .add_transaction(TransactionLayer::default())
+        .add_handler(svc)
+        .add_transaction(TransactionManager::default())
         .build();
-    endpoint.start_ws(addr).await?;
+    endpoint.start_ws_transport(addr).await?;
 
     let server_addr = format!("ws://{addr}");
 
     let transport =
-        pksip::transport::websocket::WebSocketTransport::connect(&server_addr, 1.0, &endpoint)
-            .await?;
+        pksip::transport::ws::WebSocketTransport::connect(&server_addr, 1.0, &endpoint).await?;
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

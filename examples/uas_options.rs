@@ -1,40 +1,30 @@
 use std::{error::Error, time::Duration};
 
 use async_trait::async_trait;
-use pksip::{
-    Endpoint, EndpointHandler,
-    endpoint::EndpointResponse,
-    message::{SipMethod, StatusCode},
-    transport::IncomingRequest,
-};
+use pksip::{Endpoint, EndpointHandler, message::Method, transport::IncomingRequest};
 use tokio::time;
 use tracing::Level;
 
-pub struct MyService;
+pub struct UasOptionsHandler;
 
 #[async_trait]
-impl EndpointHandler for MyService {
-    fn name(&self) -> &str {
-        "SipUAS"
-    }
+impl EndpointHandler for UasOptionsHandler {
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
+        if request.req_line.method == Method::Options {
+            let server_tx = endpoint.create_server_transaction(request)?;
 
-    async fn on_request(&self, request: &IncomingRequest) -> Option<EndpointResponse> {
-        match request.message.req_line.method {
-            SipMethod::Options => {
-                let response = EndpointResponse::stateful(request, StatusCode::Ok, None);
+            server_tx.respond_with_final_code(200).await?;
 
-                Some(response)
-            }
-            method if method != SipMethod::Ack => {
-                let response = EndpointResponse::stateless(request, StatusCode::NotImplemented, None);
-
-                Some(response)
-            }
-            _ => {
-                tracing::debug!("Received ACK request, no response needed.");
-                None
-            }
+            return Ok(());
         }
+        if request.req_line.method != Method::Ack {
+            endpoint.send_response(&request, 501, None).await?;
+
+            return Ok(());
+        }
+
+        tracing::debug!("Received ACK request, no response needed.");
+        Ok(())
     }
 }
 
@@ -48,17 +38,17 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
-    let svc = MyService;
+    let svc = UasOptionsHandler;
     let addr = "127.0.0.1:0".parse()?;
 
     let endpoint = Endpoint::builder()
-        .add_service(svc)
+        .add_handler(svc)
         .add_transaction(Default::default())
         .build();
 
-    endpoint.start_tcp(addr).await?;
-    endpoint.start_udp(addr).await?;
-    endpoint.start_ws(addr).await?;
+    endpoint.start_tcp_transport(addr).await?;
+    endpoint.start_udp_transport(addr).await?;
+    endpoint.start_ws_transport(addr).await?;
 
     loop {
         tokio::select! {

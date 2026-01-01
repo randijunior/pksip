@@ -230,7 +230,7 @@ impl<'buf> Scanner<'buf> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that `func` only accepts bytes that form valid
+    /// The caller must ensure that `func` only returns `true` for bytes that form valid
     /// UTF-8.
     #[inline]
     pub unsafe fn read_while_as_str_unchecked(&mut self, func: impl Fn(u8) -> bool) -> &'buf str {

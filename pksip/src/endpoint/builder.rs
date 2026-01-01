@@ -1,20 +1,28 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
+use futures_util::future::BoxFuture;
 use itertools::Itertools;
 use util::DnsResolver;
 
 use super::{Endpoint, EndpointHandler};
 use crate::{
-    endpoint::{EndpointInner, EndpointRef}, headers::{Header, Headers}, transaction::manager::TransactionLayer, transport::TransportManager
+    endpoint::EndpointInner,
+    message::headers::{Header, Headers},
+    transaction::manager::TransactionManager,
+    transport::{IncomingRequest, Transport, TransportManager, TransportsMap},
 };
+
+// type Fut = dyn Future<Output = crate::Result<()>>;
+// type Handler = dyn Fn(&IncomingRequest, &Endpoint) -> dyn Future<Output = crate::Result<()>>;
 
 /// EndpointBuilder for creating a new SIP `Endpoint`.
 pub struct EndpointBuilder {
     name: String,
     resolver: DnsResolver,
-    transaction: Option<TransactionLayer>,
+    transaction: Option<TransactionManager>,
+    transports: Option<TransportManager>,
     capabilities: Headers,
-    handlers: Vec<Box<dyn EndpointHandler>>,
+    handler: Option<Box<dyn EndpointHandler>>,
 }
 
 impl EndpointBuilder {
@@ -34,8 +42,9 @@ impl EndpointBuilder {
             name: String::new(),
             capabilities: Headers::new(),
             resolver: DnsResolver::default(),
-            handlers: Vec::new(),
+            handler: None,
             transaction: None,
+            transports: Default::default(),
         }
     }
 
@@ -84,75 +93,22 @@ impl EndpointBuilder {
     ///     .add_service(MyService)
     ///     .build();
     /// ```
-    pub fn add_service(mut self, service: impl EndpointHandler) -> Self {
-        if self.service_exists(service.name()) {
-            return self;
-        }
-        self.handlers.push(Box::new(service));
+    pub fn add_handler(mut self, service: impl EndpointHandler) -> Self {
+        self.handler = Some(Box::new(service));
 
         self
-    }
-
-    /// Add a collection of handlers to the endpoint.
-    ///
-    /// Similar to [`EndpointBuilder::add_service`], but allows
-    /// adding multiple handlers at once. Unlike
-    /// `add_service`, this method expects the handlers
-    /// to be passed as trait objects (`Box<dyn
-    /// EndpointHandler>`) instead of concrete types.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use pksip::*;
-    /// struct MyService;
-    ///
-    /// impl EndpointHandler for MyService {
-    ///     fn name(&self) -> &str {
-    ///         "MyService"
-    ///     }
-    /// }
-    ///
-    /// struct OtherService;
-    ///
-    /// impl EndpointHandler for OtherService {
-    ///     fn name(&self) -> &str {
-    ///         "OtherService"
-    ///     }
-    /// }
-    ///
-    /// let endpoint = endpoint::EndpointBuilder::new()
-    ///     .add_handlers([
-    ///         Box::new(MyService) as Box<dyn EndpointHandler>,
-    ///         Box::new(OtherService) as Box<dyn EndpointHandler>,
-    ///     ])
-    ///     .build();
-    /// ```
-    pub fn add_handlers<I>(mut self, handlers: I) -> Self
-    where
-        I: IntoIterator<Item = Box<dyn EndpointHandler>>,
-    {
-        for service in handlers {
-            if self.service_exists(service.name()) {
-                continue;
-            }
-            self.handlers.push(service);
-        }
-
-        self
-    }
-
-    fn service_exists(&self, name: &str) -> bool {
-        let exists = self.handlers.iter().any(|s| s.name() == name);
-        if exists {
-            log::warn!("Service with name '{}' already exists", name);
-        }
-        exists
     }
 
     /// Sets the transaction layer.
-    pub fn add_transaction(mut self, tsx_layer: TransactionLayer) -> Self {
+    pub fn add_transaction(mut self, tsx_layer: TransactionManager) -> Self {
         self.transaction = Some(tsx_layer);
+
+        self
+    }
+
+    /// Sets the transport layer.
+    pub fn add_transport(mut self, transport: TransportManager) -> Self {
+        self.transports = Some(transport);
 
         self
     }
@@ -160,20 +116,20 @@ impl EndpointBuilder {
     /// Finalize the EndpointBuilder into a `Endpoint`.
     pub fn build(self) -> Endpoint {
         log::trace!("Creating endpoint...");
-        log::debug!(
-            "Handlers registered {}",
-            format_args!("({})", self.handlers.iter().map(|s| s.name()).join(", "))
-        );
+        // log::debug!(
+        //     "Handler registered {}",
+        //     format_args!("({})", self.handler.and_then(|h| h.name()).unwrap_or(""))
+        // );
 
         let endpoint = Endpoint {
-            inner: EndpointRef(Arc::new(EndpointInner {
+            inner: Arc::new(EndpointInner {
                 transaction: self.transaction,
-                transport: TransportManager::new(),
+                transport: self.transports.unwrap_or(TransportManager::new()),
                 name: self.name,
                 capabilities: self.capabilities,
                 resolver: self.resolver,
-                handlers: self.handlers,
-            })),
+                handler: self.handler,
+            }),
         };
 
         endpoint

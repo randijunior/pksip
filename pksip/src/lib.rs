@@ -4,13 +4,12 @@
 //! A rust library that implements the SIP protocol.
 //!
 
-pub mod dialog;
 pub mod endpoint;
-pub mod headers;
 pub mod message;
 pub mod parser;
 pub mod transaction;
 pub mod transport;
+pub mod ua;
 
 pub(crate) mod error;
 pub mod macros;
@@ -18,9 +17,8 @@ pub mod macros;
 pub use endpoint::{Endpoint, EndpointHandler};
 use error::Error;
 pub use error::Result;
-pub use message::SipMethod;
-use parser::Parser;
-use util::ArcStr;
+pub use message::Method;
+use parser::SipMessageParser;
 
 #[cfg(test)]
 #[macro_use]
@@ -34,14 +32,23 @@ use std::{
     },
 };
 
+/// Branch parameter prefix defined in RFC3261.
+pub(crate) const RFC3261_BRANCH_ID: &str = "z9hG4bK";
+
 use crate::message::Params;
 
-pub(crate) fn generate_branch(n: i32) -> String {
-    todo!()
+use rand::distr::{Alphanumeric, SampleString};
+
+pub(crate) fn generate_branch(n: Option<usize>) -> String {
+    let n = n.unwrap_or(8);
+    let mut branch = String::with_capacity(RFC3261_BRANCH_ID.len() + n);
+    branch.push_str(RFC3261_BRANCH_ID);
+    Alphanumeric.append_string(&mut rand::rng(), &mut branch, n);
+    branch
 }
 
-pub(crate) fn generate_random_str() -> String {
-    todo!("Implement a function to generate a random string for tags")
+pub(crate) fn generate_random_str(n: usize) -> String {
+    Alphanumeric.sample_string(&mut rand::rng(), n)
 }
 
 #[inline(always)]
@@ -153,7 +160,7 @@ impl MediaType {
         }
     }
 
-    pub fn parse(parser: &mut Parser) -> Result<Self> {
+    pub fn parse(parser: &mut SipMessageParser) -> Result<Self> {
         let mtype = parser.parse_token()?;
         parser.next_byte();
         let subtype = parser.parse_token()?;
@@ -163,7 +170,7 @@ impl MediaType {
     }
 
     pub fn from_static(s: &'static str) -> Result<Self> {
-        Self::parse(&mut Parser::new(s.as_bytes()))
+        Self::parse(&mut SipMessageParser::new(s.as_bytes()))
     }
 
     /// Constructs a `MediaType` with an optional

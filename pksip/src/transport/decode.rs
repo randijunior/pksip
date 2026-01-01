@@ -4,7 +4,8 @@ use bytes::BytesMut;
 use tokio_util::{bytes::Buf, codec::Decoder};
 
 use crate::{
-    headers::{ContentLength, HeaderParser},
+    message::headers::ContentLength,
+    parser::HeaderParser,
     transport::{KEEPALIVE_REQUEST, KEEPALIVE_RESPONSE, MSG_HEADERS_END},
 };
 
