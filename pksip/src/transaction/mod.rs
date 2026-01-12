@@ -1,24 +1,19 @@
 #![warn(missing_docs)]
 //! Transaction Layer.
 
-use std::{
-    time::{Duration},
-};
+use std::time::Duration;
 
 pub use client::ClientTransaction;
 pub use manager::TransactionManager;
 pub use server::ServerTransaction;
+use tokio::sync::mpsc;
 
-
-use crate::transport::{
-    IncomingRequest, IncomingResponse
-};
+use crate::transport::{IncomingRequest, IncomingResponse};
 
 pub(crate) mod client;
 pub(crate) mod manager;
 pub(crate) mod server;
-
-
+pub(crate) mod fsm;
 
 #[cfg(test)]
 mod tests;
@@ -38,43 +33,55 @@ pub(crate) const T2: Duration = Duration::from_secs(4);
 /// Maximum duration that a message may remain in the network before being discarded.
 pub(crate) const T4: Duration = Duration::from_secs(5);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
-/// Defines the possible states of a SIP Transaction.
-pub enum TransactionState {
-    #[default]
-    /// Initial state
-    Initial,
-    /// Calling state
-    Calling,
-    /// Trying state
-    Trying,
-    /// Proceeding state
-    Proceeding,
-    /// Completed state
-    Completed,
-    /// Confirmed state
-    Confirmed,
-    /// Terminated state
-    Terminated,
-}
 
-impl std::fmt::Display for TransactionState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let state_str = match self {
-            Self::Initial => "Initial",
-            Self::Calling => "Calling",
-            Self::Trying => "Trying",
-            Self::Proceeding => "Proceeding",
-            Self::Completed => "Completed",
-            Self::Confirmed => "Confirmed",
-            Self::Terminated => "Terminated",
-        };
-        write!(f, "{}", state_str)
-    }
-}
 
 #[derive(Clone)]
 pub enum TransactionMessage {
     Request(IncomingRequest),
     Response(IncomingResponse),
+}
+
+struct PeekableReceiver<T> {
+    rx: mpsc::Receiver<T>,
+    peeked: Option<T>
+}
+
+impl<T> From<mpsc::Receiver<T>> for PeekableReceiver<T> {
+    fn from(rx: mpsc::Receiver<T>) -> Self {
+        Self::new(rx)
+    }
+}
+
+impl<T> PeekableReceiver<T> {
+    pub fn new(rx: mpsc::Receiver<T>) -> Self {
+        Self { rx, peeked: None }
+    }
+
+    pub async fn recv(&mut self) -> Option<T> {
+        match self.peeked.take() {
+            Some(msg) => Some(msg),
+            None => self.rx.recv().await,
+        }
+    }
+    pub fn try_recv(&mut self) -> std::result::Result<T, mpsc::error::TryRecvError> {
+        match self.peeked.take() {
+            Some(msg) => Ok(msg),
+            None => self.rx.try_recv(),
+        }
+    }
+    pub async fn peek(&mut self) -> Option<&T> {
+        if self.peeked.is_none() {
+            self.peeked = self.rx.recv().await;
+        }
+        self.peeked.as_ref()
+    }
+
+    pub async fn recv_if(&mut self, func: impl FnOnce(&T) -> bool) -> Option<T> {
+        match self.peek().await {
+            Some(matched) if func(matched) => {
+                self.peeked.take()
+            }
+            _ => None,
+        }
+    }
 }

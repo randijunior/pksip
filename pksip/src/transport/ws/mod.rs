@@ -135,7 +135,7 @@ impl SipTransport for WebSocketTransport {
         Some(self.peer_addr)
     }
 
-    fn transport_type(&self) -> TransportType {
+    fn protocol(&self) -> TransportType {
         TransportType::Ws
     }
 

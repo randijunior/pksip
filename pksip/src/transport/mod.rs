@@ -210,7 +210,7 @@ impl TransportManager {
                                 ),
                             ];
 
-                            for (record, transport_type) in records {
+                            for (record, protocol) in records {
                                 let srv_lookup = endpoint.dns_resolver().srv_lookup(record).await;
                                 let Ok(srv_lookup) = srv_lookup else {
                                     continue;
@@ -238,7 +238,7 @@ impl TransportManager {
                                     for ip in lookup {
                                         let addr = SocketAddr::new(ip, port);
                                         match self
-                                            .get_or_create_transport(transport_type, addr, endpoint)
+                                            .get_or_create_transport(protocol, addr, endpoint)
                                             .await
                                         {
                                             Ok(transport) => return Ok((transport, addr)),
@@ -340,13 +340,12 @@ impl TransportManager {
 
     fn get_by_transport_type_and_ip_family(
         &self,
-        transport_type: TransportType,
+        protocol: TransportType,
         ip: IpAddr,
     ) -> Result<Option<Transport>> {
         let map = self.transports.lock().map_err(|_| Error::PoisonedLock)?;
         let transport = map.iter().find(|(_key, transport)| {
-            transport.transport_type() == transport_type
-                && is_same_ip_family(&transport.local_addr().ip(), &ip)
+            transport.protocol() == protocol && is_same_ip_family(&transport.local_addr().ip(), &ip)
         });
 
         match transport {
@@ -357,18 +356,18 @@ impl TransportManager {
 
     async fn get_or_create_transport(
         &self,
-        transport_type: TransportType,
+        protocol: TransportType,
         addr: SocketAddr,
         endpoint: &Endpoint,
     ) -> Result<Transport> {
-        let key = TransportKey::new(addr, transport_type);
+        let key = TransportKey::new(addr, protocol);
         if let Some(transport) = self.get_by_key(&key)? {
             return Ok(transport.clone());
         }
-        let transport = match transport_type {
+        let transport = match protocol {
             TransportType::Tcp => TcpTransport::connect(addr, endpoint).await?,
             TransportType::Ws | TransportType::Wss => {
-                let scheme = if transport_type == TransportType::Ws {
+                let scheme = if protocol == TransportType::Ws {
                     "ws"
                 } else {
                     "wss"
@@ -506,8 +505,8 @@ pub trait SipTransport: Send + Sync + 'static {
     /// number of bytes written.
     async fn send_msg(&self, buf: &[u8], address: &SocketAddr) -> Result<usize>;
 
-    /// Get transport type.
-    fn transport_type(&self) -> TransportType;
+    /// Get transport protocol.
+    fn protocol(&self) -> TransportType;
 
     /// Get the local socket address addr to this transport.
     fn local_addr(&self) -> SocketAddr;
@@ -517,12 +516,12 @@ pub trait SipTransport: Send + Sync + 'static {
 
     /// Returns `true` if the transport is reliable.
     fn is_reliable(&self) -> bool {
-        self.transport_type().is_reliable()
+        self.protocol().is_reliable()
     }
 
     /// Returns `true` if the transport is secure.
     fn is_secure(&self) -> bool {
-        self.transport_type().is_secure()
+        self.protocol().is_secure()
     }
 
     /// Get the id that uniquely identifies this transport.
@@ -553,7 +552,7 @@ where
 {
     fn from(transport: &T) -> Self {
         let address = transport.local_addr();
-        let tp_type = transport.transport_type();
+        let tp_type = transport.protocol();
 
         Self { address, tp_type }
     }
@@ -600,7 +599,7 @@ impl TransportMessage {
                 log::warn!(
                     "Ignoring {} bytes packet from {} {} : {}\n{}-- end of packet.",
                     packet.data.len(),
-                    transport.transport_type(),
+                    transport.protocol(),
                     packet.source,
                     err,
                     String::from_utf8_lossy(&packet.data)
@@ -708,8 +707,8 @@ impl IncomingRequest {
     }
 }
 
-impl std::ops::Deref for IncomingRequest {
-    type Target = Request;
+impl<M> std::ops::Deref for Incoming<M> {
+    type Target = M;
     fn deref(&self) -> &Self::Target {
         &self.message
     }
@@ -779,6 +778,8 @@ pub(crate) mod mock {
 
     use std::sync::Mutex;
 
+    use crate::Method;
+
     use super::*;
 
     /// A mock transport that does nothing, for testing purposes
@@ -820,9 +821,24 @@ pub(crate) mod mock {
             self.sent.lock().unwrap().len()
         }
 
-        fn last_buffer_sent(&self) -> Option<Vec<u8>> {
+        pub fn get_last_request(&self) -> Option<Request> {
+            self.last_sip_msg().map(|msg| {
+                if let SipMessage::Request(req) = msg {
+                    Some(req)
+                } else {
+                    None
+                }
+            })?
+        }
+
+        pub fn last_buffer(&self) -> Option<Vec<u8>> {
             let guard = self.sent.lock().unwrap();
             guard.last().map(|(buff, _)| buff).cloned()
+        }
+
+        pub fn last_sip_msg(&self) -> Option<SipMessage> {
+            self.last_buffer()
+                .map(|b| SipMessageParser::parse(&b).unwrap())
         }
 
         fn push_msg(&self, (buf_vec, address): (Vec<u8>, SocketAddr)) -> usize {
@@ -835,13 +851,12 @@ pub(crate) mod mock {
     #[async_trait::async_trait]
     impl SipTransport for MockTransport {
         async fn send_msg(&self, buf: &[u8], address: &SocketAddr) -> Result<usize> {
-            let buf_vec = buf.to_vec();
-            let current_count = self.push_msg((buf_vec, *address));
+            let current_count = self.push_msg((buf.to_vec(), *address));
 
-            if let Some(fail_at) = self.fail_at {
-                if current_count == fail_at {
-                    return Err(crate::Error::TransportError("Simulated failure".into()));
-                }
+            if let Some(fail_at) = self.fail_at
+                && fail_at == current_count
+            {
+                return Err(crate::Error::TransportError("Simulated failure".into()));
             }
 
             Ok(buf.len())
@@ -851,7 +866,7 @@ pub(crate) mod mock {
             None
         }
 
-        fn transport_type(&self) -> TransportType {
+        fn protocol(&self) -> TransportType {
             self.tp_type
         }
 
@@ -870,17 +885,17 @@ mod tests {
     #[test]
     fn test_sip_transport() {
         let transport = MockTransport::new_udp();
-        assert_eq!(transport.transport_type(), TransportType::Udp);
+        assert_eq!(transport.protocol(), TransportType::Udp);
         assert!(!transport.is_reliable());
         assert!(!transport.is_secure());
 
         let transport = MockTransport::new_tcp();
-        assert_eq!(transport.transport_type(), TransportType::Tcp);
+        assert_eq!(transport.protocol(), TransportType::Tcp);
         assert!(transport.is_reliable());
         assert!(!transport.is_secure());
 
         let transport = MockTransport::new_tls();
-        assert_eq!(transport.transport_type(), TransportType::Tls);
+        assert_eq!(transport.protocol(), TransportType::Tls);
         assert!(transport.is_reliable());
         assert!(transport.is_secure());
     }
@@ -936,7 +951,7 @@ mod tests {
         let manager = TransportManager::new();
         let transport = MockTransport::new_udp();
         let addr = transport.local_addr();
-        let tp_type = transport.transport_type();
+        let tp_type = transport.protocol();
         let key = transport.key();
 
         // manager.register_transport(transport).unwrap();
@@ -944,7 +959,7 @@ mod tests {
 
         // let selected = manager.select_transport(addr, TransportType::Udp);
         // let selected = selected.unwrap().unwrap();
-        // assert_eq!(selected.transport_type(), tp_type);
+        // assert_eq!(selected.protocol(), tp_type);
         // assert_eq!(selected.local_addr(), addr);
 
         // manager.remove_transport(&key).unwrap();
@@ -956,6 +971,6 @@ mod tests {
         let transport = MockTransport::new_udp();
         let key: TransportKey = transport.key();
         assert_eq!(key.address, transport.local_addr());
-        assert_eq!(key.tp_type, transport.transport_type());
+        assert_eq!(key.tp_type, transport.protocol());
     }
 }

@@ -9,7 +9,7 @@ use crate::{
 
 /// The `CSeq` SIP header.
 ///
-/// Ensures order and tracking of SIP TransactionManager within a
+/// Ensures order and tracking of SIP Transaction within a
 /// session.
 ///
 /// # Examples

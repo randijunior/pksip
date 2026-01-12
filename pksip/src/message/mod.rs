@@ -21,8 +21,7 @@ pub mod headers;
 use headers::{CSeq, CallId, From as FromHeader, Header, Headers, To, Via};
 
 use crate::{
-    error::{Error, Result},
-    parser::HeaderParser,
+    error::{Error, Result}, message::headers::MaxForwards, parser::HeaderParser
 };
 
 mod auth;
@@ -218,6 +217,14 @@ impl Request {
         Request {
             req_line: RequestLine { method, uri },
             headers: Headers::new(),
+            body: None,
+        }
+    }
+
+    pub fn with_headers(method: Method, uri: Uri, headers: Headers) -> Self {
+        Request {
+            req_line: RequestLine { method, uri },
+            headers,
             body: None,
         }
     }

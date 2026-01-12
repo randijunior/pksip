@@ -69,7 +69,7 @@ pub enum Error {
     FmtError(std::fmt::Error),
 
     #[error("Internal error: {0}")]
-    Internal(&'static str),
+    Other(String),
 }
 
 impl Error {
@@ -109,7 +109,7 @@ pub enum ParseErrorKind {
     Scanner(ScannerError),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum DialogError {
     #[error("Method {0} cannot establish a dialog")]
     InvalidMethod(Method),
@@ -118,7 +118,7 @@ pub enum DialogError {
     MissingTagInToHeader,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum TransactionError {
     #[error(
         "Received invalid 'ACK' method, The ACK request must be passed directly to the transport layer for transmission."
@@ -130,6 +130,8 @@ pub enum TransactionError {
     InvalidFinalStatusCode,
     #[error("Failed to send request: {0}")]
     FailedToSendMessage(String),
+    #[error("Timeout reached after send message")]
+    Timeout
     //     #[error("The transaction is no longer valid")]
     // Invalid,
 }

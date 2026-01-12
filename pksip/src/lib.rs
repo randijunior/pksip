@@ -12,6 +12,7 @@ pub mod transport;
 pub mod ua;
 
 pub(crate) mod error;
+
 pub mod macros;
 
 pub use endpoint::{Endpoint, EndpointHandler};

@@ -92,7 +92,7 @@ impl SipTransport for TcpTransport {
         Some(self.remote_addr)
     }
 
-    fn transport_type(&self) -> TransportType {
+    fn protocol(&self) -> TransportType {
         TransportType::Tcp
     }
 

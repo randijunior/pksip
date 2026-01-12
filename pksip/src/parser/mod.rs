@@ -16,7 +16,6 @@ use crate::{
     transport::TransportType,
 };
 
-
 #[cfg(test)]
 mod tests;
 
@@ -207,7 +206,30 @@ impl<'buf> SipMessageParser<'buf> {
     /// assert_eq!(res.headers.len(), 1);
     /// ```
     pub fn parse_sip_msg(&mut self) -> Result<SipMessage> {
-        let mut sip_message = self.parse_start_line()?;
+        // Might be enough for most messages.
+        let minimal_header_size = 7;
+        let mut sip_message = if matches!(self.scanner.peek_bytes(B_SIPV2.len()), Some(B_SIPV2)) {
+            // Is an status line, e.g, "SIP/2.0 200 OK".
+            // TODO: Add "match" here.
+            let status_line = self.parse_status_line()?;
+
+            SipMessage::Response(Response {
+                status_line,
+                headers: Headers::with_capacity(minimal_header_size),
+                body: None,
+            })
+        } else {
+            // Is an request line, e.g, "OPTIONS sip:localhost SIP/2.0".
+            // TODO: Add "match" here.
+            let req_line = self.parse_request_line()?;
+
+            SipMessage::Request(Request {
+                req_line,
+                headers: Headers::with_capacity(minimal_header_size),
+                body: None,
+            })
+        };
+
         let mut found_content_type = false;
 
         // Parse headers loop.
@@ -414,35 +436,6 @@ impl<'buf> SipMessageParser<'buf> {
         }
 
         Ok(sip_message)
-    }
-
-    fn parse_start_line(&mut self) -> Result<SipMessage> {
-        // Might be enough for most messages.
-        let probable_number_of_headers = 10;
-
-        if matches!(self.scanner.peek_bytes(B_SIPV2.len()), Some(B_SIPV2)) {
-            // Is an status line, e.g, "SIP/2.0 200 OK".
-            // TODO: Add "match" here.
-            let status_line = self.parse_status_line()?;
-            let headers = Headers::with_capacity(probable_number_of_headers);
-
-            Ok(SipMessage::Response(Response {
-                status_line,
-                headers,
-                body: None,
-            }))
-        } else {
-            // Is an request line, e.g, "OPTIONS sip:localhost SIP/2.0".
-            // TODO: Add "match" here.
-            let req_line = self.parse_request_line()?;
-            let headers = Headers::with_capacity(probable_number_of_headers);
-
-            Ok(SipMessage::Request(Request {
-                req_line,
-                headers,
-                body: None,
-            }))
-        }
     }
 
     pub fn parse_status_line(&mut self) -> Result<StatusLine> {
@@ -693,7 +686,7 @@ impl<'buf> SipMessageParser<'buf> {
             }
             Some(b'<') => Ok(None), // no display name
             None => {
-                return Err(crate::Error::Internal("EOF!"));
+                return Err(crate::Error::Other("EOF!".to_string()));
             }
             _ => {
                 let name = self.parse_token()?;

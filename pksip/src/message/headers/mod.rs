@@ -159,6 +159,11 @@ impl Headers {
         self.0.last_mut()
     }
 
+    /// first mut
+    pub fn first_mut(&mut self) -> Option<&mut Header> {
+        self.0.first_mut()
+    }
+
     /// Removes and returns the element at position `index`.
     pub fn remove(&mut self, index: usize) -> Header {
         self.0.remove(index)
@@ -250,6 +255,11 @@ impl Headers {
     #[inline]
     pub fn push(&mut self, hdr: Header) {
         self.0.push(hdr);
+    }
+
+    /// Insert a header on the front
+    pub fn prepend_header(&mut self, hdr: Header) {
+        self.0.insert(0, hdr);
     }
 
     /// Returns the number of headers in the collection.

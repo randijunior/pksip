@@ -1,7 +1,7 @@
 use crate::{error::TransactionError, message::ReasonPhrase};
 
 /// Classifies SIP status codes into categories.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum CodeClass {
     /// Provisional responses (1xx)
     Provisional,
@@ -368,6 +368,7 @@ impl StatusCode {
 
         Ok(code)
     }
+    
     pub fn try_new(code: impl TryInto<StatusCode>) -> Result<Self, crate::Error> {
         code.try_into().map_err(|_| crate::Error::InvalidStatusCode)
     }

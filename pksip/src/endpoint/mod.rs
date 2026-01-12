@@ -19,9 +19,7 @@ use crate::{
     error::Error,
     find_map_header,
     message::{
-        DomainName, Host, MandatoryHeaders, NameAddr, ReasonPhrase, Request, RequestLine, Response,
-        SipMessage, SipMessageBody, SipUri, StatusCode, StatusLine, Uri, UriBuilder,
-        headers::{CSeq, CallId, Contact, From, Header, Headers, MaxForwards, Route, To, Via},
+        CodeClass, DomainName, Host, HostPort, MandatoryHeaders, NameAddr, ReasonPhrase, Request, RequestLine, Response, SipMessage, SipMessageBody, SipUri, StatusCode, StatusLine, Uri, UriBuilder, headers::{CSeq, CallId, Contact, From, Header, Headers, MaxForwards, Route, To, Via}
     },
     transaction::{ServerTransaction, manager::TransactionManager},
     transport::{
@@ -95,7 +93,7 @@ impl Endpoint {
     ) -> Result<()> {
         let status_code = StatusCode::try_new(status_code)?;
 
-        let mut response = self.new_response(request, status_code, reason_phrase);
+        let mut response = self.create_response(request, status_code, reason_phrase);
 
         self.send_outgoing_response(&mut response).await
     }
@@ -107,7 +105,7 @@ impl Endpoint {
     /// and reason phrase. It also sets the necessary headers from request,
     /// including `Call-ID`, `From`, `To`, `CSeq`, `Via` and
     /// `Record-Route` headers.
-    pub fn new_response(
+    pub fn create_response(
         &self,
         request: &IncomingRequest,
         status_code: StatusCode,
@@ -171,6 +169,36 @@ impl Endpoint {
                 target: request.info.transport.packet.source,
                 transport: request.info.transport.transport.clone(),
             },
+            encoded: Bytes::new(),
+        }
+    }
+
+    pub(crate) fn create_ack_request(
+        &self,
+        request: &OutgoingRequest,
+        response: &IncomingResponse,
+    ) -> OutgoingRequest {
+        assert!(
+            matches!(response.message.status_line.code.as_u16(), 300..699),
+            "message must be a 300-699 final response"
+        );
+        let target = request.message.req_line.uri.clone();
+        // Clone: Via, To, From, Max-Forwards, Call-ID and CSeq from response.
+        let headers = MandatoryHeaders {
+            cseq: CSeq {
+                method: Method::Ack,
+                ..response.info.mandatory_headers.cseq
+            },
+            ..response.info.mandatory_headers.clone()
+        }
+        .into_headers();
+
+        let message = Request::with_headers(Method::Ack, target, headers);
+        let send_info = request.send_info.clone();
+
+        OutgoingRequest {
+            message,
+            send_info,
             encoded: Bytes::new(),
         }
     }
@@ -250,8 +278,8 @@ impl Endpoint {
         }
 
         if !exists_via {
-            let transport = transport.transport_type();
-            let sent_by = (*target).into();
+            let sent_by = transport.local_addr().into();
+            let transport = transport.protocol();
             let branch = crate::generate_branch(None);
             let via = Via::new_with_transport(transport, sent_by, Some(branch));
 
@@ -362,7 +390,7 @@ impl Endpoint {
 
         log::debug!(
             "Resolved target: transport={}, addr={}",
-            transport.transport_type(),
+            transport.protocol(),
             target
         );
 
@@ -403,7 +431,14 @@ impl Endpoint {
     }
 
     pub(crate) fn receive_transport_message(&self, message: TransportMessage) {
-        tokio::spawn(self.clone().process_transport_message(message));
+        tokio::spawn({
+            let endpoint = self.clone();
+            async move {
+                if let Err(err) = endpoint.process_transport_message(message).await {
+                    log::error!("Error on process transport message: {}", err);
+                }
+            }
+        });
     }
 
     async fn process_transport_message(self, message: TransportMessage) -> Result<()> {
@@ -489,30 +524,27 @@ impl Endpoint {
         );
 
         let msg = match self.inner.transaction {
-            Some(ref tsx_layer) => tsx_layer.handle_response(msg),
+            Some(ref tsx_layer) => tsx_layer.handle_response(msg).await,
             None => Some(msg),
         };
 
+        if let Some(msg) = msg {
+            log::info!(
+                "Response ({} {}) from /{} was unhandled",
+                msg.message.status_line.code.as_u16(),
+                msg.message.status_line.reason.phrase_str(),
+                msg.info.transport.packet.source
+            );
+        }
         Ok(())
-        // if handled_by_tsx_layer {
-        //     return Ok(());
-        // } else {
-        //     log::info!(
-        //         "Response ({} {}) from /{} was unhandled by any sevice",
-        //         msg.message.status_line.code.as_u16(),
-        //         msg.message.status_line.reason.phrase_str(),
-        //         msg.info.received_packet.packet.source
-        //     );
-        //     return Ok(());
-        // }
     }
 
-    pub(crate) fn dispatch_to_server_transaction(
+    pub(crate) async fn dispatch_to_server_transaction(
         &self,
         request: IncomingRequest,
     ) -> Option<IncomingRequest> {
         match self.inner.transaction {
-            Some(ref tsx_layer) => tsx_layer.handle_incoming_request(request),
+            Some(ref tsx_layer) => tsx_layer.handle_incoming_request(request).await,
             None => Some(request),
         }
     }
@@ -525,7 +557,7 @@ impl Endpoint {
         );
 
         let msg = match self.inner.transaction {
-            Some(ref tsx_layer) => tsx_layer.handle_incoming_request(request),
+            Some(ref tsx_layer) => tsx_layer.handle_incoming_request(request).await,
             None => Some(request),
         };
 

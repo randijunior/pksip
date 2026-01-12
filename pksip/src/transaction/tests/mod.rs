@@ -1,28 +1,36 @@
-use std::time::Duration;
+use std::{time::Duration};
 
 use bytes::Bytes;
 use tokio::{
-    sync::{mpsc, watch},
-    time::{self, timeout},
+    sync::{watch},
+    time::{timeout},
 };
 
 use crate::{
     Endpoint,
     endpoint::EndpointBuilder,
     headers,
-    message::{MandatoryHeaders, Method, Request, headers::Header},
-    transaction::{ClientTransaction, TransactionMessage},
+    message::{MandatoryHeaders, Method, Request, headers::{Header, MaxForwards}},
+    transaction::TransactionMessage,
     transport::{
-        IncomingMessageInfo, IncomingRequest, Packet, Transport, TransportMessage,
-        mock::MockTransport,
+        IncomingMessageInfo, IncomingRequest,  Packet, Transport,
+        TransportMessage, mock::MockTransport,
     },
 };
 
-use super::{ServerTransaction, TransactionState};
+use super::fsm::{self};
 
 mod server;
 
 mod client;
+
+const STATUS_CODE_100_TRYING: u16 = 100;
+const STATUS_CODE_180_RINGING: u16 = 180;
+const STATUS_CODE_202_ACCEPTED: u16 = 202;
+const STATUS_CODE_301_MOVED_PERMANENTLY: u16 = 301;
+const STATUS_CODE_404_NOT_FOUND: u16 = 404;
+const STATUS_CODE_504_SERVER_TIMEOUT: u16 = 504;
+const STATUS_CODE_603_DECLINE: u16 = 603;
 
 const TEST_FROM_STR: &str = "Alice <sip:alice@localhost>;tag=1928301774";
 const TEST_TO_STR: &str = "Bob <sip:bob@localhost>";
@@ -40,33 +48,36 @@ macro_rules! assert_state_eq {
     }};
 }
 
-async fn wait_state_change(state: &mut watch::Receiver<super::TransactionState>) {
+async fn wait_state_change(state: &mut watch::Receiver<fsm::State>) {
     timeout(Duration::from_secs(1), state.changed())
         .await
         .expect("timeout reached and no state change received")
         .expect("The channel has been closed");
 }
 
-fn new_test_request(method: Method, transport: Option<Transport>) -> IncomingRequest {
+fn create_test_request(method: Method, transport: Option<Transport>) -> IncomingRequest {
     let transport = transport.unwrap_or(Transport::new(MockTransport::new_udp()));
+    let headers = headers! {
+        Header::Via(format!(
+            "SIP/2.0/UDP localhost:5060;branch={}",
+            crate::generate_branch(None)
+        ).parse().unwrap()),
+        Header::From(TEST_FROM_STR.parse().unwrap()),
+        Header::To(TEST_TO_STR.parse().unwrap()),
+        Header::CallId("a84b4c76e66710@pc33.atlanta.com".parse().unwrap()),
+        Header::CSeq(format!("1 {}", method).parse().unwrap()),
+        Header::MaxForwards(MaxForwards::new(70))
+    };
+    let mandatory_headers =  MandatoryHeaders::try_from(&headers)
+    .unwrap();
     IncomingRequest {
-        message: Request::new(method, "sip:localhost".parse().unwrap()),
+        message: Request::with_headers(method, "sip:localhost".parse().unwrap(), headers),
         info: Box::new(IncomingMessageInfo::new(
             TransportMessage {
                 packet: Packet::new(Bytes::new(), transport.local_addr()),
                 transport,
             },
-            MandatoryHeaders::try_from(&headers! {
-                Header::Via(format!(
-                    "SIP/2.0/UDP localhost:5060;branch={}",
-                    crate::generate_branch(None)
-                ).parse().unwrap()),
-                Header::From(TEST_FROM_STR.parse().unwrap()),
-                Header::To(TEST_TO_STR.parse().unwrap()),
-                Header::CallId("a84b4c76e66710@pc33.atlanta.com".parse().unwrap()),
-                Header::CSeq(format!("1 {}", method).parse().unwrap()),
-            })
-            .unwrap(),
+           mandatory_headers,
         )),
     }
 }
@@ -75,7 +86,7 @@ fn create_test_endpoint_and_request(
     method: Method,
     transport: Option<MockTransport>,
 ) -> (Endpoint, IncomingRequest) {
-    let request = new_test_request(method, transport.map(Transport::new));
+    let request = create_test_request(method, transport.map(Transport::new));
     let endpoint = EndpointBuilder::new()
         .add_transaction(Default::default())
         .build();
@@ -83,97 +94,4 @@ fn create_test_endpoint_and_request(
     (endpoint, request)
 }
 
-fn create_server_transaction(
-    method: Method,
-    transport: Option<MockTransport>,
-) -> (ServerTransaction, watch::Receiver<super::TransactionState>) {
-    let request = new_test_request(method, transport.map(Transport::new));
-    let endpoint = EndpointBuilder::new()
-        .add_transaction(Default::default())
-        .build();
 
-    let mut server_tsx = endpoint.create_server_transaction(request).unwrap();
-    let state = server_tsx.subscribe_state();
-
-    (server_tsx, state)
-}
-
-struct MockTransactionTx {
-    sender: mpsc::UnboundedSender<super::TransactionMessage>,
-    msg: TransactionMessage,
-}
-
-impl MockTransactionTx {
-    pub async fn retransmit_to_transaction(&self) {
-        self.sender.send(self.msg.clone()).unwrap();
-        tokio::task::yield_now().await;
-    }
-
-    pub async fn retransmit_n_times(&self, n: usize) {
-        for _ in 0..n {
-            self.retransmit_to_transaction().await;
-        }
-    }
-
-    pub async fn send_ack_request(&mut self) {
-        self.request_mut().unwrap().message.req_line.method = Method::Ack;
-        self.retransmit_to_transaction().await
-    }
-
-    pub fn request_mut(&mut self) -> Option<&mut IncomingRequest> {
-        if let TransactionMessage::Request(ref mut incoming) = self.msg {
-            Some(incoming)
-        } else {
-            None
-        }
-    }
-}
-
-fn setup_test_server_retransmission(
-    method: Method,
-) -> (MockTransactionTx, MockTransport, ServerTransaction) {
-    let transport = MockTransport::new_udp();
-    let transport_clone = transport.clone();
-
-    let (endpoint, request) = create_test_endpoint_and_request(method, transport_clone.into());
-    let server = endpoint.create_server_transaction(request.clone()).unwrap();
-
-    let entry = endpoint
-        .transactions()
-        .get_entry(server.transaction_key())
-        .unwrap();
-
-    let sender = MockTransactionTx {
-        sender: entry,
-        msg: TransactionMessage::Request(request),
-    };
-
-    (sender, transport, server)
-}
-
-fn setup_test_server_state_reliable(
-    method: Method,
-) -> (ServerTransaction, watch::Receiver<TransactionState>) {
-    create_server_transaction(method, Some(MockTransport::new_tcp()))
-}
-
-fn setup_test_server_state_unreliable(
-    method: Method,
-) -> (ServerTransaction, watch::Receiver<TransactionState>) {
-    create_server_transaction(method, Some(MockTransport::new_udp()))
-}
-
-fn setup_test_server_receive_ack() -> (
-    MockTransactionTx,
-    watch::Receiver<TransactionState>,
-    ServerTransaction,
-) {
-    let (sender, _, mut server) = setup_test_server_retransmission(Method::Invite);
-
-    (sender, server.subscribe_state(), server)
-}
-
-
-fn setup_client_state_reliable(method: Method) -> ClientTransaction {
-    todo!()
-}

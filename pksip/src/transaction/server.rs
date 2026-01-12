@@ -5,13 +5,12 @@ use crate::{
     endpoint::Endpoint,
     error::{Result, TransactionError},
     message::{ReasonPhrase, SipMessageBody, StatusCode, headers::Headers},
-    transaction::T2,
+    transaction::{PeekableReceiver, T2, fsm::{self, State, StateMachine}},
     transport::{IncomingRequest, OutgoingResponse},
 };
 
 use super::{
     T1, T4, TransactionMessage,
-    TransactionState::{self, *},
     manager::TransactionKey,
 };
 
@@ -27,10 +26,9 @@ use tokio_util::either::Either;
 pub struct ServerTransaction {
     key: TransactionKey,
     endpoint: Endpoint,
-    state: TransactionState,
+    state: StateMachine,
     request: IncomingRequest,
-    receiver: Option<mpsc::UnboundedReceiver<TransactionMessage>>,
-    state_change_notifier: Option<watch::Sender<TransactionState>>,
+    receiver: Option<mpsc::Receiver<TransactionMessage>>,
     proceeding_state_task: Option<ProceedingStateTask>,
 }
 
@@ -39,7 +37,7 @@ impl ServerTransaction {
         if let Method::Ack = request.req_line.method {
             return Err(TransactionError::AckCannotCreateTransaction.into());
         }
-        let (main_tx, main_rx) = mpsc::unbounded_channel();
+        let (main_tx, main_rx) = mpsc::channel(10);
         let key = TransactionKey::from_request(&request);
 
         endpoint
@@ -50,27 +48,18 @@ impl ServerTransaction {
             endpoint: endpoint.clone(),
             key,
             request,
-            state: Initial,
-            state_change_notifier: None,
+            state: StateMachine::new(State::Initial),
             proceeding_state_task: None,
             receiver: Some(main_rx),
         })
     }
 
-    /// Subscribe to transaction state changes
-    ///
-    /// Returns a watch::Receiver that can be used to monitor state changes
-    pub fn subscribe_state(&mut self) -> watch::Receiver<TransactionState> {
-        match self.state_change_notifier {
-            Some(ref state) => state.subscribe(),
-            None => {
-                let (sender, recv) = watch::channel(self.state);
+    pub fn state_machine(&self) -> &StateMachine {
+        &self.state
+    }
 
-                self.state_change_notifier = Some(sender);
-
-                recv
-            }
-        }
+    pub fn state_machine_mut(&mut self) -> &mut StateMachine {
+        &mut self.state
     }
 
     pub async fn respond_with_provisional_code(
@@ -89,12 +78,12 @@ impl ServerTransaction {
     ) -> Result<()> {
         let code = StatusCode::try_new_provisional(code)?;
 
-        let mut response = self.endpoint.new_response(&self.request, code, phrase);
+        let mut response = self.endpoint.create_response(&self.request, code, phrase);
 
         self.endpoint.send_outgoing_response(&mut response).await?;
 
-        if self.state != Proceeding {
-            self.set_state(Proceeding);
+        if self.state.state() != State::Proceeding {
+            self.state.set_state(State::Proceeding);
         }
 
         if let Some(ref mut task) = self.proceeding_state_task {
@@ -109,7 +98,7 @@ impl ServerTransaction {
 
         let (tu_provisional_tx, mut tu_provisional_receiver) = mpsc::unbounded_channel();
 
-        let mut state_rx = self.subscribe_state();
+        let mut state_rx = self.state.subscribe_state();
 
         let proceeding_state_task = tokio::spawn(async move {
             loop {
@@ -161,7 +150,7 @@ impl ServerTransaction {
             return Err(TransactionError::InvalidFinalStatusCode.into());
         }
 
-        let mut response = self.endpoint.new_response(&self.request, code, phrase);
+        let mut response = self.endpoint.create_response(&self.request, code, phrase);
 
         if let Some(aditional_headers) = headers {
             response.message.headers.extend(aditional_headers);
@@ -175,11 +164,11 @@ impl ServerTransaction {
 
         if self.request.message.req_line.method == Method::Invite {
             if let 200..299 = code.as_u16() {
-                self.set_state(Terminated);
+                self.state.set_state(State::Terminated);
                 return Ok(());
             }
             // 300-699 from TU send response --> Completed
-            self.set_state(Completed);
+            self.state.set_state(State::Completed);
 
             let mut receiver = if let Some(task) = self.proceeding_state_task.take() {
                 task.proceeding_state_task.await.unwrap()
@@ -217,14 +206,14 @@ impl ServerTransaction {
                         }
                         _ = timer_h.as_mut() => {
                             // Timeout
-                            self.set_state(Terminated);
+                            self.state.set_state(State::Terminated);
                             return;
                         }
                          Some(TransactionMessage::Request(req)) = receiver.recv() => {
                             if req.message.req_line.method.is_ack() {
-                                self.set_state(Confirmed);
+                                self.state.set_state(State::Confirmed);
                                 sleep(T4).await;
-                                self.set_state(Terminated);
+                                self.state.set_state(State::Terminated);
                                 return;
                             }
                             let _res =  self.endpoint
@@ -236,10 +225,10 @@ impl ServerTransaction {
             });
         } else {
             // 200-699 from TU send response --> Completed
-            self.set_state(Completed);
+            self.state.set_state(State::Completed);
 
             if self.is_reliable() {
-                self.set_state(Terminated);
+                self.state.set_state(State::Terminated);
                 return Ok(());
             }
 
@@ -255,7 +244,7 @@ impl ServerTransaction {
                 while let Ok(Some(_)) = timeout_at(timer_j, receiver.recv()).await {
                     let _result = self.endpoint.send_outgoing_response(&mut response).await;
                 }
-                self.set_state(Terminated);
+                self.state.set_state(State::Terminated);
             });
         }
 
@@ -264,24 +253,6 @@ impl ServerTransaction {
 
     pub fn transaction_key(&self) -> &TransactionKey {
         &self.key
-    }
-
-    #[inline(always)]
-    fn borrow_state_notifier(&self) -> Option<&watch::Sender<TransactionState>> {
-        self.state_change_notifier.as_ref()
-    }
-
-    #[inline(always)]
-    fn notify_state_change(&self, state: TransactionState) {
-        if let Some(sender) = self.borrow_state_notifier() {
-            let _result = sender.send(state);
-        }
-    }
-
-    fn set_state(&mut self, state: TransactionState) {
-        self.state = state;
-
-        self.notify_state_change(state);
     }
 
     fn is_reliable(&self) -> bool {
@@ -296,6 +267,6 @@ impl Drop for ServerTransaction {
 }
 
 struct ProceedingStateTask {
-    proceeding_state_task: tokio::task::JoinHandle<mpsc::UnboundedReceiver<TransactionMessage>>,
+    proceeding_state_task: tokio::task::JoinHandle<mpsc::Receiver<TransactionMessage>>,
     tu_provisional_tx: mpsc::UnboundedSender<OutgoingResponse>,
 }

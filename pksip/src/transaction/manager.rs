@@ -6,7 +6,7 @@ use tokio::sync::{
     oneshot,
 };
 
-use crate::{Method, RFC3261_BRANCH_ID, message::HostPort};
+use crate::{Method, RFC3261_BRANCH_ID, message::{HostPort, MandatoryHeaders}, transport::IncomingMessageInfo};
 use crate::{
     transport::{IncomingRequest, IncomingResponse},
 };
@@ -21,13 +21,20 @@ pub enum TransactionKey {
 
 impl TransactionKey {
     pub fn from_request(request: &IncomingRequest) -> Self {
-        let info = &request.info;
+        Self::from_incoming_info(&request.info, Role::UAS)
+    }
+
+    pub fn from_response(response: &IncomingResponse) -> Self {
+       Self::from_incoming_info(&response.info, Role::UAC)
+    }
+
+    fn from_incoming_info(info: &IncomingMessageInfo, role: Role) -> Self {
         match info.mandatory_headers.via.branch {
             Some(ref branch) if branch.starts_with(RFC3261_BRANCH_ID) => {
                 let branch = branch.clone();
                 let method = info.mandatory_headers.cseq.method;
 
-                Self::new_key_3261(Role::UAS, method, branch)
+                Self::new_key_3261(role, method, branch)
             }
             _ => {
                 todo!("create rfc 2543")
@@ -67,18 +74,18 @@ pub struct Rfc3261 {
     method: Option<Method>,
 }
 
-type TransactionEntry = mpsc::UnboundedSender<TransactionMessage>;
+type TransactionChannel = mpsc::Sender<TransactionMessage>;
 
 /// This type holds all server and client Transactions created by the TU (Transaction User).
 #[derive(Default)]
 pub struct TransactionManager {
-    transactions: Mutex<HashMap<TransactionKey, TransactionEntry>>,
+    transactions: Mutex<HashMap<TransactionKey, TransactionChannel>>,
 }
 
 impl TransactionManager {
     /// Add an transaction in the collection.
     #[inline]
-    pub(crate) fn add_transaction(&self, key: TransactionKey, entry: TransactionEntry) {
+    pub(crate) fn add_transaction(&self, key: TransactionKey, entry: TransactionChannel) {
         let mut map = self.transactions.lock().expect("Lock failed");
 
         map.insert(key, entry);
@@ -92,7 +99,7 @@ impl TransactionManager {
     }
 
     #[inline]
-    pub(crate) fn get_entry(&self, key: &TransactionKey) -> Option<TransactionEntry> {
+    pub(crate) fn get_entry(&self, key: &TransactionKey) -> Option<TransactionChannel> {
         let map = self.transactions.lock().expect("Lock failed");
 
         map.get(key).cloned()
@@ -100,7 +107,12 @@ impl TransactionManager {
 
 
 
-    pub(crate) fn handle_response(&self, response: IncomingResponse) -> Option<IncomingResponse> {
+    pub(crate) async fn handle_response(&self, response: IncomingResponse) -> Option<IncomingResponse> {
+        let key = TransactionKey::from_response(&response);
+        let Some(channel) = self.get_entry(&key) else {
+            return Some(response);
+        };
+        let _res = channel.send(TransactionMessage::Response(response)).await;
         // let mandatory = &response.info.mandatory_headers;
 
         // let method = mandatory.cseq.method;
@@ -116,18 +128,16 @@ impl TransactionManager {
         None
     }
 
-    pub(crate) fn handle_incoming_request(
+    pub(crate) async fn handle_incoming_request(
         &self,
         request: IncomingRequest,
     ) -> Option<IncomingRequest> {
         let key = TransactionKey::from_request(&request);
-
-        let map = self.transactions.lock().expect("Lock failed");
-
-        let Some(channel) = map.get(&key) else {
+        
+        let Some(channel) = self.get_entry(&key) else {
             return Some(request);
         };
-        let _res = channel.send(TransactionMessage::Request(request));
+        let _res = channel.send(TransactionMessage::Request(request)).await;
         None
     }
 }

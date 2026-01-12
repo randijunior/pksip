@@ -78,7 +78,7 @@ impl SipTransport for UdpTransport {
         None
     }
 
-    fn transport_type(&self) -> TransportType {
+    fn protocol(&self) -> TransportType {
         TransportType::Udp
     }
 
