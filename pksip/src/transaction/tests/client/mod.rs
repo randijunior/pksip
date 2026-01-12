@@ -19,9 +19,6 @@ mod invite;
 // ===== client non invite tests =====
 mod non_invite;
 
-const PROVISIONAL_1XX_STATUS_CODE: u16 = 100;
-const FINAL_NON_2XX_STATUS_CODE: u16 = 301;
-
 struct MockServerTransaction {
     sender: mpsc::Sender<TransactionMessage>,
     request: IncomingRequest,
@@ -150,10 +147,15 @@ async fn setup_test_retransmission(
         .await
         .unwrap();
 
+    let expected_state = if method == Method::Invite {
+        fsm::State::Calling
+    } else {
+        fsm::State::Trying
+    };
     assert_eq!(
         client.state(),
-        fsm::State::Calling,
-        "Transaction state should transition to Calling after sending request"
+        expected_state,
+        "Transaction state should transition to {expected_state} after sending request"
     );
 
     let sender = endpoint

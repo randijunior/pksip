@@ -368,7 +368,7 @@ impl StatusCode {
 
         Ok(code)
     }
-    
+
     pub fn try_new(code: impl TryInto<StatusCode>) -> Result<Self, crate::Error> {
         code.try_into().map_err(|_| crate::Error::InvalidStatusCode)
     }

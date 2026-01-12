@@ -6,9 +6,11 @@ use tokio::sync::{
     oneshot,
 };
 
-use crate::{Method, RFC3261_BRANCH_ID, message::{HostPort, MandatoryHeaders}, transport::IncomingMessageInfo};
+use crate::transport::{IncomingRequest, IncomingResponse};
 use crate::{
-    transport::{IncomingRequest, IncomingResponse},
+    Method, RFC3261_BRANCH_ID,
+    message::{HostPort, MandatoryHeaders},
+    transport::IncomingMessageInfo,
 };
 
 use super::{Role, TransactionMessage};
@@ -25,7 +27,7 @@ impl TransactionKey {
     }
 
     pub fn from_response(response: &IncomingResponse) -> Self {
-       Self::from_incoming_info(&response.info, Role::UAC)
+        Self::from_incoming_info(&response.info, Role::UAC)
     }
 
     fn from_incoming_info(info: &IncomingMessageInfo, role: Role) -> Self {
@@ -105,9 +107,10 @@ impl TransactionManager {
         map.get(key).cloned()
     }
 
-
-
-    pub(crate) async fn handle_response(&self, response: IncomingResponse) -> Option<IncomingResponse> {
+    pub(crate) async fn handle_response(
+        &self,
+        response: IncomingResponse,
+    ) -> Option<IncomingResponse> {
         let key = TransactionKey::from_response(&response);
         let Some(channel) = self.get_entry(&key) else {
             return Some(response);
@@ -133,7 +136,7 @@ impl TransactionManager {
         request: IncomingRequest,
     ) -> Option<IncomingRequest> {
         let key = TransactionKey::from_request(&request);
-        
+
         let Some(channel) = self.get_entry(&key) else {
             return Some(request);
         };

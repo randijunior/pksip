@@ -1,5 +1,5 @@
-use crate::SipMessageParser;
 use crate::Result;
+use crate::SipMessageParser;
 use crate::message::Scheme;
 use crate::message::Uri;
 use crate::message::UserInfo;

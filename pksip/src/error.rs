@@ -131,7 +131,6 @@ pub enum TransactionError {
     #[error("Failed to send request: {0}")]
     FailedToSendMessage(String),
     #[error("Timeout reached after send message")]
-    Timeout
-    //     #[error("The transaction is no longer valid")]
-    // Invalid,
+    Timeout, //     #[error("The transaction is no longer valid")]
+             // Invalid,
 }

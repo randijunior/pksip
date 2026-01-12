@@ -5,14 +5,14 @@ use crate::{
     endpoint::Endpoint,
     error::{Result, TransactionError},
     message::{ReasonPhrase, SipMessageBody, StatusCode, headers::Headers},
-    transaction::{PeekableReceiver, T2, fsm::{self, State, StateMachine}},
+    transaction::{
+        PeekableReceiver, T2,
+        fsm::{self, State, StateMachine},
+    },
     transport::{IncomingRequest, OutgoingResponse},
 };
 
-use super::{
-    T1, T4, TransactionMessage,
-    manager::TransactionKey,
-};
+use super::{T1, T4, TransactionMessage, manager::TransactionKey};
 
 use tokio::{
     sync::{

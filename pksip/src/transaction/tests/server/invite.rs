@@ -110,7 +110,7 @@ async fn server_transaction_must_cease_retransmission_when_receive_ack() {
     tokio::time::sleep(interval).await;
     interval = T2;
     tokio::time::sleep(interval).await;
-    
+
     tokio::task::yield_now().await;
 
     assert_eq!(
@@ -180,7 +180,7 @@ async fn test_timer_g_for_invite_server_transaction() {
         .respond_with_final_code(super::FINAL_NON_2XX_STATUS_CODE)
         .await
         .expect("transaction should send final response with the provided code");
-    
+
     tokio::time::sleep(interval).await;
     interval *= 2;
     tokio::time::sleep(interval).await;

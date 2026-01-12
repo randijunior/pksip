@@ -21,7 +21,9 @@ pub mod headers;
 use headers::{CSeq, CallId, From as FromHeader, Header, Headers, To, Via};
 
 use crate::{
-    error::{Error, Result}, message::headers::MaxForwards, parser::HeaderParser
+    error::{Error, Result},
+    message::headers::MaxForwards,
+    parser::HeaderParser,
 };
 
 mod auth;

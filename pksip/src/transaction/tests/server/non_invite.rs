@@ -93,9 +93,7 @@ async fn retransmit_provisional_response_in_proceeding_state() {
         .await
         .expect("transaction should send provisional response with the provided code");
 
-    channel
-        .retransmit_n_times(expected_retrans_count)
-        .await;
+    channel.retransmit_n_times(expected_retrans_count).await;
 
     assert_eq!(
         transport.sent_count(),
@@ -114,9 +112,7 @@ async fn server_must_retransmit_final_2xx_response() {
         .await
         .expect("transaction should send final response with the provided code");
 
-    channel
-        .retransmit_n_times(expected_retrans_count)
-        .await;
+    channel.retransmit_n_times(expected_retrans_count).await;
 
     assert_eq!(
         transport.sent_count(),

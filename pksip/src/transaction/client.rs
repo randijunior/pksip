@@ -18,9 +18,7 @@ use crate::{
 
 use super::{T1, T4, TransactionMessage};
 use tokio::{
-    sync::{
-        mpsc::{self},
-    },
+    sync::mpsc::{self},
     time::{Instant, timeout, timeout_at},
 };
 
@@ -129,7 +127,9 @@ impl ClientTransaction {
 
     pub async fn receive_provisional_response(&mut self) -> Result<Option<IncomingResponse>> {
         match self.state_machine.state() {
-            State::Trying | State::Calling if !self.request.send_info.transport.is_reliable() => {
+            State::Initial | State::Calling | State::Trying
+                if !self.request.send_info.transport.is_reliable() =>
+            {
                 let mut retrans_interval = T1;
                 loop {
                     let timer = self.timeout.into();
@@ -156,8 +156,7 @@ impl ClientTransaction {
                     }
                 }
             }
-            State::Initial => {}
-            State::Calling => {
+            State::Initial | State::Calling | State::Trying => {
                 match timeout_at(self.timeout.into(), self.recv_provisional_msg()).await {
                     Ok(Some(msg)) => {
                         self.state_machine.set_state(State::Proceeding);
@@ -170,7 +169,6 @@ impl ClientTransaction {
                     }
                 }
             }
-            State::Trying => todo!(),
             State::Proceeding => {
                 // TODO: Add Timeout
                 return Ok(self.recv_provisional_msg().await);

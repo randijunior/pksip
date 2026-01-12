@@ -11,9 +11,9 @@ use tokio::sync::mpsc;
 use crate::transport::{IncomingRequest, IncomingResponse};
 
 pub(crate) mod client;
+pub(crate) mod fsm;
 pub(crate) mod manager;
 pub(crate) mod server;
-pub(crate) mod fsm;
 
 #[cfg(test)]
 mod tests;
@@ -33,8 +33,6 @@ pub(crate) const T2: Duration = Duration::from_secs(4);
 /// Maximum duration that a message may remain in the network before being discarded.
 pub(crate) const T4: Duration = Duration::from_secs(5);
 
-
-
 #[derive(Clone)]
 pub enum TransactionMessage {
     Request(IncomingRequest),
@@ -43,7 +41,7 @@ pub enum TransactionMessage {
 
 struct PeekableReceiver<T> {
     rx: mpsc::Receiver<T>,
-    peeked: Option<T>
+    peeked: Option<T>,
 }
 
 impl<T> From<mpsc::Receiver<T>> for PeekableReceiver<T> {
@@ -78,9 +76,7 @@ impl<T> PeekableReceiver<T> {
 
     pub async fn recv_if(&mut self, func: impl FnOnce(&T) -> bool) -> Option<T> {
         match self.peek().await {
-            Some(matched) if func(matched) => {
-                self.peeked.take()
-            }
+            Some(matched) if func(matched) => self.peeked.take(),
             _ => None,
         }
     }

@@ -1,20 +1,20 @@
-use std::{time::Duration};
+use std::time::Duration;
 
 use bytes::Bytes;
-use tokio::{
-    sync::{watch},
-    time::{timeout},
-};
+use tokio::{sync::watch, time::timeout};
 
 use crate::{
     Endpoint,
     endpoint::EndpointBuilder,
     headers,
-    message::{MandatoryHeaders, Method, Request, headers::{Header, MaxForwards}},
+    message::{
+        MandatoryHeaders, Method, Request,
+        headers::{Header, MaxForwards},
+    },
     transaction::TransactionMessage,
     transport::{
-        IncomingMessageInfo, IncomingRequest,  Packet, Transport,
-        TransportMessage, mock::MockTransport,
+        IncomingMessageInfo, IncomingRequest, Packet, Transport, TransportMessage,
+        mock::MockTransport,
     },
 };
 
@@ -68,8 +68,7 @@ fn create_test_request(method: Method, transport: Option<Transport>) -> Incoming
         Header::CSeq(format!("1 {}", method).parse().unwrap()),
         Header::MaxForwards(MaxForwards::new(70))
     };
-    let mandatory_headers =  MandatoryHeaders::try_from(&headers)
-    .unwrap();
+    let mandatory_headers = MandatoryHeaders::try_from(&headers).unwrap();
     IncomingRequest {
         message: Request::with_headers(method, "sip:localhost".parse().unwrap(), headers),
         info: Box::new(IncomingMessageInfo::new(
@@ -77,7 +76,7 @@ fn create_test_request(method: Method, transport: Option<Transport>) -> Incoming
                 packet: Packet::new(Bytes::new(), transport.local_addr()),
                 transport,
             },
-           mandatory_headers,
+            mandatory_headers,
         )),
     }
 }
@@ -93,5 +92,3 @@ fn create_test_endpoint_and_request(
 
     (endpoint, request)
 }
-
-

@@ -29,27 +29,10 @@ async fn transitions_to_calling_when_request_sent() {
         .await
         .expect("failure sending request");
 
-    assert_eq!(client.state(), fsm::State::Calling, "client state mismatch");
-}
-
-#[tokio::test(start_paused = true)]
-async fn should_send_seven_requests_before_timeout_in_calling_state() {
-    let (_server, mut client, transport) = setup_test_retransmission(Method::Invite).await;
-    let expected_requests = 1;
-    let expected_retrans = 6;
-
-    let opt_err = client.receive_provisional_response().await.err();
-
-    assert_matches!(
-        opt_err,
-        Some(Error::TransactionError(TransactionError::Timeout)),
-        "Expected TransactionError::Timeout, got {opt_err:?}"
-    );
-
     assert_eq!(
-        transport.sent_count(),
-        expected_requests + expected_retrans,
-        "sent count should match {expected_requests} requests and {expected_retrans} retransmissions"
+        client.state(),
+        fsm::State::Calling,
+        "It must transition to the calling state after initiating a new transaction and sending the request."
     );
 }
 
@@ -289,7 +272,11 @@ async fn transitions_from_proceeding_to_completed_when_receiving_3xx_response() 
         .await
         .expect("Error receiving final response");
 
-    assert_state_eq!(state, fsm::State::Completed);
+    assert_state_eq!(
+        state,
+        fsm::State::Completed,
+        "should transition to Completed after receiving 3xx response"
+    );
 }
 
 #[tokio::test]
@@ -303,7 +290,11 @@ async fn transitions_from_proceeding_to_completed_when_receiving_4xx_response() 
         .await
         .expect("Error receiving final response");
 
-    assert_state_eq!(state, fsm::State::Completed);
+    assert_state_eq!(
+        state,
+        fsm::State::Completed,
+        "should transition to Completed after receiving 4xx response"
+    );
 }
 
 #[tokio::test]
