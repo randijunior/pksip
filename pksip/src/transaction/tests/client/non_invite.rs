@@ -332,3 +332,24 @@ async fn should_pass_provisional_responses_to_tu_in_proceeding_state() {
         "should match 180 status code"
     );
 }
+
+#[tokio::test(start_paused = true)]
+async fn transitions_from_completed_to_terminated_when_timer_k_fires() {
+    let (server, client, mut state) = setup_test_recv_final_response(Method::Invite).await;
+
+    server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
+
+    client
+        .receive_final_response()
+        .await
+        .expect("Error receiving final response");
+
+    tokio::time::advance(64 * T1).await;
+    tokio::task::yield_now().await;
+
+    assert_state_eq!(
+        state,
+        fsm::State::Terminated,
+        "should transition to Terminated after timer d fires"
+    );
+ }
