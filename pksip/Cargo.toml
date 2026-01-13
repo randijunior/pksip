@@ -5,16 +5,9 @@ edition = "2024"
 
 [dependencies]
 util.workspace = true
+tokio.workspace = true
 itertools = "0.13.0"
 async-trait = "0.1.83"
-tokio = { version = "1.41.1", features = [
-    "net",
-    "rt-multi-thread",
-    "sync",
-    "macros",
-    "time",
-    "test-util",
-] }
 enum-as-inner = "0.6.1"
 log = "0.4.26"
 tracing = "0.1.41"

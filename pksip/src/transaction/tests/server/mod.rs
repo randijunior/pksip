@@ -7,7 +7,6 @@ use crate::{
     transport::{IncomingRequest, Transport, mock::MockTransport},
 };
 
-const FINAL_2XX_STATUS_CODE: u16 = 202;
 const FINAL_NON_2XX_STATUS_CODE: u16 = 301;
 const PROVISIONAL_1XX_STATUS_CODE: u16 = 182;
 
@@ -25,7 +24,7 @@ fn create_server_transaction(
         .add_transaction(Default::default())
         .build();
 
-    let mut server_tsx = endpoint.create_server_transaction(request).unwrap();
+    let mut server_tsx = ServerTransaction::from_request(request, &endpoint).unwrap();
     let state = server_tsx.state_machine_mut().subscribe_state();
 
     (server_tsx, state)
@@ -69,7 +68,7 @@ fn setup_test_server_retransmission(
     let transport_clone = transport.clone();
 
     let (endpoint, request) = create_test_endpoint_and_request(method, transport_clone.into());
-    let server = endpoint.create_server_transaction(request.clone()).unwrap();
+    let server = ServerTransaction::from_request(request.clone(), &endpoint).unwrap();
 
     let sender = endpoint
         .transactions()

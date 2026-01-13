@@ -1,6 +1,6 @@
 use crate::{
     Method, assert_state_eq,
-    transaction::{T1, fsm},
+    transaction::{fsm, tests::STATUS_CODE_202_ACCEPTED},
 };
 
 use super::{
@@ -45,7 +45,7 @@ async fn reliable_transition_to_terminated_immediately_after_2xx_from_tu() {
     let (server_tsx, mut tsx_state) = setup_test_server_state_reliable(Method::Options);
 
     server_tsx
-        .respond_with_final_code(super::FINAL_2XX_STATUS_CODE)
+        .respond_with_final_code(STATUS_CODE_202_ACCEPTED)
         .await
         .expect("transaction should send final response with the provided code");
 
@@ -108,7 +108,7 @@ async fn server_must_retransmit_final_2xx_response() {
     let expected_retrans_count = 2;
 
     server_tsx
-        .respond_with_final_code(super::FINAL_2XX_STATUS_CODE)
+        .respond_with_final_code(STATUS_CODE_202_ACCEPTED)
         .await
         .expect("transaction should send final response with the provided code");
 
@@ -125,7 +125,7 @@ async fn timer_j() {
     let (server_tsx, mut tsx_state) = setup_test_server_state_unreliable(Method::Bye);
 
     server_tsx
-        .respond_with_final_code(super::FINAL_2XX_STATUS_CODE)
+        .respond_with_final_code(STATUS_CODE_202_ACCEPTED)
         .await
         .expect("transaction should send final response with the provided code");
 
@@ -135,7 +135,7 @@ async fn timer_j() {
         "transaction must not terminate immediately when unreliable transport is used"
     );
 
-    tokio::time::sleep(T1 * 64).await;
+    tokio::time::sleep(crate::transaction::T1 * 64).await;
 
     assert_state_eq!(
         tsx_state,

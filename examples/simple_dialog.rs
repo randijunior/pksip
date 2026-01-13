@@ -9,7 +9,7 @@ use pksip::{
         Method, StatusCode,
         headers::{Header, Headers},
     },
-    transaction::TransactionManager,
+    transaction::{ServerTransaction, TransactionManager},
     transport::IncomingRequest,
 };
 use tracing::Level;
@@ -39,7 +39,7 @@ impl EndpointHandler for SimpleDialogHandler {
             } else {
                 None
             };
-            let server_tx = endpoint.create_server_transaction(request)?;
+            let server_tx = ServerTransaction::from_request(request, endpoint)?;
 
             server_tx
                 .send_final_response(200, None, new_header, None)

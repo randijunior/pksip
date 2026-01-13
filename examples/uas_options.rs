@@ -1,7 +1,10 @@
 use std::{error::Error, time::Duration};
 
 use async_trait::async_trait;
-use pksip::{Endpoint, EndpointHandler, message::Method, transport::IncomingRequest};
+use pksip::{
+    Endpoint, EndpointHandler, message::Method, transaction::ServerTransaction,
+    transport::IncomingRequest,
+};
 use tokio::time;
 use tracing::Level;
 
@@ -11,7 +14,7 @@ pub struct UasOptionsHandler;
 impl EndpointHandler for UasOptionsHandler {
     async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
         if request.req_line.method == Method::Options {
-            let server_tx = endpoint.create_server_transaction(request)?;
+            let server_tx = ServerTransaction::from_request(request, endpoint)?;
 
             server_tx.respond_with_final_code(200).await?;
 

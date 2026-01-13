@@ -92,3 +92,23 @@ fn create_test_endpoint_and_request(
 
     (endpoint, request)
 }
+
+struct TestRetransmissionTimer {
+    interval: Duration,
+}
+
+impl TestRetransmissionTimer {
+    pub fn new() -> Self {
+        Self {
+            interval: super::T1,
+        }
+    }
+
+    pub async fn wait_for_retransmissions(&mut self, n: usize) {
+        for _ in 0..n {
+            tokio::time::sleep(self.interval).await;
+            self.interval = std::cmp::min(self.interval * 2, super::T2);
+            tokio::task::yield_now().await;
+        }
+    }
+}

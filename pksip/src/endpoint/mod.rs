@@ -206,10 +206,6 @@ impl Endpoint {
         }
     }
 
-    pub fn create_server_transaction(&self, request: IncomingRequest) -> Result<ServerTransaction> {
-        ServerTransaction::receive_request(request, self)
-    }
-
     /// Send the request.
     pub async fn send_outgoing_request(&self, request: &mut OutgoingRequest) -> Result<()> {
         if request.encoded.is_empty() {

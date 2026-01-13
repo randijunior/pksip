@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 hickory-resolver = "0.25.0"
+tokio.workspace = true

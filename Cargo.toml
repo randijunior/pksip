@@ -5,6 +5,14 @@ resolver = "1"
 [workspace.dependencies]
 sip = {path = "pksip"}
 util = { path = "util" }
+tokio = { version = "1.41.1", features = [
+    "net",
+    "rt-multi-thread",
+    "sync",
+    "macros",
+    "time",
+    "test-util",
+] }
 
 [workspace.package]
 edition = "2021"

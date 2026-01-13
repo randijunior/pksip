@@ -2,12 +2,12 @@ use crate::{
     Method, assert_state_eq,
     error::{Error, TransactionError},
     transaction::{
-        ClientTransaction, T1,
+        ClientTransaction,
         fsm::{self},
         tests::{
             STATUS_CODE_100_TRYING, STATUS_CODE_180_RINGING, STATUS_CODE_202_ACCEPTED,
             STATUS_CODE_301_MOVED_PERMANENTLY, STATUS_CODE_404_NOT_FOUND,
-            STATUS_CODE_504_SERVER_TIMEOUT, STATUS_CODE_603_DECLINE,
+            STATUS_CODE_504_SERVER_TIMEOUT, STATUS_CODE_603_DECLINE, TestRetransmissionTimer,
         },
     },
 };
@@ -273,10 +273,9 @@ async fn transitions_from_trying_to_terminated_when_timer_f_fires() {
 #[tokio::test(start_paused = true)]
 async fn should_not_retransmit_request_in_proceeding_state() {
     let (server, mut client, transport) = setup_test_retransmission(Method::Options).await;
-
+    let mut timer = TestRetransmissionTimer::new();
     let expected_requests = 1;
     let expected_retrans = 0;
-    let time_required_for_5_retransmissions = T1 * (1 << 5);
 
     server.respond(STATUS_CODE_100_TRYING).await;
 
@@ -292,7 +291,7 @@ async fn should_not_retransmit_request_in_proceeding_state() {
         "should transition to Proceeding after receiving 1xx response"
     );
 
-    tokio::time::advance(time_required_for_5_retransmissions).await;
+    timer.wait_for_retransmissions(5).await;
 
     assert_eq!(
         transport.sent_count(),
@@ -344,7 +343,7 @@ async fn transitions_from_completed_to_terminated_when_timer_k_fires() {
         .await
         .expect("Error receiving final response");
 
-    tokio::time::advance(64 * T1).await;
+    tokio::time::sleep(64 * crate::transaction::T1).await;
     tokio::task::yield_now().await;
 
     assert_state_eq!(
@@ -352,4 +351,4 @@ async fn transitions_from_completed_to_terminated_when_timer_k_fires() {
         fsm::State::Terminated,
         "should transition to Terminated after timer d fires"
     );
- }
+}

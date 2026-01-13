@@ -9,7 +9,7 @@ use crate::{
         headers::{Header, Via},
     },
     transaction::{
-        PeekableReceiver, Role,
+        Role,
         fsm::{State, StateMachine},
         manager::TransactionKey,
     },
@@ -21,6 +21,8 @@ use tokio::{
     sync::mpsc::{self},
     time::{Instant, timeout, timeout_at},
 };
+
+use util::PeekableReceiver;
 
 // ACK para 2xx é responsabilidade do TU.
 

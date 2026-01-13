@@ -6,7 +6,7 @@ use crate::{
     error::{Result, TransactionError},
     message::{ReasonPhrase, SipMessageBody, StatusCode, headers::Headers},
     transaction::{
-        PeekableReceiver, T2,
+        T2,
         fsm::{self, State, StateMachine},
     },
     transport::{IncomingRequest, OutgoingResponse},
@@ -33,7 +33,7 @@ pub struct ServerTransaction {
 }
 
 impl ServerTransaction {
-    pub(crate) fn receive_request(request: IncomingRequest, endpoint: &Endpoint) -> Result<Self> {
+    pub fn from_request(request: IncomingRequest, endpoint: &Endpoint) -> Result<Self> {
         if let Method::Ack = request.req_line.method {
             return Err(TransactionError::AckCannotCreateTransaction.into());
         }
