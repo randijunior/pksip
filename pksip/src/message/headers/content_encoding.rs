@@ -6,7 +6,7 @@ use itertools::Itertools;
 use crate::{
     error::Result,
     macros::comma_separated_header_value,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Content-Encoding` SIP header.
@@ -47,7 +47,7 @@ impl HeaderParser for ContentEncoding {
     const NAME: &'static str = "Content-Encoding";
     const SHORT_NAME: &'static str = "e";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let codings = comma_separated_header_value!(parser => parser.parse_token()?.into());
 
         Ok(ContentEncoding(codings))
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"gzip\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let encoding = ContentEncoding::parse(&mut scanner);
         let encoding = encoding.unwrap();
 
@@ -87,7 +87,7 @@ mod tests {
         assert_eq!(encoding.get(0), Some("gzip"));
 
         let src = b"gzip, deflate\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let encoding = ContentEncoding::parse(&mut scanner);
         let encoding = encoding.unwrap();
 

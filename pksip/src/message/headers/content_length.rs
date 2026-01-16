@@ -3,7 +3,7 @@ use std::str;
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Content-Length` SIP header.
@@ -40,7 +40,7 @@ impl HeaderParser for ContentLength {
     const NAME: &'static str = "Content-Length";
     const SHORT_NAME: &'static str = "l";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<ContentLength> {
+    fn parse(parser: &mut Parser) -> Result<ContentLength> {
         let l = parser.read_u32()?;
 
         Ok(ContentLength(l))
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"349\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let length = ContentLength::parse(&mut scanner);
         let length = length.unwrap();
 

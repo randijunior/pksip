@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     error::Result,
     message::Credential,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Proxy-Authorization` SIP header.
@@ -16,7 +16,7 @@ pub struct ProxyAuthorization(Credential);
 impl HeaderParser for ProxyAuthorization {
     const NAME: &'static str = "Proxy-Authorization";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let credential = parser.parse_auth_credential()?;
 
         Ok(ProxyAuthorization(credential))
@@ -39,7 +39,7 @@ mod tests {
         let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"c60f3082ee1212b402a21831ae\", \
         response=\"245f23415f11432b3434341c022\"\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let proxy_auth = ProxyAuthorization::parse(&mut scanner).unwrap();
 
         assert_matches!(proxy_auth.0, Credential::Digest (DigestCredential { realm, username, nonce, response, .. }) => {

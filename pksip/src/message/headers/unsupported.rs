@@ -5,7 +5,7 @@ use itertools::Itertools;
 use crate::{
     error::Result,
     macros::comma_separated_header_value,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Unsupported` SIP header.
@@ -21,7 +21,7 @@ impl HeaderParser for Unsupported {
      * Unsupported  =  "Unsupported" HCOLON option-tag
      * *(COMMA option-tag)
      */
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let tags = comma_separated_header_value!(parser => parser.parse_token()?.into());
 
         Ok(Unsupported(tags))

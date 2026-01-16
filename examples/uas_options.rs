@@ -2,7 +2,8 @@ use std::{error::Error, time::Duration};
 
 use async_trait::async_trait;
 use pksip::{
-    Endpoint, EndpointHandler, message::Method, transaction::ServerTransaction,
+    Endpoint, EndpointHandler,
+    message::{SipMethod, StatusCode},
     transport::IncomingRequest,
 };
 use tokio::time;
@@ -13,15 +14,17 @@ pub struct UasOptionsHandler;
 #[async_trait]
 impl EndpointHandler for UasOptionsHandler {
     async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
-        if request.req_line.method == Method::Options {
-            let server_tx = ServerTransaction::from_request(request, endpoint)?;
+        if request.req_line.method == SipMethod::Options {
+            let uas = endpoint.create_server_transaction(request)?;
 
-            server_tx.respond_with_final_code(200).await?;
+            uas.respond_final_code(StatusCode::Ok).await?;
 
             return Ok(());
         }
-        if request.req_line.method != Method::Ack {
-            endpoint.send_response(&request, 501, None).await?;
+        if request.req_line.method != SipMethod::Ack {
+            endpoint
+                .respond_stateless(&request, StatusCode::NotImplemented, None)
+                .await?;
 
             return Ok(());
         }
@@ -45,8 +48,8 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let addr = "127.0.0.1:0".parse()?;
 
     let endpoint = Endpoint::builder()
-        .add_handler(svc)
-        .add_transaction(Default::default())
+        .with_handler(svc)
+        .with_transaction(Default::default())
         .build();
 
     endpoint.start_tcp_transport(addr).await?;

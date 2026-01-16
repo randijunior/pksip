@@ -7,7 +7,7 @@ use crate::{
     error::Result,
     macros::{comma_separated_header_value, parse_header_param},
     message::{Params, headers::Q_PARAM},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Accept-Language` SIP header.
@@ -62,7 +62,7 @@ pub(crate) fn is_lang(byte: u8) -> bool {
 impl HeaderParser for AcceptLanguage {
     const NAME: &'static str = "Accept-Language";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let languages = comma_separated_header_value!(parser => {
             let language = unsafe { parser.read_while_as_str_unchecked(is_lang) };
             let mut q_param = None;
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"en\r\n";
-        let mut parser = SipMessageParser::new(src);
+        let mut parser = Parser::new(src);
         let accept_language = AcceptLanguage::parse(&mut parser).unwrap();
 
         assert!(accept_language.len() == 1);
@@ -144,7 +144,7 @@ mod tests {
         assert_eq!(lang.q, None);
 
         let src = b"da, en-gb;q=0.8, en;q=0.7\r\n";
-        let mut parser = SipMessageParser::new(src);
+        let mut parser = Parser::new(src);
         let accept_language = AcceptLanguage::parse(&mut parser).unwrap();
 
         assert!(accept_language.len() == 3);
@@ -163,7 +163,7 @@ mod tests {
         assert_eq!(lang.q, Some(Q(0, 7)));
 
         let src = b"*\r\n";
-        let mut parser = SipMessageParser::new(src);
+        let mut parser = Parser::new(src);
         let accept_language = AcceptLanguage::parse(&mut parser).unwrap();
 
         assert!(accept_language.len() == 1);

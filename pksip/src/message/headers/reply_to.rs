@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::{Params, SipUri},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Reply-To` SIP header.
@@ -20,7 +20,7 @@ pub struct ReplyTo {
 impl HeaderParser for ReplyTo {
     const NAME: &'static str = "Reply-To";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let uri = parser.parse_sip_uri(false)?;
         let param = parse_header_param!(parser);
 
@@ -47,7 +47,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let reply_to = ReplyTo::parse(&mut scanner);
         let reply_to = reply_to.unwrap();
 

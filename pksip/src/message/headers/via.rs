@@ -9,7 +9,7 @@ use crate::{
     macros::parse_param,
     message::{DomainName, Host, HostPort, Params},
     parser::{
-        HeaderParser, SIPV2, SipMessageParser, {self},
+        HeaderParser, Parser, SIPV2, {self},
     },
     transport::TransportType,
 };
@@ -164,7 +164,7 @@ impl HeaderParser for Via {
      * sent-by           =  host [ COLON port ]
      * ttl               =  1*3DIGIT ; 0 to 255
      */
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         //@TODO: handle LWS
         parser.parse_sip_version()?;
         parser.next_byte()?;
@@ -241,7 +241,7 @@ impl FromStr for Via {
 
     /// Parse a `To` header instance from a `&str`.
     fn from_str(s: &str) -> Result<Self> {
-        Self::parse(&mut SipMessageParser::new(s))
+        Self::parse(&mut Parser::new(s))
     }
 }
 
@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"SIP/2.0/UDP bobspc.biloxi.com:5060;received=192.0.2.4\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let via = Via::parse(&mut scanner);
         let via = via.unwrap();
 
@@ -272,7 +272,7 @@ mod tests {
 
         let src = b"SIP/2.0/UDP 192.0.2.1:5060 ;received=192.0.2.207 \
         ;branch=z9hG4bK77asjd\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let via = Via::parse(&mut scanner);
         let via = via.unwrap();
 

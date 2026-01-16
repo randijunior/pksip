@@ -4,7 +4,7 @@ use crate::{
     error::{ParseErrorKind as ErrorKind, Result},
     macros::comma_separated,
     message::{CNONCE, NC, NEXTNONCE, Param, QOP, RSPAUTH},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Authentication-Info` SIP header.
@@ -42,7 +42,7 @@ impl<'a> AuthenticationInfo {
 impl HeaderParser for AuthenticationInfo {
     const NAME: &'static str = "Authentication-Info";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let mut auth_info = AuthenticationInfo::default();
 
         comma_separated!(parser => {
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"nextnonce=\"47364c23432d2e131a5fb210812c\"\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");
@@ -105,7 +105,7 @@ mod tests {
         cnonce=\"0a4f113b\", nc=00000001, \
         qop=\"auth\", \
         rspauth=\"6629fae49393a05397450978507c4ef1\"\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let auth_info = AuthenticationInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");

@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::{NameAddr, Params},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Route` SIP header.
@@ -21,7 +21,7 @@ pub struct Route {
 impl HeaderParser for Route {
     const NAME: &'static str = "Route";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let name_addr = parser.parse_name_addr()?;
         let param = parse_header_param!(parser);
         Ok(Route { name_addr, param })
@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:bigbox3.site3.atlanta.com;lr>\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let r = Route::parse(&mut scanner);
         let r = r.unwrap();
 
@@ -64,7 +64,7 @@ mod tests {
         assert!(r.name_addr.uri.lr_param);
 
         let src = b"<sip:server10.biloxi.com;lr>;foo=bar\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let r = Route::parse(&mut scanner);
         let r = r.unwrap();
 

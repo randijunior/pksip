@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     error::Result,
     message::Credential,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Authorization` SIP header.
@@ -44,7 +44,7 @@ impl<'a> Authorization {
 impl HeaderParser for Authorization {
     const NAME: &'static str = "Authorization";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let credential = parser.parse_auth_credential()?;
 
         Ok(Authorization(credential))
@@ -67,7 +67,7 @@ mod tests {
         let src = b"Digest username=\"Alice\", realm=\"atlanta.com\", \
         nonce=\"84a4cc6f3082121f32b42a2187831a9e\",\
         response=\"7587245234b3434cc3412213e5f113a5432\"\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let auth = Authorization::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");

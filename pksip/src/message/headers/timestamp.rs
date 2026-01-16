@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Timestamp` SIP header.
@@ -17,7 +17,7 @@ pub struct Timestamp {
 impl HeaderParser for Timestamp {
     const NAME: &'static str = "Timestamp";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let time = parser.read_f32()?;
         parser.skip_ws();
 
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"54.0 1.5\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let timestamp = Timestamp::parse(&mut scanner);
         let timestamp = timestamp.unwrap();
 

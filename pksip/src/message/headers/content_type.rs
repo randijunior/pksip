@@ -4,7 +4,7 @@ use std::str;
 use crate::{
     MediaType,
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Content-Type` SIP header.
@@ -54,7 +54,7 @@ impl HeaderParser for ContentType {
     const NAME: &'static str = "Content-Type";
     const SHORT_NAME: &'static str = "c";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let media_type = MediaType::parse(parser)?;
 
         Ok(ContentType(media_type))
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"application/sdp\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let c_type = ContentType::parse(&mut scanner);
         let c_type = c_type.unwrap();
 
@@ -83,7 +83,7 @@ mod tests {
         assert_eq!(c_type.0.mimetype.subtype, "sdp");
 
         let src = b"text/html; charset=ISO-8859-4\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let c_type = ContentType::parse(&mut scanner);
         let c_type = c_type.unwrap();
 

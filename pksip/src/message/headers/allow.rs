@@ -5,8 +5,8 @@ use itertools::Itertools;
 use crate::{
     error::Result,
     macros::comma_separated_header_value,
-    message::Method,
-    parser::{HeaderParser, SipMessageParser},
+    message::SipMethod,
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Allow` SIP header.
@@ -17,16 +17,16 @@ use crate::{
 ///
 /// ```
 /// # use pksip::header::Allow;
-/// # use pksip::message::Method;
+/// # use pksip::message::SipMethod;
 /// let mut allow = Allow::new();
 ///
-/// allow.push(Method::Invite);
-/// allow.push(Method::Register);
+/// allow.push(SipMethod::Invite);
+/// allow.push(SipMethod::Register);
 ///
 /// assert_eq!("Allow: INVITE, REGISTER", allow.to_string());
 /// ```
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Allow(Vec<Method>);
+pub struct Allow(Vec<SipMethod>);
 
 impl Allow {
     /// Creates a empty `Allow` header.
@@ -34,13 +34,13 @@ impl Allow {
         Self(Vec::new())
     }
 
-    /// Appends an new `Method`.
-    pub fn push(&mut self, method: Method) {
+    /// Appends an new `SipMethod`.
+    pub fn push(&mut self, method: SipMethod) {
         self.0.push(method);
     }
 
-    /// Gets the `Method` at the specified index.
-    pub fn get(&self, index: usize) -> Option<&Method> {
+    /// Gets the `SipMethod` at the specified index.
+    pub fn get(&self, index: usize) -> Option<&SipMethod> {
         self.0.get(index)
     }
 
@@ -53,11 +53,11 @@ impl Allow {
 impl HeaderParser for Allow {
     const NAME: &'static str = "Allow";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let allow = comma_separated_header_value!(parser => {
             let b_method = parser.alphabetic();
 
-            Method::from(b_method)
+            SipMethod::from(b_method)
         });
 
         Ok(Allow(allow))
@@ -77,16 +77,16 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"INVITE, ACK, OPTIONS, CANCEL, BYE\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let allow = Allow::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");
 
-        assert_eq!(allow.get(0), Some(&Method::Invite));
-        assert_eq!(allow.get(1), Some(&Method::Ack));
-        assert_eq!(allow.get(2), Some(&Method::Options));
-        assert_eq!(allow.get(3), Some(&Method::Cancel));
-        assert_eq!(allow.get(4), Some(&Method::Bye));
+        assert_eq!(allow.get(0), Some(&SipMethod::Invite));
+        assert_eq!(allow.get(1), Some(&SipMethod::Ack));
+        assert_eq!(allow.get(2), Some(&SipMethod::Options));
+        assert_eq!(allow.get(3), Some(&SipMethod::Cancel));
+        assert_eq!(allow.get(4), Some(&SipMethod::Bye));
         assert_eq!(allow.get(5), None);
     }
 }

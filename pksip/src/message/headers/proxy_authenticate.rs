@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     error::Result,
     message::Challenge,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Proxy-Authenticate` SIP header.
@@ -16,7 +16,7 @@ pub struct ProxyAuthenticate(Challenge);
 impl HeaderParser for ProxyAuthenticate {
     const NAME: &'static str = "Proxy-Authenticate";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let challenge = parser.parse_auth_challenge()?;
 
         Ok(ProxyAuthenticate(challenge))
@@ -40,7 +40,7 @@ mod tests {
         domain=\"sip:ss1.carrier.com\", qop=\"auth\", \
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\", \
         opaque=\"\", stale=FALSE, algorithm=MD5\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let proxy_auth = ProxyAuthenticate::parse(&mut scanner).unwrap();
 
         assert_matches!(proxy_auth.0, Challenge::Digest( DigestChallenge { realm, domain, nonce, opaque, stale, algorithm, qop, .. }) => {

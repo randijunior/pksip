@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::Params,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 const PURPOSE: &str = "purpose";
@@ -61,7 +61,7 @@ impl CallInfo {
 impl HeaderParser for CallInfo {
     const NAME: &'static str = "Call-Info";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let mut purpose: Option<String> = None;
         // must be an '<'
         parser.next_byte()?;
@@ -100,7 +100,7 @@ mod tests {
     fn test_parse() {
         let src = b"<http://wwww.example.com/alice/photo.jpg> \
         ;purpose=icon\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let info = CallInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(info.purpose, Some("icon".into()));
 
         let src = b"<http://www.example.com/alice/> ;purpose=info\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let info = CallInfo::parse(&mut scanner).unwrap();
 
         assert_eq!(info.url, "http://www.example.com/alice/");

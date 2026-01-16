@@ -1,10 +1,9 @@
 [workspace]
-members = [ "pksip","util", "examples"]
+members = ["pksip", "utils", "examples"]
 resolver = "1"
 
 [workspace.dependencies]
-sip = {path = "pksip"}
-util = { path = "util" }
+utils = { path = "utils" }
 tokio = { version = "1.41.1", features = [
     "net",
     "rt-multi-thread",

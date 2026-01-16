@@ -1,44 +1,45 @@
 use crate::{
-    Method, assert_state_eq,
+    SipMethod, assert_state_eq,
     error::{Error, TransactionError},
+    test_utils::TestContext,
     transaction::{
         ClientTransaction,
         fsm::{self},
         tests::{
             STATUS_CODE_100_TRYING, STATUS_CODE_180_RINGING, STATUS_CODE_202_ACCEPTED,
             STATUS_CODE_301_MOVED_PERMANENTLY, STATUS_CODE_404_NOT_FOUND,
-            STATUS_CODE_504_SERVER_TIMEOUT, STATUS_CODE_603_DECLINE, TestRetransmissionTimer,
+            STATUS_CODE_504_SERVER_TIMEOUT, STATUS_CODE_603_DECLINE,
         },
     },
 };
 
 use super::{
-    setup_test_recv_final_response, setup_test_recv_provisional_response, setup_test_reliable,
-    setup_test_retransmission, setup_test_send_request,
+    ReceiveFinalTestContext, ReceiveProvisionalTestContext, ReliableTransportTestContext,
+    RetransmissionTestContext, TestContextSendRequest,
 };
 
 #[tokio::test]
 async fn transitions_to_trying_when_request_sent() {
-    let (endpoint, request, target) = setup_test_send_request(Method::Bye);
+    let ctx = TestContextSendRequest::setup(SipMethod::Bye);
 
-    let client = ClientTransaction::send_request(&endpoint, request, Some(target))
+    let uac = ClientTransaction::send_request(&ctx.endpoint, ctx.request, Some(ctx.target))
         .await
         .expect("failure sending request");
 
     assert_eq!(
-        client.state(),
+        uac.state(),
         fsm::State::Trying,
-        "should transition to trying state after initiating a new transaction and sending the request."
+        "should transition to trying ctx.client_state after initiating a new transaction and sending the request."
     );
 }
 
 #[tokio::test(start_paused = true)]
 async fn should_not_start_timer_e_when_transport_is_reliable() {
-    let (mut client, transport) = setup_test_reliable(Method::Options).await;
+    let mut ctx = ReliableTransportTestContext::setup_async(SipMethod::Options).await;
     let expected_requests = 1;
     let expected_retrans = 0;
 
-    let opt_err = client.receive_provisional_response().await.err();
+    let opt_err = ctx.client.receive_provisional_response().await.err();
 
     assert_matches!(
         opt_err,
@@ -47,7 +48,7 @@ async fn should_not_start_timer_e_when_transport_is_reliable() {
     );
 
     assert_eq!(
-        transport.sent_count(),
+        ctx.transport.sent_count(),
         expected_requests + expected_retrans,
         "sent count should match {expected_requests} requests and {expected_retrans} retransmissions"
     );
@@ -55,18 +56,18 @@ async fn should_not_start_timer_e_when_transport_is_reliable() {
 
 #[tokio::test]
 async fn transitions_from_trying_to_proceeding_when_receiving_1xx_response() {
-    let (server, mut client) = setup_test_recv_provisional_response(Method::Register).await;
+    let mut ctx = ReceiveProvisionalTestContext::setup_async(SipMethod::Register).await;
 
-    server.respond(STATUS_CODE_100_TRYING).await;
+    ctx.server.respond(STATUS_CODE_100_TRYING).await;
 
-    client
+    ctx.client
         .receive_provisional_response()
         .await
         .expect("Error receiving provisional response")
         .expect("Expected provisional response, but received None");
 
     assert_eq!(
-        client.state(),
+        ctx.client.state(),
         fsm::State::Proceeding,
         "should transition to Proceeding after receiving 1xx response"
     );
@@ -74,17 +75,17 @@ async fn transitions_from_trying_to_proceeding_when_receiving_1xx_response() {
 
 #[tokio::test]
 async fn transitions_from_trying_to_completed_when_receiving_2xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
+    ctx.server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 6xx response"
     );
@@ -92,17 +93,17 @@ async fn transitions_from_trying_to_completed_when_receiving_2xx_response() {
 
 #[tokio::test]
 async fn transitions_from_trying_to_completed_when_receiving_3xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
+    ctx.server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 3xx response"
     );
@@ -110,17 +111,17 @@ async fn transitions_from_trying_to_completed_when_receiving_3xx_response() {
 
 #[tokio::test]
 async fn transitions_from_trying_to_completed_when_receiving_4xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_404_NOT_FOUND).await;
+    ctx.server.respond(STATUS_CODE_404_NOT_FOUND).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 4xx response"
     );
@@ -128,17 +129,17 @@ async fn transitions_from_trying_to_completed_when_receiving_4xx_response() {
 
 #[tokio::test]
 async fn transitions_from_trying_to_completed_when_receiving_5xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_504_SERVER_TIMEOUT).await;
+    ctx.server.respond(STATUS_CODE_504_SERVER_TIMEOUT).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 5xx response"
     );
@@ -146,34 +147,34 @@ async fn transitions_from_trying_to_completed_when_receiving_5xx_response() {
 
 #[tokio::test]
 async fn transitions_from_trying_to_completed_when_receiving_6xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Register).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Register).await;
 
-    server.respond(STATUS_CODE_603_DECLINE).await;
+    ctx.server.respond(STATUS_CODE_603_DECLINE).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 6xx response"
     );
 }
 #[tokio::test]
 async fn transitions_from_proceeding_to_completed_when_receiving_3xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
+    ctx.server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 3xx response"
     );
@@ -181,17 +182,17 @@ async fn transitions_from_proceeding_to_completed_when_receiving_3xx_response() 
 
 #[tokio::test]
 async fn transitions_from_proceeding_to_completed_when_receiving_4xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_404_NOT_FOUND).await;
+    ctx.server.respond(STATUS_CODE_404_NOT_FOUND).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 4xx response"
     );
@@ -199,17 +200,17 @@ async fn transitions_from_proceeding_to_completed_when_receiving_4xx_response() 
 
 #[tokio::test]
 async fn transitions_from_proceeding_to_completed_when_receiving_5xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_504_SERVER_TIMEOUT).await;
+    ctx.server.respond(STATUS_CODE_504_SERVER_TIMEOUT).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 5xx response"
     );
@@ -217,17 +218,17 @@ async fn transitions_from_proceeding_to_completed_when_receiving_5xx_response() 
 
 #[tokio::test]
 async fn transitions_from_proceeding_to_completed_when_receiving_6xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_603_DECLINE).await;
+    ctx.server.respond(STATUS_CODE_603_DECLINE).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 6xx response"
     );
@@ -235,17 +236,17 @@ async fn transitions_from_proceeding_to_completed_when_receiving_6xx_response() 
 
 #[tokio::test]
 async fn transitions_from_proceeding_to_completed_when_receiving_2xx_response() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Options).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_202_ACCEPTED).await;
+    ctx.server.respond(STATUS_CODE_202_ACCEPTED).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Completed,
         "should transition to Completed after receiving 2xx response"
     );
@@ -253,9 +254,9 @@ async fn transitions_from_proceeding_to_completed_when_receiving_2xx_response() 
 
 #[tokio::test(start_paused = true)]
 async fn transitions_from_trying_to_terminated_when_timer_f_fires() {
-    let (_server, mut client) = setup_test_recv_provisional_response(Method::Register).await;
+    let mut ctx = ReceiveProvisionalTestContext::setup_async(SipMethod::Register).await;
 
-    let opt_err = client.receive_provisional_response().await.err();
+    let opt_err = ctx.client.receive_provisional_response().await.err();
 
     assert_matches!(
         opt_err,
@@ -264,7 +265,7 @@ async fn transitions_from_trying_to_terminated_when_timer_f_fires() {
     );
 
     assert_eq!(
-        client.state(),
+        ctx.client.state(),
         fsm::State::Terminated,
         "should transition to Terminated after timer f fires"
     );
@@ -272,29 +273,28 @@ async fn transitions_from_trying_to_terminated_when_timer_f_fires() {
 
 #[tokio::test(start_paused = true)]
 async fn should_not_retransmit_request_in_proceeding_state() {
-    let (server, mut client, transport) = setup_test_retransmission(Method::Options).await;
-    let mut timer = TestRetransmissionTimer::new();
+    let mut ctx = RetransmissionTestContext::setup_async(SipMethod::Options).await;
     let expected_requests = 1;
     let expected_retrans = 0;
 
-    server.respond(STATUS_CODE_100_TRYING).await;
+    ctx.server.respond(STATUS_CODE_100_TRYING).await;
 
-    client
+    ctx.client
         .receive_provisional_response()
         .await
         .expect("Error receiving provisional response")
         .expect("Expected provisional response, but received None");
 
     assert_eq!(
-        client.state(),
+        ctx.client.state(),
         fsm::State::Proceeding,
         "should transition to Proceeding after receiving 1xx response"
     );
 
-    timer.wait_for_retransmissions(5).await;
+    ctx.timer.wait_for_retransmissions(5).await;
 
     assert_eq!(
-        transport.sent_count(),
+        ctx.transport.sent_count(),
         expected_requests + expected_retrans,
         "sent count should match {expected_requests} requests and {expected_retrans} retransmissions"
     );
@@ -302,31 +302,33 @@ async fn should_not_retransmit_request_in_proceeding_state() {
 
 #[tokio::test]
 async fn should_pass_provisional_responses_to_tu_in_proceeding_state() {
-    let (server, mut client) = setup_test_recv_provisional_response(Method::Options).await;
+    let mut ctx = ReceiveProvisionalTestContext::setup_async(SipMethod::Options).await;
 
-    server.respond(STATUS_CODE_100_TRYING).await;
-    server.respond(STATUS_CODE_180_RINGING).await;
+    ctx.server.respond(STATUS_CODE_100_TRYING).await;
+    ctx.server.respond(STATUS_CODE_180_RINGING).await;
 
-    let response = client
+    let response = ctx
+        .client
         .receive_provisional_response()
         .await
         .expect("Error receiving provisional response")
         .expect("Expected provisional response, but received None");
 
     assert_eq!(
-        response.status_code().as_u16(),
+        response.status_code(),
         STATUS_CODE_100_TRYING,
         "should match 100 status code"
     );
 
-    let response = client
+    let response = ctx
+        .client
         .receive_provisional_response()
         .await
         .expect("Error receiving provisional response")
         .expect("Expected provisional response, but received None");
 
     assert_eq!(
-        response.status_code().as_u16(),
+        response.status_code(),
         STATUS_CODE_180_RINGING,
         "should match 180 status code"
     );
@@ -334,11 +336,11 @@ async fn should_pass_provisional_responses_to_tu_in_proceeding_state() {
 
 #[tokio::test(start_paused = true)]
 async fn transitions_from_completed_to_terminated_when_timer_k_fires() {
-    let (server, client, mut state) = setup_test_recv_final_response(Method::Invite).await;
+    let mut ctx = ReceiveFinalTestContext::setup_async(SipMethod::Invite).await;
 
-    server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
+    ctx.server.respond(STATUS_CODE_301_MOVED_PERMANENTLY).await;
 
-    client
+    ctx.client
         .receive_final_response()
         .await
         .expect("Error receiving final response");
@@ -347,7 +349,7 @@ async fn transitions_from_completed_to_terminated_when_timer_k_fires() {
     tokio::task::yield_now().await;
 
     assert_state_eq!(
-        state,
+        ctx.client_state,
         fsm::State::Terminated,
         "should transition to Terminated after timer d fires"
     );

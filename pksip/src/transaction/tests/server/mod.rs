@@ -1,103 +1,115 @@
-use tokio::sync::{mpsc, watch};
+use tokio::sync::watch;
 
 use crate::{
-    Method,
-    endpoint::EndpointBuilder,
-    transaction::{ServerTransaction, TransactionMessage, fsm},
-    transport::{IncomingRequest, Transport, mock::MockTransport},
+    SipMethod,
+    transaction::{ServerTransaction, fsm},
+    transport::Transport,
 };
 
-const FINAL_NON_2XX_STATUS_CODE: u16 = 301;
-const PROVISIONAL_1XX_STATUS_CODE: u16 = 182;
+use crate::test_utils::{
+    TestContext,
+    transaction::{
+        MockClientTransaction, TestRetransmissionTimer, create_test_endpoint, create_test_request,
+    },
+    transport::MockTransport,
+};
 
 mod invite;
 mod non_invite;
 
-use super::{create_test_endpoint_and_request, create_test_request};
-
-fn create_server_transaction(
-    method: Method,
-    transport: Option<MockTransport>,
-) -> (ServerTransaction, watch::Receiver<fsm::State>) {
-    let request = create_test_request(method, transport.map(Transport::new));
-    let endpoint = EndpointBuilder::new()
-        .add_transaction(Default::default())
-        .build();
-
-    let mut server_tsx = ServerTransaction::from_request(request, &endpoint).unwrap();
-    let state = server_tsx.state_machine_mut().subscribe_state();
-
-    (server_tsx, state)
+struct RetransmissionTestContext {
+    server: ServerTransaction,
+    client: MockClientTransaction,
+    transport: MockTransport,
+    timer: TestRetransmissionTimer,
 }
 
-struct MockClientTransaction {
-    sender: mpsc::Sender<super::TransactionMessage>,
-    request: IncomingRequest,
-}
+impl TestContext<SipMethod> for RetransmissionTestContext {
+    fn setup(method: SipMethod) -> Self {
+        let transport = MockTransport::new_udp();
+        let transport_clone = transport.clone();
 
-impl MockClientTransaction {
-    pub async fn retransmit_to_transaction(&self) {
-        self.sender
-            .send(TransactionMessage::Request(self.request.clone()))
-            .await
+        let request = create_test_request(method, Transport::new(transport_clone));
+        let endpoint = create_test_endpoint();
+        let server = ServerTransaction::from_request(request.clone(), &endpoint).unwrap();
+
+        let sender = endpoint
+            .transactions()
+            .get_entry(server.transaction_key())
             .unwrap();
-        tokio::task::yield_now().await;
-    }
 
-    pub async fn retransmit_n_times(&self, n: usize) {
-        for _ in 0..n {
-            self.retransmit_to_transaction().await;
+        let client = MockClientTransaction { sender, request };
+
+        let timer = TestRetransmissionTimer::new();
+
+        RetransmissionTestContext {
+            server,
+            client,
+            transport,
+            timer,
         }
     }
+}
 
-    pub async fn send_ack_request(&mut self) {
-        let mut request = self.request.clone();
-        request.message.req_line.method = Method::Ack;
-        self.sender
-            .send(TransactionMessage::Request(request))
-            .await
-            .unwrap();
-        tokio::task::yield_now().await;
+struct UnreliableTransportTestContext {
+    server: ServerTransaction,
+    server_state: watch::Receiver<fsm::State>,
+}
+
+impl TestContext<SipMethod> for UnreliableTransportTestContext {
+    fn setup(method: SipMethod) -> Self {
+        let (server, server_state) = setup_test_state(method, MockTransport::new_udp());
+
+        Self {
+            server,
+            server_state,
+        }
     }
 }
 
-fn setup_test_server_retransmission(
-    method: Method,
-) -> (MockClientTransaction, MockTransport, ServerTransaction) {
-    let transport = MockTransport::new_udp();
-    let transport_clone = transport.clone();
-
-    let (endpoint, request) = create_test_endpoint_and_request(method, transport_clone.into());
-    let server = ServerTransaction::from_request(request.clone(), &endpoint).unwrap();
-
-    let sender = endpoint
-        .transactions()
-        .get_entry(server.transaction_key())
-        .unwrap();
-
-    let sender = MockClientTransaction { sender, request };
-
-    (sender, transport, server)
+struct ReliableTransportTestContext {
+    server: ServerTransaction,
+    server_state: watch::Receiver<fsm::State>,
 }
 
-fn setup_test_server_state_reliable(
-    method: Method,
+impl TestContext<SipMethod> for ReliableTransportTestContext {
+    fn setup(method: SipMethod) -> Self {
+        let (server, server_state) = setup_test_state(method, MockTransport::new_tcp());
+
+        Self {
+            server,
+            server_state,
+        }
+    }
+}
+
+fn setup_test_state(
+    method: SipMethod,
+    transport: MockTransport,
 ) -> (ServerTransaction, watch::Receiver<fsm::State>) {
-    create_server_transaction(method, Some(MockTransport::new_tcp()))
+    let request = create_test_request(method, Transport::new(transport));
+    let endpoint = create_test_endpoint();
+
+    let mut server = ServerTransaction::from_request(request, &endpoint).unwrap();
+    let state = server.state_machine_mut().subscribe_state();
+
+    (server, state)
 }
 
-fn setup_test_server_state_unreliable(
-    method: Method,
-) -> (ServerTransaction, watch::Receiver<fsm::State>) {
-    create_server_transaction(method, Some(MockTransport::new_udp()))
+struct ReceiveAckTestContext {
+    client: MockClientTransaction,
+    server_state: watch::Receiver<fsm::State>,
+    server: ServerTransaction,
 }
 
-fn setup_test_server_receive_ack() -> (
-    MockClientTransaction,
-    watch::Receiver<fsm::State>,
-    ServerTransaction,
-) {
-    let (sender, _, mut server) = setup_test_server_retransmission(Method::Invite);
+impl TestContext<()> for ReceiveAckTestContext {
+    fn setup(_args: ()) -> Self {
+        let mut ctx = RetransmissionTestContext::setup(SipMethod::Invite);
 
-    (sender, server.state_machine_mut().subscribe_state(), server)
+        Self {
+            client: ctx.client,
+            server_state: ctx.server.state_machine_mut().subscribe_state(),
+            server: ctx.server,
+        }
+    }
 }

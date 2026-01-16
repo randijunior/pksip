@@ -6,7 +6,7 @@ use crate::{
     error::Result,
     macros::comma_separated_header_value,
     message::headers::CallId,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `In-Reply-To` SIP header.
@@ -19,7 +19,7 @@ pub struct InReplyTo(Vec<CallId>);
 impl HeaderParser for InReplyTo {
     const NAME: &'static str = "In-Reply-To";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let ids = comma_separated_header_value!(parser => {
             let id = parser.not_comma_or_newline();
             let id = str::from_utf8(id)?;
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"70710@saturn.bell-tel.com, 17320@saturn.bell-tel.com\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let in_reply_to = InReplyTo::parse(&mut scanner).unwrap();
         assert_eq!(scanner.remaining(), b"\r\n");
 

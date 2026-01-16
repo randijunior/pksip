@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::{ParseErrorKind as ErrorKind, Result},
-    parser::{HeaderParser, SipMessageParser, is_host},
+    parser::{HeaderParser, Parser, is_host},
 };
 
 /// The `Warning` SIP header.
@@ -28,7 +28,7 @@ impl HeaderParser for Warning {
      * header, for use in debugging warn-text      =
      * quoted-string pseudonym      =  token
      */
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let code = parser.read_u32()?;
         parser.skip_ws();
         let host = unsafe { parser.read_while_as_str_unchecked(is_host) };
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"307 isi.edu \"InvSession parameter 'foo' not understood\"";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let warn = Warning::parse(&mut scanner);
         let warn = warn.unwrap();
 

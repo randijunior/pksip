@@ -1,7 +1,7 @@
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 
 use crate::{
-    Endpoint, Method, Result,
+    Endpoint, Result, SipMethod,
     error::TransactionError,
     find_map_mut_header,
     message::{
@@ -9,20 +9,19 @@ use crate::{
         headers::{Header, Via},
     },
     transaction::{
-        Role,
+        Role, T1, T4, TransactionMessage,
         fsm::{State, StateMachine},
         manager::TransactionKey,
     },
     transport::{IncomingResponse, OutgoingRequest, Transport},
 };
 
-use super::{T1, T4, TransactionMessage};
 use tokio::{
     sync::mpsc::{self},
     time::{Instant, timeout, timeout_at},
 };
 
-use util::PeekableReceiver;
+use utils::PeekableReceiver;
 
 // ACK para 2xx é responsabilidade do TU.
 
@@ -43,7 +42,7 @@ impl ClientTransaction {
         target: Option<(Transport, SocketAddr)>,
     ) -> Result<Self> {
         let method = request.req_line.method;
-        if let Method::Ack = method {
+        if let SipMethod::Ack = method {
             return Err(TransactionError::AckCannotCreateTransaction.into());
         }
         let mut request = endpoint.create_outgoing_request(request, target).await?;
@@ -76,7 +75,7 @@ impl ClientTransaction {
 
         endpoint.send_outgoing_request(&mut request).await?;
 
-        let state = if method == Method::Invite {
+        let state = if method == SipMethod::Invite {
             State::Calling
         } else {
             State::Trying
@@ -190,7 +189,7 @@ impl ClientTransaction {
             unimplemented!()
         };
 
-        if self.request.message.req_line.method == Method::Invite
+        if self.request.message.req_line.method == SipMethod::Invite
             && let 200..299 = response.message.status_line.code.as_u16()
             && matches!(
                 self.state_machine.state(),
@@ -207,7 +206,7 @@ impl ClientTransaction {
             return Ok(response);
         }
 
-        if self.request.message.req_line.method == Method::Invite {
+        if self.request.message.req_line.method == SipMethod::Invite {
             // send ACK
             let mut ack_request = self.endpoint.create_ack_request(&self.request, &response);
             self.endpoint
@@ -244,70 +243,6 @@ impl ClientTransaction {
 
     fn is_reliable(&self) -> bool {
         self.request.send_info.transport.is_reliable()
-    }
-
-    /*
-    fn spawn_timer_task(&self) {
-        let __self = self.clone();
-        tokio::spawn(async move {
-            let unreliable = __self.is_unreliable();
-            // Invite: Timer A, Non Invite: Timer E
-            let retrans_timer = if unreliable {
-                Either::Left(time::sleep(T1))
-            } else {
-                Either::Right(future::pending::<()>())
-            };
-            // Invite: Timer B, Non Invite: Timer F
-            let timeout_timer = time::sleep(64 * T1);
-            let completed_state = if let Some(completed) = __self.completed_state_notify() {
-                Either::Left(async move { completed.notified().await })
-            } else {
-                Either::Right(future::pending::<()>())
-            };
-
-            tokio::pin!(completed_state);
-            tokio::pin!(retrans_timer);
-            tokio::pin!(timeout_timer);
-            loop {
-                tokio::select! {
-                    _ = &mut retrans_timer, if matches!(__self.state(), Calling | Trying) => {
-                        __self.retransmit(Some(&mut retrans_timer)).await.expect("must retransmit");
-                    }
-                    _ = &mut timeout_timer, if matches!(__self.state(), Calling | Trying) => {
-                        __self.terminate();
-                        break;
-                    }
-                    _ = &mut completed_state => {
-                        if unreliable {
-                            let duration = if __self.is_invite() { TIMER_D } else { TIMER_K };
-
-                            time::sleep(duration).await;
-                        }
-                        __self.terminate();
-                        break;
-                    }
-                }
-            }
-        });
-    }
-    */
-
-    pub(crate) async fn process_response(
-        &mut self,
-        response: IncomingResponse,
-    ) -> Result<Option<IncomingResponse>> {
-        let status_code = response.message.status_code();
-        let state = self.state_machine.state();
-
-        if matches!(state, State::Trying | State::Calling) {
-            self.state_machine.set_state(State::Proceeding);
-        }
-
-        if matches!(state, State::Completed) {
-            // self.retransmit(None).await?;
-        }
-
-        Ok(None)
     }
 }
 

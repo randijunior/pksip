@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Min-Expires` SIP header.
@@ -53,7 +53,7 @@ impl MinExpires {
 impl HeaderParser for MinExpires {
     const NAME: &'static str = "Min-Expires";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let expires = parser.read_u32()?;
 
         Ok(MinExpires(expires))
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"60";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let mime_version = MinExpires::parse(&mut scanner).unwrap();
 
         assert_eq!(mime_version.0, 60);

@@ -6,7 +6,7 @@ use crate::{
     error::Result,
     macros::comma_separated_header_value,
     message::headers::accept_language::is_lang,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Content-Language` SIP header.
@@ -27,7 +27,7 @@ pub struct ContentLanguage(Vec<String>);
 impl HeaderParser for ContentLanguage {
     const NAME: &'static str = "Content-Language";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let languages = comma_separated_header_value!(parser => unsafe {
             parser.read_while_as_str_unchecked(is_lang).into()
         });
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"fr\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let lang = ContentLanguage::parse(&mut scanner);
         let lang = lang.unwrap();
 
@@ -68,7 +68,7 @@ mod tests {
         assert_eq!(lang.0.get(0), Some(&"fr".into()));
 
         let src = b"fr, en\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let lang = ContentLanguage::parse(&mut scanner);
         let lang = lang.unwrap();
 

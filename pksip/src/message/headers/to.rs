@@ -9,7 +9,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::{Params, SipUri, Uri, headers::TAG_PARAM},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `To` SIP header.
@@ -48,7 +48,7 @@ impl FromStr for To {
 
     /// Parse a `To` header instance from a `&str`.
     fn from_str(s: &str) -> Result<Self> {
-        Self::parse(&mut SipMessageParser::new(s.as_bytes()))
+        Self::parse(&mut Parser::new(s.as_bytes()))
     }
 }
 
@@ -92,7 +92,7 @@ impl HeaderParser for To {
     const NAME: &'static str = "To";
     const SHORT_NAME: &'static str = "t";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let uri = parser.parse_sip_uri(false)?;
         let mut tag: Option<String> = None;
         let params = parse_header_param!(parser, TAG_PARAM = tag);
@@ -163,7 +163,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Bob <sip:bob@biloxi.com>;tag=a6c85cf\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let to = To::parse(&mut scanner);
         let to = to.unwrap();
 

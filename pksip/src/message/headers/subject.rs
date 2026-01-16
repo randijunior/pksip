@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Subject` SIP header.
@@ -15,7 +15,7 @@ impl HeaderParser for Subject {
     const NAME: &'static str = "Subject";
     const SHORT_NAME: &'static str = "s";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let subject = parser.read_until_new_line_as_str()?;
 
         Ok(Subject(subject.into()))
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Need more boxes\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let subject = Subject::parse(&mut scanner);
         let subject = subject.unwrap();
 
@@ -43,7 +43,7 @@ mod tests {
         assert_eq!(subject.0, "Need more boxes");
 
         let src = b"Tech Support\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let subject = Subject::parse(&mut scanner);
         let subject = subject.unwrap();
 

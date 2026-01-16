@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `MIME-Version` SIP header.
@@ -18,7 +18,7 @@ pub struct MimeVersion {
 impl HeaderParser for MimeVersion {
     const NAME: &'static str = "MIME-Version";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let (major, _, minor) = (
             parser.next_byte()? - b'0',
             parser.must_read(b'.')?,
@@ -42,7 +42,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"1.0";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let mime_version = MimeVersion::parse(&mut scanner).unwrap();
 
         assert_eq!(mime_version.major, 1);

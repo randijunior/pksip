@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures_util::future::BoxFuture;
 use itertools::Itertools;
-use util::DnsResolver;
+use utils::DnsResolver;
 
 use super::{Endpoint, EndpointHandler};
 use crate::{
@@ -65,7 +65,7 @@ impl EndpointBuilder {
     }
 
     /// Add a new capability to the endpoint.
-    pub fn add_capability(mut self, capability: Header) -> Self {
+    pub fn with_capability(mut self, capability: Header) -> Self {
         self.capabilities.push(capability);
 
         self
@@ -90,24 +90,24 @@ impl EndpointBuilder {
     ///     }
     /// }
     /// let endpoint = endpoint::EndpointBuilder::new()
-    ///     .add_service(MyService)
+    ///     .with_service(MyService)
     ///     .build();
     /// ```
-    pub fn add_handler(mut self, service: impl EndpointHandler) -> Self {
+    pub fn with_handler(mut self, service: impl EndpointHandler) -> Self {
         self.handler = Some(Box::new(service));
 
         self
     }
 
     /// Sets the transaction layer.
-    pub fn add_transaction(mut self, tsx_layer: TransactionManager) -> Self {
+    pub fn with_transaction(mut self, tsx_layer: TransactionManager) -> Self {
         self.transaction = Some(tsx_layer);
 
         self
     }
 
     /// Sets the transport layer.
-    pub fn add_transport(mut self, transport: TransportManager) -> Self {
+    pub fn with_transport(mut self, transport: TransportManager) -> Self {
         self.transports = Some(transport);
 
         self

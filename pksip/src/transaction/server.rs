@@ -1,24 +1,20 @@
 use std::future;
 
 use crate::{
-    Method,
+    SipMethod,
     endpoint::Endpoint,
     error::{Result, TransactionError},
     message::{ReasonPhrase, SipMessageBody, StatusCode, headers::Headers},
     transaction::{
-        T2,
-        fsm::{self, State, StateMachine},
+        T1, T2, T4, TransactionMessage,
+        fsm::{State, StateMachine},
+        manager::TransactionKey,
     },
     transport::{IncomingRequest, OutgoingResponse},
 };
 
-use super::{T1, T4, TransactionMessage, manager::TransactionKey};
-
 use tokio::{
-    sync::{
-        mpsc::{self},
-        watch,
-    },
+    sync::mpsc::{self},
     time::{Instant, sleep, timeout_at},
 };
 use tokio_util::either::Either;
@@ -34,7 +30,7 @@ pub struct ServerTransaction {
 
 impl ServerTransaction {
     pub fn from_request(request: IncomingRequest, endpoint: &Endpoint) -> Result<Self> {
-        if let Method::Ack = request.req_line.method {
+        if let SipMethod::Ack = request.req_line.method {
             return Err(TransactionError::AckCannotCreateTransaction.into());
         }
         let (main_tx, main_rx) = mpsc::channel(10);
@@ -62,10 +58,7 @@ impl ServerTransaction {
         &mut self.state
     }
 
-    pub async fn respond_with_provisional_code(
-        &mut self,
-        code: impl TryInto<StatusCode>,
-    ) -> Result<()> {
+    pub async fn respond_provisional_code(&mut self, code: impl TryInto<StatusCode>) -> Result<()> {
         self.send_provisional_response(code, None, None, None).await
     }
 
@@ -133,19 +126,17 @@ impl ServerTransaction {
         Ok(())
     }
 
-    pub async fn respond_with_final_code(mut self, code: impl TryInto<StatusCode>) -> Result<()> {
+    pub async fn respond_final_code(mut self, code: StatusCode) -> Result<()> {
         self.send_final_response(code, None, None, None).await
     }
 
     pub async fn send_final_response(
         mut self,
-        code: impl TryInto<StatusCode>,
+        code: StatusCode,
         phrase: Option<ReasonPhrase>,
         headers: Option<Headers>,
         body: Option<SipMessageBody>,
     ) -> Result<()> {
-        let code = StatusCode::try_new(code)?;
-
         if !code.is_final() {
             return Err(TransactionError::InvalidFinalStatusCode.into());
         }
@@ -162,7 +153,7 @@ impl ServerTransaction {
 
         self.endpoint.send_outgoing_response(&mut response).await?;
 
-        if self.request.message.req_line.method == Method::Invite {
+        if self.request.message.req_line.method == SipMethod::Invite {
             if let 200..299 = code.as_u16() {
                 self.state.set_state(State::Terminated);
                 return Ok(());

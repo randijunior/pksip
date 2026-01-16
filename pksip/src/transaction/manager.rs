@@ -7,74 +7,9 @@ use tokio::sync::{
 };
 
 use crate::transport::{IncomingRequest, IncomingResponse};
-use crate::{
-    Method, RFC3261_BRANCH_ID,
-    message::{HostPort, MandatoryHeaders},
-    transport::IncomingMessageInfo,
-};
+use crate::{RFC3261_BRANCH_ID, SipMethod, message::HostPort, transport::IncomingMessageInfo};
 
 use super::{Role, TransactionMessage};
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum TransactionKey {
-    Rfc2543(Rfc2543),
-    Rfc3261(Rfc3261),
-}
-
-impl TransactionKey {
-    pub fn from_request(request: &IncomingRequest) -> Self {
-        Self::from_incoming_info(&request.info, Role::UAS)
-    }
-
-    pub fn from_response(response: &IncomingResponse) -> Self {
-        Self::from_incoming_info(&response.info, Role::UAC)
-    }
-
-    fn from_incoming_info(info: &IncomingMessageInfo, role: Role) -> Self {
-        match info.mandatory_headers.via.branch {
-            Some(ref branch) if branch.starts_with(RFC3261_BRANCH_ID) => {
-                let branch = branch.clone();
-                let method = info.mandatory_headers.cseq.method;
-
-                Self::new_key_3261(role, method, branch)
-            }
-            _ => {
-                todo!("create rfc 2543")
-            }
-        }
-    }
-
-    pub fn new_key_3261(role: Role, method: Method, branch: String) -> Self {
-        let method = if matches!(method, Method::Invite | Method::Ack) {
-            None
-        } else {
-            Some(method)
-        };
-
-        Self::Rfc3261(Rfc3261 {
-            role,
-            branch,
-            method,
-        })
-    }
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Rfc2543 {
-    pub cseq: u32,
-    pub from_tag: Option<String>,
-    pub to_tag: Option<String>,
-    pub call_id: String,
-    pub via_host_port: HostPort,
-    pub method: Option<Method>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Rfc3261 {
-    role: Role,
-    branch: String,
-    method: Option<Method>,
-}
 
 type TransactionChannel = mpsc::Sender<TransactionMessage>;
 
@@ -145,15 +80,76 @@ impl TransactionManager {
     }
 }
 
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum TransactionKey {
+    Rfc2543(Rfc2543),
+    Rfc3261(Rfc3261),
+}
+
+impl TransactionKey {
+    pub fn from_request(request: &IncomingRequest) -> Self {
+        Self::from_incoming_info(&request.info, Role::UAS)
+    }
+
+    pub fn from_response(response: &IncomingResponse) -> Self {
+        Self::from_incoming_info(&response.info, Role::UAC)
+    }
+
+    fn from_incoming_info(info: &IncomingMessageInfo, role: Role) -> Self {
+        match info.mandatory_headers.via.branch {
+            Some(ref branch) if branch.starts_with(RFC3261_BRANCH_ID) => {
+                let branch = branch.clone();
+                let method = info.mandatory_headers.cseq.method;
+
+                Self::new_key_3261(role, method, branch)
+            }
+            _ => {
+                todo!("create rfc 2543")
+            }
+        }
+    }
+
+    pub fn new_key_3261(role: Role, method: SipMethod, branch: String) -> Self {
+        let method = if matches!(method, SipMethod::Invite | SipMethod::Ack) {
+            None
+        } else {
+            Some(method)
+        };
+
+        Self::Rfc3261(Rfc3261 {
+            role,
+            branch,
+            method,
+        })
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Rfc2543 {
+    pub cseq: u32,
+    pub from_tag: Option<String>,
+    pub to_tag: Option<String>,
+    pub call_id: String,
+    pub via_host_port: HostPort,
+    pub method: Option<SipMethod>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Rfc3261 {
+    role: Role,
+    branch: String,
+    method: Option<SipMethod>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{endpoint, message::Method};
+    use crate::{endpoint, message::SipMethod};
 
     #[tokio::test]
     async fn test_non_invite_server_tsx() {
         /*
-        let mut req = mock::request(Method::Register);
+        let mut req = mock::request(SipMethod::Register);
 
         let endpoint = endpoint::EndpointBuilder::new()
             .add_transaction(TransactionManager::default())
@@ -181,7 +177,7 @@ mod tests {
     #[tokio::test]
     async fn test_invite_server_tsx() {
         /*
-        let mut req = mock::request(Method::Invite);
+        let mut req = mock::request(SipMethod::Invite);
 
         let endpoint = endpoint::EndpointBuilder::new()
             .add_transaction(TransactionManager::default())

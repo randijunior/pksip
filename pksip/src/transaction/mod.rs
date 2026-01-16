@@ -6,7 +6,6 @@ use std::time::Duration;
 pub use client::ClientTransaction;
 pub use manager::TransactionManager;
 pub use server::ServerTransaction;
-use tokio::sync::mpsc;
 
 use crate::transport::{IncomingRequest, IncomingResponse};
 

@@ -3,7 +3,7 @@ use std::error::Error;
 use async_trait::async_trait;
 use pksip::{
     Endpoint, EndpointHandler, Result,
-    message::{Method, StatusCode},
+    message::{SipMethod, StatusCode},
     transport::IncomingRequest,
 };
 use tracing::Level;
@@ -16,8 +16,8 @@ const CODE: StatusCode = StatusCode::NotImplemented;
 #[async_trait]
 impl EndpointHandler for StatelessUasHandler {
     async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> Result<()> {
-        if request.message.req_line.method != Method::Ack {
-            endpoint.send_response(&request, CODE, None).await?;
+        if request.message.req_line.method != SipMethod::Ack {
+            endpoint.respond_stateless(&request, CODE, None).await?;
         }
         Ok(())
     }
@@ -35,7 +35,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let svc = StatelessUasHandler;
     let addr = "127.0.0.1:0".parse()?;
 
-    let endpoint = Endpoint::builder().add_handler(svc).build();
+    let endpoint = Endpoint::builder().with_handler(svc).build();
 
     endpoint.start_ws_transport(addr).await?;
     endpoint.start_udp_transport(addr).await?;

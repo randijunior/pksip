@@ -5,7 +5,7 @@ use itertools::Itertools;
 use crate::{
     error::Result,
     macros::comma_separated_header_value,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Proxy-Require` SIP header.
@@ -18,7 +18,7 @@ pub struct ProxyRequire(Vec<String>);
 impl HeaderParser for ProxyRequire {
     const NAME: &'static str = "Proxy-Require";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let tags = comma_separated_header_value!(parser => parser.parse_token()?.into());
 
         Ok(ProxyRequire(tags))
@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"foo, bar\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let proxy_require = ProxyRequire::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");

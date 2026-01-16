@@ -6,7 +6,7 @@ use crate::{
     error::Result,
     macros::{comma_separated_header_value, parse_header_param},
     message::Params,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -37,7 +37,7 @@ pub struct ErrorInfo(Vec<ErrorInfoUri>);
 impl HeaderParser for ErrorInfo {
     const NAME: &'static str = "Error-Info";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let infos = comma_separated_header_value!(parser => {
             parser.next_byte()?;
             let url = parser.read_until(b'>');
@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"<sip:not-in-service-recording@atlanta.com>\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let err_info = ErrorInfo::parse(&mut scanner).unwrap();
         assert_eq!(scanner.remaining(), b"\r\n");
 

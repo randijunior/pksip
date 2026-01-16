@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::Params,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Retry-After` SIP header.
@@ -23,7 +23,7 @@ pub struct RetryAfter {
 impl HeaderParser for RetryAfter {
     const NAME: &'static str = "Retry-After";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let digits = parser.read_u32()?;
         let mut comment = None;
 
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"18000;duration=3600\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let retry_after = RetryAfter::parse(&mut scanner);
         let retry_after = retry_after.unwrap();
 
@@ -79,7 +79,7 @@ mod tests {
         );
 
         let src = b"120 (I'm in a meeting)\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let retry_after = RetryAfter::parse(&mut scanner);
         let retry_after = retry_after.unwrap();
 

@@ -7,7 +7,7 @@ use crate::{
     error::Result,
     macros::{comma_separated_header_value, parse_header_param},
     message::{Params, headers::Q_PARAM},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Accept-Encoding` SIP header.
@@ -67,7 +67,7 @@ impl<'a, const N: usize> From<[Coding; N]> for AcceptEncoding {
 impl HeaderParser for AcceptEncoding {
     const NAME: &'static str = "Accept-Encoding";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         if parser.is_next_newline() {
             return Ok(AcceptEncoding::new());
         }
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn test_parse_simple_codings() {
         let src = b"compress, gzip\r\n";
-        let mut parser = SipMessageParser::new(src);
+        let mut parser = Parser::new(src);
         let accept_encoding = AcceptEncoding::parse(&mut parser).unwrap();
 
         let coding = accept_encoding.get(0).unwrap();
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_parse_wildcard_coding() {
-        let mut parser = SipMessageParser::new(b"*\r\n");
+        let mut parser = Parser::new(b"*\r\n");
         let accept_encoding = AcceptEncoding::parse(&mut parser).unwrap();
 
         let coding = accept_encoding.get(0).unwrap();
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn test_parse_with_q_params() {
         let src = b"gzip;q=1.0, identity; q=0.5, *;q=0\r\n";
-        let mut parser = SipMessageParser::new(src);
+        let mut parser = Parser::new(src);
         let accept_encoding = AcceptEncoding::parse(&mut parser).unwrap();
 
         assert_eq!(accept_encoding.len(), 3);
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_parse_empty_header() {
-        let mut parser = SipMessageParser::new(b"\r\n");
+        let mut parser = Parser::new(b"\r\n");
         let accept_encoding = AcceptEncoding::parse(&mut parser).unwrap();
 
         assert_eq!(accept_encoding.len(), 0);

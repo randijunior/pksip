@@ -59,7 +59,7 @@ pub enum StatusCode {
     Forbidden = 403,
     ///`Not Found` status code.
     NotFound = 404,
-    ///`Method Not Allowed` status code.
+    ///`SipMethod Not Allowed` status code.
     MethodNotAllowed = 405,
     ///`Not Acceptable` status code.
     NotAcceptable = 406,
@@ -282,7 +282,7 @@ impl StatusCode {
             Self::PaymentRequired => "Payment Required",
             Self::Forbidden => "Forbidden",
             Self::NotFound => "Not Found",
-            Self::MethodNotAllowed => "Method Not Allowed",
+            Self::MethodNotAllowed => "SipMethod Not Allowed",
             Self::NotAcceptable => "Not Acceptable",
             Self::ProxyAuthenticationRequired => "Proxy Authentication Required",
             Self::RequestTimeout => "Request Timeout",
@@ -369,10 +369,6 @@ impl StatusCode {
         Ok(code)
     }
 
-    pub fn try_new(code: impl TryInto<StatusCode>) -> Result<Self, crate::Error> {
-        code.try_into().map_err(|_| crate::Error::InvalidStatusCode)
-    }
-
     /// Converts a `StatusCode` into its numeric code.
     pub const fn as_u16(self) -> u16 {
         self as u16
@@ -394,9 +390,9 @@ impl StatusCode {
 }
 
 impl TryFrom<u16> for StatusCode {
-    type Error = ();
+    type Error = crate::Error;
     fn try_from(code: u16) -> Result<Self, Self::Error> {
-        Self::from_u16(code).ok_or(())
+        Self::from_u16(code).ok_or(crate::Error::InvalidStatusCode)
     }
 }
 

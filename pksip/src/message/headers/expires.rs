@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Expires` SIP header.
@@ -37,7 +37,7 @@ impl Expires {
 impl HeaderParser for Expires {
     const NAME: &'static str = "Expires";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Expires> {
+    fn parse(parser: &mut Parser) -> Result<Expires> {
         let expires = parser.read_u32()?;
 
         Ok(Expires(expires))
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"5\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let expires = Expires::parse(&mut scanner).unwrap();
         assert_eq!(scanner.remaining(), b"\r\n");
         assert_eq!(expires.0, 5);

@@ -6,7 +6,7 @@ use crate::{
     MediaType,
     error::Result,
     macros::{comma_separated_header_value, parse_header_param},
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Accept` SIP header.
@@ -60,7 +60,7 @@ impl Accept {
 impl HeaderParser for Accept {
     const NAME: &'static str = "Accept";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Accept> {
+    fn parse(parser: &mut Parser) -> Result<Accept> {
         let mtypes = comma_separated_header_value!(parser => {
             let mtype = parser.parse_token()?;
             parser.next_byte()?;
@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"application/sdp;level=1, application/x-private, text/html\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 3);
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(mtype.mimetype.subtype, "html");
 
         let src = b"application/sdp, application/pidf+xml, message/sipfrag\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 3);
@@ -127,7 +127,7 @@ mod tests {
         assert_eq!(mtype.mimetype.subtype, "sipfrag");
 
         let src = b"application/sdp;q=0.8, application/simple-message-summary+xml;q=0.6\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let accept = Accept::parse(&mut scanner).unwrap();
 
         assert!(accept.len() == 2);

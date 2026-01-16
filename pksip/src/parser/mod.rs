@@ -1,12 +1,12 @@
 //! SIP Parser
 //!
-//! The module provides [`SipMessageParser`] struct for parsing SIP messages, including
+//! The module provides [`Parser`] struct for parsing SIP messages, including
 //! requests and responses, as well as various components such as URIs and
 //! headers.
 
 use std::str::{self, FromStr};
 
-use util::{Position, Scanner, ScannerError};
+use utils::{Position, Scanner, ScannerError};
 
 use crate::{
     Result,
@@ -20,7 +20,7 @@ use crate::{
 mod tests;
 
 // ---------------------------------------------------------------------
-// SipMessageParser constants
+// Parser constants
 // ---------------------------------------------------------------------
 
 /// The user param used in SIP URIs.
@@ -124,15 +124,15 @@ pub trait HeaderParser: Sized {
 
     /// Parse the SIP header from the buffer return a parsed
     /// structure.
-    fn parse(parser: &mut SipMessageParser) -> Result<Self>;
+    fn parse(parser: &mut Parser) -> Result<Self>;
 
     /// Parses this header from a raw byte slice.
     ///
     /// This is a convenience method that creates a
-    /// [`SipMessageParser`] and delegates to
+    /// [`Parser`] and delegates to
     /// [`parse`](HeaderParser::parse).
     fn from_bytes(src: &[u8]) -> Result<Self> {
-        Self::parse(&mut SipMessageParser::new(src))
+        Self::parse(&mut Parser::new(src))
     }
 }
 
@@ -140,23 +140,23 @@ pub trait HeaderParser: Sized {
 ///
 /// This struct provides methods for parsing various components of SIP messages,
 /// such as header fields, URIs, and start lines.
-pub struct SipMessageParser<'buf> {
+pub struct Parser<'buf> {
     /// The scanner used to read the input buffer.
     scanner: Scanner<'buf>,
 }
 
-impl<'buf> SipMessageParser<'buf> {
-    /// Creates a new `SipMessageParser` from the given byte slice.
+impl<'buf> Parser<'buf> {
+    /// Creates a new `Parser` from the given byte slice.
     ///
     /// This method is useful if you want to parse only specific parts of a SIP
     /// message, such as a URI.
     ///
-    /// To parse the buffer direct into a [`SipMessage`], use the [`SipMessageParser::parse`]
+    /// To parse the buffer direct into a [`SipMessage`], use the [`Parser::parse`]
     /// method.
     ///
     /// # Examples
     /// ```
-    /// let line = SipMessageParser::new(b"SIP/2.0 200 OK\r\n")
+    /// let line = Parser::new(b"SIP/2.0 200 OK\r\n")
     ///     .parse_status_line()
     ///     .unwrap();
     /// ```
@@ -172,13 +172,13 @@ impl<'buf> SipMessageParser<'buf> {
 
     /// Parses the `buf` into a [`SipMessage`].
     ///
-    /// This is equivalent to `SipMessageParser::new(buf).parse()`.
+    /// This is equivalent to `Parser::new(buf).parse()`.
     ///
     /// # Examples
     ///
     /// ```
     /// let buf = b"SIP/2.0 200 OK\r\nContent-Length: 0\r\n\r\n";
-    /// let msg = SipMessageParser::parse(buf).unwrap();
+    /// let msg = Parser::parse(buf).unwrap();
     /// let res = msg.response().unwrap();
     ///
     /// assert_eq!(res.code().as_u16(), 200);
@@ -198,7 +198,7 @@ impl<'buf> SipMessageParser<'buf> {
     ///
     /// ```
     /// let buf = b"SIP/2.0 200 OK\r\nContent-Length: 0\r\n\r\n";
-    /// let msg = SipMessageParser::new().parse(buf).unwrap();
+    /// let msg = Parser::new().parse(buf).unwrap();
     /// let res = result.response().unwrap();
     ///
     /// assert_eq!(res.code().as_u16(), 200);
@@ -962,7 +962,7 @@ impl<'buf> SipMessageParser<'buf> {
     }
 }
 
-fn parse_uri_param<'a>(parser: &mut SipMessageParser<'a>) -> Result<ParamRef<'a>> {
+fn parse_uri_param<'a>(parser: &mut Parser<'a>) -> Result<ParamRef<'a>> {
     // SAFETY: `is_param` only accepts ASCII bytes, which are
     // always valid UTF-8.
     let mut param = unsafe { parser.parse_param_unchecked(is_param)? };
@@ -975,7 +975,7 @@ fn parse_uri_param<'a>(parser: &mut SipMessageParser<'a>) -> Result<ParamRef<'a>
 }
 
 #[inline]
-pub(crate) fn parse_via_param<'a>(parser: &mut SipMessageParser<'a>) -> Result<ParamRef<'a>> {
+pub(crate) fn parse_via_param<'a>(parser: &mut Parser<'a>) -> Result<ParamRef<'a>> {
     // SAFETY: `is_via_param` only accepts ASCII bytes, which
     // are always valid UTF-8.
     unsafe { parser.parse_param_unchecked(is_via_param) }

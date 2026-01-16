@@ -5,7 +5,7 @@ use itertools::Itertools;
 use crate::{
     error::Result,
     macros::comma_separated_header_value,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Require` SIP header.
@@ -19,7 +19,7 @@ pub struct Require(Vec<String>);
 impl HeaderParser for Require {
     const NAME: &'static str = "Require";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let tags = comma_separated_header_value!(parser => parser.parse_token()?.into());
 
         Ok(Require(tags))
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"100rel\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let require = Require::parse(&mut scanner);
         let require = require.unwrap();
 

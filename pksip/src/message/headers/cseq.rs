@@ -3,8 +3,8 @@ use std::str::{self, FromStr};
 
 use crate::{
     error::Result,
-    message::Method,
-    parser::{HeaderParser, SipMessageParser},
+    message::SipMethod,
+    parser::{HeaderParser, Parser},
 };
 
 /// The `CSeq` SIP header.
@@ -15,8 +15,8 @@ use crate::{
 /// # Examples
 ///
 /// ```
-/// # use pksip::{header::CSeq, message::Method};
-/// let cseq = CSeq::new(1, Method::Options);
+/// # use pksip::{header::CSeq, message::SipMethod};
+/// let cseq = CSeq::new(1, SipMethod::Options);
 ///
 /// assert_eq!("CSeq: 1 OPTIONS", cseq.to_string());
 /// ```
@@ -25,7 +25,7 @@ pub struct CSeq {
     /// The CSeq number.
     pub cseq: u32,
     /// The CSeq method.
-    pub method: Method,
+    pub method: SipMethod,
 }
 
 impl fmt::Display for CSeq {
@@ -39,13 +39,13 @@ impl FromStr for CSeq {
 
     /// Parse a `To` header instance from a `&str`.
     fn from_str(s: &str) -> Result<Self> {
-        Self::parse(&mut SipMessageParser::new(s))
+        Self::parse(&mut Parser::new(s))
     }
 }
 
 impl CSeq {
     /// Creates a new `CSeq` instance.
-    pub fn new(cseq: u32, method: Method) -> Self {
+    pub fn new(cseq: u32, method: SipMethod) -> Self {
         Self { cseq, method }
     }
 
@@ -55,7 +55,7 @@ impl CSeq {
     }
 
     /// Returns the SIP method associated with the cseq.
-    pub fn method(&self) -> &Method {
+    pub fn method(&self) -> &SipMethod {
         &self.method
     }
 }
@@ -63,12 +63,12 @@ impl CSeq {
 impl HeaderParser for CSeq {
     const NAME: &'static str = "CSeq";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<CSeq> {
+    fn parse(parser: &mut Parser) -> Result<CSeq> {
         let cseq = parser.read_u32()?;
 
         parser.skip_ws();
         let b_method = parser.alphabetic();
-        let method = Method::from(b_method);
+        let method = SipMethod::from(b_method);
 
         Ok(CSeq { cseq, method })
     }
@@ -80,11 +80,11 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"4711 INVITE\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let c_length = CSeq::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");
-        assert_eq!(c_length.method, Method::Invite);
+        assert_eq!(c_length.method, SipMethod::Invite);
         assert_eq!(c_length.cseq, 4711);
     }
 }

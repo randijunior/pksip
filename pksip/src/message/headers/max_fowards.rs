@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Max-Forwards` SIP header.
@@ -38,7 +38,7 @@ impl MaxForwards {
 impl HeaderParser for MaxForwards {
     const NAME: &'static str = "Max-Forwards";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<MaxForwards> {
+    fn parse(parser: &mut Parser) -> Result<MaxForwards> {
         let fowards = parser.read_u32()?;
 
         Ok(MaxForwards(fowards))
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"6\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let c_length = MaxForwards::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");

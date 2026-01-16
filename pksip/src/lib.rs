@@ -18,12 +18,15 @@ pub mod macros;
 pub use endpoint::{Endpoint, EndpointHandler};
 use error::Error;
 pub use error::Result;
-pub use message::Method;
-use parser::SipMessageParser;
+pub use message::SipMethod;
+use parser::Parser;
 
 #[cfg(test)]
 #[macro_use]
 extern crate assert_matches;
+
+#[cfg(test)]
+pub(crate) mod test_utils;
 
 use std::{
     fmt::{self, Debug, Display},
@@ -161,7 +164,7 @@ impl MediaType {
         }
     }
 
-    pub fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    pub fn parse(parser: &mut Parser) -> Result<Self> {
         let mtype = parser.parse_token()?;
         parser.next_byte();
         let subtype = parser.parse_token()?;
@@ -171,7 +174,7 @@ impl MediaType {
     }
 
     pub fn from_static(s: &'static str) -> Result<Self> {
-        Self::parse(&mut SipMessageParser::new(s.as_bytes()))
+        Self::parse(&mut Parser::new(s.as_bytes()))
     }
 
     /// Constructs a `MediaType` with an optional

@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Priority` SIP header.
@@ -15,7 +15,7 @@ pub struct Priority(String);
 impl HeaderParser for Priority {
     const NAME: &'static str = "Priority";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let priority = parser.parse_token()?;
 
         Ok(Priority(priority.into()))
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"emergency\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let priority = Priority::parse(&mut scanner).unwrap();
 
         assert_eq!(priority.0, "emergency");

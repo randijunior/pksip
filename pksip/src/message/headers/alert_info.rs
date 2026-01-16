@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::Params,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Alert-Info` SIP header.
@@ -52,7 +52,7 @@ impl AlertInfo {
 impl HeaderParser for AlertInfo {
     const NAME: &'static str = "Alert-Info";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         parser.skip_ws();
 
         parser.next_byte()?;
@@ -80,12 +80,12 @@ impl fmt::Display for AlertInfo {
 mod tests {
 
     use super::*;
-    use crate::parser::SipMessageParser;
+    use crate::parser::Parser;
 
     #[test]
     fn test_parse() {
         let src = b"<http://www.example.com/sounds/moo.wav>\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let alert_info = AlertInfo::parse(&mut scanner);
         let alert_info = alert_info.unwrap();
 
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(alert_info.url, "http://www.example.com/sounds/moo.wav");
 
         let src = b"<http://example.com/ringtones/premium.wav>;purpose=ringtone\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let alert_info = AlertInfo::parse(&mut scanner);
         let alert_info = alert_info.unwrap();
 

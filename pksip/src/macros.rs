@@ -18,14 +18,14 @@ macro_rules! parse_header_param {
     ($scanner:ident) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::SipMessageParser::parse_ref_param,
+            $crate::parser::Parser::parse_ref_param,
         )
     );
 
     ($scanner:ident, $($name:ident = $var:expr),*) => (
         $crate::macros::parse_param!(
             $scanner,
-            $crate::parser::SipMessageParser::parse_ref_param,
+            $crate::parser::Parser::parse_ref_param,
             $($name = $var),*
         )
     );

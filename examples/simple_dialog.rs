@@ -6,7 +6,7 @@ use pksip::{
     endpoint::{self},
     find_map_header,
     message::{
-        Method, StatusCode,
+        SipMethod, StatusCode,
         headers::{Header, Headers},
     },
     transaction::{ServerTransaction, TransactionManager},
@@ -22,7 +22,7 @@ impl EndpointHandler for SimpleDialogHandler {
         let method = request.message.req_line.method;
         let headers = &request.message.headers;
 
-        if method == Method::Register {
+        if method == SipMethod::Register {
             let new_header = if let Some(expires) = find_map_header!(headers, Expires) {
                 let mut hdrs = Headers::with_capacity(2);
                 let expires = *expires;
@@ -39,13 +39,13 @@ impl EndpointHandler for SimpleDialogHandler {
             } else {
                 None
             };
-            let server_tx = ServerTransaction::from_request(request, endpoint)?;
-
-            server_tx
-                .send_final_response(200, None, new_header, None)
+            let uas = endpoint.create_server_transaction(request)?;
+            uas.send_final_response(StatusCode::Ok, None, new_header, None)
                 .await?;
-        } else if method != Method::Ack {
-            endpoint.send_response(&request, 501, None).await?;
+        } else if method != SipMethod::Ack {
+            endpoint
+                .respond_stateless(&request, StatusCode::NotImplemented, None)
+                .await?;
         } else {
             return Ok(());
         };
@@ -68,8 +68,8 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let addr = "127.0.0.1:8089".parse()?;
 
     let endpoint = Endpoint::builder()
-        .add_handler(svc)
-        .add_transaction(TransactionManager::default())
+        .with_handler(svc)
+        .with_transaction(TransactionManager::default())
         .build();
     endpoint.start_ws_transport(addr).await?;
 

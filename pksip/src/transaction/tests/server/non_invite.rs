@@ -1,24 +1,27 @@
 use crate::{
-    Method, assert_state_eq,
-    transaction::{fsm, tests::STATUS_CODE_202_ACCEPTED},
+    SipMethod, assert_state_eq,
+    test_utils::TestContext,
+    transaction::{
+        fsm,
+        tests::{STATUS_CODE_100_TRYING, STATUS_CODE_202_ACCEPTED, STATUS_CODE_504_SERVER_TIMEOUT},
+    },
 };
 
 use super::{
-    setup_test_server_retransmission, setup_test_server_state_reliable,
-    setup_test_server_state_unreliable,
+    ReliableTransportTestContext, RetransmissionTestContext, UnreliableTransportTestContext,
 };
 
 #[tokio::test]
 async fn transition_to_proceeding_after_1xx_from_tu() {
-    let (mut server_tsx, mut tsx_state) = setup_test_server_state_reliable(Method::Options);
+    let mut ctx = ReliableTransportTestContext::setup(SipMethod::Options);
 
-    server_tsx
-        .respond_with_provisional_code(super::PROVISIONAL_1XX_STATUS_CODE)
+    ctx.server
+        .respond_provisional_code(STATUS_CODE_100_TRYING)
         .await
         .expect("transaction should send provisional response with the provided code");
 
     assert_state_eq!(
-        tsx_state,
+        ctx.server_state,
         fsm::State::Proceeding,
         "should move to proceeding state when sending provisional response"
     );
@@ -26,15 +29,15 @@ async fn transition_to_proceeding_after_1xx_from_tu() {
 
 #[tokio::test]
 async fn transition_to_completed_after_non_2xx_final_response_from_tu() {
-    let (server_tsx, mut tsx_state) = setup_test_server_state_unreliable(Method::Options);
+    let mut ctx = UnreliableTransportTestContext::setup(SipMethod::Options);
 
-    server_tsx
-        .respond_with_final_code(super::FINAL_NON_2XX_STATUS_CODE)
+    ctx.server
+        .respond_final_code(STATUS_CODE_504_SERVER_TIMEOUT)
         .await
         .expect("should send final response with the provided code");
 
     assert_state_eq!(
-        tsx_state,
+        ctx.server_state,
         fsm::State::Completed,
         "must move to completed after receive 200-699 from TU"
     );
@@ -42,15 +45,15 @@ async fn transition_to_completed_after_non_2xx_final_response_from_tu() {
 
 #[tokio::test]
 async fn reliable_transition_to_terminated_immediately_after_2xx_from_tu() {
-    let (server_tsx, mut tsx_state) = setup_test_server_state_reliable(Method::Options);
+    let mut ctx = ReliableTransportTestContext::setup(SipMethod::Options);
 
-    server_tsx
-        .respond_with_final_code(STATUS_CODE_202_ACCEPTED)
+    ctx.server
+        .respond_final_code(STATUS_CODE_202_ACCEPTED)
         .await
         .expect("transaction should send final response with the provided code");
 
     assert_state_eq!(
-        tsx_state,
+        ctx.server_state,
         fsm::State::Terminated,
         "must terminate immediately when sending final 2xx response with reliable transport"
     );
@@ -58,15 +61,15 @@ async fn reliable_transition_to_terminated_immediately_after_2xx_from_tu() {
 
 #[tokio::test]
 async fn reliable_transition_to_terminated_immediately_after_non_2xx_from_tu() {
-    let (server_tsx, mut tsx_state) = setup_test_server_state_reliable(Method::Options);
+    let mut ctx = ReliableTransportTestContext::setup(SipMethod::Options);
 
-    server_tsx
-        .respond_with_final_code(super::FINAL_NON_2XX_STATUS_CODE)
+    ctx.server
+        .respond_final_code(STATUS_CODE_504_SERVER_TIMEOUT)
         .await
         .expect("transaction should send final response with the provided code");
 
     assert_state_eq!(
-        tsx_state,
+        ctx.server_state,
         fsm::State::Terminated,
         "must terminate immediately when sending final non-2xx response with reliable transport"
     );
@@ -74,63 +77,63 @@ async fn reliable_transition_to_terminated_immediately_after_non_2xx_from_tu() {
 
 #[tokio::test]
 async fn absorbs_retransmission_in_initial_state() {
-    let (channel, transport, _server_tsx) = setup_test_server_retransmission(Method::Options);
+    let ctx = RetransmissionTestContext::setup(SipMethod::Options);
     let expected_retrans_count = 0;
 
-    channel.retransmit_n_times(2).await;
+    ctx.client.retransmit_n_times(2).await;
 
-    assert_eq!(transport.sent_count(), expected_retrans_count);
+    assert_eq!(ctx.transport.sent_count(), expected_retrans_count);
 }
 
 #[tokio::test]
 async fn retransmit_provisional_response_in_proceeding_state() {
-    let (channel, transport, mut server) = setup_test_server_retransmission(Method::Options);
+    let mut ctx = RetransmissionTestContext::setup(SipMethod::Options);
     let expected_response_count = 1;
     let expected_retrans_count = 4;
 
-    server
-        .respond_with_provisional_code(super::PROVISIONAL_1XX_STATUS_CODE)
+    ctx.server
+        .respond_provisional_code(STATUS_CODE_100_TRYING)
         .await
         .expect("transaction should send provisional response with the provided code");
 
-    channel.retransmit_n_times(expected_retrans_count).await;
+    ctx.client.retransmit_n_times(expected_retrans_count).await;
 
     assert_eq!(
-        transport.sent_count(),
+        ctx.transport.sent_count(),
         expected_response_count + expected_retrans_count
     );
 }
 
 #[tokio::test]
 async fn server_must_retransmit_final_2xx_response() {
-    let (channel, transport, server_tsx) = setup_test_server_retransmission(Method::Register);
+    let ctx = RetransmissionTestContext::setup(SipMethod::Register);
     let expected_response_count = 1;
     let expected_retrans_count = 2;
 
-    server_tsx
-        .respond_with_final_code(STATUS_CODE_202_ACCEPTED)
+    ctx.server
+        .respond_final_code(STATUS_CODE_202_ACCEPTED)
         .await
         .expect("transaction should send final response with the provided code");
 
-    channel.retransmit_n_times(expected_retrans_count).await;
+    ctx.client.retransmit_n_times(expected_retrans_count).await;
 
     assert_eq!(
-        transport.sent_count(),
+        ctx.transport.sent_count(),
         expected_response_count + expected_retrans_count
     );
 }
 
 #[tokio::test(start_paused = true)]
 async fn timer_j() {
-    let (server_tsx, mut tsx_state) = setup_test_server_state_unreliable(Method::Bye);
+    let mut ctx = UnreliableTransportTestContext::setup(SipMethod::Bye);
 
-    server_tsx
-        .respond_with_final_code(STATUS_CODE_202_ACCEPTED)
+    ctx.server
+        .respond_final_code(STATUS_CODE_202_ACCEPTED)
         .await
         .expect("transaction should send final response with the provided code");
 
     assert_state_eq!(
-        tsx_state,
+        ctx.server_state,
         fsm::State::Completed,
         "transaction must not terminate immediately when unreliable transport is used"
     );
@@ -138,7 +141,7 @@ async fn timer_j() {
     tokio::time::sleep(crate::transaction::T1 * 64).await;
 
     assert_state_eq!(
-        tsx_state,
+        ctx.server_state,
         fsm::State::Terminated,
         "must terminate after timer j fires"
     );

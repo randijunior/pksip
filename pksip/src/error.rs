@@ -4,9 +4,9 @@ use std::{
 };
 
 use thiserror::Error;
-use util::{Position, ScannerError};
+use utils::{Position, ScannerError};
 
-use crate::message::{CodeClass, Method, StatusCode};
+use crate::message::{CodeClass, SipMethod, StatusCode};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -101,7 +101,7 @@ pub enum ParseErrorKind {
     StatusCode,
     Header,
     Host,
-    Method,
+    SipMethod,
     Version,
     Uri,
     Param,
@@ -111,8 +111,8 @@ pub enum ParseErrorKind {
 
 #[derive(Debug, Error, PartialEq)]
 pub enum DialogError {
-    #[error("Method {0} cannot establish a dialog")]
-    InvalidMethod(Method),
+    #[error("SipMethod {0} cannot establish a dialog")]
+    InvalidMethod(SipMethod),
 
     #[error("Missing To tag in 'To' header")]
     MissingTagInToHeader,

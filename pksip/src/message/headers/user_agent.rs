@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `User-Agent` SIP header.
@@ -19,7 +19,7 @@ impl HeaderParser for UserAgent {
      * User-Agent  =  "User-Agent" HCOLON server-val *(LWS
      * server-val)
      */
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let agent = parser.read_until_new_line_as_str()?;
 
         Ok(UserAgent(agent.into()))
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Softphone Beta1.5\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let ua = UserAgent::parse(&mut scanner);
         let ua = ua.unwrap();
 

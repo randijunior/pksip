@@ -3,7 +3,7 @@ use std::str::{self, FromStr};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Call-ID` SIP header.
@@ -34,7 +34,7 @@ impl FromStr for CallId {
 
     /// Parse a `To` header instance from a `&str`.
     fn from_str(s: &str) -> Result<Self> {
-        Self::parse(&mut SipMessageParser::new(s))
+        Self::parse(&mut Parser::new(s))
     }
 }
 
@@ -55,7 +55,7 @@ impl HeaderParser for CallId {
     const NAME: &'static str = "Call-ID";
     const SHORT_NAME: &'static str = "i";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let id = parser.read_until_new_line_as_str()?;
 
         Ok(CallId(id.to_owned()))
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"bs9ki9iqbee8k5kal8mpqb\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let cid = CallId::parse(&mut scanner).unwrap();
 
         assert_eq!(cid.id(), "bs9ki9iqbee8k5kal8mpqb");

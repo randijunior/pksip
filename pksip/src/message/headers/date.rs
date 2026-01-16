@@ -2,7 +2,7 @@ use std::{fmt, str};
 
 use crate::{
     error::Result,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Date` SIP header.
@@ -32,7 +32,7 @@ impl Date {
 impl HeaderParser for Date {
     const NAME: &'static str = "Date";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let date = parser.read_until_new_line_as_str()?;
 
         Ok(Date(date.into()))
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"Sat, 13 Nov 2010 23:29:00 GMT\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let date = Date::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");

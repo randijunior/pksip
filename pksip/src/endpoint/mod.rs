@@ -11,11 +11,11 @@ use std::{
 pub use builder::EndpointBuilder;
 use bytes::Bytes;
 use tokio::net::ToSocketAddrs;
-use util::DnsResolver;
+use utils::DnsResolver;
 use uuid::Uuid;
 
 use crate::{
-    Method, Result,
+    Result, SipMethod,
     error::Error,
     find_map_header,
     message::{
@@ -88,17 +88,19 @@ impl Endpoint {
     }
 
     /// Respond an `IncommingRequest` without creating a `ServerTransaction`
-    pub async fn send_response(
+    pub async fn respond_stateless(
         &self,
         request: &IncomingRequest,
-        status_code: impl TryInto<StatusCode>,
+        status_code: StatusCode,
         reason_phrase: Option<ReasonPhrase>,
     ) -> Result<()> {
-        let status_code = StatusCode::try_new(status_code)?;
-
         let mut response = self.create_response(request, status_code, reason_phrase);
 
         self.send_outgoing_response(&mut response).await
+    }
+
+    pub fn create_server_transaction(&self, request: IncomingRequest) -> Result<ServerTransaction> {
+        ServerTransaction::from_request(request, self)
     }
 
     /// Creates a new SIP response based on an incoming
@@ -189,14 +191,14 @@ impl Endpoint {
         // Clone: Via, To, From, Max-Forwards, Call-ID and CSeq from response.
         let headers = MandatoryHeaders {
             cseq: CSeq {
-                method: Method::Ack,
+                method: SipMethod::Ack,
                 ..response.info.mandatory_headers.cseq
             },
             ..response.info.mandatory_headers.clone()
         }
         .into_headers();
 
-        let message = Request::with_headers(Method::Ack, target, headers);
+        let message = Request::with_headers(SipMethod::Ack, target, headers);
         let send_info = request.send_info.clone();
 
         OutgoingRequest {

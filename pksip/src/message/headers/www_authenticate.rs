@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     error::Result,
     message::Challenge,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `WWW-Authenticate` SIP header.
@@ -26,7 +26,7 @@ impl HeaderParser for WWWAuthenticate {
      * header-value      =  *(TEXT-UTF8char / UTF8-CONT /
      * LWS) message-body  =  *OCTET
      */
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let challenge = parser.parse_auth_challenge()?;
 
         Ok(WWWAuthenticate(challenge))
@@ -50,7 +50,7 @@ mod tests {
         domain=\"sip:boxesbybob.com\", qop=\"auth\",\
         nonce=\"f84f1cec41e6cbe5aea9c8e88d359\",\
         opaque=\"\", stale=FALSE, algorithm=MD5";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let www_auth = WWWAuthenticate::parse(&mut scanner);
         let www_auth = www_auth.unwrap();
 

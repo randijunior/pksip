@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     macros::parse_header_param,
     message::Params,
-    parser::{HeaderParser, SipMessageParser},
+    parser::{HeaderParser, Parser},
 };
 
 /// The `Content-Disposition` SIP header.
@@ -39,7 +39,7 @@ impl<'a> ContentDisposition {
 impl HeaderParser for ContentDisposition {
     const NAME: &'static str = "Content-Disposition";
 
-    fn parse(parser: &mut SipMessageParser) -> Result<Self> {
+    fn parse(parser: &mut Parser) -> Result<Self> {
         let _type = parser.parse_token()?;
         let params = parse_header_param!(parser);
 
@@ -69,20 +69,20 @@ mod tests {
     #[test]
     fn test_parse() {
         let src = b"session\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
 
         let src = b"session;handling=optional\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "session");
         assert_eq!(disp.params.unwrap().get_named("handling"), Some("optional"));
 
         let src = b"attachment; filename=smime.p7s;handling=required\r\n";
-        let mut scanner = SipMessageParser::new(src);
+        let mut scanner = Parser::new(src);
         let disp = ContentDisposition::parse(&mut scanner);
         let disp = disp.unwrap();
         assert_eq!(disp._type, "attachment");

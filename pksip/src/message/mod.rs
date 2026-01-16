@@ -215,7 +215,7 @@ pub struct Request {
 
 impl Request {
     /// Creates a new SIP `Request`.
-    pub fn new(method: Method, uri: Uri) -> Self {
+    pub fn new(method: SipMethod, uri: Uri) -> Self {
         Request {
             req_line: RequestLine { method, uri },
             headers: Headers::new(),
@@ -223,7 +223,7 @@ impl Request {
         }
     }
 
-    pub fn with_headers(method: Method, uri: Uri, headers: Headers) -> Self {
+    pub fn with_headers(method: SipMethod, uri: Uri, headers: Headers) -> Self {
         Request {
             req_line: RequestLine { method, uri },
             headers,
@@ -232,7 +232,7 @@ impl Request {
     }
 
     /// Returns the SIP method of the request.
-    pub fn method(&self) -> Method {
+    pub fn method(&self) -> SipMethod {
         self.req_line.method
     }
 }
@@ -250,15 +250,15 @@ impl Display for RequestLine {
 #[derive(Clone)]
 pub struct RequestLine {
     /// The SIP method associated with the request.
-    pub method: Method,
+    pub method: SipMethod,
     /// The Request-URI indicating the target of the request.
     pub uri: Uri,
 }
 
 impl RequestLine {
-    /// Creates a new `RequestLine` instance from the given [`Method`] and
+    /// Creates a new `RequestLine` instance from the given [`SipMethod`] and
     /// [`Uri`].
-    pub const fn new(method: Method, uri: Uri) -> Self {
+    pub const fn new(method: SipMethod, uri: Uri) -> Self {
         Self { method, uri }
     }
 }
