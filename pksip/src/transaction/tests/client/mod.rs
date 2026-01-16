@@ -3,9 +3,9 @@ use std::net::SocketAddr;
 use tokio::sync::watch;
 
 use crate::test_utils::{
-    TestContext,
     transaction::{
-        MockServerTransaction, TestRetransmissionTimer, create_test_endpoint, create_test_request,
+        MockServerTransaction, TestContext, TestRetransmissionTimer, create_test_endpoint,
+        create_test_request,
     },
     transport::MockTransport,
 };
@@ -20,13 +20,13 @@ use crate::{
 mod invite;
 mod non_invite;
 
-struct TestContextSendRequest {
+struct SendRequestTestContext {
     endpoint: Endpoint,
     request: Request,
     target: (Transport, SocketAddr),
 }
 
-impl TestContext<SipMethod> for TestContextSendRequest {
+impl TestContext for SendRequestTestContext {
     fn setup(method: SipMethod) -> Self {
         let udp = MockTransport::new_udp();
 
@@ -50,7 +50,7 @@ struct ReceiveProvisionalTestContext {
     client: ClientTransaction,
 }
 
-impl TestContext<SipMethod> for ReceiveProvisionalTestContext {
+impl TestContext for ReceiveProvisionalTestContext {
     async fn setup_async(method: SipMethod) -> Self {
         let transport = Transport::new(MockTransport::new_udp());
         let request = create_test_request(method, transport.clone());
@@ -85,7 +85,7 @@ struct ReceiveFinalTestContext {
     client_state: watch::Receiver<fsm::State>,
 }
 
-impl TestContext<SipMethod> for ReceiveFinalTestContext {
+impl TestContext for ReceiveFinalTestContext {
     async fn setup_async(method: SipMethod) -> Self {
         let transport = Transport::new(MockTransport::new_udp());
         let request = create_test_request(method, transport.clone());
@@ -125,7 +125,7 @@ struct ReliableTransportTestContext {
     transport: MockTransport,
 }
 
-impl TestContext<SipMethod> for ReliableTransportTestContext {
+impl TestContext for ReliableTransportTestContext {
     async fn setup_async(method: SipMethod) -> Self {
         let tcp = MockTransport::new_tcp();
 
@@ -155,7 +155,7 @@ struct RetransmissionTestContext {
     timer: TestRetransmissionTimer,
 }
 
-impl TestContext<SipMethod> for RetransmissionTestContext {
+impl TestContext for RetransmissionTestContext {
     async fn setup_async(method: SipMethod) -> Self {
         let timer = TestRetransmissionTimer::new();
         let udp = MockTransport::new_udp();

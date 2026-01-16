@@ -75,6 +75,16 @@ pub fn create_test_request(method: SipMethod, transport: Transport) -> IncomingR
     }
 }
 
+#[allow(unused_variables)]
+pub trait TestContext: Sized {
+    fn setup(method: SipMethod) -> Self {
+        unimplemented!()
+    }
+    async fn setup_async(method: SipMethod) -> Self {
+        unimplemented!()
+    }
+}
+
 pub struct MockServerTransaction {
     pub sender: mpsc::Sender<TransactionMessage>,
     pub request: IncomingRequest,

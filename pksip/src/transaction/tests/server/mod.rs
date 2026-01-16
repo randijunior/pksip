@@ -7,9 +7,9 @@ use crate::{
 };
 
 use crate::test_utils::{
-    TestContext,
     transaction::{
-        MockClientTransaction, TestRetransmissionTimer, create_test_endpoint, create_test_request,
+        MockClientTransaction, TestContext, TestRetransmissionTimer, create_test_endpoint,
+        create_test_request,
     },
     transport::MockTransport,
 };
@@ -22,16 +22,17 @@ struct RetransmissionTestContext {
     client: MockClientTransaction,
     transport: MockTransport,
     timer: TestRetransmissionTimer,
+    server_state: watch::Receiver<fsm::State>,
 }
 
-impl TestContext<SipMethod> for RetransmissionTestContext {
+impl TestContext for RetransmissionTestContext {
     fn setup(method: SipMethod) -> Self {
         let transport = MockTransport::new_udp();
         let transport_clone = transport.clone();
 
         let request = create_test_request(method, Transport::new(transport_clone));
         let endpoint = create_test_endpoint();
-        let server = ServerTransaction::from_request(request.clone(), &endpoint).unwrap();
+        let mut server = ServerTransaction::from_request(request.clone(), &endpoint).unwrap();
 
         let sender = endpoint
             .transactions()
@@ -42,11 +43,14 @@ impl TestContext<SipMethod> for RetransmissionTestContext {
 
         let timer = TestRetransmissionTimer::new();
 
+        let server_state = server.state_machine_mut().subscribe_state();
+
         RetransmissionTestContext {
             server,
             client,
             transport,
             timer,
+            server_state,
         }
     }
 }
@@ -56,7 +60,7 @@ struct UnreliableTransportTestContext {
     server_state: watch::Receiver<fsm::State>,
 }
 
-impl TestContext<SipMethod> for UnreliableTransportTestContext {
+impl TestContext for UnreliableTransportTestContext {
     fn setup(method: SipMethod) -> Self {
         let (server, server_state) = setup_test_state(method, MockTransport::new_udp());
 
@@ -72,7 +76,7 @@ struct ReliableTransportTestContext {
     server_state: watch::Receiver<fsm::State>,
 }
 
-impl TestContext<SipMethod> for ReliableTransportTestContext {
+impl TestContext for ReliableTransportTestContext {
     fn setup(method: SipMethod) -> Self {
         let (server, server_state) = setup_test_state(method, MockTransport::new_tcp());
 
@@ -94,22 +98,4 @@ fn setup_test_state(
     let state = server.state_machine_mut().subscribe_state();
 
     (server, state)
-}
-
-struct ReceiveAckTestContext {
-    client: MockClientTransaction,
-    server_state: watch::Receiver<fsm::State>,
-    server: ServerTransaction,
-}
-
-impl TestContext<()> for ReceiveAckTestContext {
-    fn setup(_args: ()) -> Self {
-        let mut ctx = RetransmissionTestContext::setup(SipMethod::Invite);
-
-        Self {
-            client: ctx.client,
-            server_state: ctx.server.state_machine_mut().subscribe_state(),
-            server: ctx.server,
-        }
-    }
 }

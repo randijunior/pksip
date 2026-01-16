@@ -1,6 +1,6 @@
 use crate::{
     SipMethod, assert_state_eq,
-    test_utils::TestContext,
+    test_utils::transaction::TestContext,
     transaction::{
         fsm,
         tests::{STATUS_CODE_100_TRYING, STATUS_CODE_202_ACCEPTED, STATUS_CODE_504_SERVER_TIMEOUT},

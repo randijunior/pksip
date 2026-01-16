@@ -1,9 +1,9 @@
 use crate::{
     SipMethod, assert_state_eq,
-    test_utils::TestContext,
+    test_utils::transaction::TestContext,
     transaction::{
         fsm,
-        tests::{STATUS_CODE_202_ACCEPTED, STATUS_CODE_301_MOVED_PERMANENTLY, server::ReceiveAckTestContext},
+        tests::{STATUS_CODE_202_ACCEPTED, STATUS_CODE_301_MOVED_PERMANENTLY},
     },
 };
 
@@ -11,14 +11,14 @@ use super::{
     ReliableTransportTestContext, RetransmissionTestContext, UnreliableTransportTestContext,
 };
 
-
 // ===== transaction state tests =====
 
 #[tokio::test]
 async fn transitions_to_confirmed_state_after_receive_ack() {
-    let mut ctx = ReceiveAckTestContext::setup(());
+    let mut ctx = RetransmissionTestContext::setup(SipMethod::Invite);
 
-    ctx.server.respond_final_code(STATUS_CODE_301_MOVED_PERMANENTLY)
+    ctx.server
+        .respond_final_code(STATUS_CODE_301_MOVED_PERMANENTLY)
         .await
         .expect("Error sending final response");
 

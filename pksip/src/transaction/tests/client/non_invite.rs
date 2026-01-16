@@ -1,7 +1,7 @@
 use crate::{
     SipMethod, assert_state_eq,
     error::{Error, TransactionError},
-    test_utils::TestContext,
+    test_utils::transaction::TestContext,
     transaction::{
         ClientTransaction,
         fsm::{self},
@@ -15,12 +15,12 @@ use crate::{
 
 use super::{
     ReceiveFinalTestContext, ReceiveProvisionalTestContext, ReliableTransportTestContext,
-    RetransmissionTestContext, TestContextSendRequest,
+    RetransmissionTestContext, SendRequestTestContext,
 };
 
 #[tokio::test]
 async fn transitions_to_trying_when_request_sent() {
-    let ctx = TestContextSendRequest::setup(SipMethod::Bye);
+    let ctx = SendRequestTestContext::setup(SipMethod::Bye);
 
     let uac = ClientTransaction::send_request(&ctx.endpoint, ctx.request, Some(ctx.target))
         .await

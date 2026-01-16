@@ -31,7 +31,7 @@ pub struct ClientTransaction {
     endpoint: Endpoint,
     state_machine: StateMachine,
     request: OutgoingRequest,
-    channel: PeekableReceiver<TransactionMessage>,
+    receiver: PeekableReceiver<TransactionMessage>,
     timeout: Instant,
 }
 
@@ -88,7 +88,7 @@ impl ClientTransaction {
             key,
             endpoint: endpoint.clone(),
             state_machine: StateMachine::new(state),
-            channel: receiver.into(),
+            receiver: receiver.into(),
             request,
             timeout: Instant::now() + T1 * 64,
         };
@@ -108,7 +108,7 @@ impl ClientTransaction {
 
     async fn recv_provisional_msg(&mut self) -> Option<IncomingResponse> {
         match self
-            .channel
+            .receiver
             .recv_if(|msg| match msg {
                 TransactionMessage::Response(incoming)
                     if incoming.message.status_code().is_provisional() =>
@@ -183,7 +183,7 @@ impl ClientTransaction {
 
     pub async fn receive_final_response(mut self) -> Result<IncomingResponse> {
         // Change to only receive final.
-        let response = self.channel.recv().await.unwrap();
+        let response = self.receiver.recv().await.unwrap();
 
         let TransactionMessage::Response(response) = response else {
             unimplemented!()
@@ -216,7 +216,7 @@ impl ClientTransaction {
             // timer d fires
             let timer_d = Instant::now() + 64 * T1;
             tokio::spawn(async move {
-                while let Ok(Some(_)) = timeout_at(timer_d, self.channel.recv()).await {
+                while let Ok(Some(_)) = timeout_at(timer_d, self.receiver.recv()).await {
                     if let Err(err) = self.endpoint.send_outgoing_request(&mut ack_request).await {
                         log::error!("Failed to retransmit: {}", err);
                     }
@@ -227,7 +227,7 @@ impl ClientTransaction {
             // timer k fires
             let timer_k = Instant::now() + T4;
             tokio::spawn(async move {
-                while let Ok(Some(_)) = timeout_at(timer_k, self.channel.recv()).await {
+                while let Ok(Some(_)) = timeout_at(timer_k, self.receiver.recv()).await {
                     // buffer any additional response retransmissions that may be received
                 }
                 self.state_machine.set_state(State::Terminated);
