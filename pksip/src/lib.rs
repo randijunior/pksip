@@ -28,12 +28,10 @@ extern crate assert_matches;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
-use std::{
-    fmt::{self, Debug, Display},
-    net::SocketAddr,
-    str::{
-        FromStr, {self},
-    },
+use std::fmt::{self, Debug, Display};
+use std::net::SocketAddr;
+use std::str::{
+    FromStr, {self},
 };
 
 /// Branch parameter prefix defined in RFC3261.

@@ -1,11 +1,9 @@
 use std::fmt;
 
-use crate::{
-    error::Result,
-    macros::parse_header_param,
-    message::{NameAddr, Params},
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::parse_header_param;
+use crate::message::{NameAddr, Params};
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Record-Route` SIP header.
 ///

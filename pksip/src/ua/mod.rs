@@ -1,12 +1,12 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub mod dialog;
 
-use crate::{
-    Endpoint, EndpointHandler, Result,
-    message::{SipMethod, StatusCode, headers::Contact},
-    transport::IncomingRequest,
-};
+use crate::message::headers::Contact;
+use crate::message::{SipMethod, StatusCode};
+use crate::transport::incoming::IncomingRequest;
+use crate::{Endpoint, EndpointHandler, Result};
 
 use dialog::{Dialog, DialogId};
 

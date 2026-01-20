@@ -1,10 +1,8 @@
 use core::fmt;
 use std::str;
 
-use crate::{
-    error::Result,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Content-Length` SIP header.
 ///

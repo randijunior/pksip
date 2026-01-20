@@ -1,10 +1,8 @@
 use core::fmt;
 use std::str::{self, FromStr};
 
-use crate::{
-    error::Result,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Call-ID` SIP header.
 ///

@@ -1,6 +1,8 @@
-use std::{fmt, str::FromStr};
+use std::fmt;
+use std::str::FromStr;
 
-use crate::{Error, Result, parser::Parser};
+use crate::parser::Parser;
+use crate::{Error, Result};
 
 pub(crate) type ParameterRef<'a> = (&'a str, Option<&'a str>);
 

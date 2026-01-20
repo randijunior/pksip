@@ -1,9 +1,7 @@
 use std::{fmt, str};
 
-use crate::{
-    error::Result,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Server` SIP header.
 ///

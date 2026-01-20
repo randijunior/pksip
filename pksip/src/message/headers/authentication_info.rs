@@ -1,11 +1,9 @@
 use std::{fmt, str};
 
-use crate::{
-    error::{ParseErrorKind as ErrorKind, Result},
-    macros::comma_separated,
-    message::{CNONCE, NC, NEXTNONCE, Param, QOP, RSPAUTH},
-    parser::{HeaderParser, Parser},
-};
+use crate::error::{ParseErrorKind as ErrorKind, Result};
+use crate::macros::comma_separated;
+use crate::message::{CNONCE, NC, NEXTNONCE, Param, QOP, RSPAUTH};
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Authentication-Info` SIP header.
 ///

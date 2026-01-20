@@ -1,11 +1,9 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::{
-    Endpoint, EndpointHandler, Result,
-    message::{SipMethod, StatusCode},
-    transport::IncomingRequest,
-};
+use pksip::message::{SipMethod, StatusCode};
+use pksip::transport::incoming::IncomingRequest;
+use pksip::{Endpoint, EndpointHandler, Result};
 use tracing::Level;
 use tracing_subscriber::fmt::time::ChronoLocal;
 
@@ -15,9 +13,9 @@ const CODE: StatusCode = StatusCode::NotImplemented;
 
 #[async_trait]
 impl EndpointHandler for StatelessUasHandler {
-    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> Result<()> {
-        if request.message.req_line.method != SipMethod::Ack {
-            endpoint.respond_stateless(&request, CODE, None).await?;
+    async fn handle(&self, incoming: IncomingRequest, endpoint: &Endpoint) -> Result<()> {
+        if incoming.request.req_line.method != SipMethod::Ack {
+            endpoint.respond_stateless(&incoming, CODE, None).await?;
         }
         Ok(())
     }
@@ -30,7 +28,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_env_filter("pksip=trace")
         .with_timer(ChronoLocal::new(String::from("%H:%M:%S%.3f")))
         .init();
-    // console_subscriber::init();
 
     let svc = StatelessUasHandler;
     let addr = "127.0.0.1:0".parse()?;

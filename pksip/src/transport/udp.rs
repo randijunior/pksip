@@ -1,11 +1,14 @@
 //! UDP transport implementation for SIP.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
+use std::sync::Arc;
 
 use tokio::net::{ToSocketAddrs, UdpSocket};
 
 use super::{Packet, SipTransport, Transport, TransportType};
-use crate::{Endpoint, error::Result, transport::TransportMessage};
+use crate::Endpoint;
+use crate::error::Result;
+use crate::transport::TransportMessage;
 
 #[derive(Debug)]
 struct UdpInner {
@@ -78,11 +81,19 @@ impl SipTransport for UdpTransport {
         None
     }
 
-    fn protocol(&self) -> TransportType {
+    fn transport_type(&self) -> TransportType {
         TransportType::Udp
     }
 
     fn local_addr(&self) -> SocketAddr {
         self.inner.addr
+    }
+
+    fn is_reliable(&self) -> bool {
+        false
+    }
+
+    fn is_secure(&self) -> bool {
+        false
     }
 }

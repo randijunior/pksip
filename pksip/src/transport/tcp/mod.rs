@@ -3,22 +3,16 @@
 use std::net::SocketAddr;
 
 use async_trait::async_trait;
-use tokio::{
-    io::{AsyncWriteExt, ReadHalf, WriteHalf, split},
-    net::{TcpListener as TokioTcpListener, TcpStream, ToSocketAddrs},
-    sync::Mutex,
-};
+use tokio::io::{AsyncWriteExt, ReadHalf, WriteHalf, split};
+use tokio::net::{TcpListener as TokioTcpListener, TcpStream, ToSocketAddrs};
+use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
-use super::{
-    KEEPALIVE_RESPONSE, Packet, SipTransport, Transport, TransportMessage, TransportType,
-    decode::{FramedMessage, StreamingDecoder},
-};
-use crate::{
-    Endpoint,
-    error::{Error, Result},
-};
+use super::decode::{FramedMessage, StreamingDecoder};
+use super::{KEEPALIVE_RESPONSE, Packet, SipTransport, Transport, TransportMessage, TransportType};
+use crate::Endpoint;
+use crate::error::{Error, Result};
 
 type TcpFrameRead = FramedRead<ReadHalf<TcpStream>, StreamingDecoder>;
 type TcpAccept = (TcpStream, SocketAddr);
@@ -92,12 +86,20 @@ impl SipTransport for TcpTransport {
         Some(self.remote_addr)
     }
 
-    fn protocol(&self) -> TransportType {
+    fn transport_type(&self) -> TransportType {
         TransportType::Tcp
     }
 
     fn local_addr(&self) -> SocketAddr {
         self.bind_addr
+    }
+
+    fn is_reliable(&self) -> bool {
+        true
+    }
+
+    fn is_secure(&self) -> bool {
+        false
     }
 }
 

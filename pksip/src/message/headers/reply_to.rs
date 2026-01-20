@@ -1,11 +1,9 @@
 use std::fmt;
 
-use crate::{
-    error::Result,
-    macros::parse_header_param,
-    message::{Params, SipUri},
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::parse_header_param;
+use crate::message::{Params, SipUri};
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Reply-To` SIP header.
 ///

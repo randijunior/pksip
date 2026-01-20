@@ -1,9 +1,12 @@
 //! DNS resolve with the `DnsResolver` type.
 
-use std::{io, net::IpAddr};
+use std::io;
+use std::net::IpAddr;
 
-use hickory_resolver::ResolveError;
-use hickory_resolver::{IntoName, lookup::Lookup, lookup_ip::LookupIp, proto::rr::RecordType};
+use hickory_resolver::lookup::Lookup;
+use hickory_resolver::lookup_ip::LookupIp;
+use hickory_resolver::proto::rr::RecordType;
+use hickory_resolver::{IntoName, ResolveError};
 
 pub use hickory_resolver::Name;
 pub use hickory_resolver::proto::rr::RData;

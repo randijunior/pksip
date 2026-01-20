@@ -2,11 +2,9 @@ use std::{fmt, str};
 
 use itertools::Itertools;
 
-use crate::{
-    error::Result,
-    macros::comma_separated_header_value,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::comma_separated_header_value;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Unsupported` SIP header.
 ///

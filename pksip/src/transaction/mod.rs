@@ -7,15 +7,12 @@ pub use client::ClientTransaction;
 pub use manager::TransactionManager;
 pub use server::ServerTransaction;
 
-use crate::transport::{IncomingRequest, IncomingResponse};
+use crate::transport::incoming::{IncomingRequest, IncomingResponse};
 
 pub(crate) mod client;
 pub(crate) mod fsm;
 pub(crate) mod manager;
 pub(crate) mod server;
-
-#[cfg(test)]
-mod tests;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Copy)]
 pub enum Role {

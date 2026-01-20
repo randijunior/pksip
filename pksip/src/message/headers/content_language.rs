@@ -2,12 +2,10 @@ use std::{fmt, str};
 
 use itertools::Itertools;
 
-use crate::{
-    error::Result,
-    macros::comma_separated_header_value,
-    message::headers::accept_language::is_lang,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::comma_separated_header_value;
+use crate::message::headers::accept_language::is_lang;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Content-Language` SIP header.
 ///

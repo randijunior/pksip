@@ -7,12 +7,10 @@
 //! Within this crate, the module corresponds to the lowest layer of SIP: syntax
 //! and encoding.
 
-use std::{
-    borrow::Cow,
-    fmt::{Display, Formatter, Result as FmtResult},
-    ops::Deref,
-    result::Result as StdResult,
-};
+use std::borrow::Cow;
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::ops::Deref;
+use std::result::Result as StdResult;
 
 use bytes::Bytes;
 
@@ -20,16 +18,13 @@ pub mod headers;
 
 use headers::{CSeq, CallId, From as FromHeader, Header, Headers, To, Via};
 
-use crate::{
-    error::{Error, Result},
-    message::headers::MaxForwards,
-    parser::HeaderParser,
-};
+use crate::error::{Error, Result};
+use crate::parser::HeaderParser;
 
 mod auth;
 mod method;
 mod param;
-mod sip_uri;
+pub(crate) mod sip_uri;
 mod status_code;
 
 pub use auth::*;
@@ -149,6 +144,9 @@ pub struct MandatoryHeaders {
 }
 
 impl MandatoryHeaders {
+    pub fn from_headers(headers: &Headers) -> Result<Self> {
+        Self::try_from(headers)
+    }
     pub fn into_headers(self) -> Headers {
         let mut headers = Headers::with_capacity(5);
         headers.push(Header::Via(self.via));

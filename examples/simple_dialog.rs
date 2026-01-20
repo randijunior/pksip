@@ -1,26 +1,20 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::{
-    Endpoint, EndpointHandler,
-    endpoint::{self},
-    find_map_header,
-    message::{
-        SipMethod, StatusCode,
-        headers::{Header, Headers},
-    },
-    transaction::{ServerTransaction, TransactionManager},
-    transport::IncomingRequest,
-};
+use pksip::message::headers::{Header, Headers};
+use pksip::message::{SipMethod, StatusCode};
+use pksip::transaction::TransactionManager;
+use pksip::transport::incoming::IncomingRequest;
+use pksip::{Endpoint, EndpointHandler, find_map_header};
 use tracing::Level;
 
 pub struct SimpleDialogHandler;
 
 #[async_trait]
 impl EndpointHandler for SimpleDialogHandler {
-    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
-        let method = request.message.req_line.method;
-        let headers = &request.message.headers;
+    async fn handle(&self, incoming: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
+        let method = incoming.request.req_line.method;
+        let headers = &incoming.request.headers;
 
         if method == SipMethod::Register {
             let new_header = if let Some(expires) = find_map_header!(headers, Expires) {
@@ -39,12 +33,12 @@ impl EndpointHandler for SimpleDialogHandler {
             } else {
                 None
             };
-            let uas = endpoint.create_server_transaction(request)?;
+            let uas = endpoint.create_server_transaction(incoming)?;
             uas.send_final_response(StatusCode::Ok, None, new_header, None)
                 .await?;
         } else if method != SipMethod::Ack {
             endpoint
-                .respond_stateless(&request, StatusCode::NotImplemented, None)
+                .respond_stateless(&incoming, StatusCode::NotImplemented, None)
                 .await?;
         } else {
             return Ok(());
@@ -61,7 +55,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(
             String::from("%H:%M:%S%.3f"),
         ))
-        // .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
     let svc = SimpleDialogHandler;
@@ -72,11 +65,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_transaction(TransactionManager::default())
         .build();
     endpoint.start_ws_transport(addr).await?;
-
-    let server_addr = format!("ws://{addr}");
-
-    let transport =
-        pksip::transport::ws::WebSocketTransport::connect(&server_addr, 1.0, &endpoint).await?;
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

@@ -1,13 +1,12 @@
 use std::io::{self, Result};
 
 use bytes::BytesMut;
-use tokio_util::{bytes::Buf, codec::Decoder};
+use tokio_util::bytes::Buf;
+use tokio_util::codec::Decoder;
 
-use crate::{
-    message::headers::ContentLength,
-    parser::HeaderParser,
-    transport::{KEEPALIVE_REQUEST, KEEPALIVE_RESPONSE, MSG_HEADERS_END},
-};
+use crate::message::headers::ContentLength;
+use crate::parser::HeaderParser;
+use crate::transport::{KEEPALIVE_REQUEST, KEEPALIVE_RESPONSE, MSG_HEADERS_END};
 
 pub struct StreamingDecoder {}
 

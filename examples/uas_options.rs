@@ -1,11 +1,10 @@
-use std::{error::Error, time::Duration};
+use std::error::Error;
+use std::time::Duration;
 
 use async_trait::async_trait;
-use pksip::{
-    Endpoint, EndpointHandler,
-    message::{SipMethod, StatusCode},
-    transport::IncomingRequest,
-};
+use pksip::message::{SipMethod, StatusCode};
+use pksip::transport::incoming::IncomingRequest;
+use pksip::{Endpoint, EndpointHandler};
 use tokio::time;
 use tracing::Level;
 
@@ -13,17 +12,17 @@ pub struct UasOptionsHandler;
 
 #[async_trait]
 impl EndpointHandler for UasOptionsHandler {
-    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
-        if request.req_line.method == SipMethod::Options {
-            let uas = endpoint.create_server_transaction(request)?;
+    async fn handle(&self, incoming: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
+        if incoming.request.req_line.method == SipMethod::Options {
+            let uas = endpoint.create_server_transaction(incoming)?;
 
             uas.respond_final_code(StatusCode::Ok).await?;
 
             return Ok(());
         }
-        if request.req_line.method != SipMethod::Ack {
+        if incoming.request.req_line.method != SipMethod::Ack {
             endpoint
-                .respond_stateless(&request, StatusCode::NotImplemented, None)
+                .respond_stateless(&incoming, StatusCode::NotImplemented, None)
                 .await?;
 
             return Ok(());

@@ -1,4 +1,5 @@
-use crate::{error::TransactionError, message::ReasonPhrase};
+use crate::error::TransactionError;
+use crate::message::ReasonPhrase;
 
 /// Classifies SIP status codes into categories.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]

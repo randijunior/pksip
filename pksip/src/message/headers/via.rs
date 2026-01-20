@@ -1,18 +1,14 @@
 use core::fmt;
-use std::{
-    net::IpAddr,
-    str::{self, FromStr},
-};
+use std::net::IpAddr;
+use std::str::{self, FromStr};
 
-use crate::{
-    error::{ParseErrorKind as ErrorKind, Result},
-    macros::parse_param,
-    message::{DomainName, Host, HostPort, Params},
-    parser::{
-        HeaderParser, Parser, SIPV2, {self},
-    },
-    transport::TransportType,
+use crate::error::{ParseErrorKind as ErrorKind, Result};
+use crate::macros::parse_param;
+use crate::message::{DomainName, Host, HostPort, Params};
+use crate::parser::{
+    HeaderParser, Parser, SIPV2, {self},
 };
+use crate::transport::TransportType;
 
 const MADDR_PARAM: &str = "maddr";
 const BRANCH_PARAM: &str = "branch";

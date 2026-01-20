@@ -1,12 +1,11 @@
 use core::fmt;
 use std::str::{self, FromStr};
 
-use crate::{
-    error::Result,
-    macros::parse_header_param,
-    message::{Params, SipUri, Uri, headers::TAG_PARAM},
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::parse_header_param;
+use crate::message::headers::TAG_PARAM;
+use crate::message::{Params, SipUri, Uri};
+use crate::parser::{HeaderParser, Parser};
 
 /// The `From` SIP header.
 ///

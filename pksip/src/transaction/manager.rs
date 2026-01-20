@@ -1,13 +1,13 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 use bytes::Bytes;
-use tokio::sync::{
-    mpsc::{self, UnboundedSender},
-    oneshot,
-};
+use tokio::sync::mpsc::{self, UnboundedSender};
+use tokio::sync::oneshot;
 
-use crate::transport::{IncomingRequest, IncomingResponse};
-use crate::{RFC3261_BRANCH_ID, SipMethod, message::HostPort, transport::IncomingMessageInfo};
+use crate::message::HostPort;
+use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
+use crate::{RFC3261_BRANCH_ID, SipMethod};
 
 use super::{Role, TransactionMessage};
 
@@ -88,14 +88,14 @@ pub enum TransactionKey {
 
 impl TransactionKey {
     pub fn from_request(request: &IncomingRequest) -> Self {
-        Self::from_incoming_info(&request.info, Role::UAS)
+        Self::from_incoming_info(&request.incoming_info, Role::UAS)
     }
 
     pub fn from_response(response: &IncomingResponse) -> Self {
-        Self::from_incoming_info(&response.info, Role::UAC)
+        Self::from_incoming_info(&response.incoming_info, Role::UAC)
     }
 
-    fn from_incoming_info(info: &IncomingMessageInfo, role: Role) -> Self {
+    fn from_incoming_info(info: &IncomingInfo, role: Role) -> Self {
         match info.mandatory_headers.via.branch {
             Some(ref branch) if branch.starts_with(RFC3261_BRANCH_ID) => {
                 let branch = branch.clone();
@@ -144,7 +144,8 @@ pub struct Rfc3261 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{endpoint, message::SipMethod};
+    use crate::endpoint;
+    use crate::message::SipMethod;
 
     #[tokio::test]
     async fn test_non_invite_server_tsx() {

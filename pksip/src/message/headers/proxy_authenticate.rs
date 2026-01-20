@@ -1,10 +1,8 @@
 use std::fmt;
 
-use crate::{
-    error::Result,
-    message::Challenge,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::message::Challenge;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Proxy-Authenticate` SIP header.
 ///

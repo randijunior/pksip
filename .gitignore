@@ -1,4 +1,2 @@
-/target
-/Cargo.lock
-/.vscode
-crates/sip/target/
+target
+Cargo.lock

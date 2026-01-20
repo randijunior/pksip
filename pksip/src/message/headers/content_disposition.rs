@@ -1,11 +1,9 @@
 use core::fmt;
 
-use crate::{
-    error::Result,
-    macros::parse_header_param,
-    message::Params,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::parse_header_param;
+use crate::message::Params;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Content-Disposition` SIP header.
 ///

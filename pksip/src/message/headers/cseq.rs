@@ -1,11 +1,9 @@
 use core::fmt;
 use std::str::{self, FromStr};
 
-use crate::{
-    error::Result,
-    message::SipMethod,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::message::SipMethod;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `CSeq` SIP header.
 ///

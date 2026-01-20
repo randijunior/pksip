@@ -2,12 +2,10 @@ use std::{fmt, str};
 
 use itertools::Itertools;
 
-use crate::{
-    error::Result,
-    macros::{comma_separated_header_value, parse_header_param},
-    message::Params,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::macros::{comma_separated_header_value, parse_header_param};
+use crate::message::Params;
+use crate::parser::{HeaderParser, Parser};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ErrorInfoUri {

@@ -1,12 +1,10 @@
 #![warn(missing_docs)]
 //! SIP Endpoint
 
-use std::{
-    borrow::Cow,
-    io,
-    net::{IpAddr, SocketAddr},
-    sync::Arc,
-};
+use std::borrow::Cow;
+use std::io;
+use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 
 pub use builder::EndpointBuilder;
 use bytes::Bytes;
@@ -14,24 +12,24 @@ use tokio::net::ToSocketAddrs;
 use utils::DnsResolver;
 use uuid::Uuid;
 
-use crate::{
-    Result, SipMethod,
-    error::Error,
-    find_map_header,
-    message::{
-        CodeClass, DomainName, Host, HostPort, MandatoryHeaders, NameAddr, ReasonPhrase, Request,
-        RequestLine, Response, SipMessage, SipMessageBody, SipUri, StatusCode, StatusLine, Uri,
-        UriBuilder,
-        headers::{CSeq, CallId, Contact, From, Header, Headers, MaxForwards, Route, To, Via},
-    },
-    transaction::{ServerTransaction, manager::TransactionManager},
-    transport::{
-        Encode, IncomingMessageInfo, IncomingRequest, IncomingResponse, OutgoingRequest,
-        OutgoingResponse, SipTransport, TargetTransportInfo, Transport, TransportKey,
-        TransportManager, TransportMessage, tcp::TcpListener, udp::UdpTransport,
-        ws::WebSocketListener,
-    },
+use crate::error::Error;
+use crate::message::headers::{
+    CSeq, CallId, Contact, From, Header, Headers, MaxForwards, Route, To, Via,
 };
+use crate::message::{
+    CodeClass, DomainName, Host, HostPort, MandatoryHeaders, NameAddr, ReasonPhrase, Request,
+    RequestLine, Response, SipMessage, SipMessageBody, SipUri, StatusCode, StatusLine, Uri,
+    UriBuilder,
+};
+use crate::transaction::ServerTransaction;
+use crate::transaction::manager::TransactionManager;
+use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
+use crate::transport::outgoing::{Encode, OutgoingRequest, OutgoingResponse, TargetTransportInfo};
+use crate::transport::tcp::TcpListener;
+use crate::transport::udp::UdpTransport;
+use crate::transport::ws::WebSocketListener;
+use crate::transport::{SipTransport, Transport, TransportManager, TransportMessage};
+use crate::{Result, SipMethod};
 
 mod builder;
 
@@ -116,8 +114,8 @@ impl Endpoint {
         status_code: StatusCode,
         reason_phrase: Option<ReasonPhrase>,
     ) -> OutgoingResponse {
-        let all_hdrs = &request.message.headers;
-        let mandatory_headers = &request.info.mandatory_headers;
+        let all_hdrs = &request.request.headers;
+        let mandatory_headers = &request.incoming_info.mandatory_headers;
 
         // Copy the necessary headers from the request.
         let mut headers = Headers::with_capacity(7);
@@ -165,14 +163,14 @@ impl Endpoint {
 
         // Done.
         OutgoingResponse {
-            message: Response {
+            response: Response {
                 status_line,
                 headers,
                 body: None,
             },
-            send_info: TargetTransportInfo {
-                target: request.info.transport.packet.source,
-                transport: request.info.transport.transport.clone(),
+            target_info: TargetTransportInfo {
+                target: request.incoming_info.transport.packet.source,
+                transport: request.incoming_info.transport.transport.clone(),
             },
             encoded: Bytes::new(),
         }
@@ -180,30 +178,30 @@ impl Endpoint {
 
     pub(crate) fn create_ack_request(
         &self,
-        request: &OutgoingRequest,
+        outgoing: &OutgoingRequest,
         response: &IncomingResponse,
     ) -> OutgoingRequest {
         assert!(
-            matches!(response.message.status_line.code.as_u16(), 300..699),
+            matches!(response.response.status_line.code.as_u16(), 300..699),
             "message must be a 300-699 final response"
         );
-        let target = request.message.req_line.uri.clone();
+        let target = outgoing.request.req_line.uri.clone();
         // Clone: Via, To, From, Max-Forwards, Call-ID and CSeq from response.
         let headers = MandatoryHeaders {
             cseq: CSeq {
                 method: SipMethod::Ack,
-                ..response.info.mandatory_headers.cseq
+                ..response.incoming_info.mandatory_headers.cseq
             },
-            ..response.info.mandatory_headers.clone()
+            ..response.incoming_info.mandatory_headers.clone()
         }
         .into_headers();
 
-        let message = Request::with_headers(SipMethod::Ack, target, headers);
-        let send_info = request.send_info.clone();
+        let request = Request::with_headers(SipMethod::Ack, target, headers);
+        let target_info = outgoing.target_info.clone();
 
         OutgoingRequest {
-            message,
-            send_info,
+            request,
+            target_info,
             encoded: Bytes::new(),
         }
     }
@@ -216,15 +214,15 @@ impl Endpoint {
 
         log::debug!(
             "Sending Request {} {} to /{}",
-            request.message.req_line.method,
-            request.message.req_line.uri,
-            request.send_info.target
+            request.request.req_line.method,
+            request.request.req_line.uri,
+            request.target_info.target
         );
 
         request
-            .send_info
+            .target_info
             .transport
-            .send_msg(&request.encoded, &request.send_info.target)
+            .send_msg(&request.encoded, &request.target_info.target)
             .await?;
 
         Ok(())
@@ -236,15 +234,15 @@ impl Endpoint {
         }
         log::debug!(
             "Sending Response {} {} to /{}",
-            response.message.status_line.code.as_u16(),
-            response.message.status_line.reason.phrase_str(),
-            response.send_info.target
+            response.response.status_line.code.as_u16(),
+            response.response.status_line.reason.phrase_str(),
+            response.target_info.target
         );
 
         response
-            .send_info
+            .target_info
             .transport
-            .send_msg(&response.encoded, &response.send_info.target)
+            .send_msg(&response.encoded, &response.target_info.target)
             .await?;
 
         Ok(())
@@ -254,9 +252,9 @@ impl Endpoint {
     // A valid SIP request formulated by a UAC MUST, at a minimum, contain
     // the following header fields: To, From, CSeq, Call-ID, Max-Forwards,
     // and Via
-    fn ensure_mandatory_headers(&self, request: &mut Request, send_info: &TargetTransportInfo) {
+    fn ensure_mandatory_headers(&self, request: &mut Request, target_info: &TargetTransportInfo) {
         let mut headers: [Option<Header>; 6] = [const { None }; 6];
-        let TargetTransportInfo { target, transport } = send_info;
+        let TargetTransportInfo { target, transport } = target_info;
         let request_headers = &mut request.headers;
 
         let mut exists_via = false;
@@ -280,7 +278,7 @@ impl Endpoint {
 
         if !exists_via {
             let sent_by = transport.local_addr().into();
-            let transport = transport.protocol();
+            let transport = transport.transport_type();
             let branch = crate::generate_branch(None);
             let via = Via::new_with_transport(transport, sent_by, Some(branch));
 
@@ -391,15 +389,19 @@ impl Endpoint {
 
         log::debug!(
             "Resolved target: transport={}, addr={}",
-            transport.protocol(),
+            transport.transport_type(),
             target
         );
 
-        let send_info = TargetTransportInfo { target, transport };
+        let target_info = TargetTransportInfo { target, transport };
 
-        self.ensure_mandatory_headers(&mut request, &send_info);
+        self.ensure_mandatory_headers(&mut request, &target_info);
 
-        Ok(OutgoingRequest::new(request, send_info))
+        Ok(OutgoingRequest {
+            request,
+            target_info,
+            encoded: bytes::Bytes::new(),
+        })
     }
 
     pub async fn start_udp_transport<A: ToSocketAddrs>(&self, addr: A) -> Result<()> {
@@ -444,15 +446,21 @@ impl Endpoint {
 
     async fn process_transport_message(self, message: TransportMessage) -> Result<()> {
         match message.parse() {
-            Ok(SipMessage::Request(req)) => {
-                let mut headers: MandatoryHeaders = (&req.headers).try_into()?;
+            Ok(SipMessage::Request(request)) => {
+                let mut headers: MandatoryHeaders = (&request.headers).try_into()?;
                 // 4. Server Behavior
                 // the server MUST insert a "received" parameter containing the source
                 // IP address that the request came from.
                 headers.via.received = message.packet.source.ip().into();
-                let info = IncomingMessageInfo::new(message, headers);
-                self.process_request(IncomingRequest::new(req, info))
-                    .await?;
+                let info = IncomingInfo {
+                    mandatory_headers: headers,
+                    transport: message,
+                };
+                self.process_request(IncomingRequest {
+                    request,
+                    incoming_info: Box::new(info),
+                })
+                .await?;
             }
             Ok(SipMessage::Response(res)) => {
                 let mut headers: MandatoryHeaders = (&res.headers).try_into()?;
@@ -460,9 +468,15 @@ impl Endpoint {
                 // the server MUST insert a "received" parameter containing the source
                 // IP address that the request came from.
                 headers.via.received = message.packet.source.ip().into();
-                let info = IncomingMessageInfo::new(message, headers);
-                self.process_response(IncomingResponse::new(res, info))
-                    .await?;
+                let info = IncomingInfo {
+                    mandatory_headers: headers,
+                    transport: message,
+                };
+                self.process_response(IncomingResponse {
+                    response: res,
+                    incoming_info: Box::new(info),
+                })
+                .await?;
             }
             Err(err) => log::error!("ERR = {:#?}", err),
         }
@@ -520,8 +534,8 @@ impl Endpoint {
     pub(crate) async fn process_response(&self, msg: IncomingResponse) -> Result<()> {
         log::debug!(
             "<= Response ({} {})",
-            msg.message.status_line.code.as_u16(),
-            msg.message.status_line.reason.phrase_str()
+            msg.response.status_line.code.as_u16(),
+            msg.response.status_line.reason.phrase_str()
         );
 
         let msg = match self.inner.transaction {
@@ -532,9 +546,9 @@ impl Endpoint {
         if let Some(msg) = msg {
             log::info!(
                 "Response ({} {}) from /{} was unhandled",
-                msg.message.status_line.code.as_u16(),
-                msg.message.status_line.reason.phrase_str(),
-                msg.info.transport.packet.source
+                msg.response.status_line.code.as_u16(),
+                msg.response.status_line.reason.phrase_str(),
+                msg.incoming_info.transport.packet.source
             );
         }
         Ok(())
@@ -553,8 +567,8 @@ impl Endpoint {
     pub(crate) async fn process_request(&self, request: IncomingRequest) -> Result<()> {
         log::debug!(
             "<= Request {} from /{}",
-            request.message.method(),
-            request.info.transport.packet.source
+            request.request.method(),
+            request.incoming_info.transport.packet.source
         );
 
         let msg = match self.inner.transaction {
@@ -571,9 +585,9 @@ impl Endpoint {
         } else {
             log::debug!(
                 "Request ({}, cseq={}) from /{} was unhandled",
-                msg.message.method(),
-                msg.info.mandatory_headers.cseq.cseq,
-                msg.info.transport.packet.source
+                msg.request.method(),
+                msg.incoming_info.mandatory_headers.cseq.cseq,
+                msg.incoming_info.transport.packet.source
             );
         }
 

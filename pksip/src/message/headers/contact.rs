@@ -1,13 +1,11 @@
 use core::fmt;
 
-use crate::{
-    Q,
-    error::Result,
-    macros::parse_header_param,
-    message::headers::{EXPIRES_PARAM, Q_PARAM},
-    message::{Params, SipUri},
-    parser::{HeaderParser, Parser},
-};
+use crate::Q;
+use crate::error::Result;
+use crate::macros::parse_header_param;
+use crate::message::headers::{EXPIRES_PARAM, Q_PARAM};
+use crate::message::{Params, SipUri};
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Contact` SIP header.
 ///

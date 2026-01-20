@@ -1,22 +1,16 @@
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicU32, Ordering},
-};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::RwLock;
 
 use super::UserAgent;
 
-use crate::{
-    Endpoint,
-    error::{DialogError, Result},
-    message::{
-        Params, Uri,
-        headers::{CallId, Contact, From, Header, Headers, To},
-    },
-    transaction::Role,
-    transport::IncomingRequest,
-};
+use crate::Endpoint;
+use crate::error::{DialogError, Result};
+use crate::message::headers::{CallId, Contact, From, Header, Headers, To};
+use crate::message::{Params, Uri};
+use crate::transaction::Role;
+use crate::transport::incoming::IncomingRequest;
 
 type Usages = RwLock<Vec<Box<dyn DialogUsage>>>;
 
@@ -68,16 +62,16 @@ pub struct Dialog {
 
 impl Dialog {
     pub fn new_uas(ua: &UserAgent, request: &IncomingRequest, contact: Contact) -> Result<Dialog> {
-        if request.info.mandatory_headers.to.tag().is_none() {
+        if request.incoming_info.mandatory_headers.to.tag().is_none() {
             return Err(DialogError::MissingTagInToHeader.into());
         }
-        let method = request.message.method();
+        let method = request.request.method();
         if !method.can_establish_a_dialog() {
             return Err(DialogError::InvalidMethod(method).into());
         }
 
-        let request_headers = &request.info.mandatory_headers;
-        let all_headers = &request.message.headers;
+        let request_headers = &request.incoming_info.mandatory_headers;
+        let all_headers = &request.request.headers;
 
         let mut to = request_headers.to.clone();
         let from = request_headers.from.clone();
@@ -86,13 +80,13 @@ impl Dialog {
         let local_seq_num = None;
 
         let route_set = RouteSet::from_headers(all_headers);
-        let secure = request.transport_is_secure()
-            && request.message.req_line.uri.scheme == crate::message::Scheme::Sips;
+        let secure = request.incoming_info.transport.transport.is_secure()
+            && request.request.req_line.uri.scheme == crate::message::Scheme::Sips;
 
         // to.set_tag(Some(crate::generate_random_str().into()));
 
         let dialog_id = DialogId {
-            call_id: request.info.mandatory_headers.call_id.clone(),
+            call_id: request.incoming_info.mandatory_headers.call_id.clone(),
             remote_tag: from.tag().clone().unwrap_or_default(),
             local_tag: to.tag().clone().unwrap(),
         };
@@ -171,14 +165,14 @@ pub struct DialogId {
 
 impl DialogId {
     pub fn from_incoming_request(request: &IncomingRequest) -> Option<Self> {
-        let call_id = request.info.mandatory_headers.call_id.clone();
+        let call_id = request.incoming_info.mandatory_headers.call_id.clone();
 
-        let local_tag = match request.info.mandatory_headers.to.tag() {
+        let local_tag = match request.incoming_info.mandatory_headers.to.tag() {
             Some(tag) => tag.clone(),
             None => return None,
         };
 
-        let remote_tag = match request.info.mandatory_headers.from.tag() {
+        let remote_tag = match request.incoming_info.mandatory_headers.from.tag() {
             Some(tag) => tag.clone(),
             None => return None,
         };

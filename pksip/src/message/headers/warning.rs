@@ -1,9 +1,7 @@
 use std::{fmt, str};
 
-use crate::{
-    error::{ParseErrorKind as ErrorKind, Result},
-    parser::{HeaderParser, Parser, is_host},
-};
+use crate::error::{ParseErrorKind as ErrorKind, Result};
+use crate::parser::{HeaderParser, Parser, is_host};
 
 /// The `Warning` SIP header.
 /// Carry additional information about the status of a

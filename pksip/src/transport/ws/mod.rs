@@ -1,46 +1,36 @@
 //! WebSocket transport implementation for SIP.
 
-use std::{
-    convert::Infallible,
-    io::{Error as IoError, ErrorKind as IoErrorKind},
-    net::SocketAddr,
-    result::Result as StdResult,
-    time::Duration,
-};
+use std::convert::Infallible;
+use std::io::{Error as IoError, ErrorKind as IoErrorKind};
+use std::net::SocketAddr;
+use std::result::Result as StdResult;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use http_body_util::Full;
-use hyper::{
-    Request, Response, StatusCode,
-    body::Incoming,
-    header::{
-        CONNECTION, HeaderValue, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_PROTOCOL,
-        SEC_WEBSOCKET_VERSION, UPGRADE,
-    },
-    server::conn::http1,
-    service::service_fn,
-    upgrade::Upgraded,
+use hyper::body::Incoming;
+use hyper::header::{
+    CONNECTION, HeaderValue, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_PROTOCOL,
+    SEC_WEBSOCKET_VERSION, UPGRADE,
 };
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper::upgrade::Upgraded;
+use hyper::{Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
-use tokio::{
-    io::{AsyncRead, AsyncWrite},
-    net::{TcpListener, ToSocketAddrs},
-    sync::mpsc,
-};
-use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async,
-    tungstenite::{
-        Message as WsMessage, client::IntoClientRequest, handshake::derive_accept_key,
-        protocol::Role,
-    },
-};
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::{TcpListener, ToSocketAddrs};
+use tokio::sync::mpsc;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
+use tokio_tungstenite::tungstenite::protocol::Role;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
 
-use crate::{
-    Endpoint,
-    error::{Error, Result},
-    transport::{Packet, SipTransport, Transport, TransportMessage, TransportType},
-};
+use crate::Endpoint;
+use crate::error::{Error, Result};
+use crate::transport::{Packet, SipTransport, Transport, TransportMessage, TransportType};
 
 const SIP: HeaderValue = HeaderValue::from_static("sip");
 
@@ -135,12 +125,20 @@ impl SipTransport for WebSocketTransport {
         Some(self.peer_addr)
     }
 
-    fn protocol(&self) -> TransportType {
+    fn transport_type(&self) -> TransportType {
         TransportType::Ws
     }
 
     fn local_addr(&self) -> SocketAddr {
         self.local_addr
+    }
+
+    fn is_reliable(&self) -> bool {
+        true
+    }
+
+    fn is_secure(&self) -> bool {
+        false
     }
 }
 

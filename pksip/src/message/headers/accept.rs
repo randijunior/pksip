@@ -2,12 +2,10 @@ use std::fmt;
 
 use itertools::Itertools;
 
-use crate::{
-    MediaType,
-    error::Result,
-    macros::{comma_separated_header_value, parse_header_param},
-    parser::{HeaderParser, Parser},
-};
+use crate::MediaType;
+use crate::error::Result;
+use crate::macros::{comma_separated_header_value, parse_header_param};
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Accept` SIP header.
 ///

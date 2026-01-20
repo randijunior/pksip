@@ -1,7 +1,5 @@
-use std::{
-    ops::Range,
-    str::{self, Utf8Error},
-};
+use std::ops::Range;
+use std::str::{self, Utf8Error};
 
 use thiserror::Error;
 use utils::{Position, ScannerError};

@@ -1,10 +1,8 @@
 use std::fmt;
 
-use crate::{
-    error::Result,
-    message::Credential,
-    parser::{HeaderParser, Parser},
-};
+use crate::error::Result;
+use crate::message::Credential;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Proxy-Authorization` SIP header.
 ///

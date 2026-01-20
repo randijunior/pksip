@@ -15,35 +15,34 @@
 //! - [`tcp`]: SIP over TCP transport implementation.
 //! - [`ws`]:  SIP over WebSocket transport implementation.
 
-use std::{
-    collections::HashMap,
-    fmt::{self, Formatter, Result as FmtResult},
-    io::{self, Write},
-    net::{IpAddr, SocketAddr},
-    ops::Deref,
-    result::Result as StdResult,
-    str::FromStr,
-    sync::{Arc, Mutex},
-    time::SystemTime,
-};
+use std::collections::HashMap;
+use std::fmt::{self, Formatter, Result as FmtResult};
+use std::io::{self};
+use std::net::{IpAddr, SocketAddr};
+use std::ops::Deref;
+use std::result::Result as StdResult;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use async_trait::async_trait;
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::Bytes;
 use utils::{NAPTR, Name, RData, SRV};
 
-use crate::{
-    Endpoint,
-    error::{Error, Result},
-    message::{
-        DomainName, Host, MandatoryHeaders, Request, Response, Scheme, SipMessage, SipMessageBody,
-        Uri, headers::ContentLength,
-    },
-    parser::{HeaderParser, Parser},
-    transport::{tcp::TcpTransport, ws::WebSocketTransport},
-};
+use crate::Endpoint;
+use crate::error::{Error, Result};
+
+use crate::message::SipMessage;
+use crate::message::sip_uri::{DomainName, Host, Scheme, Uri};
+use crate::parser::Parser;
+use crate::transport::tcp::TcpTransport;
+use crate::transport::ws::WebSocketTransport;
 
 // Core Transport modules
 mod decode;
+
+pub mod incoming;
+pub mod outgoing;
 pub mod tcp;
 pub mod udp;
 pub mod ws;
@@ -59,16 +58,6 @@ pub const MSG_HEADERS_END: &[u8] = b"\r\n\r\n";
 
 /// Type alias for a map of transports.
 pub(crate) type TransportsMap = HashMap<TransportKey, Transport>;
-
-/// This type represents an received SIP request.
-pub type IncomingRequest = Incoming<Request>;
-/// This type represents an received SIP response.
-pub type IncomingResponse = Incoming<Response>;
-
-/// This type represents an outbound SIP request.
-pub type OutgoingRequest = Outgoing<Request>;
-/// This type represents an outgoing SIP response.
-pub type OutgoingResponse = Outgoing<Response>;
 
 /// This type is a wrapper around a SIP transport implementation.
 #[derive(Clone)]
@@ -338,7 +327,8 @@ impl TransportManager {
     ) -> Result<Option<Transport>> {
         let map = self.transports.lock().map_err(|_| Error::PoisonedLock)?;
         let transport = map.iter().find(|(_key, transport)| {
-            transport.protocol() == protocol && is_same_ip_family(&transport.local_addr().ip(), &ip)
+            transport.transport_type() == protocol
+                && is_same_ip_family(&transport.local_addr().ip(), &ip)
         });
 
         match transport {
@@ -387,8 +377,8 @@ impl TransportManager {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// Represents the type of transport.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TransportType {
     /// Udp.
     Udp,
@@ -498,8 +488,8 @@ pub trait SipTransport: Send + Sync + 'static {
     /// number of bytes written.
     async fn send_msg(&self, buf: &[u8], address: &SocketAddr) -> Result<usize>;
 
-    /// Get transport protocol.
-    fn protocol(&self) -> TransportType;
+    /// Get transport type.
+    fn transport_type(&self) -> TransportType;
 
     /// Get the local socket address addr to this transport.
     fn local_addr(&self) -> SocketAddr;
@@ -508,13 +498,15 @@ pub trait SipTransport: Send + Sync + 'static {
     fn remote_addr(&self) -> Option<SocketAddr>;
 
     /// Returns `true` if the transport is reliable.
-    fn is_reliable(&self) -> bool {
-        self.protocol().is_reliable()
-    }
+    fn is_reliable(&self) -> bool;
 
     /// Returns `true` if the transport is secure.
-    fn is_secure(&self) -> bool {
-        self.protocol().is_secure()
+    fn is_secure(&self) -> bool;
+
+    // TODO: implement this
+    /// Returns the transport target addr as a plain sip uri.
+    fn target_uri(&self) -> Uri {
+        unimplemented!()
     }
 
     /// Get the id that uniquely identifies this transport.
@@ -545,7 +537,7 @@ where
 {
     fn from(transport: &T) -> Self {
         let address = transport.local_addr();
-        let tp_type = transport.protocol();
+        let tp_type = transport.transport_type();
 
         Self { address, tp_type }
     }
@@ -592,7 +584,7 @@ impl TransportMessage {
                 log::warn!(
                     "Ignoring {} bytes packet from {} {} : {}\n{}-- end of packet.",
                     packet.data.len(),
-                    transport.protocol(),
+                    transport.transport_type(),
                     packet.source,
                     err,
                     String::from_utf8_lossy(&packet.data)
@@ -603,157 +595,6 @@ impl TransportMessage {
         };
 
         Ok(sip_message)
-    }
-}
-
-impl OutgoingRequest {
-    pub fn new(mut message: Request, send_info: TargetTransportInfo) -> Self {
-        Self {
-            message,
-            send_info,
-            encoded: Bytes::new(),
-        }
-    }
-}
-
-/// Outgoing message.
-pub struct Outgoing<M> {
-    /// The SIP message (request or response).
-    pub message: M,
-    /// Metadata about how the message will be sent.
-    pub send_info: TargetTransportInfo,
-
-    /// Message encoded representation.
-    pub encoded: Bytes,
-}
-
-impl<M> Outgoing<M> {
-    pub(crate) fn write_body<W: Write>(
-        &self,
-        writer: &mut W,
-        body: &Option<SipMessageBody>,
-    ) -> Result<()> {
-        const CONTENT_LENGTH: &str = ContentLength::NAME;
-        if let Some(body) = body {
-            write!(writer, "{CONTENT_LENGTH}: {}\r\n", body.len())?;
-            write!(writer, "\r\n")?;
-            writer.write_all(body)?;
-        } else {
-            write!(writer, "{CONTENT_LENGTH}: 0\r\n")?;
-            write!(writer, "\r\n")?;
-        }
-        Ok(())
-    }
-}
-
-/// Outgoing message info.
-#[derive(Clone)]
-pub struct TargetTransportInfo {
-    /// The socket this message should be sent to.
-    pub target: SocketAddr,
-    /// The transport to use for sending the message.
-    pub transport: Transport,
-}
-
-/// Incoming message.
-#[derive(Clone)]
-pub struct Incoming<M> {
-    /// The SIP message.
-    pub message: M,
-    /// Incoming message info.
-    pub info: Box<IncomingMessageInfo>,
-}
-
-impl<M> Incoming<M> {
-    /// Returns `true` if this message was received over a secure transport.
-    pub fn transport_is_secure(&self) -> bool {
-        self.info.transport.transport.is_secure()
-    }
-}
-
-/// Incoming message info.
-#[derive(Clone)]
-pub struct IncomingMessageInfo {
-    /// The mandatory headers extracted from the message.
-    pub mandatory_headers: MandatoryHeaders,
-    /// The received transport packet.
-    pub transport: TransportMessage,
-}
-
-impl IncomingMessageInfo {
-    /// Creates a new `IncomingMessageInfo`.
-    pub fn new(transport: TransportMessage, mandatory_headers: MandatoryHeaders) -> Self {
-        IncomingMessageInfo {
-            mandatory_headers,
-            transport,
-        }
-    }
-}
-
-impl IncomingRequest {
-    /// Creates a new `IncomingRequest`.
-    pub fn new(message: Request, info: IncomingMessageInfo) -> Self {
-        IncomingRequest {
-            message,
-            info: Box::new(info),
-        }
-    }
-}
-
-impl<M> std::ops::Deref for Incoming<M> {
-    type Target = M;
-    fn deref(&self) -> &Self::Target {
-        &self.message
-    }
-}
-
-impl IncomingResponse {
-    /// Creates a new `IncomingResponse`.
-    pub fn new(message: Response, info: IncomingMessageInfo) -> Self {
-        IncomingResponse {
-            message,
-            info: Box::new(info),
-        }
-    }
-}
-
-/// Trait for converting a type into into a buffer.
-pub trait Encode {
-    /// The buffer type that holds the encoded data.
-    type Buffer: AsRef<[u8]>;
-    /// Converts the type into a byte buffer.
-    fn encode(&self) -> Result<Self::Buffer>;
-}
-
-impl Encode for OutgoingResponse {
-    type Buffer = Bytes;
-
-    fn encode(&self) -> Result<Self::Buffer> {
-        let response = &self.message;
-        let buf = BytesMut::new();
-        let mut writer = buf.writer();
-
-        write!(writer, "{}", response.status_line)?;
-        write!(writer, "{}", response.headers)?;
-        self.write_body(&mut writer, &response.body)?;
-
-        Ok(writer.into_inner().freeze())
-    }
-}
-
-impl Encode for OutgoingRequest {
-    type Buffer = Bytes;
-
-    fn encode(&self) -> Result<Self::Buffer> {
-        let request = &self.message;
-        let buf = BytesMut::new();
-        let mut writer = buf.writer();
-
-        write!(writer, "{}", request.req_line)?;
-        write!(writer, "{}", request.headers)?;
-        self.write_body(&mut writer, &request.body)?;
-
-        Ok(writer.into_inner().freeze())
     }
 }
 
@@ -774,17 +615,17 @@ mod tests {
     #[test]
     fn test_sip_transport() {
         let transport = MockTransport::new_udp();
-        assert_eq!(transport.protocol(), TransportType::Udp);
+        assert_eq!(transport.transport_type(), TransportType::Udp);
         assert!(!transport.is_reliable());
         assert!(!transport.is_secure());
 
         let transport = MockTransport::new_tcp();
-        assert_eq!(transport.protocol(), TransportType::Tcp);
+        assert_eq!(transport.transport_type(), TransportType::Tcp);
         assert!(transport.is_reliable());
         assert!(!transport.is_secure());
 
         let transport = MockTransport::new_tls();
-        assert_eq!(transport.protocol(), TransportType::Tls);
+        assert_eq!(transport.transport_type(), TransportType::Tls);
         assert!(transport.is_reliable());
         assert!(transport.is_secure());
     }
@@ -840,7 +681,7 @@ mod tests {
         let manager = TransportManager::new();
         let transport = MockTransport::new_udp();
         let addr = transport.local_addr();
-        let tp_type = transport.protocol();
+        let tp_type = transport.transport_type();
         let key = transport.key();
 
         // manager.register_transport(transport).unwrap();
@@ -848,7 +689,7 @@ mod tests {
 
         // let selected = manager.select_transport(addr, TransportType::Udp);
         // let selected = selected.unwrap().unwrap();
-        // assert_eq!(selected.protocol(), tp_type);
+        // assert_eq!(selected.transport_type(), tp_type);
         // assert_eq!(selected.local_addr(), addr);
 
         // manager.remove_transport(&key).unwrap();
@@ -860,6 +701,6 @@ mod tests {
         let transport = MockTransport::new_udp();
         let key: TransportKey = transport.key();
         assert_eq!(key.address, transport.local_addr());
-        assert_eq!(key.tp_type, transport.protocol());
+        assert_eq!(key.tp_type, transport.transport_type());
     }
 }

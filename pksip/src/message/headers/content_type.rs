@@ -1,11 +1,9 @@
 use core::fmt;
 use std::str;
 
-use crate::{
-    MediaType,
-    error::Result,
-    parser::{HeaderParser, Parser},
-};
+use crate::MediaType;
+use crate::error::Result;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Content-Type` SIP header.
 ///

@@ -1,19 +1,15 @@
-use std::{
-    borrow::Cow,
-    fmt,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    ops::Deref,
-    str::FromStr,
-};
+use std::borrow::Cow;
+use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::ops::Deref;
+use std::str::FromStr;
 
 use itertools::Itertools;
 
 use super::{Params, SipMethod};
-use crate::{
-    error::{Error, Result},
-    parser::Parser,
-    transport::TransportType,
-};
+use crate::error::{Error, Result};
+use crate::parser::Parser;
+use crate::transport::TransportType;
 
 /// A SIP uri.
 ///

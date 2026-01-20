@@ -2,13 +2,12 @@ use std::{fmt, str};
 
 use itertools::Itertools;
 
-use crate::{
-    Q,
-    error::Result,
-    macros::{comma_separated_header_value, parse_header_param},
-    message::{Params, headers::Q_PARAM},
-    parser::{HeaderParser, Parser},
-};
+use crate::Q;
+use crate::error::Result;
+use crate::macros::{comma_separated_header_value, parse_header_param};
+use crate::message::Params;
+use crate::message::headers::Q_PARAM;
+use crate::parser::{HeaderParser, Parser};
 
 /// The `Accept-Language` SIP header.
 ///

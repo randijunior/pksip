@@ -1,22 +1,18 @@
 use std::future;
 
-use crate::{
-    SipMethod,
-    endpoint::Endpoint,
-    error::{Result, TransactionError},
-    message::{ReasonPhrase, SipMessageBody, StatusCode, headers::Headers},
-    transaction::{
-        T1, T2, T4, TransactionMessage,
-        fsm::{State, StateMachine},
-        manager::TransactionKey,
-    },
-    transport::{IncomingRequest, OutgoingResponse},
-};
+use crate::SipMethod;
+use crate::endpoint::Endpoint;
+use crate::error::{Result, TransactionError};
+use crate::message::headers::Headers;
+use crate::message::{ReasonPhrase, SipMessageBody, StatusCode};
+use crate::transaction::fsm::{State, StateMachine};
+use crate::transaction::manager::TransactionKey;
+use crate::transaction::{T1, T2, T4, TransactionMessage};
+use crate::transport::incoming::IncomingRequest;
+use crate::transport::outgoing::OutgoingResponse;
 
-use tokio::{
-    sync::mpsc::{self},
-    time::{Instant, sleep, timeout_at},
-};
+use tokio::sync::mpsc::{self};
+use tokio::time::{Instant, sleep, timeout_at};
 use tokio_util::either::Either;
 
 pub struct ServerTransaction {
@@ -30,7 +26,7 @@ pub struct ServerTransaction {
 
 impl ServerTransaction {
     pub fn from_request(request: IncomingRequest, endpoint: &Endpoint) -> Result<Self> {
-        if let SipMethod::Ack = request.req_line.method {
+        if let SipMethod::Ack = request.request.req_line.method {
             return Err(TransactionError::AckCannotCreateTransaction.into());
         }
         let (main_tx, main_rx) = mpsc::channel(10);
@@ -107,9 +103,9 @@ impl ServerTransaction {
                     }
                     Some(_) = receiver.recv() => {
                            if let Err(err) = response
-                           .send_info
+                           .target_info
                            .transport
-                           .send_msg(&response.encoded, &response.send_info.target)
+                           .send_msg(&response.encoded, &response.target_info.target)
                            .await {
                             log::error!("Failed to retransmit: {}", err);
                            }
@@ -144,16 +140,16 @@ impl ServerTransaction {
         let mut response = self.endpoint.create_response(&self.request, code, phrase);
 
         if let Some(aditional_headers) = headers {
-            response.message.headers.extend(aditional_headers);
+            response.response.headers.extend(aditional_headers);
         }
 
         if let Some(body) = body {
-            response.message.body = Some(body);
+            response.response.body = Some(body);
         }
 
         self.endpoint.send_outgoing_response(&mut response).await?;
 
-        if self.request.message.req_line.method == SipMethod::Invite {
+        if self.request.request.req_line.method == SipMethod::Invite {
             if let 200..299 = code.as_u16() {
                 self.state.set_state(State::Terminated);
                 return Ok(());
@@ -201,7 +197,7 @@ impl ServerTransaction {
                             return;
                         }
                          Some(TransactionMessage::Request(req)) = receiver.recv() => {
-                            if req.message.req_line.method.is_ack() {
+                            if req.request.req_line.method.is_ack() {
                                 self.state.set_state(State::Confirmed);
                                 sleep(T4).await;
                                 self.state.set_state(State::Terminated);
@@ -247,7 +243,7 @@ impl ServerTransaction {
     }
 
     fn is_reliable(&self) -> bool {
-        self.request.info.transport.transport.is_reliable()
+        self.request.incoming_info.transport.transport.is_reliable()
     }
 }
 
@@ -260,4 +256,328 @@ impl Drop for ServerTransaction {
 struct ProceedingStateTask {
     proceeding_state_task: tokio::task::JoinHandle<mpsc::Receiver<TransactionMessage>>,
     tu_provisional_tx: mpsc::UnboundedSender<OutgoingResponse>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::assert_eq_state;
+
+    use crate::test_utils::{
+        CODE_100_TRYING, CODE_202_ACCEPTED, CODE_301_MOVED_PERMANENTLY, CODE_504_SERVER_TIMEOUT,
+    };
+
+    use crate::test_utils::transaction::ServerTestContext;
+
+    /////////////////////////////////////
+    // Invite Server Transaction Tests //
+    /////////////////////////////////////
+
+    #[tokio::test]
+    async fn invite_transitions_to_confirmed_state_after_receive_ack() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+
+        ctx.server
+            .respond_final_code(CODE_301_MOVED_PERMANENTLY)
+            .await
+            .expect("Error sending final response");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Completed,
+            "must move to completed state after sending non_2xx final response"
+        );
+
+        ctx.client.send_ack_request().await;
+
+        assert_eq_state!(
+            ctx.state,
+            State::Confirmed,
+            "must move to confirmed state after receive ack message"
+        );
+    }
+
+    #[tokio::test]
+    async fn invite_unreliable_transition_to_terminated_immediately_when_receiving_2xx_response() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+
+        ctx.server
+            .respond_final_code(CODE_202_ACCEPTED)
+            .await
+            .expect("should send final response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate immediately when sending final 2xx response with invite transaction"
+        );
+    }
+
+    #[tokio::test]
+    async fn invite_reliable_transition_to_terminated_immediately_after_2xx_from_tu() {
+        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
+
+        ctx.server
+            .respond_final_code(CODE_202_ACCEPTED)
+            .await
+            .expect("should send final response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate immediately when sending final 2xx response with invite transaction"
+        );
+    }
+
+    #[tokio::test]
+    async fn invite_server_must_retransmit_final_non_2xx_response() {
+        let ctx = ServerTestContext::setup(SipMethod::Invite);
+        let expected_responses = 1;
+        let expected_retrans = 3;
+
+        ctx.server
+            .respond_final_code(CODE_301_MOVED_PERMANENTLY)
+            .await
+            .expect("Error sending final response");
+
+        ctx.client.retransmit_n_times(expected_retrans).await;
+
+        assert_eq!(
+            ctx.transport.sent_count(),
+            expected_responses + expected_retrans
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn invite_server_transaction_must_cease_retransmission_when_receive_ack() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let expected_responses = 1;
+        let expected_retrans = 2;
+
+        ctx.server
+            .respond_final_code(CODE_301_MOVED_PERMANENTLY)
+            .await
+            .expect("Error sending final response");
+
+        ctx.timer.wait_for_retransmissions(2).await;
+
+        ctx.client.send_ack_request().await;
+
+        ctx.timer.wait_for_retransmissions(2).await;
+
+        assert_eq!(
+            ctx.transport.sent_count(),
+            expected_responses + expected_retrans,
+            "sent count should match {expected_responses} responses and {expected_retrans} retransmissions"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn invite_timer_h_must_be_set_for_reliable_transports() {
+        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
+
+        ctx.server
+            .respond_final_code(CODE_301_MOVED_PERMANENTLY)
+            .await
+            .expect("Error sending final response");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Completed,
+            "transaction must not terminate immediately when unreliable transport is used"
+        );
+
+        tokio::time::sleep(crate::transaction::T1 * 64).await;
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate immediately when sending final non-2xx response with reliable transport"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn invite_timer_h_must_be_set_for_unreliable_transports() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+
+        ctx.server
+            .respond_final_code(CODE_301_MOVED_PERMANENTLY)
+            .await
+            .expect("Error sending final response");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Completed,
+            "transaction must not terminate immediately when unreliable transport is used"
+        );
+
+        tokio::time::sleep(crate::transaction::T1 * 64).await;
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate immediately when sending final non-2xx response with reliable transport"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn invite_test_timer_g_for_server_transaction() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let expected_responses = 1;
+        let expected_retrans = 5;
+
+        ctx.server
+            .respond_final_code(CODE_301_MOVED_PERMANENTLY)
+            .await
+            .expect("Error sending final response");
+
+        ctx.timer.wait_for_retransmissions(5).await;
+
+        assert_eq!(
+            ctx.transport.sent_count(),
+            expected_responses + expected_retrans,
+            "sent count should match {expected_responses} requests and {expected_retrans} retransmissions"
+        );
+    }
+
+    /////////////////////////////////////////
+    // Non Invite Server Transaction Tests //
+    ////////////////////////////////////////
+
+    #[tokio::test]
+    async fn non_invite_transition_to_proceeding_after_1xx_from_tu() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+
+        ctx.server
+            .respond_provisional_code(CODE_100_TRYING)
+            .await
+            .expect("transaction should send provisional response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Proceeding,
+            "should move to proceeding state when sending provisional response"
+        );
+    }
+
+    #[tokio::test]
+    async fn non_invite_transition_to_completed_after_non_2xx_final_response_from_tu() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+
+        ctx.server
+            .respond_final_code(CODE_504_SERVER_TIMEOUT)
+            .await
+            .expect("should send final response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Completed,
+            "must move to completed after receive 200-699 from TU"
+        );
+    }
+
+    #[tokio::test]
+    async fn non_invite_reliable_transition_to_terminated_immediately_after_2xx_from_tu() {
+        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Options);
+
+        ctx.server
+            .respond_final_code(CODE_202_ACCEPTED)
+            .await
+            .expect("transaction should send final response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate immediately when sending final 2xx response with reliable transport"
+        );
+    }
+
+    #[tokio::test]
+    async fn non_invite_reliable_transition_to_terminated_immediately_after_non_2xx_from_tu() {
+        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Options);
+
+        ctx.server
+            .respond_final_code(CODE_504_SERVER_TIMEOUT)
+            .await
+            .expect("transaction should send final response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate immediately when sending final non-2xx response with reliable transport"
+        );
+    }
+
+    #[tokio::test]
+    async fn non_invite_absorbs_retransmission_in_initial_state() {
+        let ctx = ServerTestContext::setup(SipMethod::Options);
+        let expected_retrans_count = 0;
+
+        ctx.client.retransmit_n_times(2).await;
+
+        assert_eq!(ctx.transport.sent_count(), expected_retrans_count);
+    }
+
+    #[tokio::test]
+    async fn non_invite_retransmit_provisional_response_in_proceeding_state() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+        let expected_response_count = 1;
+        let expected_retrans_count = 4;
+
+        ctx.server
+            .respond_provisional_code(CODE_100_TRYING)
+            .await
+            .expect("transaction should send provisional response with the provided code");
+
+        ctx.client.retransmit_n_times(expected_retrans_count).await;
+
+        assert_eq!(
+            ctx.transport.sent_count(),
+            expected_response_count + expected_retrans_count
+        );
+    }
+
+    #[tokio::test]
+    async fn non_invite_server_must_retransmit_final_2xx_response() {
+        let ctx = ServerTestContext::setup(SipMethod::Register);
+        let expected_response_count = 1;
+        let expected_retrans_count = 2;
+
+        ctx.server
+            .respond_final_code(CODE_202_ACCEPTED)
+            .await
+            .expect("transaction should send final response with the provided code");
+
+        ctx.client.retransmit_n_times(expected_retrans_count).await;
+
+        assert_eq!(
+            ctx.transport.sent_count(),
+            expected_response_count + expected_retrans_count
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn non_invite_timer_j() {
+        let mut ctx = ServerTestContext::setup(SipMethod::Bye);
+
+        ctx.server
+            .respond_final_code(CODE_202_ACCEPTED)
+            .await
+            .expect("transaction should send final response with the provided code");
+
+        assert_eq_state!(
+            ctx.state,
+            State::Completed,
+            "transaction must not terminate immediately when unreliable transport is used"
+        );
+
+        tokio::time::sleep(crate::transaction::T1 * 64).await;
+
+        assert_eq_state!(
+            ctx.state,
+            State::Terminated,
+            "must terminate after timer j fires"
+        );
+    }
 }

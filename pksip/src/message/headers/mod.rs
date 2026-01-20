@@ -52,11 +52,9 @@ mod warning;
 mod www_authenticate;
 
 use core::fmt;
-use std::{
-    ops::{Index, IndexMut, Range, RangeBounds, RangeFrom},
-    str::{self},
-    vec::Splice,
-};
+use std::ops::{Index, IndexMut, Range, RangeBounds, RangeFrom};
+use std::str::{self};
+use std::vec::Splice;
 
 pub use accept::Accept;
 pub use accept_encoding::*;
