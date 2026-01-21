@@ -258,6 +258,7 @@ struct ProceedingStateTask {
     tu_provisional_tx: mpsc::UnboundedSender<OutgoingResponse>,
 }
 
+/// Unit tests
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,7 +276,7 @@ mod tests {
     /////////////////////////////////////
 
     #[tokio::test]
-    async fn invite_transitions_to_confirmed_state_after_receive_ack() {
+    async fn invite_transitions_to_confirmed_when_receive_ack() {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
 
         ctx.server
@@ -299,7 +300,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invite_unreliable_transition_to_terminated_immediately_when_receiving_2xx_response() {
+    async fn invite_unreliable_transitions_to_terminated_when_receiving_2xx() {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
 
         ctx.server
@@ -315,7 +316,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invite_reliable_transition_to_terminated_immediately_after_2xx_from_tu() {
+    async fn invite_reliable_transitions_to_terminated_when_receiving_2xx() {
         let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
 
         ctx.server
@@ -331,7 +332,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invite_server_must_retransmit_final_non_2xx_response() {
+    async fn invite_should_retransmit_response_when_receiving_request_retransmission() {
         let ctx = ServerTestContext::setup(SipMethod::Invite);
         let expected_responses = 1;
         let expected_retrans = 3;
@@ -341,16 +342,17 @@ mod tests {
             .await
             .expect("Error sending final response");
 
-        ctx.client.retransmit_n_times(expected_retrans).await;
+        ctx.client.retransmit_n_times(3).await;
 
         assert_eq!(
             ctx.transport.sent_count(),
-            expected_responses + expected_retrans
+            expected_responses + expected_retrans,
+            "sent count should match {expected_responses} responses and {expected_retrans} retransmissions"
         );
     }
 
     #[tokio::test(start_paused = true)]
-    async fn invite_server_transaction_must_cease_retransmission_when_receive_ack() {
+    async fn invite_must_cease_retransmission_when_receiving_ack() {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
         let expected_responses = 1;
         let expected_retrans = 2;
@@ -360,11 +362,12 @@ mod tests {
             .await
             .expect("Error sending final response");
 
-        ctx.timer.wait_for_retransmissions(2).await;
+        ctx.timer.wait_for_retransmissions(expected_retrans).await;
 
         ctx.client.send_ack_request().await;
 
-        ctx.timer.wait_for_retransmissions(2).await;
+        // Should not retransmit at this point.
+        ctx.timer.wait_for_retransmissions(3).await;
 
         assert_eq!(
             ctx.transport.sent_count(),

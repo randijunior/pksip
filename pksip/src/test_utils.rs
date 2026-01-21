@@ -92,9 +92,9 @@ pub mod parser {
                 assert_eq!($expected.host_port.port, uri.host_port().port);
                 assert_eq!($expected.user, uri.user().cloned());
                 assert_eq!($expected.transport_param, uri.transport_param());
-                assert_eq!(&$expected.ttl_param, uri.ttl_param());
-                assert_eq!(&$expected.method_param, uri.method_param());
-                assert_eq!(&$expected.user_param, uri.user_param());
+                assert_eq!($expected.ttl_param, uri.ttl_param());
+                assert_eq!($expected.method_param, uri.method_param());
+                assert_eq!($expected.user_param.as_deref(), uri.user_param());
                 assert_eq!($expected.lr_param, uri.lr_param());
                 assert_eq!(&$expected.maddr_param, uri.maddr_param());
 
@@ -194,14 +194,14 @@ pub mod transaction {
     }
 
     impl FakeUAC {
-        pub async fn retransmit(&self) {
-            self.send(self.request.clone()).await;
-        }
-
         pub async fn retransmit_n_times(&self, n: usize) {
             for _ in 0..n {
                 self.retransmit().await;
             }
+        }
+        
+        pub async fn retransmit(&self) {
+            self.send(self.request.clone()).await;
         }
 
         pub async fn send_ack_request(&mut self) {

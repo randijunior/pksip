@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::ops::Deref;
+use std::ops;
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -110,26 +110,26 @@ impl SipUri {
     }
 
     /// Returns the user parameter of the uri.
-    pub fn user_param(&self) -> &Option<String> {
+    pub fn user_param(&self) -> Option<&str> {
         match self {
-            SipUri::Uri(uri) => &uri.user_param,
-            SipUri::NameAddr(addr) => &addr.uri.user_param,
+            SipUri::Uri(uri) => uri.user_param.as_deref(),
+            SipUri::NameAddr(addr) => addr.uri.user_param.as_deref(),
         }
     }
 
     /// Returns the method parameter of the uri.
-    pub fn method_param(&self) -> &Option<SipMethod> {
+    pub fn method_param(&self) -> Option<SipMethod> {
         match self {
-            SipUri::Uri(uri) => &uri.method_param,
-            SipUri::NameAddr(addr) => &addr.uri.method_param,
+            SipUri::Uri(uri) => uri.method_param,
+            SipUri::NameAddr(addr) => addr.uri.method_param,
         }
     }
 
     /// Returns the ttl parameter of the uri.
-    pub fn ttl_param(&self) -> &Option<u8> {
+    pub fn ttl_param(&self) -> Option<u8> {
         match self {
-            SipUri::Uri(uri) => &uri.ttl_param,
-            SipUri::NameAddr(addr) => &addr.uri.ttl_param,
+            SipUri::Uri(uri) => uri.ttl_param,
+            SipUri::NameAddr(addr) => addr.uri.ttl_param,
         }
     }
 
@@ -201,7 +201,7 @@ pub struct UriHeaders {
     pub(crate) inner: Params,
 }
 
-impl Deref for UriHeaders {
+impl ops::Deref for UriHeaders {
     type Target = Params;
 
     fn deref(&self) -> &Self::Target {

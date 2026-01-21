@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Formatter, Result as FmtResult};
 use std::io::{self};
 use std::net::{IpAddr, SocketAddr};
-use std::ops::Deref;
+use std::ops;
 use std::result::Result as StdResult;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -35,6 +35,7 @@ use crate::error::{Error, Result};
 use crate::message::SipMessage;
 use crate::message::sip_uri::{DomainName, Host, Scheme, Uri};
 use crate::parser::Parser;
+use crate::transport::incoming::IncomingRequest;
 use crate::transport::tcp::TcpTransport;
 use crate::transport::ws::WebSocketTransport;
 
@@ -75,7 +76,7 @@ impl Transport {
     }
 }
 
-impl Deref for Transport {
+impl ops::Deref for Transport {
     type Target = dyn SipTransport;
 
     fn deref(&self) -> &Self::Target {
@@ -103,6 +104,10 @@ impl TransportManager {
         TransportManager {
             transports: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub async fn receive_requests(&mut self) -> Option<IncomingRequest> {
+        todo!()
     }
 
     /// Add a new transport to the manager.
