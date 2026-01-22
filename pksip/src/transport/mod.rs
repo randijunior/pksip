@@ -35,7 +35,6 @@ use crate::error::{Error, Result};
 use crate::message::SipMessage;
 use crate::message::sip_uri::{DomainName, Host, Scheme, Uri};
 use crate::parser::Parser;
-use crate::transport::incoming::IncomingRequest;
 use crate::transport::tcp::TcpTransport;
 use crate::transport::ws::WebSocketTransport;
 
@@ -104,10 +103,6 @@ impl TransportManager {
         TransportManager {
             transports: Mutex::new(HashMap::new()),
         }
-    }
-
-    pub async fn receive_requests(&mut self) -> Option<IncomingRequest> {
-        todo!()
     }
 
     /// Add a new transport to the manager.

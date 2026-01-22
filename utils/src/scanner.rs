@@ -121,13 +121,13 @@ impl<'buf> Scanner<'buf> {
             .or_else(|_| Err(ScannerError::InvalidNumber))
     }
 
-    /// Call the `func` closure for each element in the buffer and next_byte
+    /// Call the `predicate` closure for each element in the buffer and next_byte
     /// the scanner while the closure returns `true`.
     #[inline(always)]
-    pub fn read_while(&mut self, func: impl Fn(u8) -> bool) -> &'buf [u8] {
+    pub fn read_while(&mut self, predicate: impl Fn(u8) -> bool) -> &'buf [u8] {
         let start = self.index;
         while let Some(&c) = self.peek_byte() {
-            if func(c) {
+            if predicate(c) {
                 self.bump(c);
             } else {
                 break;
@@ -153,15 +153,15 @@ impl<'buf> Scanner<'buf> {
         Some(unsafe { self.buffer.get_unchecked(start..end) })
     }
 
-    /// peek_byte bytes in the buffer while the `func` returns true.
+    /// peek_byte bytes in the buffer while the `predicate` returns true.
     ///
     /// Does not next_byte the scanner position.
-    pub fn peek_while(&'buf self, func: impl Fn(u8) -> bool) -> &'buf [u8] {
+    pub fn peek_while(&'buf self, predicate: impl Fn(u8) -> bool) -> &'buf [u8] {
         let buffer = self.remaining();
 
         let n = buffer
             .iter()
-            .position(|&b| !func(b))
+            .position(|&b| !predicate(b))
             .unwrap_or(buffer.len());
 
         // SAFETY: `n` is guaranteed to be ≤ `buffer.len()`, so the range is always
@@ -212,15 +212,15 @@ impl<'buf> Scanner<'buf> {
         self.read_while(|b| b != byte)
     }
 
-    /// Reads bytes while `func` returns true and converts them to a string
+    /// Reads bytes while `predicate` returns true and converts them to a string
     /// slice.
     ///
     /// # Errors
     ///
     /// Returns `ScannerError::InvalidUtf8` if the resulting bytes are not
     /// valid UTF-8.
-    pub fn read_while_as_str(&mut self, func: impl Fn(u8) -> bool) -> Result<&'buf str> {
-        let bytes = self.read_while(func);
+    pub fn read_while_as_str(&mut self, predicate: impl Fn(u8) -> bool) -> Result<&'buf str> {
+        let bytes = self.read_while(predicate);
 
         std::str::from_utf8(bytes).or_else(|_| Err(ScannerError::InvalidUtf8))
     }
@@ -230,27 +230,30 @@ impl<'buf> Scanner<'buf> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that `func` only returns `true` for bytes that form valid
+    /// The caller must ensure that `predicate` only returns `true` for bytes that form valid
     /// UTF-8.
     #[inline]
-    pub unsafe fn read_while_as_str_unchecked(&mut self, func: impl Fn(u8) -> bool) -> &'buf str {
-        let bytes = self.read_while(func);
+    pub unsafe fn read_while_as_str_unchecked(
+        &mut self,
+        predicate: impl Fn(u8) -> bool,
+    ) -> &'buf str {
+        let bytes = self.read_while(predicate);
 
-        // SAFETY: The caller guarantees that `func` only matches bytes forming valid
+        // SAFETY: The caller guarantees that `predicate` only matches bytes forming valid
         // UTF-8.
         unsafe { std::str::from_utf8_unchecked(bytes) }
     }
 
-    /// Call the `func` closure for next byte and read it if
+    /// Call the `predicate` closure for next byte and read it if
     /// the closure returns `true`.
     ///
     /// # Returns
     ///
     /// The byte readed.
     #[inline(always)]
-    pub fn next_byte_if(&mut self, func: impl FnOnce(u8) -> bool) -> Option<u8> {
+    pub fn next_byte_if(&mut self, predicate: impl FnOnce(u8) -> bool) -> Option<u8> {
         match self.peek_byte() {
-            Some(&matched) if func(matched) => {
+            Some(&matched) if predicate(matched) => {
                 self.bump(matched);
 
                 Some(matched)

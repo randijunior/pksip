@@ -130,7 +130,7 @@ pub mod transaction {
 
     use crate::transaction::client::ClientTransaction;
     use crate::transaction::fsm::{self};
-    use crate::transaction::{ServerTransaction, T1, T2, TransactionMessage};
+    use crate::transaction::{ServerTransaction, T1, T2, T4, TransactionMessage};
     use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
     use crate::transport::{Packet, Transport, TransportMessage};
 
@@ -150,10 +150,9 @@ pub mod transaction {
     }
 
     pub async fn wait_state_change(state: &mut watch::Receiver<fsm::State>) {
-        time::timeout(Duration::from_secs(1), state.changed())
-            .await
-            .expect("timeout reached and no state change received")
-            .expect("The channel has been closed");
+        if let Ok(Err(_err)) = time::timeout(Duration::from_millis(50), state.changed()).await {
+            panic!("The channel has been closed")
+        }
     }
 
     pub struct FakeUAS {
@@ -199,7 +198,7 @@ pub mod transaction {
                 self.retransmit().await;
             }
         }
-        
+
         pub async fn retransmit(&self) {
             self.send(self.request.clone()).await;
         }
@@ -219,21 +218,43 @@ pub mod transaction {
         }
     }
 
-    pub struct TestRetransmissionTimer {
-        interval: Duration,
+    pub struct TestTimer {
+        retrans_interval: Duration,
     }
 
-    impl TestRetransmissionTimer {
+    impl TestTimer {
         pub fn new() -> Self {
-            Self { interval: T1 }
+            Self {
+                retrans_interval: T1,
+            }
+        }
+
+        pub async fn timer_h(&self) {
+            tokio::time::sleep(T1 * 64).await
+        }
+
+        pub async fn timer_j(&self) {
+            tokio::time::sleep(T1 * 64).await
+        }
+
+        pub async fn timer_k(&self) {
+            tokio::time::sleep(T1 * 64).await
+        }
+
+        pub async fn timer_d(&self) {
+            tokio::time::sleep(T1 * 64).await
+        }
+
+        pub async fn timer_i(&self) {
+            tokio::time::sleep(T4).await
         }
 
         fn next_interval(&mut self) {
-            self.interval = cmp::min(self.interval * 2, T2);
+            self.retrans_interval = cmp::min(self.retrans_interval * 2, T2);
         }
 
         async fn wait_interval(&self) {
-            time::sleep(self.interval).await;
+            time::sleep(self.retrans_interval).await;
         }
 
         pub async fn wait_for_retransmissions(&mut self, n: usize) {
@@ -275,7 +296,7 @@ pub mod transaction {
         pub client: ClientTransaction,
         pub server: FakeUAS,
         pub transport: MockTransport,
-        pub timer: TestRetransmissionTimer,
+        pub timer: TestTimer,
         pub state: watch::Receiver<fsm::State>,
     }
 
@@ -290,7 +311,7 @@ pub mod transaction {
 
         async fn new(method: SipMethod, transport: MockTransport) -> Self {
             let transport_impl = Transport::new(transport.clone());
-            let timer = TestRetransmissionTimer::new();
+            let timer = TestTimer::new();
 
             let endpoint = create_test_endpoint();
             let request = create_test_request(method, transport_impl.clone());
@@ -343,7 +364,7 @@ pub mod transaction {
         pub server: ServerTransaction,
         pub client: FakeUAC,
         pub transport: MockTransport,
-        pub timer: TestRetransmissionTimer,
+        pub timer: TestTimer,
         pub state: watch::Receiver<fsm::State>,
     }
 
@@ -371,7 +392,7 @@ pub mod transaction {
 
             let client = FakeUAC { sender, request };
 
-            let timer = TestRetransmissionTimer::new();
+            let timer = TestTimer::new();
 
             let state = server.state_machine_mut().subscribe_state();
 
@@ -433,8 +454,8 @@ pub mod transport {
             self.sent.lock().unwrap().len()
         }
 
-        pub fn get_last_request(&self) -> Option<Request> {
-            self.last_sip_msg().map(|msg| {
+        pub fn get_last_sent_request(&self) -> Option<Request> {
+            self.get_last_sent_message().map(|msg| {
                 if let SipMessage::Request(req) = msg {
                     Some(req)
                 } else {
@@ -448,7 +469,7 @@ pub mod transport {
             guard.last().map(|(buff, _)| buff).cloned()
         }
 
-        pub fn last_sip_msg(&self) -> Option<SipMessage> {
+        pub fn get_last_sent_message(&self) -> Option<SipMessage> {
             self.last_buffer().map(|b| Parser::parse(&b).unwrap())
         }
 

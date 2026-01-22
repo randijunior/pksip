@@ -171,7 +171,6 @@ impl ClientTransaction {
             State::Confirmed => todo!(),
             State::Terminated => todo!(),
         }
-        todo!()
     }
 
     pub async fn receive_final_response(mut self) -> Result<IncomingResponse> {
@@ -258,12 +257,10 @@ mod tests {
         CODE_404_NOT_FOUND, CODE_504_SERVER_TIMEOUT, CODE_603_DECLINE,
     };
 
-    //////////////////////////////////
-    // Invite Client Transaction Tests
-    //////////////////////////////////
+    // INVITE Client tests
 
     #[tokio::test]
-    async fn invite_transitions_to_calling_when_request_sent() {
+    async fn invite_transitions_to_calling_when_request_is_sent() {
         let ctx = SendRequestContext::setup(SipMethod::Invite);
 
         let uac = ClientTransaction::send_request(
@@ -277,7 +274,7 @@ mod tests {
         assert_eq!(
             uac.state(),
             State::Calling,
-            "should transition to calling after initiate the transaction"
+            "client INVITE must transition to the Calling state when sending the request"
         );
     }
 
@@ -317,7 +314,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client INVITE must transition to the Proceeding state when receiving 1xx response"
         );
     }
 
@@ -335,7 +332,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 3xx response"
+            "client INVITE must transition to the Completed state when receiving 3xx response"
         );
     }
 
@@ -353,7 +350,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 4xx response"
+            "client INVITE must transition to the Completed state when receiving 4xx response"
         );
     }
 
@@ -371,7 +368,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 5xx response"
+            "client INVITE must transition to the Completed state when receiving 5xx response"
         );
     }
 
@@ -389,7 +386,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 6xx response"
+            "client INVITE must transition to the Completed state when receiving 6xx response"
         );
     }
 
@@ -407,7 +404,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Terminated,
-            "should transition to Terminated after receiving 2xx response"
+            "client INVITE must transition to the Terminated state when receiving 2xx response"
         );
     }
 
@@ -426,12 +423,12 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Terminated,
-            "should transition to Terminated after timeout"
+            "client INVITE must transition to the Terminated state when timer B fires"
         );
     }
 
     #[tokio::test]
-    async fn invite_should_send_ack_after_3xx_response_in_calling_state() {
+    async fn invite_should_send_ack_when_receiving_3xx_response_in_calling_state() {
         let ctx = ClientTestContext::setup(SipMethod::Invite).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
@@ -441,16 +438,16 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 3xx response"
+            "client INVITE must generate an ACK request when receiving 3xx response"
         );
     }
 
     #[tokio::test]
-    async fn invite_should_send_ack_after_4xx_response_in_calling_state() {
+    async fn invite_should_send_ack_when_receiving_4xx_response_in_calling_state() {
         let ctx = ClientTestContext::setup(SipMethod::Invite).await;
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
@@ -460,16 +457,16 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 4xx response"
+            "client INVITE must generate an ACK request when receiving 4xx response"
         );
     }
 
     #[tokio::test]
-    async fn invite_should_send_ack_after_5xx_response_in_calling_state() {
+    async fn invite_should_send_ack_when_receiving_5xx_response_in_calling_state() {
         let ctx = ClientTestContext::setup(SipMethod::Invite).await;
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
@@ -479,16 +476,16 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 5xx response"
+            "client INVITE must generate an ACK request when receiving 5xx response"
         );
     }
 
     #[tokio::test]
-    async fn invite_should_send_ack_after_6xx_response_in_calling_state() {
+    async fn invite_should_send_ack_when_receiving_6xx_response_in_calling_state() {
         let ctx = ClientTestContext::setup(SipMethod::Invite).await;
 
         ctx.server.respond(CODE_603_DECLINE).await;
@@ -498,11 +495,11 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 6xx response"
+            "client INVITE must generate an ACK request when receiving 6xx response"
         );
     }
 
@@ -520,7 +517,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 3xx response"
+            "client INVITE must transition to the Completed state when receiving 3xx response"
         );
     }
 
@@ -538,7 +535,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 4xx response"
+            "client INVITE must transition to the Completed state when receiving 4xx response"
         );
     }
 
@@ -556,7 +553,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 5xx response"
+            "client INVITE must transition to the Completed state when receiving 5xx response"
         );
     }
 
@@ -574,7 +571,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 6xx response"
+            "client INVITE must transition to the Completed state when receiving 6xx response"
         );
     }
 
@@ -592,7 +589,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Terminated,
-            "should transition to Terminated after receiving 2xx response"
+            "client INVITE must transition to the Completed state when receiving receiving 2xx response"
         );
     }
 
@@ -613,7 +610,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
 
         ctx.timer.wait_for_retransmissions(5).await;
@@ -625,7 +622,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invite_should_send_ack_after_3xx_response_in_proceeding_state() {
+    async fn invite_should_send_ack_when_receiving_3xx_response_in_proceeding_state() {
         let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
@@ -639,7 +636,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
@@ -649,11 +646,11 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 3xx response"
+            "client INVITE must generate an ACK request when receiving 3xx response"
         );
     }
 
@@ -672,7 +669,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
@@ -682,16 +679,16 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 4xx response"
+            "client INVITE must generate an ACK request when receiving 4xx response"
         );
     }
 
     #[tokio::test]
-    async fn invite_should_send_ack_after_5xx_response_in_proceeding_state() {
+    async fn invite_should_send_ack_when_receiving_5xx_response_in_proceeding_state() {
         let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
@@ -705,7 +702,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
@@ -715,11 +712,11 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 5xx response"
+            "client INVITE must generate an ACK request when receiving 5xx response"
         );
     }
 
@@ -738,7 +735,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx"
+            "client INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
 
         ctx.server.respond(CODE_603_DECLINE).await;
@@ -748,11 +745,11 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        let req = ctx.transport.get_last_request().expect("A request");
+        let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
             SipMethod::Ack,
-            "MUST generate an ACK request after receiving 6xx response"
+            "client INVITE must generate an ACK request when receiving 6xx response"
         );
     }
 
@@ -801,22 +798,25 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        tokio::time::sleep(64 * T1).await;
-        tokio::task::yield_now().await;
+        assert_eq_state!(
+            ctx.state,
+            State::Completed,
+            "client INVITE must transition to the Completed state when receiving 3xx response"
+        );
+
+        ctx.timer.timer_d().await;
 
         assert_eq_state!(
             ctx.state,
             State::Terminated,
-            "should transition to Terminated after timer d fires"
+            "client INVITE must transition to the Terminated state when timer D fires"
         );
     }
 
-    /////////////////////////////////////////
-    // Non Invite Client Transaction Tests //
-    ////////////////////////////////////////
+    // Non-INVITE Client tests
 
     #[tokio::test]
-    async fn non_invite_transitions_to_trying_when_request_sent() {
+    async fn non_invite_transitions_to_trying_when_request_is_sent() {
         let ctx = SendRequestContext::setup(SipMethod::Register);
 
         let uac = ClientTransaction::send_request(
@@ -830,7 +830,7 @@ mod tests {
         assert_eq!(
             uac.state(),
             State::Trying,
-            "should transition to trying state after initiating a new transaction."
+            "client non-INVITE must transition to the Trying state when sending the request"
         );
     }
 
@@ -870,7 +870,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client non-INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
     }
 
@@ -888,7 +888,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 6xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 6xx response"
         );
     }
 
@@ -906,7 +906,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 3xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 3xx response"
         );
     }
 
@@ -924,7 +924,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 4xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 4xx response"
         );
     }
 
@@ -942,7 +942,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 5xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 5xx response"
         );
     }
 
@@ -960,7 +960,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 6xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 6xx response"
         );
     }
     #[tokio::test]
@@ -977,7 +977,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 3xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 3xx response"
         );
     }
 
@@ -995,7 +995,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 4xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 4xx response"
         );
     }
 
@@ -1013,7 +1013,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 5xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 5xx response"
         );
     }
 
@@ -1031,7 +1031,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 6xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 6xx response"
         );
     }
 
@@ -1049,7 +1049,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Completed,
-            "should transition to Completed after receiving 2xx response"
+            "client non-INVITE must transition to the Completed state when receiving receiving 2xx response"
         );
     }
 
@@ -1068,7 +1068,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Terminated,
-            "should transition to Terminated after timer f fires"
+            "client non-INVITE must transition to the Terminated state when timer F fires"
         );
     }
 
@@ -1089,7 +1089,7 @@ mod tests {
         assert_eq_state!(
             ctx.state,
             State::Proceeding,
-            "should transition to Proceeding after receiving 1xx response"
+            "client non-INVITE must transition to the Proceeding state when receiving receiving 1xx response"
         );
 
         ctx.timer.wait_for_retransmissions(5).await;
@@ -1146,7 +1146,7 @@ mod tests {
             .await
             .expect("Error receiving final response");
 
-        tokio::time::sleep(64 * crate::transaction::T1).await;
+        ctx.timer.timer_k().await;
         tokio::task::yield_now().await;
 
         assert_eq_state!(
