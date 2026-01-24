@@ -2,7 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use pksip::message::headers::{Header, Headers};
-use pksip::message::{SipResponse, SipMethod, StatusCode, StatusLine};
+use pksip::message::{SipMethod, SipResponse, StatusCode, StatusLine};
 use pksip::transaction::TransactionManager;
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler, find_map_header};
@@ -33,7 +33,7 @@ impl EndpointHandler for SimpleDialogHandler {
             let status_line = StatusLine::new(StatusCode::Ok, "Ok".into());
             let response = SipResponse::with_headers(status_line, hdrs);
 
-            uas.send_final(response).await.unwrap();
+            uas.respond_with_final(response).await.unwrap();
         } else if request.req_line.method != SipMethod::Ack {
             let response = SipResponse::builder()
                 .status(StatusCode::NotImplemented)

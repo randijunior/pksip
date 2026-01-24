@@ -6,7 +6,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::error::Result;
 use crate::message::headers::{ContentLength, Headers};
-use crate::message::{ReasonPhrase, SipRequest, SipResponse, SipBody, StatusCode};
+use crate::message::{ReasonPhrase, SipBody, SipRequest, SipResponse, StatusCode};
 use crate::parser::HeaderParser;
 
 /// This type represents an outbound SIP request.

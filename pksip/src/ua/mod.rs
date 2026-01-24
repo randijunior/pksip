@@ -53,9 +53,7 @@ impl UserAgent {
 
 #[async_trait::async_trait]
 impl EndpointHandler for UserAgent {
-    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
-        
-    }
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {}
     // async fn on_incoming_request(
     //     &self,
     //     endpoint: &Endpoint,

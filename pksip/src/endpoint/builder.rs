@@ -6,8 +6,7 @@ use super::{Endpoint, EndpointHandler};
 use crate::endpoint::EndpointInner;
 use crate::message::headers::{Header, Headers};
 use crate::transaction::manager::TransactionManager;
-use crate::transport::{TransportManager};
-
+use crate::transport::TransportManager;
 
 /// EndpointBuilder for creating a new SIP `Endpoint`.
 pub struct EndpointBuilder {

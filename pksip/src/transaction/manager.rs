@@ -50,7 +50,9 @@ impl TransactionManager {
         let Some(channel) = self.get_entry(&key) else {
             return Some(response);
         };
-        let _res = channel.send(TransactionMessage::SipResponse(response)).await;
+        let _res = channel
+            .send(TransactionMessage::SipResponse(response))
+            .await;
         // let mandatory = &response.info.mandatory_headers;
 
         // let method = mandatory.cseq.method;

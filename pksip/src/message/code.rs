@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::error::TransactionError;
 use crate::message::ReasonPhrase;
 
@@ -262,8 +264,8 @@ impl StatusCode {
         }
     }
     /// Returns the reason text related to the status code.
-    pub fn reason(&self) -> ReasonPhrase {
-        (match self {
+    pub const fn reason(&self) -> ReasonPhrase {
+        let reason_str = match self {
             Self::Trying => "Trying",
             Self::Ringing => "Ringing",
             Self::CallIsBeingForwarded => "Call Is Being Forwarded",
@@ -341,8 +343,9 @@ impl StatusCode {
             Self::NotAcceptableAnywhere => "Not Acceptable Anywhere",
             Self::Unwanted => "Unwanted",
             Self::Rejected => "Rejected",
-        })
-        .into()
+        };
+
+        ReasonPhrase(Cow::Borrowed(reason_str))
     }
 
     ///  Returns the class of the status code.

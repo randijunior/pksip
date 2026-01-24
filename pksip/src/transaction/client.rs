@@ -17,7 +17,9 @@ use crate::{Endpoint, Result, SipMethod, find_map_mut_header};
 
 // ACK para 2xx é responsabilidade do TU.
 
-/// An Client Transaction, either `Invite` or `NonInvite`.
+/// A Client Transaction.
+///
+/// Represents a SIP client transaction.
 pub struct ClientTransaction {
     key: TransactionKey,
     endpoint: Endpoint,
@@ -53,7 +55,7 @@ impl ClientTransaction {
         );
         let mut outgoing = endpoint.create_outgoing_request(request, target).await?;
         let headers = &mut outgoing.request.headers;
-        
+
         let via = match find_map_mut_header!(headers, Via) {
             Some(via) => via,
             None => {

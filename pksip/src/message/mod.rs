@@ -22,16 +22,16 @@ use crate::error::{Error, Result};
 use crate::parser::HeaderParser;
 
 mod auth;
+mod code;
 mod method;
 mod param;
 pub(crate) mod uri;
-mod code;
 
 pub use auth::*;
+pub use code::*;
 pub use method::*;
 pub use param::*;
 pub use uri::*;
-pub use code::*;
 
 /// An SIP message, either SipRequest or SipResponse.
 ///
@@ -275,7 +275,7 @@ pub struct SipResponse {
 impl SipResponse {
     /// Creates a new SIP `SipResponse` from a `Status-Line`, with empty headers
     /// and no body.
-    pub fn new(status_line: StatusLine) -> Self {
+    pub const fn new(status_line: StatusLine) -> Self {
         Self {
             status_line,
             headers: Headers::new(),
@@ -297,7 +297,7 @@ impl SipResponse {
         &self.status_line.reason.0
     }
 
-    pub fn with_status_code(code: StatusCode) -> Self {
+    pub const fn with_status_code(code: StatusCode) -> Self {
         Self::new(StatusLine::new(code, code.reason()))
     }
 
@@ -372,7 +372,7 @@ pub struct ReasonPhrase(Cow<'static, str>);
 impl ReasonPhrase {
     /// Creates a new `ReasonPhrase` whith the given `reason`.
     #[inline]
-    pub fn new(reason: Cow<'static, str>) -> Self {
+    pub const fn new(reason: Cow<'static, str>) -> Self {
         Self(reason)
     }
 
@@ -450,7 +450,7 @@ impl Display for StatusLine {
 impl StatusLine {
     /// Creates a new `StatusLine` instance from the given
     /// [`StatusCode`] and `reason-phrase`.
-    pub fn new(code: StatusCode, reason: ReasonPhrase) -> Self {
+    pub const fn new(code: StatusCode, reason: ReasonPhrase) -> Self {
         StatusLine { code, reason }
     }
 }

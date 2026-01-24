@@ -6,7 +6,7 @@ use bytes::Bytes;
 
 use crate::endpoint::{Endpoint, EndpointBuilder};
 use crate::message::headers::{CSeq, CallId, From, Header, Headers, MaxForwards, To, Via};
-use crate::message::{MandatoryHeaders, SipRequest, SipMethod, StatusCode, Uri};
+use crate::message::{MandatoryHeaders, SipMethod, SipRequest, SipResponse, StatusCode, Uri};
 use crate::transport::incoming::{IncomingInfo, IncomingRequest};
 use crate::transport::{Packet, Transport, TransportMessage};
 
@@ -129,12 +129,26 @@ pub mod transaction {
     use super::transport::MockTransport;
     use super::{create_test_endpoint, create_test_request};
     use crate::endpoint::Endpoint;
-    use crate::message::{SipMethod, SipRequest, SipResponse, StatusCode};
+    use crate::message::{SipMethod, SipRequest, SipResponse, StatusCode, StatusLine};
     use crate::transaction::client::ClientTransaction;
     use crate::transaction::fsm::{self};
     use crate::transaction::{ServerTransaction, T1, T2, T4, TransactionMessage};
     use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
     use crate::transport::{Packet, Transport, TransportMessage};
+
+    pub const RESPONSE_100_TRYING: SipResponse = SipResponse::with_status_code(StatusCode::Trying);
+    pub const RESPONSE_180_RINGING: SipResponse =
+        SipResponse::with_status_code(StatusCode::Ringing);
+    pub const RESPONSE_202_ACCEPTED: SipResponse =
+        SipResponse::with_status_code(StatusCode::Accepted);
+    pub const RESPONSE_301_MOVED_PERMANENTLY: SipResponse =
+        SipResponse::with_status_code(StatusCode::MovedPermanently);
+    pub const RESPONSE_404_NOT_FOUND: SipResponse =
+        SipResponse::with_status_code(StatusCode::NotFound);
+    pub const RESPONSE_504_SERVER_TIMEOUT: SipResponse =
+        SipResponse::with_status_code(StatusCode::ServerTimeout);
+    pub const RESPONSE_603_DECLINE: SipResponse =
+        SipResponse::with_status_code(StatusCode::Decline);
 
     /// Asserts that the last state received in the [`watch::Receiver<State>`] are equal to the expected.
     #[macro_export]
@@ -163,8 +177,11 @@ pub mod transaction {
     impl FakeUAS {
         pub async fn respond(&self, code: StatusCode) {
             let mandatory_headers = self.request.incoming_info.mandatory_headers.clone();
-            let response = SipResponse::with_status_code(code);
-            let outgoing = self.endpoint.create_outgoing_response(&self.request, response);
+            let status_line = StatusLine::new(code, code.reason());
+            let response = SipResponse::new(status_line);
+            let outgoing = self
+                .endpoint
+                .create_outgoing_response(&self.request, response);
             let packet = Packet::new(outgoing.encoded, outgoing.target_info.target);
 
             let transport = TransportMessage {
@@ -320,10 +337,13 @@ pub mod transaction {
 
             let target = (transport_impl, destination);
 
-            let mut client =
-                ClientTransaction::send_request_with_target(request.request.clone(), target, endpoint.clone())
-                    .await
-                    .expect("failure sending request");
+            let mut client = ClientTransaction::send_request_with_target(
+                request.request.clone(),
+                target,
+                endpoint.clone(),
+            )
+            .await
+            .expect("failure sending request");
 
             let expected_state = if method == SipMethod::Invite {
                 fsm::State::Calling
@@ -411,7 +431,7 @@ pub mod transport {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::sync::{Arc, Mutex};
 
-    use crate::message::{SipRequest, SipMessage};
+    use crate::message::{SipMessage, SipRequest};
     use crate::parser::Parser;
     use crate::transport::{SipTransport, TransportType};
 

@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::message::{SipResponse, SipMethod, StatusCode};
+use pksip::message::{SipMethod, SipResponse, StatusCode};
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler};
 use tracing::Level;

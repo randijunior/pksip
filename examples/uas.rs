@@ -2,7 +2,7 @@ use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use pksip::message::{SipResponse, SipMethod, StatusCode};
+use pksip::message::{SipMethod, SipResponse, StatusCode};
 use pksip::transaction::TransactionManager;
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler};
@@ -21,8 +21,8 @@ impl EndpointHandler for UasHandler {
                 .reason("Ok")
                 .build();
 
-            uas.send_final(response).await.unwrap();
-            
+            uas.respond_with_final(response).await.unwrap();
+
             return;
         }
         if request.req_line.method != SipMethod::Ack {

@@ -7,14 +7,16 @@ use tokio_util::either::Either;
 use crate::SipMethod;
 use crate::endpoint::Endpoint;
 use crate::error::{Result, TransactionError};
-use crate::message::{SipResponse, StatusCode};
+use crate::message::{SipResponse, StatusCode, StatusLine};
 use crate::transaction::fsm::{State, StateMachine};
 use crate::transaction::manager::TransactionKey;
 use crate::transaction::{T1, T2, T4, TransactionMessage};
 use crate::transport::incoming::IncomingRequest;
 use crate::transport::outgoing::OutgoingResponse;
 
-/// An Server Transaction, either `Invite` or `NonInvite`.
+/// A Server Transaction.
+///
+/// Represents a SIP server transaction.
 pub struct ServerTransaction {
     transaction_key: TransactionKey,
     endpoint: Endpoint,
@@ -30,7 +32,7 @@ struct ProceedingStateHandle {
 }
 
 impl ServerTransaction {
-    /// Create a new [`ServerTransaction`] instance from the request.
+    /// Create a new [`ServerTransaction`] from the given request.
     ///
     /// # Panics
     ///
@@ -64,23 +66,14 @@ impl ServerTransaction {
         }
     }
 
-    /// Respond with the provisional `status_code`.
+    /// Respond with the provisional response.
+    ///
+    /// This method will clone the request headers into the response.
     ///
     /// # Errors
     ///
-    /// Returns an [`Err`] if the code is not provisional (1xx).
-    pub async fn respond_with_provisional(&mut self, status_code: StatusCode) -> Result<()> {
-        let sip_response = SipResponse::with_status_code(status_code);
-
-        self.send_provisional(sip_response).await?;
-
-        Ok(())
-    }
-
-    /// Send the provisional response.
-    ///
-    /// This method will clone the request headers into the response.
-    pub async fn send_provisional(&mut self, response: SipResponse) -> Result<()> {
+    /// Returns an [`Err`] if the response code is not provisional (1xx).
+    pub async fn respond_with_provisional(&mut self, response: SipResponse) -> Result<()> {
         if !response.status_line.code.is_provisional() {
             return Err(TransactionError::InvalidProvisionalStatusCode.into());
         }
@@ -103,20 +96,14 @@ impl ServerTransaction {
         Ok(())
     }
 
-    /// Respond with the final `status_code`.
+    /// Respond with the final response.
+    ///
+    /// This method will clone the request headers into the response.
     ///
     /// # Errors
     ///
-    /// Returns an [`Err`] if the code is not final (2xx-6xx).
-    pub async fn respond_with_final(self, status_code: StatusCode) -> Result<()> {
-        let sip_response = SipResponse::with_status_code(status_code);
-
-        self.send_final(sip_response).await?;
-
-        Ok(())
-    }
-
-    pub async fn send_final(mut self, response: SipResponse) -> Result<()> {
+    /// Returns an [`Err`] if the response code is not final (2xx-6xx).
+    pub async fn respond_with_final(mut self, response: SipResponse) -> Result<()> {
         let mut outgoing_response = self
             .endpoint
             .create_outgoing_response(&self.request, response);
@@ -288,9 +275,9 @@ impl Drop for ServerTransaction {
 mod tests {
     use super::*;
     use crate::assert_eq_state;
-    use crate::test_utils::transaction::ServerTestContext;
-    use crate::test_utils::{
-        CODE_100_TRYING, CODE_202_ACCEPTED, CODE_301_MOVED_PERMANENTLY, CODE_504_SERVER_TIMEOUT,
+    use crate::test_utils::transaction::{
+        RESPONSE_100_TRYING, RESPONSE_202_ACCEPTED, RESPONSE_301_MOVED_PERMANENTLY,
+        RESPONSE_504_SERVER_TIMEOUT, ServerTestContext,
     };
 
     // INVITE Server tests
@@ -311,7 +298,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -335,7 +322,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
 
         ctx.server
-            .respond_with_final(CODE_202_ACCEPTED)
+            .respond_with_final(RESPONSE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -351,7 +338,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
 
         ctx.server
-            .respond_with_final(CODE_202_ACCEPTED)
+            .respond_with_final(RESPONSE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -369,7 +356,7 @@ mod tests {
         let expected_retrans = 3;
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -389,7 +376,7 @@ mod tests {
         let expected_retrans = 2;
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -412,7 +399,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -436,7 +423,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -460,7 +447,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Invite);
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -494,7 +481,7 @@ mod tests {
         let expected_retrans = 5;
 
         ctx.server
-            .respond_with_final(CODE_301_MOVED_PERMANENTLY)
+            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -525,7 +512,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Options);
 
         ctx.server
-            .respond_with_provisional(CODE_100_TRYING)
+            .respond_with_provisional(RESPONSE_100_TRYING)
             .await
             .expect("Error sending provisional response");
 
@@ -541,7 +528,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Options);
 
         ctx.server
-            .respond_with_final(CODE_504_SERVER_TIMEOUT)
+            .respond_with_final(RESPONSE_504_SERVER_TIMEOUT)
             .await
             .expect("Error sending final response");
 
@@ -557,7 +544,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup_reliable(SipMethod::Options);
 
         ctx.server
-            .respond_with_final(CODE_202_ACCEPTED)
+            .respond_with_final(RESPONSE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -573,7 +560,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup_reliable(SipMethod::Options);
 
         ctx.server
-            .respond_with_final(CODE_504_SERVER_TIMEOUT)
+            .respond_with_final(RESPONSE_504_SERVER_TIMEOUT)
             .await
             .expect("Error sending final response");
 
@@ -605,7 +592,7 @@ mod tests {
         let expected_retrans = 4;
 
         ctx.server
-            .respond_with_provisional(CODE_100_TRYING)
+            .respond_with_provisional(RESPONSE_100_TRYING)
             .await
             .expect("Error sending provisional response");
 
@@ -625,7 +612,7 @@ mod tests {
         let expected_retrans = 2;
 
         ctx.server
-            .respond_with_final(CODE_202_ACCEPTED)
+            .respond_with_final(RESPONSE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -643,7 +630,7 @@ mod tests {
         let mut ctx = ServerTestContext::setup(SipMethod::Bye);
 
         ctx.server
-            .respond_with_final(CODE_202_ACCEPTED)
+            .respond_with_final(RESPONSE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
