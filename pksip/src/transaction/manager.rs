@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use bytes::Bytes;
-use tokio::sync::mpsc::{self, UnboundedSender};
-use tokio::sync::oneshot;
+use tokio::sync::mpsc::{self};
 
+use super::{Role, TransactionMessage};
 use crate::message::HostPort;
 use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
 use crate::{RFC3261_BRANCH_ID, SipMethod};
-
-use super::{Role, TransactionMessage};
 
 type TransactionChannel = mpsc::Sender<TransactionMessage>;
 
@@ -20,6 +17,9 @@ pub struct TransactionManager {
 }
 
 impl TransactionManager {
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Add an transaction in the collection.
     #[inline]
     pub(crate) fn add_transaction(&self, key: TransactionKey, entry: TransactionChannel) {
@@ -50,7 +50,7 @@ impl TransactionManager {
         let Some(channel) = self.get_entry(&key) else {
             return Some(response);
         };
-        let _res = channel.send(TransactionMessage::Response(response)).await;
+        let _res = channel.send(TransactionMessage::SipResponse(response)).await;
         // let mandatory = &response.info.mandatory_headers;
 
         // let method = mandatory.cseq.method;
@@ -62,7 +62,7 @@ impl TransactionManager {
         // let Some(channel) = map.get(&key) else {
         //     return Some(response);
         // };
-        // let _result = channel.send(TransactionMessage::Response(response));
+        // let _result = channel.send(TransactionMessage::SipResponse(response));
         None
     }
 
@@ -75,7 +75,7 @@ impl TransactionManager {
         let Some(channel) = self.get_entry(&key) else {
             return Some(request);
         };
-        let _res = channel.send(TransactionMessage::Request(request)).await;
+        let _res = channel.send(TransactionMessage::SipRequest(request)).await;
         None
     }
 }

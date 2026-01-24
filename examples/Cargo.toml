@@ -19,15 +19,15 @@ version = "0.4.1"
 features = ["env-filter"]
 
 [[example]]
-name = "stateless_uas"
-path = "stateless_uas.rs"
+name = "sipstateless"
+path = "sipstateless.rs"
 
 [[example]]
-name = "uas_options"
-path = "uas_options.rs"
+name = "uas"
+path = "uas.rs"
 
 [[example]]
-name = "simple_dialog"
-path = "simple_dialog.rs"
+name = "dialog"
+path = "dialog.rs"
 
 

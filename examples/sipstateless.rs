@@ -1,23 +1,24 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::message::{SipMethod, StatusCode};
+use pksip::message::{SipResponse, SipMethod, StatusCode};
 use pksip::transport::incoming::IncomingRequest;
-use pksip::{Endpoint, EndpointHandler, Result};
+use pksip::{Endpoint, EndpointHandler};
 use tracing::Level;
 use tracing_subscriber::fmt::time::ChronoLocal;
 
-pub struct StatelessUasHandler;
-
-const CODE: StatusCode = StatusCode::NotImplemented;
+pub struct StatelessUAS;
 
 #[async_trait]
-impl EndpointHandler for StatelessUasHandler {
-    async fn handle(&self, incoming: IncomingRequest, endpoint: &Endpoint) -> Result<()> {
-        if incoming.request.req_line.method != SipMethod::Ack {
-            endpoint.respond_stateless(&incoming, CODE, None).await?;
+impl EndpointHandler for StatelessUAS {
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
+        if request.req_line.method != SipMethod::Ack {
+            let response = SipResponse::builder()
+                .status(StatusCode::NotImplemented)
+                .build();
+
+            endpoint.respond(&request, response).await.unwrap();
         }
-        Ok(())
     }
 }
 
@@ -29,7 +30,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_timer(ChronoLocal::new(String::from("%H:%M:%S%.3f")))
         .init();
 
-    let svc = StatelessUasHandler;
+    let svc = StatelessUAS;
     let addr = "127.0.0.1:0".parse()?;
 
     let endpoint = Endpoint::builder().with_handler(svc).build();

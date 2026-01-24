@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
 use super::UserAgent;
-
 use crate::Endpoint;
 use crate::error::{DialogError, Result};
 use crate::message::headers::{CallId, Contact, From, Header, Headers, To};
@@ -19,7 +18,7 @@ type Usages = RwLock<Vec<Box<dyn DialogUsage>>>;
  * (INVITE):
  *
  * UAC (Caller)                 UAS (Receiver)
- *     |--- INVITE ----------->|    // Request to establish a session
+ *     |--- INVITE ----------->|    // SipRequest to establish a session
  *     |<--- 180 Ringing ------|    // Indicates ringing (early dialog)
  *     |<--- 200 OK -----------|    // InvSession accepted → Dialog created (confirmed)
  *     |--- ACK --------------->|   // Confirms receipt of 200 OK → Dialog active

@@ -2,7 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use pksip::message::headers::{Header, Headers};
-use pksip::message::{SipMethod, StatusCode};
+use pksip::message::{SipResponse, SipMethod, StatusCode, StatusLine};
 use pksip::transaction::TransactionManager;
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler, find_map_header};
@@ -12,13 +12,11 @@ pub struct SimpleDialogHandler;
 
 #[async_trait]
 impl EndpointHandler for SimpleDialogHandler {
-    async fn handle(&self, incoming: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
-        let method = incoming.request.req_line.method;
-        let headers = &incoming.request.headers;
-
-        if method == SipMethod::Register {
-            let new_header = if let Some(expires) = find_map_header!(headers, Expires) {
-                let mut hdrs = Headers::with_capacity(2);
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
+        if request.req_line.method == SipMethod::Register {
+            let headers = &request.headers;
+            let mut hdrs = Headers::new();
+            if let Some(expires) = find_map_header!(headers, Expires) {
                 let expires = *expires;
 
                 hdrs.push(Header::Expires(expires));
@@ -29,21 +27,20 @@ impl EndpointHandler for SimpleDialogHandler {
                         hdrs.push(Header::Contact(contact.clone()));
                     }
                 }
-                Some(hdrs)
-            } else {
-                None
-            };
-            let uas = endpoint.create_server_transaction(incoming)?;
-            uas.send_final_response(StatusCode::Ok, None, new_header, None)
-                .await?;
-        } else if method != SipMethod::Ack {
-            endpoint
-                .respond_stateless(&incoming, StatusCode::NotImplemented, None)
-                .await?;
-        } else {
-            return Ok(());
-        };
-        Ok(())
+            }
+            let uas = endpoint.new_server_transaction(request).unwrap();
+
+            let status_line = StatusLine::new(StatusCode::Ok, "Ok".into());
+            let response = SipResponse::with_headers(status_line, hdrs);
+
+            uas.send_final(response).await.unwrap();
+        } else if request.req_line.method != SipMethod::Ack {
+            let response = SipResponse::builder()
+                .status(StatusCode::NotImplemented)
+                .build();
+
+            endpoint.respond(&request, response).await.unwrap();
+        }
     }
 }
 

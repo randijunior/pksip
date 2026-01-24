@@ -50,7 +50,7 @@ pub enum StatusCode {
     UseProxy = 305,
     ///`Alternative Service` status code.
     AlternativeService = 380,
-    ///`Bad Request` status code.
+    ///`Bad SipRequest` status code.
     BadRequest = 400,
     ///`Unauthorized` status code.
     Unauthorized = 401,
@@ -66,7 +66,7 @@ pub enum StatusCode {
     NotAcceptable = 406,
     ///`Proxy Authentication Required` status code.
     ProxyAuthenticationRequired = 407,
-    ///`Request Timeout` status code.
+    ///`SipRequest Timeout` status code.
     RequestTimeout = 408,
     ///`Conflict` status code.
     Conflict = 409,
@@ -74,11 +74,11 @@ pub enum StatusCode {
     Gone = 410,
     ///`Length Required` status code.
     LengthRequired = 411,
-    ///`Conditional Request Failed` status code.
+    ///`Conditional SipRequest Failed` status code.
     ConditionalRequestFailed = 412,
-    ///`Request Entity Too Large` status code.
+    ///`SipRequest Entity Too Large` status code.
     RequestEntityTooLarge = 413,
-    ///`Request URI Too Long` status code.
+    ///`SipRequest URI Too Long` status code.
     RequestUriTooLong = 414,
     ///`Unsupported Media Type` status code.
     UnsupportedMediaType = 415,
@@ -132,15 +132,15 @@ pub enum StatusCode {
     Ambiguous = 485,
     ///`Busy Here` status code.
     BusyHere = 486,
-    ///`Request Terminated` status code.
+    ///`SipRequest Terminated` status code.
     RequestTerminated = 487,
     ///`Not Acceptable Here` status code.
     NotAcceptableHere = 488,
     ///`Bad Event` status code.
     BadEvent = 489,
-    ///`Request Updated` status code.
+    ///`SipRequest Updated` status code.
     RequestUpdated = 490,
-    ///`Request Pending` status code.
+    ///`SipRequest Pending` status code.
     RequestPending = 491,
     ///`Undecipherable` status code.
     Undecipherable = 493,
@@ -278,7 +278,7 @@ impl StatusCode {
             Self::MovedTemporarily => "Moved Temporarily",
             Self::UseProxy => "Use Proxy",
             Self::AlternativeService => "Alternative Service",
-            Self::BadRequest => "Bad Request",
+            Self::BadRequest => "Bad SipRequest",
             Self::Unauthorized => "Unauthorized",
             Self::PaymentRequired => "Payment Required",
             Self::Forbidden => "Forbidden",
@@ -286,13 +286,13 @@ impl StatusCode {
             Self::MethodNotAllowed => "SipMethod Not Allowed",
             Self::NotAcceptable => "Not Acceptable",
             Self::ProxyAuthenticationRequired => "Proxy Authentication Required",
-            Self::RequestTimeout => "Request Timeout",
+            Self::RequestTimeout => "SipRequest Timeout",
             Self::Conflict => "Conflict",
             Self::Gone => "Gone",
             Self::LengthRequired => "Length Required",
-            Self::ConditionalRequestFailed => "Conditional Request Failed",
-            Self::RequestEntityTooLarge => "Request Entity Too Large",
-            Self::RequestUriTooLong => "Request URI Too Long",
+            Self::ConditionalRequestFailed => "Conditional SipRequest Failed",
+            Self::RequestEntityTooLarge => "SipRequest Entity Too Large",
+            Self::RequestUriTooLong => "SipRequest URI Too Long",
             Self::UnsupportedMediaType => "Unsupported Media Type",
             Self::UnsupportedUriScheme => "Unsupported URI Scheme",
             Self::UnknownResourcePriority => "Unknown Resource Priority",
@@ -319,11 +319,11 @@ impl StatusCode {
             Self::AddressIncomplete => "Address Incomplete",
             Self::Ambiguous => "Ambiguous",
             Self::BusyHere => "Busy Here",
-            Self::RequestTerminated => "Request Terminated",
+            Self::RequestTerminated => "SipRequest Terminated",
             Self::NotAcceptableHere => "Not Acceptable Here",
             Self::BadEvent => "Bad Event",
-            Self::RequestUpdated => "Request Updated",
-            Self::RequestPending => "Request Pending",
+            Self::RequestUpdated => "SipRequest Updated",
+            Self::RequestPending => "SipRequest Pending",
             Self::Undecipherable => "Undecipherable",
             Self::SecurityAgreementRequired => "Security Agreement Required",
             Self::ServerInternalError => "Server Internal Error",
@@ -356,18 +356,6 @@ impl StatusCode {
             600..=699 => CodeClass::GlobalFailure,
             _ => unreachable!("StatusCode::class called on an invalid status code"),
         }
-    }
-
-    pub fn try_new_provisional(code: impl TryInto<StatusCode>) -> Result<Self, crate::Error> {
-        let code = code
-            .try_into()
-            .map_err(|_| crate::Error::InvalidStatusCode)?;
-
-        if !code.is_provisional() {
-            return Err(TransactionError::InvalidProvisionalStatusCode.into());
-        }
-
-        Ok(code)
     }
 
     /// Converts a `StatusCode` into its numeric code.

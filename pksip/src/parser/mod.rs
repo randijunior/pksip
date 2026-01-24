@@ -209,7 +209,7 @@ impl<'buf> Parser<'buf> {
             // TODO: Add "match" here.
             let status_line = self.parse_status_line()?;
 
-            SipMessage::Response(Response {
+            SipMessage::Response(SipResponse {
                 status_line,
                 headers: Headers::with_capacity(minimal_header_size),
                 body: None,
@@ -219,7 +219,7 @@ impl<'buf> Parser<'buf> {
             // TODO: Add "match" here.
             let req_line = self.parse_request_line()?;
 
-            SipMessage::Request(Request {
+            SipMessage::Request(SipRequest {
                 req_line,
                 headers: Headers::with_capacity(minimal_header_size),
                 body: None,

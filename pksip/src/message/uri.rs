@@ -1,8 +1,7 @@
 use std::borrow::Cow;
-use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::ops;
 use std::str::FromStr;
+use std::{fmt, ops};
 
 use itertools::Itertools;
 

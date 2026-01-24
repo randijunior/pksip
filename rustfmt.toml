@@ -1,2 +1,5 @@
 edition = "2024"
 style_edition = "2024"
+reorder_imports = true
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"

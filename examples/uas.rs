@@ -2,34 +2,40 @@ use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use pksip::message::{SipMethod, StatusCode};
+use pksip::message::{SipResponse, SipMethod, StatusCode};
+use pksip::transaction::TransactionManager;
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler};
 use tokio::time;
 use tracing::Level;
 
-pub struct UasOptionsHandler;
+pub struct UasHandler;
 
 #[async_trait]
-impl EndpointHandler for UasOptionsHandler {
-    async fn handle(&self, incoming: IncomingRequest, endpoint: &Endpoint) -> pksip::Result<()> {
-        if incoming.request.req_line.method == SipMethod::Options {
-            let uas = endpoint.create_server_transaction(incoming)?;
+impl EndpointHandler for UasHandler {
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
+        if request.req_line.method == SipMethod::Options {
+            let uas = endpoint.new_server_transaction(request).unwrap();
+            let response = SipResponse::builder()
+                .status(StatusCode::Ok)
+                .reason("Ok")
+                .build();
 
-            uas.respond_final_code(StatusCode::Ok).await?;
-
-            return Ok(());
+            uas.send_final(response).await.unwrap();
+            
+            return;
         }
-        if incoming.request.req_line.method != SipMethod::Ack {
-            endpoint
-                .respond_stateless(&incoming, StatusCode::NotImplemented, None)
-                .await?;
+        if request.req_line.method != SipMethod::Ack {
+            let response = SipResponse::builder()
+                .status(StatusCode::NotImplemented)
+                .build();
 
-            return Ok(());
+            let _res = endpoint.respond(&request, response).await;
+
+            return;
         }
 
         tracing::debug!("Received ACK request, no response needed.");
-        Ok(())
     }
 }
 
@@ -38,17 +44,15 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
         .with_env_filter("pksip=trace")
-        // .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(String::from("%H:%M:%S%.3f"
-        // )))
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
-    let svc = UasOptionsHandler;
+    let svc = UasHandler;
     let addr = "127.0.0.1:0".parse()?;
 
     let endpoint = Endpoint::builder()
         .with_handler(svc)
-        .with_transaction(Default::default())
+        .with_transaction(TransactionManager::new())
         .build();
 
     endpoint.start_tcp_transport(addr).await?;

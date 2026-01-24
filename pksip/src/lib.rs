@@ -37,9 +37,9 @@ use std::str::{
 /// Branch parameter prefix defined in RFC3261.
 pub(crate) const RFC3261_BRANCH_ID: &str = "z9hG4bK";
 
-use crate::message::Params;
-
 use rand::distr::{Alphanumeric, SampleString};
+
+use crate::message::Params;
 
 pub(crate) fn generate_branch(n: Option<usize>) -> String {
     let n = n.unwrap_or(8);

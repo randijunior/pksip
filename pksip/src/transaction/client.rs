@@ -1,7 +1,11 @@
 use std::net::SocketAddr;
 
+use tokio::sync::mpsc::{self};
+use tokio::time::{Instant, timeout, timeout_at};
+use utils::PeekableReceiver;
+
 use crate::error::TransactionError;
-use crate::message::Request;
+use crate::message::SipRequest;
 use crate::message::headers::{Header, Via};
 use crate::transaction::fsm::{State, StateMachine};
 use crate::transaction::manager::TransactionKey;
@@ -11,11 +15,6 @@ use crate::transport::incoming::IncomingResponse;
 use crate::transport::outgoing::OutgoingRequest;
 use crate::{Endpoint, Result, SipMethod, find_map_mut_header};
 
-use tokio::sync::mpsc::{self};
-use tokio::time::{Instant, timeout, timeout_at};
-
-use utils::PeekableReceiver;
-
 // ACK para 2xx é responsabilidade do TU.
 
 /// An Client Transaction, either `Invite` or `NonInvite`.
@@ -24,22 +23,37 @@ pub struct ClientTransaction {
     endpoint: Endpoint,
     state_machine: StateMachine,
     request: OutgoingRequest,
-    receiver: PeekableReceiver<TransactionMessage>,
+    channel: PeekableReceiver<TransactionMessage>,
     timeout: Instant,
 }
 
 impl ClientTransaction {
-    pub async fn send_request(
-        endpoint: &Endpoint,
-        request: Request,
+    pub(crate) async fn send_request(request: SipRequest, endpoint: Endpoint) -> Result<Self> {
+        Self::send_request_inner(request, None, endpoint).await
+    }
+
+    pub(crate) async fn send_request_with_target(
+        request: SipRequest,
+        target: (Transport, SocketAddr),
+        endpoint: Endpoint,
+    ) -> Result<Self> {
+        Self::send_request_inner(request, Some(target), endpoint).await
+    }
+
+    async fn send_request_inner(
+        request: SipRequest,
         target: Option<(Transport, SocketAddr)>,
+        endpoint: Endpoint,
     ) -> Result<Self> {
         let method = request.req_line.method;
-        if let SipMethod::Ack = method {
-            return Err(TransactionError::AckCannotCreateTransaction.into());
-        }
+        assert_ne!(
+            method,
+            SipMethod::Ack,
+            "ACK requests do not create transactions"
+        );
         let mut outgoing = endpoint.create_outgoing_request(request, target).await?;
         let headers = &mut outgoing.request.headers;
+        
         let via = match find_map_mut_header!(headers, Via) {
             Some(via) => via,
             None => {
@@ -73,15 +87,15 @@ impl ClientTransaction {
         } else {
             State::Trying
         };
-        let (sender, receiver) = mpsc::channel(10);
+        let (sender, channel) = mpsc::channel(10);
 
-        endpoint.transactions().add_transaction(key.clone(), sender);
+        endpoint.register_transaction(key.clone(), sender);
 
-        let uac = ClientTransaction {
+        let uac = Self {
             key,
-            endpoint: endpoint.clone(),
+            endpoint,
             state_machine: StateMachine::new(state),
-            receiver: receiver.into(),
+            channel: channel.into(),
             request: outgoing,
             timeout: Instant::now() + T1 * 64,
         };
@@ -101,9 +115,9 @@ impl ClientTransaction {
 
     async fn recv_provisional_msg(&mut self) -> Option<IncomingResponse> {
         match self
-            .receiver
+            .channel
             .recv_if(|msg| match msg {
-                TransactionMessage::Response(incoming)
+                TransactionMessage::SipResponse(incoming)
                     if incoming.response.status_code().is_provisional() =>
                 {
                     true
@@ -112,7 +126,7 @@ impl ClientTransaction {
             })
             .await
         {
-            Some(TransactionMessage::Response(provisional_response)) => {
+            Some(TransactionMessage::SipResponse(provisional_response)) => {
                 return Some(provisional_response);
             }
             _ => return None,
@@ -175,9 +189,9 @@ impl ClientTransaction {
 
     pub async fn receive_final_response(mut self) -> Result<IncomingResponse> {
         // Change to only receive final.
-        let response = self.receiver.recv().await.unwrap();
+        let response = self.channel.recv().await.unwrap();
 
-        let TransactionMessage::Response(response) = response else {
+        let TransactionMessage::SipResponse(response) = response else {
             unimplemented!()
         };
 
@@ -208,7 +222,7 @@ impl ClientTransaction {
             // timer d fires
             let timer_d = Instant::now() + 64 * T1;
             tokio::spawn(async move {
-                while let Ok(Some(_)) = timeout_at(timer_d, self.receiver.recv()).await {
+                while let Ok(Some(_)) = timeout_at(timer_d, self.channel.recv()).await {
                     if let Err(err) = self.endpoint.send_outgoing_request(&mut ack_request).await {
                         log::error!("Failed to retransmit: {}", err);
                     }
@@ -219,7 +233,7 @@ impl ClientTransaction {
             // timer k fires
             let timer_k = Instant::now() + T4;
             tokio::spawn(async move {
-                while let Ok(Some(_)) = timeout_at(timer_k, self.receiver.recv()).await {
+                while let Ok(Some(_)) = timeout_at(timer_k, self.channel.recv()).await {
                     // buffer any additional response retransmissions that may be received
                 }
                 self.state_machine.set_state(State::Terminated);
@@ -249,13 +263,12 @@ impl Drop for ClientTransaction {
 mod tests {
     use super::*;
     use crate::error::{Error, TransactionError};
-    use crate::{SipMethod, assert_eq_state};
-
     use crate::test_utils::transaction::{ClientTestContext, SendRequestContext};
     use crate::test_utils::{
         CODE_100_TRYING, CODE_180_RINGING, CODE_202_ACCEPTED, CODE_301_MOVED_PERMANENTLY,
         CODE_404_NOT_FOUND, CODE_504_SERVER_TIMEOUT, CODE_603_DECLINE,
     };
+    use crate::{SipMethod, assert_eq_state};
 
     // INVITE Client tests
 
@@ -263,10 +276,10 @@ mod tests {
     async fn invite_transitions_to_calling_when_request_is_sent() {
         let ctx = SendRequestContext::setup(SipMethod::Invite);
 
-        let uac = ClientTransaction::send_request(
-            &ctx.endpoint,
+        let uac = ClientTransaction::send_request_with_target(
             ctx.request,
-            Some((ctx.transport, ctx.destination)),
+            (ctx.transport, ctx.destination),
+            ctx.endpoint,
         )
         .await
         .expect("error sending request");
@@ -819,10 +832,10 @@ mod tests {
     async fn non_invite_transitions_to_trying_when_request_is_sent() {
         let ctx = SendRequestContext::setup(SipMethod::Register);
 
-        let uac = ClientTransaction::send_request(
-            &ctx.endpoint,
+        let uac = ClientTransaction::send_request_with_target(
             ctx.request,
-            Some((ctx.transport, ctx.destination)),
+            (ctx.transport, ctx.destination),
+            ctx.endpoint,
         )
         .await
         .expect("failure sending request");

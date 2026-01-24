@@ -1,18 +1,13 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use futures_util::future::BoxFuture;
-use itertools::Itertools;
 use utils::DnsResolver;
 
 use super::{Endpoint, EndpointHandler};
 use crate::endpoint::EndpointInner;
 use crate::message::headers::{Header, Headers};
 use crate::transaction::manager::TransactionManager;
-use crate::transport::{Transport, TransportManager, TransportsMap};
+use crate::transport::{TransportManager};
 
-// type Fut = dyn Future<Output = crate::Result<()>>;
-// type Handler = dyn Fn(&IncomingRequest, &Endpoint) -> dyn Future<Output = crate::Result<()>>;
 
 /// EndpointBuilder for creating a new SIP `Endpoint`.
 pub struct EndpointBuilder {

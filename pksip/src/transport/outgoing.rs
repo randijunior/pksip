@@ -1,32 +1,58 @@
 use std::io::Write;
 use std::net::SocketAddr;
+use std::ops;
 
 use bytes::{BufMut, Bytes, BytesMut};
 
-use crate::message::headers::ContentLength;
-use crate::message::{Request, Response, SipMessageBody};
-
 use crate::error::Result;
+use crate::message::headers::{ContentLength, Headers};
+use crate::message::{ReasonPhrase, SipRequest, SipResponse, SipBody, StatusCode};
 use crate::parser::HeaderParser;
 
 /// This type represents an outbound SIP request.
 pub struct OutgoingRequest {
     /// The SIP request.
-    pub request: Request,
+    pub request: SipRequest,
     /// Metadata about how the message will be sent.
     pub target_info: TargetTransportInfo,
     /// Message encoded representation.
     pub encoded: Bytes,
 }
 
+impl ops::Deref for OutgoingRequest {
+    type Target = SipRequest;
+    fn deref(&self) -> &Self::Target {
+        &self.request
+    }
+}
+
+impl ops::DerefMut for OutgoingRequest {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.request
+    }
+}
+
 /// This type represents an outgoing SIP response.
 pub struct OutgoingResponse {
     /// The SIP response.
-    pub response: Response,
+    pub response: SipResponse,
     /// Metadata about how the message will be sent.
     pub target_info: TargetTransportInfo,
     /// Message encoded representation.
     pub encoded: Bytes,
+}
+
+impl ops::Deref for OutgoingResponse {
+    type Target = SipResponse;
+    fn deref(&self) -> &Self::Target {
+        &self.response
+    }
+}
+
+impl ops::DerefMut for OutgoingResponse {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.response
+    }
 }
 
 /// Outgoing message info.
@@ -78,7 +104,7 @@ impl Encode for OutgoingRequest {
     }
 }
 
-fn write_body<W: Write>(writer: &mut W, body: &Option<SipMessageBody>) -> Result<()> {
+fn write_body<W: Write>(writer: &mut W, body: &Option<SipBody>) -> Result<()> {
     const CONTENT_LENGTH: &str = ContentLength::NAME;
     if let Some(body) = body {
         write!(writer, "{CONTENT_LENGTH}: {}\r\n", body.len())?;

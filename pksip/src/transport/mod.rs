@@ -31,9 +31,8 @@ use utils::{NAPTR, Name, RData, SRV};
 
 use crate::Endpoint;
 use crate::error::{Error, Result};
-
 use crate::message::SipMessage;
-use crate::message::sip_uri::{DomainName, Host, Scheme, Uri};
+use crate::message::uri::{DomainName, Host, Scheme, Uri};
 use crate::parser::Parser;
 use crate::transport::tcp::TcpTransport;
 use crate::transport::ws::WebSocketTransport;
@@ -47,10 +46,10 @@ pub mod tcp;
 pub mod udp;
 pub mod ws;
 
-/// Keep-alive Request.
+/// Keep-alive SipRequest.
 pub const KEEPALIVE_REQUEST: &[u8] = b"\r\n\r\n";
 
-/// Keep-alive Response.
+/// Keep-alive SipResponse.
 pub const KEEPALIVE_RESPONSE: &[u8] = b"\r\n";
 
 /// Marks the end of headers in a SIP message.
@@ -608,9 +607,8 @@ fn is_same_ip_family(first: &IpAddr, second: &IpAddr) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::transport::MockTransport;
-
     use super::*;
+    use crate::test_utils::transport::MockTransport;
 
     #[test]
     fn test_sip_transport() {

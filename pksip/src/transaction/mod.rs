@@ -31,6 +31,6 @@ pub(crate) const T4: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub enum TransactionMessage {
-    Request(IncomingRequest),
-    Response(IncomingResponse),
+    SipRequest(IncomingRequest),
+    SipResponse(IncomingResponse),
 }

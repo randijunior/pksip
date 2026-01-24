@@ -3,14 +3,13 @@
 use std::io;
 use std::net::IpAddr;
 
+pub use hickory_resolver::Name;
 use hickory_resolver::lookup::Lookup;
 use hickory_resolver::lookup_ip::LookupIp;
-use hickory_resolver::proto::rr::RecordType;
-use hickory_resolver::{IntoName, ResolveError};
-
-pub use hickory_resolver::Name;
 pub use hickory_resolver::proto::rr::RData;
+use hickory_resolver::proto::rr::RecordType;
 pub use hickory_resolver::proto::rr::rdata::{NAPTR, SRV};
+use hickory_resolver::{IntoName, ResolveError};
 
 /// A DNS resolver backed by [hickory-dns](https://github.com/hickory-dns/hickory-dns).
 pub struct DnsResolver {

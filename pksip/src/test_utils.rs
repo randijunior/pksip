@@ -1,12 +1,12 @@
 //! Test utilities for all unit tests in the library.
 
-use bytes::Bytes;
 use std::str::FromStr;
+
+use bytes::Bytes;
 
 use crate::endpoint::{Endpoint, EndpointBuilder};
 use crate::message::headers::{CSeq, CallId, From, Header, Headers, MaxForwards, To, Via};
-use crate::message::{MandatoryHeaders, Request, SipMethod, StatusCode, Uri};
-
+use crate::message::{MandatoryHeaders, SipRequest, SipMethod, StatusCode, Uri};
 use crate::transport::incoming::{IncomingInfo, IncomingRequest};
 use crate::transport::{Packet, Transport, TransportMessage};
 
@@ -51,7 +51,7 @@ pub fn create_test_request(method: SipMethod, transport: Transport) -> IncomingR
 
     let mandatory_headers = MandatoryHeaders::from_headers(&headers).unwrap();
 
-    let request = Request::with_headers(method, uri, headers);
+    let request = SipRequest::with_headers(method, uri, headers);
     let packet = Packet::new(Bytes::new(), transport.local_addr());
 
     let transport = TransportMessage { packet, transport };
@@ -121,21 +121,20 @@ pub mod transaction {
     use std::cmp;
     use std::net::SocketAddr;
     use std::time::Duration;
+
     use tokio::sync::{mpsc, watch};
     use tokio::task;
     use tokio::time::{self};
 
+    use super::transport::MockTransport;
+    use super::{create_test_endpoint, create_test_request};
     use crate::endpoint::Endpoint;
-    use crate::message::{Request, SipMethod, StatusCode};
-
+    use crate::message::{SipMethod, SipRequest, SipResponse, StatusCode};
     use crate::transaction::client::ClientTransaction;
     use crate::transaction::fsm::{self};
     use crate::transaction::{ServerTransaction, T1, T2, T4, TransactionMessage};
     use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
     use crate::transport::{Packet, Transport, TransportMessage};
-
-    use super::transport::MockTransport;
-    use super::{create_test_endpoint, create_test_request};
 
     /// Asserts that the last state received in the [`watch::Receiver<State>`] are equal to the expected.
     #[macro_export]
@@ -164,7 +163,8 @@ pub mod transaction {
     impl FakeUAS {
         pub async fn respond(&self, code: StatusCode) {
             let mandatory_headers = self.request.incoming_info.mandatory_headers.clone();
-            let outgoing = self.endpoint.create_response(&self.request, code, None);
+            let response = SipResponse::with_status_code(code);
+            let outgoing = self.endpoint.create_outgoing_response(&self.request, response);
             let packet = Packet::new(outgoing.encoded, outgoing.target_info.target);
 
             let transport = TransportMessage {
@@ -181,7 +181,7 @@ pub mod transaction {
                 incoming_info: Box::new(info),
             };
 
-            let transaction_message = TransactionMessage::Response(response);
+            let transaction_message = TransactionMessage::SipResponse(response);
 
             self.sender.send(transaction_message).await.unwrap();
         }
@@ -211,7 +211,7 @@ pub mod transaction {
 
         async fn send(&self, request: IncomingRequest) {
             self.sender
-                .send(TransactionMessage::Request(request))
+                .send(TransactionMessage::SipRequest(request))
                 .await
                 .unwrap();
             tokio::task::yield_now().await;
@@ -268,7 +268,7 @@ pub mod transaction {
 
     pub struct SendRequestContext {
         pub endpoint: Endpoint,
-        pub request: Request,
+        pub request: SipRequest,
         pub transport: Transport,
         pub destination: SocketAddr,
     }
@@ -321,7 +321,7 @@ pub mod transaction {
             let target = (transport_impl, destination);
 
             let mut client =
-                ClientTransaction::send_request(&endpoint, request.request.clone(), Some(target))
+                ClientTransaction::send_request_with_target(request.request.clone(), target, endpoint.clone())
                     .await
                     .expect("failure sending request");
 
@@ -383,7 +383,7 @@ pub mod transaction {
             let endpoint = create_test_endpoint();
             let request = create_test_request(method, transport_impl);
 
-            let mut server = ServerTransaction::from_request(request.clone(), &endpoint).unwrap();
+            let mut server = ServerTransaction::new(request.clone(), endpoint.clone());
 
             let sender = endpoint
                 .transactions()
@@ -411,7 +411,7 @@ pub mod transport {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::sync::{Arc, Mutex};
 
-    use crate::message::{Request, SipMessage};
+    use crate::message::{SipRequest, SipMessage};
     use crate::parser::Parser;
     use crate::transport::{SipTransport, TransportType};
 
@@ -454,7 +454,7 @@ pub mod transport {
             self.sent.lock().unwrap().len()
         }
 
-        pub fn get_last_sent_request(&self) -> Option<Request> {
+        pub fn get_last_sent_request(&self) -> Option<SipRequest> {
             self.get_last_sent_message().map(|msg| {
                 if let SipMessage::Request(req) = msg {
                     Some(req)

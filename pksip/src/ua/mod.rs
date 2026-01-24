@@ -3,12 +3,12 @@ use std::sync::Mutex;
 
 pub mod dialog;
 
+use dialog::{Dialog, DialogId};
+
 use crate::message::headers::Contact;
 use crate::message::{SipMethod, StatusCode};
 use crate::transport::incoming::IncomingRequest;
 use crate::{Endpoint, EndpointHandler, Result};
-
-use dialog::{Dialog, DialogId};
 
 pub struct UserAgent {
     dialogs: Mutex<HashMap<DialogId, Dialog>>,
@@ -53,6 +53,9 @@ impl UserAgent {
 
 #[async_trait::async_trait]
 impl EndpointHandler for UserAgent {
+    async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
+        
+    }
     // async fn on_incoming_request(
     //     &self,
     //     endpoint: &Endpoint,
