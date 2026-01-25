@@ -6,13 +6,13 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::error::Result;
 use crate::message::headers::{ContentLength, Headers};
-use crate::message::{ReasonPhrase, SipBody, SipRequest, SipResponse, StatusCode};
+use crate::message::{ReasonPhrase, Request, Response, SipBody, StatusCode};
 use crate::parser::HeaderParser;
 
 /// This type represents an outbound SIP request.
 pub struct OutgoingRequest {
     /// The SIP request.
-    pub request: SipRequest,
+    pub request: Request,
     /// Metadata about how the message will be sent.
     pub target_info: TargetTransportInfo,
     /// Message encoded representation.
@@ -20,7 +20,7 @@ pub struct OutgoingRequest {
 }
 
 impl ops::Deref for OutgoingRequest {
-    type Target = SipRequest;
+    type Target = Request;
     fn deref(&self) -> &Self::Target {
         &self.request
     }
@@ -35,7 +35,7 @@ impl ops::DerefMut for OutgoingRequest {
 /// This type represents an outgoing SIP response.
 pub struct OutgoingResponse {
     /// The SIP response.
-    pub response: SipResponse,
+    pub response: Response,
     /// Metadata about how the message will be sent.
     pub target_info: TargetTransportInfo,
     /// Message encoded representation.
@@ -43,7 +43,7 @@ pub struct OutgoingResponse {
 }
 
 impl ops::Deref for OutgoingResponse {
-    type Target = SipResponse;
+    type Target = Response;
     fn deref(&self) -> &Self::Target {
         &self.response
     }
@@ -80,9 +80,14 @@ impl Encode for OutgoingResponse {
         let buf = BytesMut::new();
         let mut writer = buf.writer();
 
-        write!(writer, "{}", response.status_line)?;
-        write!(writer, "{}", response.headers)?;
-        write_body(&mut writer, &response.body)?;
+        write!(
+            writer,
+            "SIP/2.0 {} {}\r\n",
+            response.status().as_u16(),
+            response.reason().as_str()
+        )?;
+        write!(writer, "{}", response.headers())?;
+        write_body(&mut writer, response.body())?;
 
         Ok(writer.into_inner().freeze())
     }
@@ -98,13 +103,13 @@ impl Encode for OutgoingRequest {
 
         write!(writer, "{}", request.req_line)?;
         write!(writer, "{}", request.headers)?;
-        write_body(&mut writer, &request.body)?;
+        write_body(&mut writer, request.body.as_ref())?;
 
         Ok(writer.into_inner().freeze())
     }
 }
 
-fn write_body<W: Write>(writer: &mut W, body: &Option<SipBody>) -> Result<()> {
+fn write_body<W: Write>(writer: &mut W, body: Option<&SipBody>) -> Result<()> {
     const CONTENT_LENGTH: &str = ContentLength::NAME;
     if let Some(body) = body {
         write!(writer, "{CONTENT_LENGTH}: {}\r\n", body.len())?;

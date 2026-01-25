@@ -208,18 +208,15 @@ impl<'buf> Parser<'buf> {
             // Is an status line, e.g, "SIP/2.0 200 OK".
             // TODO: Add "match" here.
             let status_line = self.parse_status_line()?;
+            let headers = Headers::with_capacity(minimal_header_size);
 
-            SipMessage::Response(SipResponse {
-                status_line,
-                headers: Headers::with_capacity(minimal_header_size),
-                body: None,
-            })
+            SipMessage::Response(Response::with_headers(status_line, headers))
         } else {
             // Is an request line, e.g, "OPTIONS sip:localhost SIP/2.0".
             // TODO: Add "match" here.
             let req_line = self.parse_request_line()?;
 
-            SipMessage::Request(SipRequest {
+            SipMessage::Request(Request {
                 req_line,
                 headers: Headers::with_capacity(minimal_header_size),
                 body: None,

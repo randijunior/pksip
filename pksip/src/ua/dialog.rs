@@ -18,7 +18,7 @@ type Usages = RwLock<Vec<Box<dyn DialogUsage>>>;
  * (INVITE):
  *
  * UAC (Caller)                 UAS (Receiver)
- *     |--- INVITE ----------->|    // SipRequest to establish a session
+ *     |--- INVITE ----------->|    // Request to establish a session
  *     |<--- 180 Ringing ------|    // Indicates ringing (early dialog)
  *     |<--- 200 OK -----------|    // InvSession accepted → Dialog created (confirmed)
  *     |--- ACK --------------->|   // Confirms receipt of 200 OK → Dialog active

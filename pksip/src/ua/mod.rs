@@ -6,7 +6,6 @@ pub mod dialog;
 use dialog::{Dialog, DialogId};
 
 use crate::message::headers::Contact;
-use crate::message::{SipMethod, StatusCode};
 use crate::transport::incoming::IncomingRequest;
 use crate::{Endpoint, EndpointHandler, Result};
 
@@ -63,7 +62,7 @@ impl EndpointHandler for UserAgent {
     //     let method = request_ref.message.method();
 
     //     let Some(dialog) = self.find_dialog_from_incoming(&request_ref) else {
-    //         if method != SipMethod::Ack {
+    //         if method != Method::Ack {
     //             let request = request.take().unwrap();
     //             endpoint
     //                 .respond(&request, StatusCode::CallOrTransactionDoesNotExist, None)
@@ -76,7 +75,7 @@ impl EndpointHandler for UserAgent {
     //     let request_cseq = request.info.mandatory_headers.cseq.cseq;
     //     // Check CSeq.
     //     if request_cseq <= dialog.remote_cseq()
-    //         && !matches!(method, SipMethod::Ack | SipMethod::Cancel)
+    //         && !matches!(method, Method::Ack | Method::Cancel)
     //     {
     //         endpoint
     //             .respond(

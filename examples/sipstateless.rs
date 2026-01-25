@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::message::{SipMethod, SipResponse, StatusCode};
+use pksip::message::{Method, StatusCode};
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler};
 use tracing::Level;
@@ -12,12 +12,10 @@ pub struct StatelessUAS;
 #[async_trait]
 impl EndpointHandler for StatelessUAS {
     async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
-        if request.req_line.method != SipMethod::Ack {
-            let response = SipResponse::builder()
-                .status(StatusCode::NotImplemented)
-                .build();
-
-            endpoint.respond(&request, response).await.unwrap();
+        if request.req_line.method != Method::Ack {
+            let _ = endpoint
+                .respond(&request, StatusCode::NotImplemented, None)
+                .await;
         }
     }
 }

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use crate::error::TransactionError;
 use crate::message::ReasonPhrase;
 
 /// Classifies SIP status codes into categories.
@@ -52,7 +51,7 @@ pub enum StatusCode {
     UseProxy = 305,
     ///`Alternative Service` status code.
     AlternativeService = 380,
-    ///`Bad SipRequest` status code.
+    ///`Bad Request` status code.
     BadRequest = 400,
     ///`Unauthorized` status code.
     Unauthorized = 401,
@@ -62,13 +61,13 @@ pub enum StatusCode {
     Forbidden = 403,
     ///`Not Found` status code.
     NotFound = 404,
-    ///`SipMethod Not Allowed` status code.
+    ///`Method Not Allowed` status code.
     MethodNotAllowed = 405,
     ///`Not Acceptable` status code.
     NotAcceptable = 406,
     ///`Proxy Authentication Required` status code.
     ProxyAuthenticationRequired = 407,
-    ///`SipRequest Timeout` status code.
+    ///`Request Timeout` status code.
     RequestTimeout = 408,
     ///`Conflict` status code.
     Conflict = 409,
@@ -76,11 +75,11 @@ pub enum StatusCode {
     Gone = 410,
     ///`Length Required` status code.
     LengthRequired = 411,
-    ///`Conditional SipRequest Failed` status code.
+    ///`Conditional Request Failed` status code.
     ConditionalRequestFailed = 412,
-    ///`SipRequest Entity Too Large` status code.
+    ///`Request Entity Too Large` status code.
     RequestEntityTooLarge = 413,
-    ///`SipRequest URI Too Long` status code.
+    ///`Request URI Too Long` status code.
     RequestUriTooLong = 414,
     ///`Unsupported Media Type` status code.
     UnsupportedMediaType = 415,
@@ -134,15 +133,15 @@ pub enum StatusCode {
     Ambiguous = 485,
     ///`Busy Here` status code.
     BusyHere = 486,
-    ///`SipRequest Terminated` status code.
+    ///`Request Terminated` status code.
     RequestTerminated = 487,
     ///`Not Acceptable Here` status code.
     NotAcceptableHere = 488,
     ///`Bad Event` status code.
     BadEvent = 489,
-    ///`SipRequest Updated` status code.
+    ///`Request Updated` status code.
     RequestUpdated = 490,
-    ///`SipRequest Pending` status code.
+    ///`Request Pending` status code.
     RequestPending = 491,
     ///`Undecipherable` status code.
     Undecipherable = 493,
@@ -280,21 +279,21 @@ impl StatusCode {
             Self::MovedTemporarily => "Moved Temporarily",
             Self::UseProxy => "Use Proxy",
             Self::AlternativeService => "Alternative Service",
-            Self::BadRequest => "Bad SipRequest",
+            Self::BadRequest => "Bad Request",
             Self::Unauthorized => "Unauthorized",
             Self::PaymentRequired => "Payment Required",
             Self::Forbidden => "Forbidden",
             Self::NotFound => "Not Found",
-            Self::MethodNotAllowed => "SipMethod Not Allowed",
+            Self::MethodNotAllowed => "Method Not Allowed",
             Self::NotAcceptable => "Not Acceptable",
             Self::ProxyAuthenticationRequired => "Proxy Authentication Required",
-            Self::RequestTimeout => "SipRequest Timeout",
+            Self::RequestTimeout => "Request Timeout",
             Self::Conflict => "Conflict",
             Self::Gone => "Gone",
             Self::LengthRequired => "Length Required",
-            Self::ConditionalRequestFailed => "Conditional SipRequest Failed",
-            Self::RequestEntityTooLarge => "SipRequest Entity Too Large",
-            Self::RequestUriTooLong => "SipRequest URI Too Long",
+            Self::ConditionalRequestFailed => "Conditional Request Failed",
+            Self::RequestEntityTooLarge => "Request Entity Too Large",
+            Self::RequestUriTooLong => "Request URI Too Long",
             Self::UnsupportedMediaType => "Unsupported Media Type",
             Self::UnsupportedUriScheme => "Unsupported URI Scheme",
             Self::UnknownResourcePriority => "Unknown Resource Priority",
@@ -321,11 +320,11 @@ impl StatusCode {
             Self::AddressIncomplete => "Address Incomplete",
             Self::Ambiguous => "Ambiguous",
             Self::BusyHere => "Busy Here",
-            Self::RequestTerminated => "SipRequest Terminated",
+            Self::RequestTerminated => "Request Terminated",
             Self::NotAcceptableHere => "Not Acceptable Here",
             Self::BadEvent => "Bad Event",
-            Self::RequestUpdated => "SipRequest Updated",
-            Self::RequestPending => "SipRequest Pending",
+            Self::RequestUpdated => "Request Updated",
+            Self::RequestPending => "Request Pending",
             Self::Undecipherable => "Undecipherable",
             Self::SecurityAgreementRequired => "Security Agreement Required",
             Self::ServerInternalError => "Server Internal Error",

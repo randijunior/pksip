@@ -2,7 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use pksip::message::headers::{Header, Headers};
-use pksip::message::{SipMethod, SipResponse, StatusCode, StatusLine};
+use pksip::message::{Method, StatusCode};
 use pksip::transaction::TransactionManager;
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler, find_map_header};
@@ -13,7 +13,7 @@ pub struct SimpleDialogHandler;
 #[async_trait]
 impl EndpointHandler for SimpleDialogHandler {
     async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
-        if request.req_line.method == SipMethod::Register {
+        if request.req_line.method == Method::Register {
             let headers = &request.headers;
             let mut hdrs = Headers::new();
             if let Some(expires) = find_map_header!(headers, Expires) {
@@ -28,18 +28,14 @@ impl EndpointHandler for SimpleDialogHandler {
                     }
                 }
             }
-            let uas = endpoint.new_server_transaction(request).unwrap();
-
-            let status_line = StatusLine::new(StatusCode::Ok, "Ok".into());
-            let response = SipResponse::with_headers(status_line, hdrs);
-
-            uas.respond_with_final(response).await.unwrap();
-        } else if request.req_line.method != SipMethod::Ack {
-            let response = SipResponse::builder()
-                .status(StatusCode::NotImplemented)
-                .build();
-
-            endpoint.respond(&request, response).await.unwrap();
+            let uas = endpoint.new_server_transaction(request);
+            let mut response = uas.create_response(StatusCode::Ok, None);
+            response.headers_mut().extend(hdrs);
+            uas.send_final_response(response).await.unwrap();
+        } else if request.req_line.method != Method::Ack {
+            let _res = endpoint
+                .respond(&request, StatusCode::NotImplemented, None)
+                .await;
         }
     }
 }

@@ -46,10 +46,10 @@ pub mod tcp;
 pub mod udp;
 pub mod ws;
 
-/// Keep-alive SipRequest.
+/// Keep-alive Request.
 pub const KEEPALIVE_REQUEST: &[u8] = b"\r\n\r\n";
 
-/// Keep-alive SipResponse.
+/// Keep-alive Response.
 pub const KEEPALIVE_RESPONSE: &[u8] = b"\r\n";
 
 /// Marks the end of headers in a SIP message.

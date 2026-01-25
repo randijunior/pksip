@@ -2,36 +2,28 @@ use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use pksip::message::{SipMethod, SipResponse, StatusCode};
+use pksip::message::{Method, StatusCode};
 use pksip::transaction::TransactionManager;
 use pksip::transport::incoming::IncomingRequest;
 use pksip::{Endpoint, EndpointHandler};
 use tokio::time;
 use tracing::Level;
 
-pub struct UasHandler;
+pub struct UAS;
 
 #[async_trait]
-impl EndpointHandler for UasHandler {
+impl EndpointHandler for UAS {
     async fn handle(&self, request: IncomingRequest, endpoint: &Endpoint) {
-        if request.req_line.method == SipMethod::Options {
-            let uas = endpoint.new_server_transaction(request).unwrap();
-            let response = SipResponse::builder()
-                .status(StatusCode::Ok)
-                .reason("Ok")
-                .build();
+        if request.req_line.method == Method::Options {
+            let uas = endpoint.new_server_transaction(request);
 
-            uas.respond_with_final(response).await.unwrap();
-
+            let _res = uas.send_final_status(StatusCode::Ok).await;
             return;
         }
-        if request.req_line.method != SipMethod::Ack {
-            let response = SipResponse::builder()
-                .status(StatusCode::NotImplemented)
-                .build();
-
-            let _res = endpoint.respond(&request, response).await;
-
+        if request.req_line.method != Method::Ack {
+            let _res = endpoint
+                .respond(&request, StatusCode::NotImplemented, None)
+                .await;
             return;
         }
 
@@ -47,11 +39,10 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .init();
 
-    let svc = UasHandler;
     let addr = "127.0.0.1:0".parse()?;
 
     let endpoint = Endpoint::builder()
-        .with_handler(svc)
+        .with_handler(UAS)
         .with_transaction(TransactionManager::new())
         .build();
 

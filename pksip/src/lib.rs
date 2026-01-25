@@ -18,7 +18,7 @@ pub mod macros;
 pub use endpoint::{Endpoint, EndpointHandler};
 use error::Error;
 pub use error::Result;
-pub use message::SipMethod;
+pub use message::Method;
 use parser::Parser;
 
 #[cfg(test)]

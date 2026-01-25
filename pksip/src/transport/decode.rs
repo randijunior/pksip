@@ -102,8 +102,8 @@ impl std::fmt::Display for FramedMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Complete(msg) => write!(f, "{:?}", msg),
-            Self::KeepaliveRequest => write!(f, "Keepalive SipRequest"),
-            Self::KeepaliveResponse => write!(f, "Keepalive SipResponse"),
+            Self::KeepaliveRequest => write!(f, "Keepalive Request"),
+            Self::KeepaliveResponse => write!(f, "Keepalive Response"),
         }
     }
 }

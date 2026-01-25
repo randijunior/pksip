@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{self};
 use super::{Role, TransactionMessage};
 use crate::message::HostPort;
 use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
-use crate::{RFC3261_BRANCH_ID, SipMethod};
+use crate::{Method, RFC3261_BRANCH_ID};
 
 type TransactionChannel = mpsc::Sender<TransactionMessage>;
 
@@ -50,9 +50,7 @@ impl TransactionManager {
         let Some(channel) = self.get_entry(&key) else {
             return Some(response);
         };
-        let _res = channel
-            .send(TransactionMessage::SipResponse(response))
-            .await;
+        let _res = channel.send(TransactionMessage::Response(response)).await;
         // let mandatory = &response.info.mandatory_headers;
 
         // let method = mandatory.cseq.method;
@@ -64,7 +62,7 @@ impl TransactionManager {
         // let Some(channel) = map.get(&key) else {
         //     return Some(response);
         // };
-        // let _result = channel.send(TransactionMessage::SipResponse(response));
+        // let _result = channel.send(TransactionMessage::Response(response));
         None
     }
 
@@ -77,7 +75,7 @@ impl TransactionManager {
         let Some(channel) = self.get_entry(&key) else {
             return Some(request);
         };
-        let _res = channel.send(TransactionMessage::SipRequest(request)).await;
+        let _res = channel.send(TransactionMessage::Request(request)).await;
         None
     }
 }
@@ -111,8 +109,8 @@ impl TransactionKey {
         }
     }
 
-    pub fn new_key_3261(role: Role, method: SipMethod, branch: String) -> Self {
-        let method = if matches!(method, SipMethod::Invite | SipMethod::Ack) {
+    pub fn new_key_3261(role: Role, method: Method, branch: String) -> Self {
+        let method = if matches!(method, Method::Invite | Method::Ack) {
             None
         } else {
             Some(method)
@@ -133,26 +131,26 @@ pub struct Rfc2543 {
     pub to_tag: Option<String>,
     pub call_id: String,
     pub via_host_port: HostPort,
-    pub method: Option<SipMethod>,
+    pub method: Option<Method>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Rfc3261 {
     role: Role,
     branch: String,
-    method: Option<SipMethod>,
+    method: Option<Method>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::endpoint;
-    use crate::message::SipMethod;
+    use crate::message::Method;
 
     #[tokio::test]
     async fn test_non_invite_server_tsx() {
         /*
-        let mut req = mock::request(SipMethod::Register);
+        let mut req = mock::request(Method::Register);
 
         let endpoint = endpoint::EndpointBuilder::new()
             .add_transaction(TransactionManager::default())
@@ -180,7 +178,7 @@ mod tests {
     #[tokio::test]
     async fn test_invite_server_tsx() {
         /*
-        let mut req = mock::request(SipMethod::Invite);
+        let mut req = mock::request(Method::Invite);
 
         let endpoint = endpoint::EndpointBuilder::new()
             .add_transaction(TransactionManager::default())

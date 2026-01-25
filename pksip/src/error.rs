@@ -4,7 +4,7 @@ use std::str::{self, Utf8Error};
 use thiserror::Error;
 use utils::{Position, ScannerError};
 
-use crate::message::{CodeClass, SipMethod, StatusCode};
+use crate::message::{CodeClass, Method, StatusCode};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -99,7 +99,7 @@ pub enum ParseErrorKind {
     StatusCode,
     Header,
     Host,
-    SipMethod,
+    Method,
     Version,
     Uri,
     Param,
@@ -109,8 +109,8 @@ pub enum ParseErrorKind {
 
 #[derive(Debug, Error, PartialEq)]
 pub enum DialogError {
-    #[error("SipMethod {0} cannot establish a dialog")]
-    InvalidMethod(SipMethod),
+    #[error("Method {0} cannot establish a dialog")]
+    InvalidMethod(Method),
 
     #[error("Missing To tag in 'To' header")]
     MissingTagInToHeader,
@@ -122,10 +122,6 @@ pub enum TransactionError {
         "Received invalid 'ACK' method, The ACK request must be passed directly to the transport layer for transmission."
     )]
     AckCannotCreateTransaction,
-    #[error("Invalid status code for provisional response (expected 1xx)")]
-    InvalidProvisionalStatusCode,
-    #[error("Invalid status code for final response (expected 2xx–6xx)")]
-    InvalidFinalStatusCode,
     #[error("Failed to send request: {0}")]
     FailedToSendMessage(String),
     #[error("Timeout reached after send message")]

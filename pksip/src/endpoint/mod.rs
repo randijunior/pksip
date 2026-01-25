@@ -17,8 +17,8 @@ use crate::message::headers::{
     CSeq, CallId, Contact, From, Header, Headers, MaxForwards, Route, To, Via,
 };
 use crate::message::{
-    CodeClass, DomainName, Host, HostPort, MandatoryHeaders, NameAddr, ReasonPhrase, RequestLine,
-    SipBody, SipMessage, SipRequest, SipResponse, SipUri, StatusCode, StatusLine, Uri, UriBuilder,
+    CodeClass, DomainName, Host, HostPort, MandatoryHeaders, NameAddr, ReasonPhrase, Request,
+    RequestLine, Response, SipBody, SipMessage, SipUri, StatusCode, StatusLine, Uri, UriBuilder,
 };
 use crate::transaction::manager::{TransactionKey, TransactionManager};
 use crate::transaction::{ClientTransaction, ServerTransaction, TransactionMessage};
@@ -28,7 +28,7 @@ use crate::transport::tcp::TcpListener;
 use crate::transport::udp::UdpTransport;
 use crate::transport::ws::WebSocketListener;
 use crate::transport::{SipTransport, Transport, TransportManager, TransportMessage};
-use crate::{Result, SipMethod};
+use crate::{Method, Result};
 
 mod builder;
 
@@ -82,24 +82,35 @@ impl Endpoint {
         &self.inner.name
     }
 
-    /// Respond an `IncommingRequest` without creating a `ServerTransaction`
-    pub async fn respond(&self, request: &IncomingRequest, response: SipResponse) -> Result<()> {
-        let mut response = self.create_outgoing_response(request, response);
+    pub async fn respond(
+        &self,
+        request: &IncomingRequest,
+        code: StatusCode,
+        phrase: Option<ReasonPhrase>,
+    ) -> Result<()> {
+        let mut response = self.create_outgoing_response(request, code, phrase);
 
         self.send_outgoing_response(&mut response).await
     }
 
-    /// Creates a new outgoing SIP response based on an incoming request.
-    pub(crate) fn create_outgoing_response(
+    /// Creates a new SIP response based on an incoming
+    /// request.
+    ///
+    /// This method generates a response message with the specified status code
+    /// and reason phrase. It also sets the necessary headers from request,
+    /// including `Call-ID`, `From`, `To`, `CSeq`, `Via` and
+    /// `Record-Route` headers.
+    pub fn create_outgoing_response(
         &self,
         request: &IncomingRequest,
-        response: SipResponse,
+        code: StatusCode,
+        reason: Option<ReasonPhrase>,
     ) -> OutgoingResponse {
-        let all_hdrs = &request.headers;
+        let all_hdrs = &request.request.headers;
         let mandatory_headers = &request.incoming_info.mandatory_headers;
 
         // Copy the necessary headers from the request.
-        let mut headers = Headers::with_capacity(7 + response.headers.len());
+        let mut headers = Headers::with_capacity(7);
 
         // `Via` header.
         let topmost_via = mandatory_headers.via.clone();
@@ -128,7 +139,7 @@ impl Endpoint {
         // The UAS MUST add a tag to the To header field in
         // the response (with the exception of the 100 (Trying)
         // response, in which a tag MAY be present).
-        if to.tag().is_none() && response.status_line.code.as_u16() > 100 {
+        if to.tag().is_none() && code.as_u16() > 100 {
             to.set_tag(mandatory_headers.via.branch.clone());
         }
         headers.push(Header::To(to));
@@ -136,16 +147,16 @@ impl Endpoint {
         // `CSeq` header.
         headers.push(Header::CSeq(mandatory_headers.cseq));
 
-        if !response.headers.is_empty() {
-            headers.extend(response.headers);
-        }
+        let reason = match reason {
+            None => code.reason(),
+            Some(reason) => reason.into(),
+        };
+        let status_line = StatusLine::new(code, reason);
+        let response = Response::with_headers(status_line, headers);
 
         // Done.
         OutgoingResponse {
-            response: SipResponse {
-                headers,
-                ..response
-            },
+            response,
             target_info: TargetTransportInfo {
                 target: request.incoming_info.transport.packet.source,
                 transport: request.incoming_info.transport.transport.clone(),
@@ -154,11 +165,8 @@ impl Endpoint {
         }
     }
 
-    pub fn new_server_transaction(&self, request: IncomingRequest) -> Result<ServerTransaction> {
-        if request.req_line.method == SipMethod::Ack {
-            return Err(TransactionError::AckCannotCreateTransaction.into());
-        }
-        Ok(ServerTransaction::new(request, self.clone()))
+    pub fn new_server_transaction(&self, request: IncomingRequest) -> ServerTransaction {
+        ServerTransaction::new(request, self.clone())
     }
 
     pub(crate) fn create_ack_request(
@@ -167,21 +175,21 @@ impl Endpoint {
         response: &IncomingResponse,
     ) -> OutgoingRequest {
         assert!(
-            matches!(response.response.status_line.code.as_u16(), 300..699),
+            matches!(response.status().as_u16(), 300..699),
             "message must be a 300-699 final response"
         );
         let target = outgoing.request.req_line.uri.clone();
         // Clone: Via, To, From, Max-Forwards, Call-ID and CSeq from response.
         let headers = MandatoryHeaders {
             cseq: CSeq {
-                method: SipMethod::Ack,
+                method: Method::Ack,
                 ..response.incoming_info.mandatory_headers.cseq
             },
             ..response.incoming_info.mandatory_headers.clone()
         }
         .into_headers();
 
-        let request = SipRequest::with_headers(SipMethod::Ack, target, headers);
+        let request = Request::with_headers(Method::Ack, target, headers);
         let target_info = outgoing.target_info.clone();
 
         OutgoingRequest {
@@ -198,7 +206,7 @@ impl Endpoint {
         }
 
         log::debug!(
-            "Sending SipRequest {} {} to /{}",
+            "Sending Request {} {} to /{}",
             request.request.req_line.method,
             request.request.req_line.uri,
             request.target_info.target
@@ -218,9 +226,9 @@ impl Endpoint {
             response.encoded = response.encode()?;
         }
         log::debug!(
-            "Sending SipResponse {} {} to /{}",
-            response.response.status_line.code.as_u16(),
-            response.response.status_line.reason.phrase_str(),
+            "Sending Response {} {} to /{}",
+            response.status().as_u16(),
+            response.reason().as_str(),
             response.target_info.target
         );
 
@@ -237,11 +245,7 @@ impl Endpoint {
     // A valid SIP request formulated by a UAC MUST, at a minimum, contain
     // the following header fields: To, From, CSeq, Call-ID, Max-Forwards,
     // and Via
-    fn ensure_mandatory_headers(
-        &self,
-        request: &mut SipRequest,
-        target_info: &TargetTransportInfo,
-    ) {
+    fn ensure_mandatory_headers(&self, request: &mut Request, target_info: &TargetTransportInfo) {
         let mut headers: [Option<Header>; 6] = [const { None }; 6];
         let TargetTransportInfo { target, transport } = target_info;
         let request_headers = &mut request.headers;
@@ -319,7 +323,7 @@ impl Endpoint {
         request_headers.splice(0..0, new_headers);
     }
 
-    fn process_route_set<'a>(&self, request: &'a mut SipRequest) -> Cow<'a, Uri> {
+    fn process_route_set<'a>(&self, request: &'a mut Request) -> Cow<'a, Uri> {
         let topmost_route = request
             .headers
             .iter_mut()
@@ -364,7 +368,7 @@ impl Endpoint {
     // RFC 3261 - 8.1.2 Sending the Request
     pub(crate) async fn create_outgoing_request(
         &self,
-        mut request: SipRequest,
+        mut request: Request,
         target: Option<(Transport, SocketAddr)>,
     ) -> Result<OutgoingRequest> {
         let (transport, target) = if let Some(target) = target {
@@ -452,7 +456,7 @@ impl Endpoint {
                 .await?;
             }
             Ok(SipMessage::Response(res)) => {
-                let mut headers: MandatoryHeaders = (&res.headers).try_into()?;
+                let mut headers: MandatoryHeaders = res.headers().try_into()?;
                 // 4. Server Behavior
                 // the server MUST insert a "received" parameter containing the source
                 // IP address that the request came from.
@@ -520,24 +524,24 @@ impl Endpoint {
         }
     }
 
-    pub(crate) async fn process_response(&self, msg: IncomingResponse) -> Result<()> {
+    pub(crate) async fn process_response(&self, response: IncomingResponse) -> Result<()> {
         log::debug!(
-            "<= SipResponse ({} {})",
-            msg.response.status_line.code.as_u16(),
-            msg.response.status_line.reason.phrase_str()
+            "<= Response ({} {})",
+            response.status().as_u16(),
+            response.reason().as_str()
         );
 
-        let msg = match self.inner.transaction {
-            Some(ref tsx_layer) => tsx_layer.handle_response(msg).await,
-            None => Some(msg),
+        let response = match self.inner.transaction {
+            Some(ref tsx_layer) => tsx_layer.handle_response(response).await,
+            None => Some(response),
         };
 
-        if let Some(msg) = msg {
+        if let Some(response) = response {
             log::info!(
-                "SipResponse ({} {}) from /{} was unhandled",
-                msg.response.status_line.code.as_u16(),
-                msg.response.status_line.reason.phrase_str(),
-                msg.incoming_info.transport.packet.source
+                "Response ({} {}) from /{} was unhandled",
+                response.status().as_u16(),
+                response.reason().as_str(),
+                response.incoming_info.transport.packet.source
             );
         }
         Ok(())
@@ -555,7 +559,7 @@ impl Endpoint {
 
     pub(crate) async fn process_request(&self, request: IncomingRequest) -> Result<()> {
         log::debug!(
-            "<= SipRequest {} from /{}",
+            "<= Request {} from /{}",
             request.request.method(),
             request.incoming_info.transport.packet.source
         );
@@ -573,7 +577,7 @@ impl Endpoint {
             handler.handle(msg, self).await;
         } else {
             log::debug!(
-                "SipRequest ({}, cseq={}) from /{} was unhandled",
+                "Request ({}, cseq={}) from /{} was unhandled",
                 msg.request.method(),
                 msg.incoming_info.mandatory_headers.cseq.cseq,
                 msg.incoming_info.transport.packet.source

@@ -5,7 +5,7 @@ use std::{fmt, ops};
 
 use itertools::Itertools;
 
-use super::{Params, SipMethod};
+use super::{Method, Params};
 use crate::error::{Error, Result};
 use crate::parser::Parser;
 use crate::transport::TransportType;
@@ -117,7 +117,7 @@ impl SipUri {
     }
 
     /// Returns the method parameter of the uri.
-    pub fn method_param(&self) -> Option<SipMethod> {
+    pub fn method_param(&self) -> Option<Method> {
         match self {
             SipUri::Uri(uri) => uri.method_param,
             SipUri::NameAddr(addr) => addr.uri.method_param,
@@ -220,7 +220,7 @@ pub struct Uri {
     /// The user parameter.
     pub user_param: Option<String>,
     /// The method parameter.
-    pub method_param: Option<SipMethod>,
+    pub method_param: Option<Method>,
     /// The transport parameter.
     pub transport_param: Option<TransportType>,
     /// The ttl parameter.
@@ -359,7 +359,7 @@ impl UriBuilder {
     }
 
     /// Sets the method parameter of the uri.
-    pub fn with_method_param(mut self, param: SipMethod) -> Self {
+    pub fn with_method_param(mut self, param: Method) -> Self {
         self.uri.method_param = Some(param);
         self
     }

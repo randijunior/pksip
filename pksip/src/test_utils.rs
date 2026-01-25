@@ -6,17 +6,9 @@ use bytes::Bytes;
 
 use crate::endpoint::{Endpoint, EndpointBuilder};
 use crate::message::headers::{CSeq, CallId, From, Header, Headers, MaxForwards, To, Via};
-use crate::message::{MandatoryHeaders, SipMethod, SipRequest, SipResponse, StatusCode, Uri};
+use crate::message::{MandatoryHeaders, Method, Request, Uri};
 use crate::transport::incoming::{IncomingInfo, IncomingRequest};
 use crate::transport::{Packet, Transport, TransportMessage};
-
-pub const CODE_100_TRYING: StatusCode = StatusCode::Trying;
-pub const CODE_180_RINGING: StatusCode = StatusCode::Ringing;
-pub const CODE_202_ACCEPTED: StatusCode = StatusCode::Accepted;
-pub const CODE_301_MOVED_PERMANENTLY: StatusCode = StatusCode::MovedPermanently;
-pub const CODE_404_NOT_FOUND: StatusCode = StatusCode::NotFound;
-pub const CODE_504_SERVER_TIMEOUT: StatusCode = StatusCode::ServerTimeout;
-pub const CODE_603_DECLINE: StatusCode = StatusCode::Decline;
 
 pub fn create_test_endpoint() -> Endpoint {
     EndpointBuilder::new()
@@ -24,7 +16,7 @@ pub fn create_test_endpoint() -> Endpoint {
         .build()
 }
 
-fn create_test_headers(method: SipMethod) -> Headers {
+fn create_test_headers(method: Method) -> Headers {
     let branch = crate::generate_branch(None);
 
     let via = Via::from_str(&format!("SIP/2.0/UDP localhost:5060;branch={branch}")).unwrap();
@@ -44,14 +36,14 @@ fn create_test_headers(method: SipMethod) -> Headers {
     }
 }
 
-pub fn create_test_request(method: SipMethod, transport: Transport) -> IncomingRequest {
+pub fn create_test_request(method: Method, transport: Transport) -> IncomingRequest {
     let headers = create_test_headers(method);
     let target = format!("sip:{}", transport.local_addr());
     let uri = Uri::from_str(&target).unwrap();
 
     let mandatory_headers = MandatoryHeaders::from_headers(&headers).unwrap();
 
-    let request = SipRequest::with_headers(method, uri, headers);
+    let request = Request::with_headers(method, uri, headers);
     let packet = Packet::new(Bytes::new(), transport.local_addr());
 
     let transport = TransportMessage { packet, transport };
@@ -129,26 +121,20 @@ pub mod transaction {
     use super::transport::MockTransport;
     use super::{create_test_endpoint, create_test_request};
     use crate::endpoint::Endpoint;
-    use crate::message::{SipMethod, SipRequest, SipResponse, StatusCode, StatusLine};
+    use crate::message::{Method, Request, StatusCode};
     use crate::transaction::client::ClientTransaction;
     use crate::transaction::fsm::{self};
     use crate::transaction::{ServerTransaction, T1, T2, T4, TransactionMessage};
     use crate::transport::incoming::{IncomingInfo, IncomingRequest, IncomingResponse};
     use crate::transport::{Packet, Transport, TransportMessage};
 
-    pub const RESPONSE_100_TRYING: SipResponse = SipResponse::with_status_code(StatusCode::Trying);
-    pub const RESPONSE_180_RINGING: SipResponse =
-        SipResponse::with_status_code(StatusCode::Ringing);
-    pub const RESPONSE_202_ACCEPTED: SipResponse =
-        SipResponse::with_status_code(StatusCode::Accepted);
-    pub const RESPONSE_301_MOVED_PERMANENTLY: SipResponse =
-        SipResponse::with_status_code(StatusCode::MovedPermanently);
-    pub const RESPONSE_404_NOT_FOUND: SipResponse =
-        SipResponse::with_status_code(StatusCode::NotFound);
-    pub const RESPONSE_504_SERVER_TIMEOUT: SipResponse =
-        SipResponse::with_status_code(StatusCode::ServerTimeout);
-    pub const RESPONSE_603_DECLINE: SipResponse =
-        SipResponse::with_status_code(StatusCode::Decline);
+    pub const CODE_100_TRYING: StatusCode = StatusCode::Trying;
+    pub const CODE_180_RINGING: StatusCode = StatusCode::Ringing;
+    pub const CODE_202_ACCEPTED: StatusCode = StatusCode::Accepted;
+    pub const CODE_301_MOVED_PERMANENTLY: StatusCode = StatusCode::MovedPermanently;
+    pub const CODE_404_NOT_FOUND: StatusCode = StatusCode::NotFound;
+    pub const CODE_504_SERVER_TIMEOUT: StatusCode = StatusCode::ServerTimeout;
+    pub const CODE_603_DECLINE: StatusCode = StatusCode::Decline;
 
     /// Asserts that the last state received in the [`watch::Receiver<State>`] are equal to the expected.
     #[macro_export]
@@ -177,11 +163,9 @@ pub mod transaction {
     impl FakeUAS {
         pub async fn respond(&self, code: StatusCode) {
             let mandatory_headers = self.request.incoming_info.mandatory_headers.clone();
-            let status_line = StatusLine::new(code, code.reason());
-            let response = SipResponse::new(status_line);
             let outgoing = self
                 .endpoint
-                .create_outgoing_response(&self.request, response);
+                .create_outgoing_response(&self.request, code, None);
             let packet = Packet::new(outgoing.encoded, outgoing.target_info.target);
 
             let transport = TransportMessage {
@@ -198,7 +182,7 @@ pub mod transaction {
                 incoming_info: Box::new(info),
             };
 
-            let transaction_message = TransactionMessage::SipResponse(response);
+            let transaction_message = TransactionMessage::Response(response);
 
             self.sender.send(transaction_message).await.unwrap();
         }
@@ -222,13 +206,13 @@ pub mod transaction {
 
         pub async fn send_ack_request(&mut self) {
             let mut incoming = self.request.clone();
-            incoming.request.req_line.method = SipMethod::Ack;
+            incoming.request.req_line.method = Method::Ack;
             self.send(incoming).await;
         }
 
         async fn send(&self, request: IncomingRequest) {
             self.sender
-                .send(TransactionMessage::SipRequest(request))
+                .send(TransactionMessage::Request(request))
                 .await
                 .unwrap();
             tokio::task::yield_now().await;
@@ -285,13 +269,13 @@ pub mod transaction {
 
     pub struct SendRequestContext {
         pub endpoint: Endpoint,
-        pub request: SipRequest,
+        pub request: Request,
         pub transport: Transport,
         pub destination: SocketAddr,
     }
 
     impl SendRequestContext {
-        pub fn setup(method: SipMethod) -> Self {
+        pub fn setup(method: Method) -> Self {
             let transport = Transport::new(MockTransport::new_udp());
 
             let endpoint = create_test_endpoint();
@@ -318,15 +302,15 @@ pub mod transaction {
     }
 
     impl ClientTestContext {
-        pub async fn setup(method: SipMethod) -> Self {
+        pub async fn setup(method: Method) -> Self {
             Self::new(method, MockTransport::new_udp()).await
         }
 
-        pub async fn setup_reliable(method: SipMethod) -> Self {
+        pub async fn setup_reliable(method: Method) -> Self {
             Self::new(method, MockTransport::new_tcp()).await
         }
 
-        async fn new(method: SipMethod, transport: MockTransport) -> Self {
+        async fn new(method: Method, transport: MockTransport) -> Self {
             let transport_impl = Transport::new(transport.clone());
             let timer = TestTimer::new();
 
@@ -345,7 +329,7 @@ pub mod transaction {
             .await
             .expect("failure sending request");
 
-            let expected_state = if method == SipMethod::Invite {
+            let expected_state = if method == Method::Invite {
                 fsm::State::Calling
             } else {
                 fsm::State::Trying
@@ -389,15 +373,15 @@ pub mod transaction {
     }
 
     impl ServerTestContext {
-        pub fn setup(method: SipMethod) -> Self {
+        pub fn setup(method: Method) -> Self {
             Self::new(method, MockTransport::new_udp())
         }
 
-        pub fn setup_reliable(method: SipMethod) -> Self {
+        pub fn setup_reliable(method: Method) -> Self {
             Self::new(method, MockTransport::new_tcp())
         }
 
-        fn new(method: SipMethod, transport: MockTransport) -> Self {
+        fn new(method: Method, transport: MockTransport) -> Self {
             let transport_impl = Transport::new(transport.clone());
 
             let endpoint = create_test_endpoint();
@@ -431,7 +415,7 @@ pub mod transport {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::sync::{Arc, Mutex};
 
-    use crate::message::{SipMessage, SipRequest};
+    use crate::message::{Request, SipMessage};
     use crate::parser::Parser;
     use crate::transport::{SipTransport, TransportType};
 
@@ -474,7 +458,7 @@ pub mod transport {
             self.sent.lock().unwrap().len()
         }
 
-        pub fn get_last_sent_request(&self) -> Option<SipRequest> {
+        pub fn get_last_sent_request(&self) -> Option<Request> {
             self.get_last_sent_message().map(|msg| {
                 if let SipMessage::Request(req) = msg {
                     Some(req)

@@ -5,7 +5,7 @@ use tokio::time::{Instant, timeout, timeout_at};
 use utils::PeekableReceiver;
 
 use crate::error::TransactionError;
-use crate::message::SipRequest;
+use crate::message::Request;
 use crate::message::headers::{Header, Via};
 use crate::transaction::fsm::{State, StateMachine};
 use crate::transaction::manager::TransactionKey;
@@ -13,7 +13,7 @@ use crate::transaction::{Role, T1, T4, TransactionMessage};
 use crate::transport::Transport;
 use crate::transport::incoming::IncomingResponse;
 use crate::transport::outgoing::OutgoingRequest;
-use crate::{Endpoint, Result, SipMethod, find_map_mut_header};
+use crate::{Endpoint, Method, Result, find_map_mut_header};
 
 // ACK para 2xx é responsabilidade do TU.
 
@@ -30,12 +30,12 @@ pub struct ClientTransaction {
 }
 
 impl ClientTransaction {
-    pub(crate) async fn send_request(request: SipRequest, endpoint: Endpoint) -> Result<Self> {
+    pub(crate) async fn send_request(request: Request, endpoint: Endpoint) -> Result<Self> {
         Self::send_request_inner(request, None, endpoint).await
     }
 
     pub(crate) async fn send_request_with_target(
-        request: SipRequest,
+        request: Request,
         target: (Transport, SocketAddr),
         endpoint: Endpoint,
     ) -> Result<Self> {
@@ -43,14 +43,14 @@ impl ClientTransaction {
     }
 
     async fn send_request_inner(
-        request: SipRequest,
+        request: Request,
         target: Option<(Transport, SocketAddr)>,
         endpoint: Endpoint,
     ) -> Result<Self> {
         let method = request.req_line.method;
         assert_ne!(
             method,
-            SipMethod::Ack,
+            Method::Ack,
             "ACK requests do not create transactions"
         );
         let mut outgoing = endpoint.create_outgoing_request(request, target).await?;
@@ -84,7 +84,7 @@ impl ClientTransaction {
 
         endpoint.send_outgoing_request(&mut outgoing).await?;
 
-        let state = if method == SipMethod::Invite {
+        let state = if method == Method::Invite {
             State::Calling
         } else {
             State::Trying
@@ -119,16 +119,14 @@ impl ClientTransaction {
         match self
             .channel
             .recv_if(|msg| match msg {
-                TransactionMessage::SipResponse(incoming)
-                    if incoming.response.status_code().is_provisional() =>
-                {
+                TransactionMessage::Response(response) if response.status().is_provisional() => {
                     true
                 }
                 _ => false,
             })
             .await
         {
-            Some(TransactionMessage::SipResponse(provisional_response)) => {
+            Some(TransactionMessage::Response(provisional_response)) => {
                 return Some(provisional_response);
             }
             _ => return None,
@@ -193,12 +191,12 @@ impl ClientTransaction {
         // Change to only receive final.
         let response = self.channel.recv().await.unwrap();
 
-        let TransactionMessage::SipResponse(response) = response else {
+        let TransactionMessage::Response(response) = response else {
             unimplemented!()
         };
 
-        if self.request.request.req_line.method == SipMethod::Invite
-            && let 200..299 = response.response.status_line.code.as_u16()
+        if self.request.request.req_line.method == Method::Invite
+            && let 200..299 = response.status().as_u16()
             && matches!(
                 self.state_machine.state(),
                 State::Calling | State::Proceeding
@@ -214,7 +212,7 @@ impl ClientTransaction {
             return Ok(response);
         }
 
-        if self.request.request.req_line.method == SipMethod::Invite {
+        if self.request.request.req_line.method == Method::Invite {
             // send ACK
             let mut ack_request = self.endpoint.create_ack_request(&self.request, &response);
             self.endpoint
@@ -265,18 +263,18 @@ impl Drop for ClientTransaction {
 mod tests {
     use super::*;
     use crate::error::{Error, TransactionError};
-    use crate::test_utils::transaction::{ClientTestContext, SendRequestContext};
-    use crate::test_utils::{
+    use crate::test_utils::transaction::{
         CODE_100_TRYING, CODE_180_RINGING, CODE_202_ACCEPTED, CODE_301_MOVED_PERMANENTLY,
-        CODE_404_NOT_FOUND, CODE_504_SERVER_TIMEOUT, CODE_603_DECLINE,
+        CODE_404_NOT_FOUND, CODE_504_SERVER_TIMEOUT, CODE_603_DECLINE, ClientTestContext,
+        SendRequestContext,
     };
-    use crate::{SipMethod, assert_eq_state};
+    use crate::{Method, assert_eq_state};
 
     // INVITE Client tests
 
     #[tokio::test]
     async fn invite_transitions_to_calling_when_request_is_sent() {
-        let ctx = SendRequestContext::setup(SipMethod::Invite);
+        let ctx = SendRequestContext::setup(Method::Invite);
 
         let uac = ClientTransaction::send_request_with_target(
             ctx.request,
@@ -295,7 +293,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_should_not_start_timer_a_when_transport_is_reliable() {
-        let mut ctx = ClientTestContext::setup_reliable(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup_reliable(Method::Invite).await;
         let expected_requests = 1;
         let expected_retrans = 0;
 
@@ -316,7 +314,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_calling_to_proceeding_when_receiving_1xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
 
@@ -335,7 +333,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_calling_to_completed_when_receiving_3xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -353,7 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_calling_to_completed_when_receiving_4xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
 
@@ -371,7 +369,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_calling_to_completed_when_receiving_5xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
 
@@ -389,7 +387,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_calling_to_completed_when_receiving_6xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_603_DECLINE).await;
 
@@ -407,7 +405,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_calling_to_terminated_when_receiving_2xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_202_ACCEPTED).await;
 
@@ -425,7 +423,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_transitions_from_calling_to_terminated_when_timer_b_fires() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         let opt_err = ctx.client.receive_provisional_response().await.err();
 
@@ -444,7 +442,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_should_send_ack_when_receiving_3xx_response_in_calling_state() {
-        let ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -456,14 +454,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 3xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_send_ack_when_receiving_4xx_response_in_calling_state() {
-        let ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
 
@@ -475,14 +473,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 4xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_send_ack_when_receiving_5xx_response_in_calling_state() {
-        let ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
 
@@ -494,14 +492,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 5xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_send_ack_when_receiving_6xx_response_in_calling_state() {
-        let ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_603_DECLINE).await;
 
@@ -513,14 +511,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 6xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_transitions_from_proceeding_to_completed_when_receiving_3xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -538,7 +536,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_proceeding_to_completed_when_receiving_4xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
 
@@ -556,7 +554,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_proceeding_to_completed_when_receiving_5xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
 
@@ -574,7 +572,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_proceeding_to_completed_when_receiving_6xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_603_DECLINE).await;
 
@@ -592,7 +590,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_from_proceeding_to_terminated_when_receiving_2xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_202_ACCEPTED).await;
 
@@ -610,7 +608,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_should_not_retransmit_request_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
         let expected_requests = 1;
         let expected_retrans = 0;
 
@@ -638,7 +636,7 @@ mod tests {
 
     #[tokio::test]
     async fn invite_should_send_ack_when_receiving_3xx_response_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
 
@@ -664,14 +662,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 3xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_send_ack_after_4xx_response_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
 
@@ -697,14 +695,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 4xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_send_ack_when_receiving_5xx_response_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
 
@@ -730,14 +728,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 5xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_send_ack_after_6xx_response_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
 
@@ -763,14 +761,14 @@ mod tests {
         let req = ctx.transport.get_last_sent_request().expect("A request");
         assert_eq!(
             req.method(),
-            SipMethod::Ack,
+            Method::Ack,
             "client INVITE must generate an ACK request when receiving 6xx response"
         );
     }
 
     #[tokio::test]
     async fn invite_should_pass_provisional_responses_to_tu_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
         ctx.server.respond(CODE_180_RINGING).await;
@@ -783,7 +781,7 @@ mod tests {
             .expect("Expected provisional response, but received None");
 
         assert_eq!(
-            incoming.response.status_code(),
+            incoming.response.status(),
             CODE_100_TRYING,
             "should match 100 status code"
         );
@@ -796,7 +794,7 @@ mod tests {
             .expect("Expected provisional response, but received None");
 
         assert_eq!(
-            incoming.response.status_code(),
+            incoming.response.status(),
             CODE_180_RINGING,
             "should match 180 status code"
         );
@@ -804,7 +802,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_transitions_from_completed_to_terminated_when_timer_d_fires() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup(Method::Invite).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -832,7 +830,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_to_trying_when_request_is_sent() {
-        let ctx = SendRequestContext::setup(SipMethod::Register);
+        let ctx = SendRequestContext::setup(Method::Register);
 
         let uac = ClientTransaction::send_request_with_target(
             ctx.request,
@@ -851,7 +849,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn non_invite_should_not_start_timer_e_when_transport_is_reliable() {
-        let mut ctx = ClientTestContext::setup_reliable(SipMethod::Invite).await;
+        let mut ctx = ClientTestContext::setup_reliable(Method::Invite).await;
         let expected_requests = 1;
         let expected_retrans = 0;
 
@@ -872,7 +870,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_trying_to_proceeding_when_receiving_1xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Register).await;
+        let mut ctx = ClientTestContext::setup(Method::Register).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
 
@@ -891,7 +889,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_trying_to_completed_when_receiving_2xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -909,7 +907,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_trying_to_completed_when_receiving_3xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -927,7 +925,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_trying_to_completed_when_receiving_4xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
 
@@ -945,7 +943,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_trying_to_completed_when_receiving_5xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
 
@@ -963,7 +961,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_trying_to_completed_when_receiving_6xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_603_DECLINE).await;
 
@@ -980,7 +978,7 @@ mod tests {
     }
     #[tokio::test]
     async fn non_invite_transitions_from_proceeding_to_completed_when_receiving_3xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 
@@ -998,7 +996,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_proceeding_to_completed_when_receiving_4xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_404_NOT_FOUND).await;
 
@@ -1016,7 +1014,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_proceeding_to_completed_when_receiving_5xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_504_SERVER_TIMEOUT).await;
 
@@ -1034,7 +1032,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_proceeding_to_completed_when_receiving_6xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_603_DECLINE).await;
 
@@ -1052,7 +1050,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_from_proceeding_to_completed_when_receiving_2xx_response() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_202_ACCEPTED).await;
 
@@ -1070,7 +1068,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn non_invite_transitions_from_trying_to_terminated_when_timer_f_fires() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Register).await;
+        let mut ctx = ClientTestContext::setup(Method::Register).await;
 
         let opt_err = ctx.client.receive_provisional_response().await.err();
 
@@ -1089,7 +1087,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn non_invite_should_not_retransmit_request_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
         let expected_requests = 1;
         let expected_retrans = 0;
 
@@ -1118,7 +1116,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_should_pass_provisional_responses_to_tu_in_proceeding_state() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_100_TRYING).await;
         ctx.server.respond(CODE_180_RINGING).await;
@@ -1131,7 +1129,7 @@ mod tests {
             .expect("Expected provisional response, but received None");
 
         assert_eq!(
-            response.response.status_code(),
+            response.response.status(),
             CODE_100_TRYING,
             "should match 100 status code"
         );
@@ -1144,7 +1142,7 @@ mod tests {
             .expect("Expected provisional response, but received None");
 
         assert_eq!(
-            response.response.status_code(),
+            response.response.status(),
             CODE_180_RINGING,
             "should match 180 status code"
         );
@@ -1152,7 +1150,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn non_invite_transitions_from_completed_to_terminated_when_timer_k_fires() {
-        let mut ctx = ClientTestContext::setup(SipMethod::Options).await;
+        let mut ctx = ClientTestContext::setup(Method::Options).await;
 
         ctx.server.respond(CODE_301_MOVED_PERMANENTLY).await;
 

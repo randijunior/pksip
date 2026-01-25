@@ -1,18 +1,18 @@
 use std::ops;
 
-use crate::message::{MandatoryHeaders, SipRequest, SipResponse};
+use crate::message::{MandatoryHeaders, Request, Response};
 
 /// This type represents an received SIP request.
 #[derive(Clone)]
 pub struct IncomingRequest {
     /// The SIP message.
-    pub request: SipRequest,
+    pub request: Request,
     /// Incoming message info.
     pub incoming_info: Box<IncomingInfo>,
 }
 
 impl ops::Deref for IncomingRequest {
-    type Target = SipRequest;
+    type Target = Request;
     fn deref(&self) -> &Self::Target {
         &self.request
     }
@@ -22,13 +22,13 @@ impl ops::Deref for IncomingRequest {
 #[derive(Clone)]
 pub struct IncomingResponse {
     /// The SIP message.
-    pub response: SipResponse,
+    pub response: Response,
     /// Incoming message info.
     pub incoming_info: Box<IncomingInfo>,
 }
 
 impl ops::Deref for IncomingResponse {
-    type Target = SipResponse;
+    type Target = Response;
     fn deref(&self) -> &Self::Target {
         &self.response
     }

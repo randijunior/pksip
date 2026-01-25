@@ -33,20 +33,20 @@ pub use method::*;
 pub use param::*;
 pub use uri::*;
 
-/// An SIP message, either SipRequest or SipResponse.
+/// An SIP message, either Request or Response.
 ///
-/// This enum can contain either an [`SipRequest`] or an [`SipResponse`], see their
+/// This enum can contain either an [`Request`] or an [`Response`], see their
 /// respective documentation for more details.
 pub enum SipMessage {
-    /// An SIP SipRequest.
-    Request(SipRequest),
-    /// An SIP SipResponse.
-    Response(SipResponse),
+    /// An SIP Request.
+    Request(Request),
+    /// An SIP Response.
+    Response(Response),
 }
 
 impl SipMessage {
-    /// Returns a reference to the inner [`SipRequest`] if this message is an request.
-    pub fn request(&self) -> Option<&SipRequest> {
+    /// Returns a reference to the inner [`Request`] if this message is an request.
+    pub fn request(&self) -> Option<&Request> {
         if let SipMessage::Request(req) = self {
             Some(req)
         } else {
@@ -54,8 +54,8 @@ impl SipMessage {
         }
     }
 
-    /// Returns a reference to the inner [`SipResponse`] if this message is an response.
-    pub fn response(&self) -> Option<&SipResponse> {
+    /// Returns a reference to the inner [`Response`] if this message is an response.
+    pub fn response(&self) -> Option<&Response> {
         if let SipMessage::Response(res) = self {
             Some(res)
         } else {
@@ -116,14 +116,14 @@ impl SipMessage {
     }
 }
 
-impl From<SipRequest> for SipMessage {
-    fn from(request: SipRequest) -> Self {
+impl From<Request> for SipMessage {
+    fn from(request: Request) -> Self {
         SipMessage::Request(request)
     }
 }
 
-impl From<SipResponse> for SipMessage {
-    fn from(response: SipResponse) -> Self {
+impl From<Response> for SipMessage {
+    fn from(response: Response) -> Self {
         SipMessage::Response(response)
     }
 }
@@ -198,12 +198,12 @@ impl TryFrom<&Headers> for MandatoryHeaders {
     }
 }
 
-/// A parsed SIP SipRequest.
+/// A parsed SIP Request.
 ///
 /// SIP request represents a request from a client to a server.
 #[derive(Clone)]
-pub struct SipRequest {
-    /// The SipRequest-Line of the SIP message.
+pub struct Request {
+    /// The Request-Line of the SIP message.
     pub req_line: RequestLine,
     /// All headers present in the SIP message.
     pub headers: Headers,
@@ -211,18 +211,18 @@ pub struct SipRequest {
     pub body: Option<SipBody>,
 }
 
-impl SipRequest {
-    /// Creates a new SIP `SipRequest`.
-    pub fn new(method: SipMethod, uri: Uri) -> Self {
-        SipRequest {
+impl Request {
+    /// Creates a new SIP `Request`.
+    pub fn new(method: Method, uri: Uri) -> Self {
+        Request {
             req_line: RequestLine { method, uri },
             headers: Headers::new(),
             body: None,
         }
     }
 
-    pub fn with_headers(method: SipMethod, uri: Uri, headers: Headers) -> Self {
-        SipRequest {
+    pub fn with_headers(method: Method, uri: Uri, headers: Headers) -> Self {
+        Request {
             req_line: RequestLine { method, uri },
             headers,
             body: None,
@@ -230,7 +230,7 @@ impl SipRequest {
     }
 
     /// Returns the SIP method of the request.
-    pub fn method(&self) -> SipMethod {
+    pub fn method(&self) -> Method {
         self.req_line.method
     }
 }
@@ -241,39 +241,39 @@ impl Display for RequestLine {
     }
 }
 
-/// Represents a SIP SipRequest-Line.
+/// Represents a SIP Request-Line.
 ///
-/// The SipRequest-Line contains the method and the SipRequest-URI, which indicate the
+/// The Request-Line contains the method and the Request-URI, which indicate the
 /// target of the SIP request.
 #[derive(Clone)]
 pub struct RequestLine {
     /// The SIP method associated with the request.
-    pub method: SipMethod,
-    /// The SipRequest-URI indicating the target of the request.
+    pub method: Method,
+    /// The Request-URI indicating the target of the request.
     pub uri: Uri,
 }
 
 impl RequestLine {
-    /// Creates a new `RequestLine` instance from the given [`SipMethod`] and
+    /// Creates a new `RequestLine` instance from the given [`Method`] and
     /// [`Uri`].
-    pub const fn new(method: SipMethod, uri: Uri) -> Self {
+    pub const fn new(method: Method, uri: Uri) -> Self {
         Self { method, uri }
     }
 }
 
-/// A parsed SIP SipResponse.
+/// A parsed SIP Response.
 #[derive(Clone)]
-pub struct SipResponse {
+pub struct Response {
     /// The Status-Line of the SIP message.
-    pub status_line: StatusLine,
+    status_line: StatusLine,
     /// All headers present in the SIP message.
-    pub headers: Headers,
+    headers: Headers,
     /// The body of the SIP message, if present.
-    pub body: Option<SipBody>,
+    body: Option<SipBody>,
 }
 
-impl SipResponse {
-    /// Creates a new SIP `SipResponse` from a `Status-Line`, with empty headers
+impl Response {
+    /// Creates a new SIP `Response` from a `Status-Line`, with empty headers
     /// and no body.
     pub const fn new(status_line: StatusLine) -> Self {
         Self {
@@ -283,25 +283,32 @@ impl SipResponse {
         }
     }
 
-    pub fn builder() -> ResponseBuilder {
-        ResponseBuilder::new()
-    }
-
-    /// Returns the message response code.
-    pub fn status_code(&self) -> StatusCode {
+    /// Returns the `StatusCode`.
+    pub fn status(&self) -> StatusCode {
         self.status_line.code
     }
 
-    /// Returns the reason.
-    pub fn reason(&self) -> &str {
-        &self.status_line.reason.0
+    /// Returns the `ReasonPhrase`.
+    pub fn reason(&self) -> &ReasonPhrase {
+        &self.status_line.reason
     }
 
-    pub const fn with_status_code(code: StatusCode) -> Self {
-        Self::new(StatusLine::new(code, code.reason()))
+    /// Returns a reference to the response headers.
+    pub fn headers(&self) -> &Headers {
+        &self.headers
     }
 
-    /// Creates a new `SipResponse` with the given `Status-Line` and headers,
+    /// Returns a shared reference to the response headers.
+    pub fn headers_mut(&mut self) -> &mut Headers {
+        &mut self.headers
+    }
+
+    /// Returns the `SipBody`.
+    pub fn body(&self) -> Option<&SipBody> {
+        self.body.as_ref()
+    }
+
+    /// Creates a new `Response` with the given `Status-Line` and headers,
     pub const fn with_headers(status_line: StatusLine, headers: Headers) -> Self {
         Self {
             status_line,
@@ -310,7 +317,7 @@ impl SipResponse {
         }
     }
 
-    /// Creates a new `SipResponse` with the given `Status-Line`, reason, and body.
+    /// Creates a new `Response` with the given `Status-Line`, reason, and body.
     pub fn with_body(status_line: StatusLine, body: &[u8]) -> Self {
         Self {
             status_line,
@@ -322,46 +329,6 @@ impl SipResponse {
     /// Set the headers of the response, replacing any existing headers.
     pub fn set_headers(&mut self, headers: Headers) {
         self.headers = headers;
-    }
-}
-
-pub struct ResponseBuilder {
-    status: StatusCode,
-
-    reason: Option<ReasonPhrase>,
-
-    headers: Headers,
-
-    body: Option<SipBody>,
-}
-
-impl ResponseBuilder {
-    pub fn new() -> Self {
-        Self {
-            status: StatusCode::Ok,
-            reason: None,
-            headers: Headers::default(),
-            body: None,
-        }
-    }
-
-    pub fn status(mut self, status: StatusCode) -> Self {
-        self.status = status;
-        self
-    }
-
-    pub fn reason(mut self, reason: impl Into<ReasonPhrase>) -> Self {
-        self.reason = Some(reason.into());
-        self
-    }
-
-    pub fn build(self) -> SipResponse {
-        let status_line = StatusLine::new(self.status, self.reason.unwrap_or(self.status.reason()));
-        SipResponse {
-            status_line,
-            headers: self.headers,
-            body: self.body,
-        }
     }
 }
 
@@ -377,7 +344,7 @@ impl ReasonPhrase {
     }
 
     /// Returns the inner phrase as str.
-    pub fn phrase_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         &self.0
     }
 

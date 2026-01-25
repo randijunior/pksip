@@ -4,10 +4,10 @@ use tokio::sync::mpsc::{self};
 use tokio::time::{Instant, sleep, timeout_at};
 use tokio_util::either::Either;
 
-use crate::SipMethod;
+use crate::Method;
 use crate::endpoint::Endpoint;
-use crate::error::{Result, TransactionError};
-use crate::message::{SipResponse, StatusCode, StatusLine};
+use crate::error::{Error, Result};
+use crate::message::{CodeClass, ReasonPhrase, StatusCode};
 use crate::transaction::fsm::{State, StateMachine};
 use crate::transaction::manager::TransactionKey;
 use crate::transaction::{T1, T2, T4, TransactionMessage};
@@ -22,11 +22,11 @@ pub struct ServerTransaction {
     endpoint: Endpoint,
     state_machine: StateMachine,
     request: IncomingRequest,
-    channel: Option<mpsc::Receiver<TransactionMessage>>,
-    proceeding_state_handle: Option<ProceedingStateHandle>,
+    receiver: Option<mpsc::Receiver<TransactionMessage>>,
+    provisional_retrans_task: Option<ProvisionalRetransHandle>,
 }
 
-struct ProceedingStateHandle {
+struct ProvisionalRetransHandle {
     join_handle: tokio::task::JoinHandle<mpsc::Receiver<TransactionMessage>>,
     provisional_tx: mpsc::UnboundedSender<OutgoingResponse>,
 }
@@ -40,11 +40,11 @@ impl ServerTransaction {
     pub(crate) fn new(request: IncomingRequest, endpoint: Endpoint) -> Self {
         assert_ne!(
             request.req_line.method,
-            SipMethod::Ack,
+            Method::Ack,
             "ACK requests do not create transactions"
         );
 
-        let initial_state = if request.req_line.method == SipMethod::Invite {
+        let initial_state = if request.req_line.method == Method::Invite {
             State::Proceeding
         } else {
             State::Trying
@@ -61,69 +61,106 @@ impl ServerTransaction {
             transaction_key,
             request,
             state_machine,
-            channel: Some(receiver),
-            proceeding_state_handle: None,
+            receiver: Some(receiver),
+            provisional_retrans_task: None,
         }
     }
 
-    /// Respond with the provisional response.
+    /// Sends a provisional response with the given `status`.
     ///
-    /// This method will clone the request headers into the response.
+    /// This is a shortcut for:
     ///
-    /// # Errors
-    ///
-    /// Returns an [`Err`] if the response code is not provisional (1xx).
-    pub async fn respond_with_provisional(&mut self, response: SipResponse) -> Result<()> {
-        if !response.status_line.code.is_provisional() {
-            return Err(TransactionError::InvalidProvisionalStatusCode.into());
-        }
-        let mut outgoing_response = self
-            .endpoint
-            .create_outgoing_response(&self.request, response);
+    /// ```no_run
+    /// let response = transaction.create_response(status, None);
+    /// transaction.send_provisional_response(response).await;
+    /// ```
+    /// See [`send_provisional_response`](Self::send_provisional_response) for more info.
+    pub async fn send_provisional_status(&mut self, status: StatusCode) -> Result<()> {
+        let response = self.create_response(status, None);
 
-        self.endpoint
-            .send_outgoing_response(&mut outgoing_response)
-            .await?;
+        self.send_provisional_response(response).await?;
 
-        if let Some(ref mut task) = self.proceeding_state_handle {
-            task.provisional_tx.send(outgoing_response).ok();
+        Ok(())
+    }
+
+    /// Sends a provisional response.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `response` is not provisional (`1xx`).
+    pub async fn send_provisional_response(
+        &mut self,
+        mut response: OutgoingResponse,
+    ) -> Result<()> {
+        let code = response.status();
+
+        assert_eq!(
+            code.class(),
+            CodeClass::Provisional,
+            "Invalid provisional response (expected 1xx) got {:?}",
+            code
+        );
+
+        self.send_response(&mut response).await?;
+
+        if let Some(ref mut task) = self.provisional_retrans_task {
+            task.provisional_tx
+                .send(response)
+                .map_err(|_| Error::ChannelClosed)?
         } else {
-            self.state_machine.set_state(State::Proceeding);
-            let handle = self.spawn_proceeding_state_task(outgoing_response);
-            self.proceeding_state_handle = Some(handle);
+            let task = self.spawn_provisional_retrans_task(response);
+            self.provisional_retrans_task = Some(task);
         }
 
         Ok(())
     }
 
-    /// Respond with the final response.
+    /// Sends a final response with the given `status`.
     ///
-    /// This method will clone the request headers into the response.
+    /// This is a shortcut for:
     ///
-    /// # Errors
-    ///
-    /// Returns an [`Err`] if the response code is not final (2xx-6xx).
-    pub async fn respond_with_final(mut self, response: SipResponse) -> Result<()> {
-        let mut outgoing_response = self
-            .endpoint
-            .create_outgoing_response(&self.request, response);
+    /// ```no_run
+    /// let response = transaction.create_response(status, None);
+    /// transaction.send_final_response(response).await;
+    /// ```
+    /// See [`send_final_response`](Self::send_final_response) for more info.
+    pub async fn send_final_status(self, status: StatusCode) -> Result<()> {
+        let response = self.create_response(status, None);
 
-        self.endpoint
-            .send_outgoing_response(&mut outgoing_response)
-            .await?;
+        self.send_final_response(response).await?;
 
-        if self.request.request.req_line.method == SipMethod::Invite {
-            if let 200..299 = outgoing_response.status_line.code.as_u16() {
+        Ok(())
+    }
+
+    /// Sends a final response.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `response` is not final (`2xx-6xx`).
+    pub async fn send_final_response(mut self, mut response: OutgoingResponse) -> Result<()> {
+        let code = response.status();
+
+        assert_ne!(
+            code.class(),
+            CodeClass::Provisional,
+            "Invalid final response (expected 2xx-6xx) got {:?}",
+            code
+        );
+
+        self.send_response(&mut response).await?;
+
+        if self.request.request.req_line.method == Method::Invite {
+            if let 200..299 = response.status().as_u16() {
                 self.state_machine.set_state(State::Terminated);
                 return Ok(());
             }
             // 300-699 from TU send response --> Completed
             self.state_machine.set_state(State::Completed);
 
-            let mut channel = if let Some(task) = self.proceeding_state_handle.take() {
+            let mut channel = if let Some(task) = self.provisional_retrans_task.take() {
                 task.join_handle.await.unwrap()
             } else {
-                self.channel.take().unwrap()
+                self.receiver.take().unwrap()
             };
 
             // For unreliable transports.
@@ -142,7 +179,7 @@ impl ServerTransaction {
                     tokio::select! {
                         _ = timer_g.as_mut() => {
                            let _res =  self.endpoint
-                            .send_outgoing_response(&mut outgoing_response)
+                            .send_outgoing_response(&mut response)
                             .await;
                         retrans_count += 1;
 
@@ -159,7 +196,7 @@ impl ServerTransaction {
                             self.state_machine.set_state(State::Terminated);
                             return;
                         }
-                         Some(TransactionMessage::SipRequest(req)) = channel.recv() => {
+                         Some(TransactionMessage::Request(req)) = channel.recv() => {
                             if req.request.req_line.method.is_ack() {
                                 self.state_machine.set_state(State::Confirmed);
                                 sleep(T4).await;
@@ -167,7 +204,7 @@ impl ServerTransaction {
                                 return;
                             }
                             let _res =  self.endpoint
-                            .send_outgoing_response(&mut outgoing_response)
+                            .send_outgoing_response(&mut response)
                             .await;
                         }
                     }
@@ -182,20 +219,17 @@ impl ServerTransaction {
                 return Ok(());
             }
 
-            let mut channel = if let Some(task) = self.proceeding_state_handle.take() {
+            let mut channel = if let Some(task) = self.provisional_retrans_task.take() {
                 task.join_handle.await.unwrap()
             } else {
-                self.channel.take().unwrap()
+                self.receiver.take().unwrap()
             };
 
             let timer_j = Instant::now() + 64 * T1;
 
             tokio::spawn(async move {
                 while let Ok(Some(_)) = timeout_at(timer_j, channel.recv()).await {
-                    let _result = self
-                        .endpoint
-                        .send_outgoing_response(&mut outgoing_response)
-                        .await;
+                    let _result = self.endpoint.send_outgoing_response(&mut response).await;
                 }
                 self.state_machine.set_state(State::Terminated);
             });
@@ -204,47 +238,59 @@ impl ServerTransaction {
         Ok(())
     }
 
-    pub fn transaction_key(&self) -> &TransactionKey {
-        &self.transaction_key
+    pub fn create_response(
+        &self,
+        code: StatusCode,
+        phrase: Option<ReasonPhrase>,
+    ) -> OutgoingResponse {
+        self.endpoint
+            .create_outgoing_response(&self.request, code, phrase)
     }
 
-    pub fn state_machine(&self) -> &StateMachine {
-        &self.state_machine
+    pub(crate) fn transaction_key(&self) -> &TransactionKey {
+        &self.transaction_key
     }
 
     pub fn state_machine_mut(&mut self) -> &mut StateMachine {
         &mut self.state_machine
     }
 
+    async fn send_response(&self, response: &mut OutgoingResponse) -> Result<()> {
+        self.endpoint.send_outgoing_response(response).await?;
+        Ok(())
+    }
+
     fn is_reliable(&self) -> bool {
         self.request.incoming_info.transport.transport.is_reliable()
     }
 
-    fn spawn_proceeding_state_task(
+    fn spawn_provisional_retrans_task(
         &mut self,
         mut response: OutgoingResponse,
-    ) -> ProceedingStateHandle {
+    ) -> ProvisionalRetransHandle {
         let mut channel = self
-            .channel
+            .receiver
             .take()
             .expect("The receiver must exists when sending first provisional response");
 
-        let mut state_rx = self.state_machine.subscribe_state();
-        let (provisional_tx, mut tu_provisional_channel) = mpsc::unbounded_channel();
+        self.state_machine.set_state(State::Proceeding);
+
+        let mut state = self.state_machine.subscribe_state();
+        let (provisional_tx, mut tu_provisional_rx) = mpsc::unbounded_channel();
 
         let join_handle = tokio::spawn(async move {
             loop {
                 tokio::select! {
                     biased; // Ensures polling order from top to bottom
-                    _= state_rx.changed() => {
-                        // Leave Proceding State
-                        log::debug!("Task is cancelling...");
+                    _= state.changed() => {
+                        log::debug!("Leaving Proceding State...");
                         return channel;
                     }
-                    Some(new_tu_provisional) = tu_provisional_channel.recv() => {
+                    Some(new_tu_provisional) = tu_provisional_rx.recv() => {
                         response = new_tu_provisional;
                     }
                     Some(_msg) = channel.recv() => {
+                            
                            if let Err(err) = response
                            .target_info
                            .transport
@@ -257,7 +303,7 @@ impl ServerTransaction {
             }
         });
 
-        ProceedingStateHandle {
+        ProvisionalRetransHandle {
             provisional_tx,
             join_handle,
         }
@@ -276,15 +322,15 @@ mod tests {
     use super::*;
     use crate::assert_eq_state;
     use crate::test_utils::transaction::{
-        RESPONSE_100_TRYING, RESPONSE_202_ACCEPTED, RESPONSE_301_MOVED_PERMANENTLY,
-        RESPONSE_504_SERVER_TIMEOUT, ServerTestContext,
+        CODE_100_TRYING, CODE_202_ACCEPTED, CODE_301_MOVED_PERMANENTLY, CODE_504_SERVER_TIMEOUT,
+        ServerTestContext,
     };
 
     // INVITE Server tests
 
     #[tokio::test]
     async fn invite_transitions_to_proceeding_when_created_from_request() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
 
         assert_eq_state!(
             ctx.state,
@@ -295,10 +341,10 @@ mod tests {
 
     #[tokio::test]
     async fn invite_transitions_to_confirmed_when_receiving_ack() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -319,10 +365,10 @@ mod tests {
 
     #[tokio::test]
     async fn invite_unreliable_transitions_to_terminated_when_sending_2xx_response() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
 
         ctx.server
-            .respond_with_final(RESPONSE_202_ACCEPTED)
+            .send_final_status(CODE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -335,10 +381,10 @@ mod tests {
 
     #[tokio::test]
     async fn invite_reliable_transitions_to_terminated_when_sending_2xx_response() {
-        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup_reliable(Method::Invite);
 
         ctx.server
-            .respond_with_final(RESPONSE_202_ACCEPTED)
+            .send_final_status(CODE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -351,12 +397,12 @@ mod tests {
 
     #[tokio::test]
     async fn invite_should_retransmit_response_when_receiving_request_retransmission() {
-        let ctx = ServerTestContext::setup(SipMethod::Invite);
+        let ctx = ServerTestContext::setup(Method::Invite);
         let expected_responses = 1;
         let expected_retrans = 3;
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -371,12 +417,12 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_must_cease_retransmission_when_receiving_ack() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
         let expected_responses = 1;
         let expected_retrans = 2;
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -396,10 +442,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_timer_h_must_be_set_for_reliable_transports() {
-        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup_reliable(Method::Invite);
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -420,10 +466,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_timer_h_must_be_set_for_unreliable_transports() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -444,10 +490,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_transitions_to_terminated_when_timer_i_fires() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -476,12 +522,12 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn invite_retransmit_response_when_timer_g_fires() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Invite);
+        let mut ctx = ServerTestContext::setup(Method::Invite);
         let expected_responses = 1;
         let expected_retrans = 5;
 
         ctx.server
-            .respond_with_final(RESPONSE_301_MOVED_PERMANENTLY)
+            .send_final_status(CODE_301_MOVED_PERMANENTLY)
             .await
             .expect("Error sending final response");
 
@@ -498,7 +544,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transitions_to_trying_when_created_from_request() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+        let mut ctx = ServerTestContext::setup(Method::Options);
 
         assert_eq_state!(
             ctx.state,
@@ -509,10 +555,10 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transition_to_proceeding_when_sending_1xx_response() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+        let mut ctx = ServerTestContext::setup(Method::Options);
 
         ctx.server
-            .respond_with_provisional(RESPONSE_100_TRYING)
+            .send_provisional_status(CODE_100_TRYING)
             .await
             .expect("Error sending provisional response");
 
@@ -525,10 +571,10 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_transition_to_completed_when_sending_non_2xx_response() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+        let mut ctx = ServerTestContext::setup(Method::Options);
 
         ctx.server
-            .respond_with_final(RESPONSE_504_SERVER_TIMEOUT)
+            .send_final_status(CODE_504_SERVER_TIMEOUT)
             .await
             .expect("Error sending final response");
 
@@ -541,10 +587,10 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_reliable_transition_to_terminated_when_sending_2xx_response() {
-        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Options);
+        let mut ctx = ServerTestContext::setup_reliable(Method::Options);
 
         ctx.server
-            .respond_with_final(RESPONSE_202_ACCEPTED)
+            .send_final_status(CODE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -557,10 +603,10 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_reliable_transition_to_terminated_when_sending_non_2xx_response() {
-        let mut ctx = ServerTestContext::setup_reliable(SipMethod::Options);
+        let mut ctx = ServerTestContext::setup_reliable(Method::Options);
 
         ctx.server
-            .respond_with_final(RESPONSE_504_SERVER_TIMEOUT)
+            .send_final_status(CODE_504_SERVER_TIMEOUT)
             .await
             .expect("Error sending final response");
 
@@ -573,7 +619,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_absorbs_retransmission_in_trying_state() {
-        let ctx = ServerTestContext::setup(SipMethod::Options);
+        let ctx = ServerTestContext::setup(Method::Options);
         let expected_retrans = 0;
 
         ctx.client.retransmit_n_times(2).await;
@@ -587,12 +633,12 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_retransmit_provisional_response_when_receiving_request_retransmission() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Options);
+        let mut ctx = ServerTestContext::setup(Method::Options);
         let expected_responses = 1;
         let expected_retrans = 4;
 
         ctx.server
-            .respond_with_provisional(RESPONSE_100_TRYING)
+            .send_provisional_status(CODE_100_TRYING)
             .await
             .expect("Error sending provisional response");
 
@@ -607,12 +653,12 @@ mod tests {
 
     #[tokio::test]
     async fn non_invite_retransmit_final_response_when_receiving_request_retransmission() {
-        let ctx = ServerTestContext::setup(SipMethod::Register);
+        let ctx = ServerTestContext::setup(Method::Register);
         let expected_responses = 1;
         let expected_retrans = 2;
 
         ctx.server
-            .respond_with_final(RESPONSE_202_ACCEPTED)
+            .send_final_status(CODE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 
@@ -627,10 +673,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn non_invite_transitions_to_terminated_when_timer_j_fires() {
-        let mut ctx = ServerTestContext::setup(SipMethod::Bye);
+        let mut ctx = ServerTestContext::setup(Method::Bye);
 
         ctx.server
-            .respond_with_final(RESPONSE_202_ACCEPTED)
+            .send_final_status(CODE_202_ACCEPTED)
             .await
             .expect("Error sending final response");
 

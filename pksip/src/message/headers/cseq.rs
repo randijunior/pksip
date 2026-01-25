@@ -2,7 +2,7 @@ use core::fmt;
 use std::str::{self, FromStr};
 
 use crate::error::Result;
-use crate::message::SipMethod;
+use crate::message::Method;
 use crate::parser::{HeaderParser, Parser};
 
 /// The `CSeq` SIP header.
@@ -13,8 +13,8 @@ use crate::parser::{HeaderParser, Parser};
 /// # Examples
 ///
 /// ```
-/// # use pksip::{header::CSeq, message::SipMethod};
-/// let cseq = CSeq::new(1, SipMethod::Options);
+/// # use pksip::{header::CSeq, message::Method};
+/// let cseq = CSeq::new(1, Method::Options);
 ///
 /// assert_eq!("CSeq: 1 OPTIONS", cseq.to_string());
 /// ```
@@ -23,7 +23,7 @@ pub struct CSeq {
     /// The CSeq number.
     pub cseq: u32,
     /// The CSeq method.
-    pub method: SipMethod,
+    pub method: Method,
 }
 
 impl fmt::Display for CSeq {
@@ -43,7 +43,7 @@ impl FromStr for CSeq {
 
 impl CSeq {
     /// Creates a new `CSeq` instance.
-    pub fn new(cseq: u32, method: SipMethod) -> Self {
+    pub fn new(cseq: u32, method: Method) -> Self {
         Self { cseq, method }
     }
 
@@ -53,7 +53,7 @@ impl CSeq {
     }
 
     /// Returns the SIP method associated with the cseq.
-    pub fn method(&self) -> &SipMethod {
+    pub fn method(&self) -> &Method {
         &self.method
     }
 }
@@ -66,7 +66,7 @@ impl HeaderParser for CSeq {
 
         parser.skip_ws();
         let b_method = parser.alphabetic();
-        let method = SipMethod::from(b_method);
+        let method = Method::from(b_method);
 
         Ok(CSeq { cseq, method })
     }
@@ -82,7 +82,7 @@ mod tests {
         let c_length = CSeq::parse(&mut scanner).unwrap();
 
         assert_eq!(scanner.remaining(), b"\r\n");
-        assert_eq!(c_length.method, SipMethod::Invite);
+        assert_eq!(c_length.method, Method::Invite);
         assert_eq!(c_length.cseq, 4711);
     }
 }
