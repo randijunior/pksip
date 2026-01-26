@@ -23,7 +23,7 @@ pub struct ServerTransaction {
     state_machine: StateMachine,
     request: IncomingRequest,
     receiver: Option<mpsc::Receiver<TransactionMessage>>,
-    provisional_retrans_task: Option<ProvisionalRetransHandle>,
+    provisonal_retrans_handle: Option<ProvisionalRetransHandle>,
 }
 
 struct ProvisionalRetransHandle {
@@ -62,7 +62,7 @@ impl ServerTransaction {
             request,
             state_machine,
             receiver: Some(receiver),
-            provisional_retrans_task: None,
+            provisonal_retrans_handle: None,
         }
     }
 
@@ -103,13 +103,14 @@ impl ServerTransaction {
 
         self.send_response(&mut response).await?;
 
-        if let Some(ref mut task) = self.provisional_retrans_task {
-            task.provisional_tx
+        if let Some(ref mut handle) = self.provisonal_retrans_handle {
+            handle
+                .provisional_tx
                 .send(response)
                 .map_err(|_| Error::ChannelClosed)?
         } else {
-            let task = self.spawn_provisional_retrans_task(response);
-            self.provisional_retrans_task = Some(task);
+            let handle = self.spawn_retransmit_provisional_task(response);
+            self.provisonal_retrans_handle = Some(handle);
         }
 
         Ok(())
@@ -157,7 +158,7 @@ impl ServerTransaction {
             // 300-699 from TU send response --> Completed
             self.state_machine.set_state(State::Completed);
 
-            let mut channel = if let Some(task) = self.provisional_retrans_task.take() {
+            let mut channel = if let Some(task) = self.provisonal_retrans_handle.take() {
                 task.join_handle.await.unwrap()
             } else {
                 self.receiver.take().unwrap()
@@ -219,7 +220,7 @@ impl ServerTransaction {
                 return Ok(());
             }
 
-            let mut channel = if let Some(task) = self.provisional_retrans_task.take() {
+            let mut channel = if let Some(task) = self.provisonal_retrans_handle.take() {
                 task.join_handle.await.unwrap()
             } else {
                 self.receiver.take().unwrap()
@@ -264,33 +265,33 @@ impl ServerTransaction {
         self.request.incoming_info.transport.transport.is_reliable()
     }
 
-    fn spawn_provisional_retrans_task(
+    fn spawn_retransmit_provisional_task(
         &mut self,
         mut response: OutgoingResponse,
     ) -> ProvisionalRetransHandle {
-        let mut channel = self
+        let mut receiver = self
             .receiver
             .take()
-            .expect("The receiver must exists when sending first provisional response");
+            .expect("Transaction receiver missing while calling `spawn_retransmit_provisional_task`");
 
         self.state_machine.set_state(State::Proceeding);
 
-        let mut state = self.state_machine.subscribe_state();
+        let mut state_rx = self.state_machine.subscribe_state();
         let (provisional_tx, mut tu_provisional_rx) = mpsc::unbounded_channel();
 
         let join_handle = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    biased; // Ensures polling order from top to bottom
-                    _= state.changed() => {
+                    biased;
+
+                    _= state_rx.changed() => {
                         log::debug!("Leaving Proceding State...");
-                        return channel;
+                        return receiver;
                     }
                     Some(new_tu_provisional) = tu_provisional_rx.recv() => {
                         response = new_tu_provisional;
                     }
-                    Some(_msg) = channel.recv() => {
-                            
+                    Some(_msg) = receiver.recv() => {
                            if let Err(err) = response
                            .target_info
                            .transport
