@@ -1,11 +1,11 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::message::headers::{Header, Headers};
-use pksip::message::{Method, StatusCode};
-use pksip::transaction::TransactionManager;
-use pksip::transport::incoming::IncomingRequest;
-use pksip::{Endpoint, EndpointHandler, find_map_header};
+use csip::message::headers::{Header, Headers};
+use csip::message::{Method, StatusCode};
+use csip::transaction::TransactionManager;
+use csip::transport::incoming::IncomingRequest;
+use csip::{Endpoint, EndpointHandler, find_map_header};
 use tracing::Level;
 
 pub struct SimpleDialogHandler;
@@ -44,7 +44,7 @@ impl EndpointHandler for SimpleDialogHandler {
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
-        .with_env_filter("pksip=debug,simple_dialog=trace")
+        .with_env_filter("csip=debug,simple_dialog=trace")
         .with_timer(tracing_subscriber::fmt::time::ChronoLocal::new(
             String::from("%H:%M:%S%.3f"),
         ))

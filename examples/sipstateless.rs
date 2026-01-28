@@ -1,9 +1,9 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use pksip::message::{Method, StatusCode};
-use pksip::transport::incoming::IncomingRequest;
-use pksip::{Endpoint, EndpointHandler};
+use csip::message::{Method, StatusCode};
+use csip::transport::incoming::IncomingRequest;
+use csip::{Endpoint, EndpointHandler};
 use tracing::Level;
 use tracing_subscriber::fmt::time::ChronoLocal;
 
@@ -24,7 +24,7 @@ impl EndpointHandler for StatelessUAS {
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
-        .with_env_filter("pksip=trace")
+        .with_env_filter("csip=trace")
         .with_timer(ChronoLocal::new(String::from("%H:%M:%S%.3f")))
         .init();
 

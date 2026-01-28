@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-//! This lib provide several utilities for use in the `pksip` project.
+//! This lib provide several utilities for use in the `csip` project.
 
 mod dns_resolver;
 mod peekable_receiver;

@@ -1,5 +1,5 @@
 [workspace]
-members = ["pksip", "utils", "examples"]
+members = ["csip", "utils", "examples"]
 resolver = "1"
 
 [workspace.dependencies]
